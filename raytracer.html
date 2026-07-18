@@ -34,7 +34,7 @@ select{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.06);b
 
 <script>
 const canvas=document.getElementById('c');
-const gl=canvas.getContext('webgl2')||canvas.getContext('webgl');
+const gl=canvas.getContext('webgl',{antialias:false})||canvas.getContext('webgl2',{antialias:false});
 if(!gl){document.body.innerHTML='<h2 style="color:#fff;padding:40px">WebGL not supported</h2>';throw'no gl'}
 
 function resize(){canvas.width=innerWidth;canvas.height=innerHeight;gl.viewport(0,0,canvas.width,canvas.height)}
@@ -180,14 +180,14 @@ void main(){
   initSpheres(seed);
 
   vec3 col=vec3(0);
-  float samples=uBounces<3.?4.:2.;
-  for(float s=0.;s<4.;s++){
+  for(int si=0;si<4;si++){
+    float s=float(si);
     vec2 jitter=vec2(hash(uv+s*13.7+uTime),hash(uv.yx+s*7.3+uTime))-.5;
     vec2 suv=uv+jitter/uRes.y;
     vec3 srd=normalize(fwd*cos(fov*.5)+(suv.x*right+suv.y*up)*sin(fov*.5));
     col+=render(uCamPos,srd);
   }
-  col/=samples;
+  col/=4.0;
 
   // Tone mapping
   col=col/(1.+col);
@@ -207,7 +207,9 @@ function compileShader(src,type){
 const prog=gl.createProgram();
 gl.attachShader(prog,compileShader(vs,gl.VERTEX_SHADER));
 gl.attachShader(prog,compileShader(fs,gl.FRAGMENT_SHADER));
-gl.linkProgram(prog);gl.useProgram(prog);
+gl.linkProgram(prog);
+if(!gl.getProgramParameter(prog,gl.LINK_STATUS)){console.error('Program link failed');throw'link fail'}
+gl.useProgram(prog);
 
 const buf=gl.createBuffer();
 gl.bindBuffer(gl.ARRAY_BUFFER,buf);
