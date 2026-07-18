@@ -148,13 +148,14 @@
 | 无限镜 | 无限镜效果 | [infinity_mirror.html](./infinity_mirror.html) |
 | 雪花 | 雪花飘落动画 | [snowflakes.html](./snowflakes.html) |
 
-### 🌐 WebGL/Shader (3个)
+### 🌐 WebGL/Shader (4个)
 
 | 项目 | 描述 | 文件 |
 |------|------|------|
 | WebGL光线追踪 | 实时光线追踪渲染器 | [raytracer.html](./raytracer.html) |
 | Ray Marching渲染器 | SDF距离场渲染 | [raymarching.html](./raymarching.html) |
 | Shader实验室 | 实时Fragment Shader编辑 | [shader_lab.html](./shader_lab.html) |
+| 3D光影性能测试 | MC/宇宙沙盘风格渲染基准 | [benchmark3d.html](./benchmark3d.html) |
 
 ### 🎵 音频 (7个)
 
@@ -166,7 +167,7 @@
 | 声波发生器 | 4种波形生成器 | [sound_wave.html](./sound_wave.html) |
 | 节奏可视化 | 节奏可视化器 | [rhythm_viz.html](./rhythm_viz.html) |
 
-### 🛠️ 工具 (23个)
+### 🛠️ 工具 (24个)
 
 | 项目 | 描述 | 文件 |
 |------|------|------|
@@ -195,6 +196,7 @@
 | 颜色混合 | RGB/CMYK/RYB混合 | [color_mix.html](./color_mix.html) |
 | 人生路径模拟 | 人生事件模拟器 | [life_sim.html](./life_sim.html) |
 | 调色板生成器 | 8种配色方案 | [pal_gen.html](./pal_gen.html) |
+| 鲁大师跑分 | 伪·硬件性能评测 | [ludashi.html](./ludashi.html) |
 
 ### 📐 数学 (10个)
 
@@ -210,13 +212,14 @@
 | Mandelbrot探索器 | Mandelbrot/Julia集合 | [mandelbrot.html](./mandelbrot.html) |
 | Lissajous曲线 | Lissajous参数曲线 | [lissajous.html](./lissajous.html) |
 
-### 🎬 其他 (7个)
+### 🎬 其他 (8个)
 
 | 项目 | 描述 | 文件 |
 |------|------|------|
 | 3D地形生成 | Perlin Noise地形 | [terrain.html](./terrain.html) |
 | 3D线框渲染器 | 软件3D渲染 | [wireframe.html](./wireframe.html) |
 | 程序化纹理 | 程序化纹理生成 | [proc_texture.html](./proc_texture.html) |
+| 404页面 | 自定义404错误页面 | [404.html](./404.html) |
 
 ## 🚀 使用方法
 
