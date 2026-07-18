@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ecosystem Simulation</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}body{background:#050508;overflow:hidden}canvas{display:block}
+.ui{position:fixed;top:12px;left:12px;z-index:10;display:flex;flex-direction:column;gap:6px}
+.panel{padding:10px;border-radius:10px;background:rgba(10,10,15,.85);backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.06);min-width:170px}
+.panel h3{font-size:.6rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.25);margin-bottom:6px}
+.row{display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;font-size:.68rem}
+.row label{color:rgba(255,255,255,.35);font-size:.62rem}
+input[type=range]{width:70px;height:3px;-webkit-appearance:none;background:rgba(255,255,255,.1);border-radius:2px;outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;height:10px;border-radius:50%;background:#fff;cursor:pointer}
+.val{font-family:'Space Mono',monospace;font-size:.58rem;color:rgba(255,255,255,.25);min-width:22px;text-align:right}
+.btn{padding:5px 10px;border-radius:6px;font-size:.68rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.06);color:rgba(255,255,255,.4);cursor:pointer;transition:all .2s;text-align:center;margin-top:3px;width:100%}
+.btn:hover{color:#fff;background:rgba(255,255,255,.1)}
+.chart{position:fixed;bottom:12px;right:12px;width:220px;height:120px;background:rgba(10,10,15,.85);backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.06);border-radius:10px;overflow:hidden}
+.stats{position:fixed;bottom:12px;left:12px;font-size:.62rem;font-family:'Space Mono',monospace;color:rgba(255,255,255,.2)}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="ui">
+  <div class="panel">
+    <h3>Ecosystem</h3>
+    <div class="row"><label>Grass</label><input type="range" id="grass" min="10" max="200" value="80"><span class="val" id="grassV">80</span></div>
+    <div class="row"><label>Rabbits</label><input type="range" id="rabbits" min="5" max="100" value="30"><span class="val" id="rabbitsV">30</span></div>
+    <div class="row"><label>Foxes</label><input type="range" id="foxes" min="1" max="30" value="8"><span class="val" id="foxesV">8</span></div>
+    <button class="btn" onclick="resetSim()">Reset</button>
+  </div>
+</div>
+<canvas class="chart" id="chart" width="440" height="240"></canvas>
+<div class="stats" id="stats"></div>
+
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+const chartCanvas=document.getElementById('chart');
+const chartCtx=chartCanvas.getContext('2d');
+let W,H;
+function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight}
+addEventListener('resize',resize);
+
+let grassList=[],rabbits=[],foxes=[];
+let history={grass:[],rabbits:[],foxes:[]};
+let time=0;
+
+class Grass{
+  constructor(){this.x=Math.random()*W;this.y=Math.random()*H;this.energy=20+Math.random()*30;this.growth=.02}
+  update(){this.energy=Math.min(50,this.energy+this.growth)}
+  draw(){ctx.beginPath();ctx.arc(this.x,this.y,2+this.energy*.06,0,Math.PI*2);ctx.fillStyle=`rgba(50,${120+this.energy*2|0},30,${.3+this.energy*.01})`;ctx.fill()}
+}
+
+class Rabbit{
+  constructor(x,y){this.x=x||Math.random()*W;this.y=y||Math.random()*H;this.vx=(Math.random()-.5)*2;this.vy=(Math.random()-.5)*2;this.energy=50;this.age=0;this.hue=60}
+  update(){
+    this.age++;this.energy-=.15;
+    // Find nearest grass
+    let nearest=null,minDist=Infinity;
+    grassList.forEach(g=>{const d=Math.hypot(g.x-this.x,g.y-this.y);if(d<minDist){minDist=d;nearest=g}});
+    if(nearest&&minDist<200){this.vx+=(nearest.x-this.x)*.002;this.vy+=(nearest.y-this.y)*.002}
+    // Flee from foxes
+    foxes.forEach(f=>{const d=Math.hypot(f.x-this.x,f.y-this.y);if(d<100){this.vx-=(f.x-this.x)*.01;this.vy-=(f.y-this.y)*.01}});
+    // Eat grass
+    if(nearest&&minDist<8){this.energy+=nearest.energy;nearest.energy=0}
+    this.vx*=.95;this.vy*=.95;
+    this.x+=this.vx;this.y+=this.vy;
+    if(this.x<0)this.x=W;if(this.x>W)this.x=0;if(this.y<0)this.y=H;if(this.y>H)this.y=0;
+    // Reproduce
+    if(this.energy>80&&Math.random()<.01){this.energy/=2;rabbits.push(new Rabbit(this.x,this.y))}
+    return this.energy>0;
+  }
+  draw(){
+    ctx.beginPath();ctx.arc(this.x,this.y,4,0,Math.PI*2);
+    ctx.fillStyle=`hsla(${this.hue},60%,55%,${Math.min(1,this.energy/30)})`;ctx.fill();
+  }
+}
+
+class Fox{
+  constructor(x,y){this.x=x||Math.random()*W;this.y=y||Math.random()*H;this.vx=(Math.random()-.5)*2;this.vy=(Math.random()-.5)*2;this.energy=80;this.age=0}
+  update(){
+    this.age++;this.energy-=.1;
+    // Hunt rabbits
+    let nearest=null,minDist=Infinity;
+    rabbits.forEach(r=>{const d=Math.hypot(r.x-this.x,r.y-this.y);if(d<minDist){minDist=d;nearest=r}});
+    if(nearest&&minDist<250){this.vx+=(nearest.x-this.x)*.003;this.vy+=(nearest.y-this.y)*.003}
+    // Eat rabbit
+    if(nearest&&minDist<10){this.energy+=30;nearest.energy=-1}
+    this.vx*=.93;this.vy*=.93;
+    this.x+=this.vx;this.y+=this.vy;
+    if(this.x<0)this.x=W;if(this.x>W)this.x=0;if(this.y<0)this.y=H;if(this.y>H)this.y=0;
+    if(this.energy>120&&Math.random()<.005){this.energy/=2;foxes.push(new Fox(this.x,this.y))}
+    return this.energy>0;
+  }
+  draw(){
+    ctx.beginPath();ctx.arc(this.x,this.y,6,0,Math.PI*2);
+    ctx.fillStyle=`rgba(244,63,94,${Math.min(1,this.energy/40)})`;ctx.fill();
+  }
+}
+
+function resetSim(){
+  grassList=[];rabbits=[];foxes=[];
+  history={grass:[],rabbits:[],foxes:[]};
+  for(let i=0;i<+document.getElementById('grass').value;i++)grassList.push(new Grass());
+  for(let i=0;i<+document.getElementById('rabbits').value;i++)rabbits.push(new Rabbit());
+  for(let i=0;i<+document.getElementById('foxes').value;i++)foxes.push(new Fox());
+  time=0;
+}
+
+function drawChart(){
+  const c=chartCtx;const W=440,H=240;
+  c.fillStyle='rgba(5,5,8,.8)';c.fillRect(0,0,W,H);
+  if(history.grass.length<2)return;
+  const maxG=Math.max(...history.grass,1),maxR=Math.max(...history.rabbits,1),maxF=Math.max(...history.foxes,1);
+  const maxAll=Math.max(maxG,maxR,maxF);
+  [{data:history.grass,color:'#22c55e'},{data:history.rabbits,color:'#eab308'},{data:history.foxes,color:'#f43f5e'}].forEach(({data,color})=>{
+    c.beginPath();
+    data.forEach((v,i)=>{const x=i/W*W;const y=H-v/maxAll*H*.9;if(i===0)c.moveTo(x,y);else c.lineTo(x,y)});
+    c.strokeStyle=color+'80';c.lineWidth=1.5;c.stroke();
+  });
+}
+
+resetSim();
+function loop(){
+  ctx.fillStyle='rgba(5,5,8,.15)';ctx.fillRect(0,0,W,H);
+  grassList=grassList.filter(g=>{g.update();if(g.energy>5)g.draw();return g.energy>5});
+  rabbits=rabbits.filter(r=>r.update());
+  foxes=foxes.filter(f=>f.update());
+  rabbits.forEach(r=>r.draw());
+  foxes.forEach(f=>f.draw());
+  // Regrow grass
+  while(grassList.length<+document.getElementById('grass').value*.3)grassList.push(new Grass());
+  time++;
+  if(time%30===0){
+    history.grass.push(grassList.length);history.rabbits.push(rabbits.length);history.foxes.push(foxes.length);
+    if(history.grass.length>440){history.grass.shift();history.rabbits.shift();history.foxes.shift()}
+    drawChart();
+  }
+  document.getElementById('stats').textContent=`🌱 ${grassList.length} · 🐇 ${rabbits.length} · 🦊 ${foxes.length}`;
+  requestAnimationFrame(loop);
+}
+document.querySelectorAll('input[type=range]').forEach(s=>{const v=document.getElementById(s.id+'V');s.addEventListener('input',()=>v.textContent=s.value)});
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

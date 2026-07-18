@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spark Physics</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}body{background:#050508;overflow:hidden}canvas{display:block}
+.ui{position:fixed;top:12px;left:12px;z-index:10;display:flex;gap:6px;flex-wrap:wrap}
+.btn{padding:5px 10px;border-radius:6px;font-size:.7rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);color:rgba(255,255,255,.5);cursor:pointer;transition:all .2s;font-family:'Space Grotesk',sans-serif}
+.btn:hover{background:rgba(255,255,255,.1);color:#fff}
+.stats{position:fixed;bottom:12px;left:12px;font-size:.62rem;font-family:'Space Mono',monospace;color:rgba(255,255,255,.2)}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="ui">
+  <button class="btn" onclick="mode='firework'">Firework</button>
+  <button class="btn" onclick="mode='fountain'">Fountain</button>
+  <button class="btn" onclick="mode='explosion'">Explosion</button>
+  <button class="btn" onclick="mode='spiral'">Spiral</button>
+  <button class="btn" onclick="mode='snow'">Snow</button>
+  <button class="btn" onclick="particles=[]">Clear</button>
+</div>
+<div class="stats" id="stats"></div>
+
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+let W,H;
+function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight}
+addEventListener('resize',resize);
+
+let particles=[];
+let mode='firework';
+let mouseX=W/2,mouseY=H/2;
+canvas.addEventListener('mousemove',e=>{mouseX=e.clientX;mouseY=e.clientY});
+canvas.addEventListener('click',e=>{
+  if(mode==='explosion')explode(e.clientX,e.clientY,200);
+});
+
+class Particle{
+  constructor(x,y,vx,vy,r,color,life,gravity=.1){
+    this.x=x;this.y=y;this.vx=vx;this.vy=vy;
+    this.r=r;this.color=color;this.life=life;this.maxLife=life;
+    this.gravity=gravity;this.friction=.99;
+  }
+  update(){
+    this.vy+=this.gravity;
+    this.vx*=this.friction;this.vy*=this.friction;
+    this.x+=this.vx;this.y+=this.vy;
+    this.life--;
+    this.r*=.995;
+  }
+  isDead(){return this.life<=0||this.r<.1}
+}
+
+function explode(x,y,count){
+  for(let i=0;i<count;i++){
+    const angle=Math.random()*Math.PI*2;
+    const speed=2+Math.random()*8;
+    const hue=Math.random()*360;
+    particles.push(new Particle(x,y,Math.cos(angle)*speed,Math.sin(angle)*speed,1+Math.random()*3,`hsla(${hue},80%,60%,1)`,60+Math.random()*60,.05));
+  }
+}
+
+function spawn(){
+  if(mode==='firework'){
+    if(Math.random()<.03){
+      const x=Math.random()*W;
+      const targetY=50+Math.random()*H*.5;
+      particles.push(new Particle(x,H,0,-(10+Math.random()*5),3,'rgba(255,255,255,.8)',80,.15));
+      // Will explode when reaching top
+      setTimeout(()=>{
+        const last=particles[particles.length-1];
+        if(last)explode(last.x,last.y,100+Math.random()*100);
+      },800);
+    }
+  }else if(mode==='fountain'){
+    for(let i=0;i<5;i++){
+      const hue=180+Math.sin(Date.now()*.003)*60;
+      particles.push(new Particle(W/2,H-50,(Math.random()-.5)*4,-(8+Math.random()*6),2+Math.random()*2,`hsla(${hue},70%,55%,1)`,80+Math.random()*40,.15));
+    }
+  }else if(mode==='spiral'){
+    const t=Date.now()*.005;
+    const hue=t*50%360;
+    particles.push(new Particle(W/2,H/2,Math.cos(t)*5,Math.sin(t)*5,2,`hsla(${hue},80%,60%,1)`,60,.01));
+  }else if(mode==='snow'){
+    if(Math.random()<.3){
+      particles.push(new Particle(Math.random()*W,-5,(Math.random()-.5)*.5,1+Math.random()*2,1+Math.random()*2,`rgba(255,255,255,${.3+Math.random()*.5})`,300+Math.random()*200,.01));
+    }
+  }
+}
+
+function draw(){
+  ctx.fillStyle='rgba(5,5,8,.1)';ctx.fillRect(0,0,W,H);
+  spawn();
+  particles=particles.filter(p=>{
+    p.update();
+    if(p.isDead())return false;
+    const alpha=p.life/p.maxLife;
+    ctx.beginPath();ctx.arc(p.x,p.y,Math.max(.5,p.r),0,Math.PI*2);
+    ctx.fillStyle=p.color.replace(/[\d.]+\)$/,alpha+')');
+    ctx.fill();
+    // Glow
+    if(p.r>1){
+      const g=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,p.r*3);
+      g.addColorStop(0,p.color.replace(/[\d.]+\)$/,alpha*.2+')'));
+      g.addColorStop(1,'transparent');
+      ctx.fillStyle=g;ctx.beginPath();ctx.arc(p.x,p.y,p.r*3,0,Math.PI*2);ctx.fill();
+    }
+    return true;
+  });
+  document.getElementById('stats').textContent=`${particles.length} particles · ${mode}`;
+}
+
+function loop(){draw();requestAnimationFrame(loop)}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Turing Machine</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#050508;--border:rgba(255,255,255,.06);--t1:#fff;--t2:rgba(255,255,255,.55);--t3:rgba(255,255,255,.25)}
+body{background:var(--bg);color:var(--t2);font-family:'Space Grotesk',sans-serif;height:100vh;display:flex;flex-direction:column;-webkit-font-smoothing:antialiased;padding:20px}
+.top{display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+.top h1{font-size:1rem;font-weight:700;color:var(--t1);margin-right:auto}
+.btn{padding:6px 12px;border-radius:7px;font-size:.72rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--t2);cursor:pointer;transition:all .2s}
+.btn:hover{background:rgba(255,255,255,.1);color:var(--t1)}
+.btn.primary{background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.25);color:#4ade80}
+label{font-size:.65rem;color:var(--t3)}
+input[type=range]{width:80px;height:3px;-webkit-appearance:none;background:rgba(255,255,255,.1);border-radius:2px;outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;background:#fff;cursor:pointer}
+.val{font-family:'Space Mono',monospace;font-size:.65rem;color:var(--t3)}
+.grid{display:grid;grid-template-columns:1fr 320px;gap:16px;flex:1;overflow:hidden}
+.tape-wrap{background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:10px;padding:20px;overflow-x:auto;display:flex;align-items:center;gap:4px;min-height:100px;position:relative}
+.tape-cell{width:36px;height:36px;display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:600;border-radius:4px;background:rgba(255,255,255,.03);border:1px solid var(--border);flex-shrink:0}
+.tape-cell.head{border-color:rgba(139,92,246,.5);background:rgba(139,92,246,.1);color:#a78bfa;box-shadow:0 0 12px rgba(139,92,246,.15)}
+.tape-cell.one{color:#22c55e}
+.head-marker{position:absolute;top:2px;left:50%;transform:translateX(-50%);font-size:.5rem;color:#a78bfa}
+.controls{display:flex;gap:6px;margin-bottom:12px;align-items:center;flex-wrap:wrap}
+.panel{padding:12px;border-radius:10px;background:rgba(255,255,255,.025);border:1px solid var(--border)}
+.panel h3{font-size:.6rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:8px}
+.rules-table{width:100%;border-collapse:collapse;font-size:.68rem;font-family:'JetBrains Mono',monospace}
+.rules-table th{font-size:.55rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--t3);padding:4px;border-bottom:1px solid var(--border);text-align:center}
+.rules-table td{padding:4px;border-bottom:1px solid rgba(255,255,255,.02);text-align:center}
+.rules-table select{background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:4px;color:var(--t2);font-size:.65rem;padding:2px;font-family:inherit}
+.log{font-family:'JetBrains Mono',monospace;font-size:.6rem;line-height:1.8;max-height:200px;overflow-y:auto;color:var(--t3)}
+.log .step{color:var(--t2)}.log .halt{color:#22c55e}
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>Turing Machine Simulator</h1>
+  <button class="btn primary" id="runBtn" onclick="toggleRun()">▶ Run</button>
+  <button class="btn" onclick="stepOnce()">Step</button>
+  <button class="btn" onclick="reset()">Reset</button>
+  <label>Speed</label><input type="range" id="speed" min="1" max="50" value="10"><span class="val" id="speedV">10</span>
+  <button class="btn" onclick="loadProgram('busy')">Busy Beaver</button>
+  <button class="btn" onclick="loadProgram('palindrome')">Palindrome</button>
+  <button class="btn" onclick="loadProgram('binary_add')">Binary Add</button>
+</div>
+<div class="grid">
+  <div>
+    <div class="tape-wrap" id="tape"></div>
+    <div class="panel" style="margin-top:12px">
+      <h3>Execution Log</h3>
+      <div class="log" id="log"></div>
+    </div>
+  </div>
+  <div>
+    <div class="panel" style="margin-bottom:12px">
+      <h3>Current State</h3>
+      <div style="font-size:.72rem;line-height:2">
+        State: <span id="stateDisp" style="color:#a78bfa;font-weight:700">q0</span><br>
+        Head: <span id="headDisp">0</span><br>
+        Steps: <span id="stepsDisp">0</span>
+      </div>
+    </div>
+    <div class="panel">
+      <h3>Transition Rules</h3>
+      <table class="rules-table" id="rulesTable"></table>
+    </div>
+  </div>
+</div>
+
+<script>
+let tape=new Map(),head=0,state='q0',states=['q0','q1','q2','q3','halt'];
+let rules={},steps=0,running=false,runTimer;
+let initTape='';
+
+const PROGRAMS={
+  busy:{
+    states:['A','B','C','halt'],
+    rules:{A:{0:{w:1,d:1,s:'B'},1:{w:1,d:-1,s:'C'}},B:{0:{w:1,d:-1,s:'A'},1:{w:1,d:1,s:'B'}},C:{0:{w:1,d:-1,s:'B'},1:{w:1,d:1,s:'halt'}}},
+    tape:''
+  },
+  palindrome:{
+    states:['q0','q1','q2','q3','q4','halt'],
+    rules:{
+      q0:{0:{w:'X',d:1,s:'q1'},1:{w:'Y',d:1,s:'q2'},X:{w:'X',d:1,s:'halt_accept'},Y:{w:'Y',d:1,s:'halt_accept'}},
+      q1:{0:{w:0,d:1,s:'q1'},1:{w:1,d:1,s:'q1'},null:{w:null,d:-1,s:'q3'}},
+      q2:{0:{w:0,d:1,s:'q2'},1:{w:1,d:1,s:'q2'},null:{w:null,d:-1,s:'q4'}},
+      q3:{0:{w:null,d:-1,s:'q0'},X:{w:'X',d:1,s:'halt_accept'}},
+      q4:{1:{w:null,d:-1,s:'q0'},Y:{w:'Y',d:1,s:'halt_accept'}}
+    },
+    tape:'0110'
+  },
+  binary_add:{
+    states:['q0','q1','q2','halt'],
+    rules:{
+      q0:{0:{w:0,d:1,s:'q0'},1:{w:1,d:1,s:'q0'},'+':{w:'+',d:1,s:'q0'},null:{w:null,d:-1,s:'q1'}},
+      q1:{0:{w:1,d:-1,s:'q2'},1:{w:0,d:-1,s:'q1'},'+':{w:null,d:-1,s:'halt'}}
+    },
+    tape:'101+110'
+  }
+};
+
+function loadProgram(name){
+  const p=PROGRAMS[name];
+  states=p.states;rules=p.rules;initTape=p.tape;
+  reset();
+}
+
+function reset(){
+  tape=new Map();
+  for(let i=0;i<initTape.length;i++)tape.set(i,initTape[i]);
+  head=0;state=states[0]||'q0';steps=0;
+  if(running)toggleRun();
+  render();
+  document.getElementById('log').innerHTML='';
+  document.getElementById('stateDisp').textContent=state;
+  document.getElementById('headDisp').textContent=head;
+  document.getElementById('stepsDisp').textContent=0;
+}
+
+function stepOnce(){
+  if(state==='halt'||state==='halt_accept')return false;
+  const sym=tape.get(head)||null;
+  const rule=rules[state]?.[sym];
+  if(!rule){state='halt';render();addLog('No rule for state='+state+' sym='+sym+' → HALT');return false}
+  tape.set(head,rule.w===null?undefined:rule.w);
+  if(rule.w===null)tape.delete(head);
+  head+=rule.d;
+  state=rule.s;
+  steps++;
+  render();
+  document.getElementById('stateDisp').textContent=state;
+  document.getElementById('headDisp').textContent=head;
+  document.getElementById('stepsDisp').textContent=steps;
+  addLog(`Step ${steps}: state=${state} head=${head} sym=${tape.get(head)||'_'}`);
+  return state!=='halt'&&state!=='halt_accept';
+}
+
+function toggleRun(){
+  running=!running;
+  document.getElementById('runBtn').textContent=running?'⏸ Pause':'▶ Run';
+  if(running)runLoop();
+  else clearTimeout(runTimer);
+}
+
+function runLoop(){
+  if(!running)return;
+  const cont=stepOnce();
+  if(cont)runTimer=setTimeout(runLoop,1000/+document.getElementById('speed').value);
+  else{running=false;document.getElementById('runBtn').textContent='▶ Run';addLog('HALTED after '+steps+' steps','halt')}
+}
+
+function addLog(text,cls='step'){
+  const el=document.getElementById('log');
+  el.innerHTML+=`<div class="${cls}">${text}</div>`;
+  el.scrollTop=el.scrollHeight;
+}
+
+function render(){
+  // Find tape range
+  let minH=head,maxH=head;
+  tape.forEach((_,k)=>{if(k<minH)minH=k;if(k>maxH)maxH=k});
+  minH=Math.min(minH,head-8);maxH=Math.max(maxH,head+8);
+
+  const el=document.getElementById('tape');
+  el.innerHTML='';
+  for(let i=minH;i<=maxH;i++){
+    const cell=document.createElement('div');
+    cell.className='tape-cell'+(i===head?' head':'')+(tape.get(i)==='1'||tape.get(i)===1?' one':'');
+    cell.textContent=tape.get(i)||'_';
+    if(i===head){const marker=document.createElement('div');marker.className='head-marker';marker.textContent='▼ '+state;cell.appendChild(marker)}
+    el.appendChild(cell);
+  }
+
+  // Rules table
+  const tableEl=document.getElementById('rulesTable');
+  let html='<tr><th>State</th><th>Read</th><th>Write</th><th>Dir</th><th>Next</th></tr>';
+  states.forEach(s=>{
+    if(s==='halt')return;
+    const syms=['0','1','+','X','Y',null];
+    syms.forEach(sym=>{
+      const r=rules[s]?.[sym];
+      if(r)html+=`<tr><td>${s}</td><td>${sym||'_'}</td><td>${r.w||'_'}</td><td>${r.d>0?'R':'L'}</td><td>${r.s}</td></tr>`;
+    });
+  });
+  tableEl.innerHTML=html;
+}
+
+loadProgram('busy');
+document.getElementById('speed').addEventListener('input',e=>document.getElementById('speedV').textContent=e.target.value);
+</script>
+</body>
+</html>

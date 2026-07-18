@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lisp Interpreter</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#050508;--border:rgba(255,255,255,.06);--t1:#fff;--t2:rgba(255,255,255,.55);--t3:rgba(255,255,255,.25)}
+body{background:var(--bg);color:var(--t2);font-family:'Space Grotesk',sans-serif;height:100vh;display:flex;flex-direction:column;-webkit-font-smoothing:antialiased}
+.top{padding:8px 14px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border);flex-shrink:0}
+.top h1{font-size:.85rem;font-weight:700;color:var(--t1);margin-right:auto}
+.btn{padding:5px 10px;border-radius:6px;font-size:.7rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--t2);cursor:pointer;transition:all .2s}
+.btn:hover{background:rgba(255,255,255,.1);color:var(--t1)}
+.btn.primary{background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.25);color:#22c55e}
+.main{flex:1;display:flex;overflow:hidden}
+.editor{flex:1;display:flex;flex-direction:column;border-right:1px solid var(--border)}
+.pane-h{padding:4px 12px;font-size:.58rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);border-bottom:1px solid var(--border);background:rgba(255,255,255,.015);display:flex;align-items:center;gap:6px}
+.pane-h .dot{width:5px;height:5px;border-radius:50%}
+textarea{flex:1;resize:none;border:none;outline:none;padding:14px;background:#0a0a10;color:#e6edf3;font-family:'JetBrains Mono',monospace;font-size:.78rem;line-height:1.7;tab-size:2}
+.output{flex:1;display:flex;flex-direction:column;background:#080810}
+.output-content{flex:1;padding:14px;font-family:'JetBrains Mono',monospace;font-size:.75rem;line-height:1.7;overflow-y:auto;white-space:pre-wrap}
+.output-content .error{color:#f87171}
+.output-content .result{color:#22c55e}
+.output-content .log{color:var(--t3)}
+.examples{display:flex;gap:4px;flex-wrap:wrap}
+.examples .btn{font-size:.6rem;padding:3px 8px}
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>Lisp Interpreter</h1>
+  <div class="examples">
+    <button class="btn" onclick="loadExample('fib')">Fibonacci</button>
+    <button class="btn" onclick="loadExample('factorial')">Factorial</button>
+    <button class="btn" onclick="loadExample('map')">Map/Filter</button>
+    <button class="btn" onclick="loadExample('ycomb')">Y-Combinator</button>
+    <button class="btn" onclick="loadExample('tree')">Tree Ops</button>
+  </div>
+  <button class="btn primary" onclick="run()">Run</button>
+  <button class="btn" onclick="clearOutput()">Clear</button>
+</div>
+<div class="main">
+  <div class="editor">
+    <div class="pane-h"><span class="dot" style="background:#22c55e"></span>Source</div>
+    <textarea id="code" spellcheck="false">; Lisp Interpreter — try clicking examples above!
+(define (fib n)
+  (if (< n 2)
+    n
+    (+ (fib (- n 1)) (fib (- n 2)))))
+
+(define (range n)
+  (if (= n 0)
+    '()
+    (cons (- n 1) (range (- n 1)))))
+
+(map fib (range 10))
+</textarea>
+  </div>
+  <div class="output">
+    <div class="pane-h"><span class="dot" style="background:#8b5cf6"></span>Output</div>
+    <div class="output-content" id="output"></div>
+  </div>
+</div>
+
+<script>
+const EXAMPLES={
+fib:`; Fibonacci
+(define (fib n)
+  (if (< n 2)
+    n
+    (+ (fib (- n 1)) (fib (- n 2)))))
+
+(map fib '(0 1 2 3 4 5 6 7 8 9))`,
+
+factorial:`; Factorial with accumulator
+(define (fact n acc)
+  (if (= n 0)
+    acc
+    (fact (- n 1) (* n acc))))
+
+(map (lambda (n) (fact n 1)) '(1 2 3 4 5 6 7 8 9 10))`,
+
+map:`; Higher-order functions
+(define (map f lst)
+  (if (null? lst)
+    '()
+    (cons (f (car lst)) (map f (cdr lst)))))
+
+(define (filter pred lst)
+  (if (null? lst)
+    '()
+    (if (pred (car lst))
+      (cons (car lst) (filter pred (cdr lst)))
+      (filter pred (cdr lst)))))
+
+(define (square x) (* x x))
+(define (even? x) (= (modulo x 2) 0))
+
+(map square '(1 2 3 4 5))
+(filter even? '(1 2 3 4 5 6 7 8 9 10))`,
+
+ycomb:`; Y-Combinator (anonymous recursion)
+(define Y
+  (lambda (f)
+    ((lambda (x) (f (lambda (arg) ((x x) arg))))
+     (lambda (x) (f (lambda (arg) ((x x) arg)))))))
+
+(define fact
+  (Y (lambda (f)
+       (lambda (n)
+         (if (= n 0) 1 (* n (f (- n 1))))))))
+
+(map fact '(0 1 2 3 4 5 6 7))`,
+
+tree:`; Binary tree
+(define (make-tree val left right)
+  (list val left right))
+(define (leaf val) (list val '() '()))
+
+(define t
+  (make-tree 5
+    (make-tree 3 (leaf 1) (leaf 4))
+    (make-tree 8 (leaf 6) (leaf 9))))
+
+(define (tree-sum t)
+  (if (null? t)
+    0
+    (+ (car t)
+       (tree-sum (cadr t))
+       (tree-sum (caddr t)))))
+
+(define (tree-flatten t)
+  (if (null? t)
+    '()
+    (append (tree-flatten (cadr t))
+            (list (car t))
+            (tree-flatten (caddr t)))))
+
+(tree-sum t)
+(tree-flatten t)`
+};
+
+function loadExample(name){document.getElementById('code').value=EXAMPLES[name];run()}
+
+// ---- LISP INTERPRETER ----
+function tokenize(input){
+  const tokens=[];let i=0;
+  while(i<input.length){
+    if(/\s/.test(input[i])){i++;continue}
+    if(input[i]===';'){while(i<input.length&&input[i]!=='\n')i++;continue}
+    if(input[i]==='('||input[i]===')'){tokens.push(input[i]);i++;continue}
+    if(input[i]==="'"){tokens.push("'");i++;continue}
+    if(input[i]==='"'){let s='"';i++;while(i<input.length&&input[i]!=='"'){s+=input[i];i++}s+='"';i++;tokens.push(s);continue}
+    let tok='';while(i<input.length&&!/\s()/.test(input[i])){tok+=input[i];i++}
+    tokens.push(tok);
+  }
+  return tokens;
+}
+
+function parse(tokens){
+  let pos=0;
+  function parseExpr(){
+    if(tokens[pos]==="'"){pos++;return['quote',parseExpr()]}
+    if(tokens[pos]==='('){
+      pos++;const list=[];
+      while(pos<tokens.length&&tokens[pos]!==')')list.push(parseExpr());
+      pos++;return list;
+    }
+    return tokens[pos++];
+  }
+  const exprs=[];
+  while(pos<tokens.length)exprs.push(parseExpr());
+  return exprs.length===1?exprs[0]:['begin',...exprs];
+}
+
+function evaluate(expr,env){
+  if(typeof expr==='number')return expr;
+  if(typeof expr==='string'){
+    if(expr[0]==='"')return expr.slice(1,-1);
+    if(expr==='#t')return true;if(expr==='#f')return false;
+    if(env.has(expr))return env.get(expr);
+    throw new Error(`Undefined: ${expr}`);
+  }
+  if(!Array.isArray(expr))return expr;
+
+  const[head,...args]=expr;
+
+  if(head==='quote')return args[0];
+  if(head==='define'){
+    if(Array.isArray(args[0])){
+      const[name,...params]=args[0];
+      env.set(name,makeFunc(params,args[1],env));
+    }else env.set(args[0],evaluate(args[1],env));
+    return null;
+  }
+  if(head==='lambda')return makeFunc(args[0],args[1],env);
+  if(head==='if'){
+    const cond=evaluate(args[0],env);
+    return cond!==false&&cond!==null?evaluate(args[1],env):evaluate(args[2],env);
+  }
+  if(head==='begin'){let r;for(const a of args)r=evaluate(a,env);return r}
+  if(head==='set!'){env.set(args[0],evaluate(args[1],env));return null}
+  if(head==='cond'){
+    for(const clause of args){
+      if(evaluate(clause[0],env)!==false)return evaluate(clause[1],env);
+    }
+    return null;
+  }
+  if(head==='let'){
+    const bindings=args[0],body=args[1];
+    const newEnv=new Map(env);
+    bindings.forEach(([k,v])=>newEnv.set(k,evaluate(v,env)));
+    return evaluate(body,newEnv);
+  }
+
+  // Function call
+  const fn=evaluate(head,env);
+  const vals=args.map(a=>evaluate(a,env));
+  if(typeof fn==='function')return fn(vals);
+  throw new Error(`Not a function: ${head}`);
+}
+
+function makeFunc(params,body,closureEnv){
+  return(args)=>{
+    const env=new Map(closureEnv);
+    params.forEach((p,i)=>env.set(p,args[i]));
+    return evaluate(body,env);
+  };
+}
+
+// Built-in environment
+function createEnv(){
+  const env=new Map();
+  env.set('+',args=>args.reduce((a,b)=>a+b));
+  env.set('-',args=>args.length===1?-args[0]:args.reduce((a,b)=>a-b));
+  env.set('*',args=>args.reduce((a,b)=>a*b,1));
+  env.set('/',args=>args.reduce((a,b)=>a/b));
+  env.set('modulo',args=>args[0]%args[1]);
+  env.set('=',args=>args[0]===args[1]);
+  env.set('<',args=>args[0]<args[1]);
+  env.set('>',args=>args[0]>args[1]);
+  env.set('<=',args=>args[0]<=args[1]);
+  env.set('>=',args=>args[0]>=args[1]);
+  env.set('not',args=>!args[0]);
+  env.set('and',args=>args[0]&&args[1]);
+  env.set('or',args=>args[0]||args[1]);
+  env.set('cons',args=>[args[0],...(Array.isArray(args[1])?args[1]:[args[1]])]);
+  env.set('car',args=>args[0][0]);
+  env.set('cdr',args=>args[0].slice(1));
+  env.set('list',args=>args);
+  env.set('null?',args=>Array.isArray(args[0])&&args[0].length===0);
+  env.set('pair?',args=>Array.isArray(args[0])&&args[0].length>0);
+  env.set('number?',args=>typeof args[0]==='number');
+  env.set('symbol?',args=>typeof args[0]==='string');
+  env.set('append',(args)=>{
+    if(args.length===0)return[];
+    return args[0].concat(args[1]);
+  });
+  env.set('length',args=>args[0].length);
+  env.set('map',args=>{
+    const[f,lst]=args;return lst.map(x=>f([x]));
+  });
+  env.set('filter',args=>{
+    const[f,lst]=args;return lst.filter(x=>f([x]));
+  });
+  env.set('reduce',args=>{
+    const[f,lst,init]=args;return lst.reduce((a,b)=>f([a,b]),init);
+  });
+  env.set('display',args=>{outputLog(formatValue(args[0]));return args[0]});
+  env.set('newline',()=>{outputLog('');return null});
+  env.set('true',true);env.set('false',false);env.set('nil',null);
+  return env;
+}
+
+function formatValue(v){
+  if(v===null||v===undefined)return'nil';
+  if(v===true)return'#t';if(v===false)return'#f';
+  if(Array.isArray(v))return'('+v.map(formatValue).join(' ')+')';
+  return String(v);
+}
+
+function outputLog(text){
+  const el=document.getElementById('output');
+  const span=document.createElement('span');span.className='log';span.textContent=text+'\n';
+  el.appendChild(span);el.scrollTop=el.scrollHeight;
+}
+
+function outputResult(text){
+  const el=document.getElementById('output');
+  const span=document.createElement('span');span.className='result';span.textContent='→ '+text+'\n';
+  el.appendChild(span);el.scrollTop=el.scrollHeight;
+}
+
+function outputError(text){
+  const el=document.getElementById('output');
+  const span=document.createElement('span');span.className='error';span.textContent='Error: '+text+'\n';
+  el.appendChild(span);el.scrollTop=el.scrollHeight;
+}
+
+function clearOutput(){document.getElementById('output').innerHTML=''}
+
+function run(){
+  clearOutput();
+  const code=document.getElementById('code').value;
+  try{
+    const tokens=tokenize(code);
+    const ast=parse(tokens);
+    const env=createEnv();
+    const result=evaluate(ast,env);
+    if(result!==null&&result!==undefined)outputResult(formatValue(result));
+  }catch(e){outputError(e.message)}
+}
+
+// Ctrl+Enter to run
+document.getElementById('code').addEventListener('keydown',e=>{
+  if(e.ctrlKey&&e.key==='Enter'){e.preventDefault();run()}
+});
+</script>
+</body>
+</html>

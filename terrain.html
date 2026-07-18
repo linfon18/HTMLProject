@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Terrain Generator</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}body{background:#050508;overflow:hidden}canvas{display:block}
+.ui{position:fixed;top:12px;left:12px;z-index:10;display:flex;gap:6px;flex-wrap:wrap}
+.btn{padding:5px 10px;border-radius:6px;font-size:.7rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);color:rgba(255,255,255,.5);cursor:pointer;transition:all .2s;font-family:'Space Grotesk',sans-serif}
+.btn:hover{background:rgba(255,255,255,.1);color:#fff}
+.info{position:fixed;bottom:12px;left:12px;font-size:.62rem;font-family:'Space Mono',monospace;color:rgba(255,255,255,.2)}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="ui">
+  <button class="btn" onclick="generate()">New Terrain</button>
+  <button class="btn" onclick="rotate=!rotate">Toggle Rotate</button>
+  <button class="btn" onclick="wireframe=!wireframe">Wireframe</button>
+  <button class="btn" onclick="water=!water">Water</button>
+  <button class="btn" onclick="scale*=1.2">Scale Up</button>
+  <button class="btn" onclick="scale/=1.2">Scale Down</button>
+</div>
+<div class="info">Drag to rotate · Auto-rotating terrain</div>
+
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+let W,H;
+function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight}
+resize();addEventListener('resize',resize);
+
+let rotate=true,water=true,wireframe=false;
+let camAngle=.8,camAngleY=.3,scale=1;
+let dragging=false,lastMX,lastMY;
+
+canvas.addEventListener('mousedown',e=>{dragging=true;lastMX=e.clientX;lastMY=e.clientY});
+canvas.addEventListener('mousemove',e=>{if(!dragging)return;camAngle+=(e.clientX-lastMX)*.005;camAngleY=Math.max(-1.2,Math.min(1.2,camAngleY+(e.clientY-lastMY)*.005));lastMX=e.clientX;lastMY=e.clientY});
+canvas.addEventListener('mouseup',()=>dragging=false);
+
+// Perlin noise (simplified)
+const PERM=new Uint8Array(512);
+function initPerm(seed){
+  const p=new Uint8Array(256);for(let i=0;i<256;i++)p[i]=i;
+  for(let i=255;i>0;i--){const j=Math.floor(seed*9301+49297)%233280/233280*(i+1)|0;[p[i],p[j]]=[p[j],p[i]];seed=(seed*9301+49297)%233280}
+  for(let i=0;i<512;i++)PERM[i]=p[i&255];
+}
+function fade(t){return t*t*t*(t*(t*6-15)+10)}
+function lerp(a,b,t){return a+t*(b-a)}
+function grad(hash,x,y){const h=hash&3;return((h&1)?-x:x)+((h&2)?-y:y)}
+function noise2d(x,y){
+  const X=Math.floor(x)&255,Y=Math.floor(y)&255;
+  x-=Math.floor(x);y-=Math.floor(y);
+  const u=fade(x),v=fade(y);
+  const a=PERM[X]+Y,b=PERM[X+1]+Y;
+  return lerp(lerp(grad(PERM[a],x,y),grad(PERM[b],x-1,y),u),lerp(grad(PERM[a+1],x,y-1),grad(PERM[b+1],x-1,y-1),u),v);
+}
+function fbm(x,y,octaves=6){
+  let val=0,amp=1,freq=1,max=0;
+  for(let i=0;i<octaves;i++){val+=noise2d(x*freq,y*freq)*amp;max+=amp;amp*=.5;freq*=2}
+  return val/max;
+}
+
+const SIZE=60;
+let heightMap=[];
+
+function generate(){
+  initPerm(Math.random()*99999|0);
+  heightMap=[];
+  for(let y=0;y<SIZE;y++){
+    heightMap[y]=[];
+    for(let x=0;x<SIZE;x++){
+      heightMap[y][x]=fbm(x*.06,y*.06)*.6+fbm(x*.12,y*.12,3)*.3+fbm(x*.3,y*.3,2)*.1;
+    }
+  }
+}
+
+function project3d(x,y,z){
+  // Rotate Y
+  const cx=Math.cos(camAngle),sx=Math.sin(camAngle);
+  let x1=x*cx-z*sx,z1=x*sx+z*cx;
+  // Rotate X
+  const cy=Math.cos(camAngleY),sy=Math.sin(camAngleY);
+  let y1=y*cy-z1*sy,z2=y*sy+z1*cy;
+  const d=4*scale;
+  const s=d/(d+z2)*300;
+  return{x:W/2+x1*s,y:H/2-y1*s,z:z2};
+}
+
+function getTerrainColor(h){
+  if(h<-.1)return{r:30,g:80,b:150}; // deep water
+  if(h<.05)return{r:60,g:130,b:80}; // grass
+  if(h<.2)return{r:80,g:150,b:60}; // light grass
+  if(h<.35)return{r:140,g:120,b:80}; // dirt
+  if(h<.5)return{r:160,g:140,b:100}; // rock
+  return{r:220,g:220,b:230}; // snow
+}
+
+function draw(){
+  ctx.fillStyle='#050508';ctx.fillRect(0,0,W,H);
+  if(rotate&&!dragging)camAngle+=.003;
+
+  const half=SIZE/2;
+  const faces=[];
+
+  for(let y=0;y<SIZE-1;y++){
+    for(let x=0;x<SIZE-1;x++){
+      const h00=heightMap[y][x],h10=heightMap[y][x+1];
+      const h01=heightMap[y+1][x],h11=heightMap[y][x+1];
+      const h11_=heightMap[y+1][x+1];
+
+      const p00=project3d(x-half,h00*1.5,y-half);
+      const p10=project3d(x+1-half,h10*1.5,y-half);
+      const p01=project3d(x-half,h01*1.5,y+1-half);
+      const p11=project3d(x+1-half,h11_*1.5,y+1-half);
+
+      const avgZ=(p00.z+p10.z+p01.z+p11.z)/4;
+      const avgH=(h00+h10+h01+h11_)/4;
+      const col=getTerrainColor(avgH);
+      faces.push({p:[p00,p10,p11,p01],z:avgZ,col});
+    }
+  }
+
+  // Sort far to near
+  faces.sort((a,b)=>b.z-a.z);
+
+  faces.forEach(f=>{
+    ctx.beginPath();
+    ctx.moveTo(f.p[0].x,f.p[0].y);
+    for(let i=1;i<f.p.length;i++)ctx.lineTo(f.p[i].x,f.p[i].y);
+    ctx.closePath();
+    const bright=.3+Math.max(0,(1-f.z/8))*.7;
+    ctx.fillStyle=`rgb(${f.col.r*bright|0},${f.col.g*bright|0},${f.col.b*bright|0})`;
+    ctx.fill();
+    if(wireframe){ctx.strokeStyle='rgba(255,255,255,.08)';ctx.lineWidth=.5;ctx.stroke()}
+  });
+
+  // Water
+  if(water){
+    const wp=[];
+    const corners=[[0,0],[SIZE,0],[SIZE,SIZE],[0,SIZE]];
+    corners.forEach(([x,y])=>wp.push(project3d(x-half,-.1,y-half)));
+    ctx.beginPath();ctx.moveTo(wp[0].x,wp[0].y);
+    for(let i=1;i<4;i++)ctx.lineTo(wp[i].x,wp[i].y);
+    ctx.closePath();ctx.fillStyle='rgba(20,60,140,.3)';ctx.fill();
+  }
+}
+
+function loop(){draw();requestAnimationFrame(loop)}
+generate();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

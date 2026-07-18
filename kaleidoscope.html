@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kaleidoscope</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}body{background:#000;overflow:hidden}canvas{display:block}
+.ui{position:fixed;top:12px;left:12px;z-index:10;display:flex;gap:6px;flex-wrap:wrap}
+.btn{padding:5px 10px;border-radius:6px;font-size:.7rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);color:rgba(255,255,255,.5);cursor:pointer;transition:all .2s;font-family:'Space Grotesk',sans-serif}
+.btn:hover{background:rgba(255,255,255,.1);color:#fff}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="ui">
+  <button class="btn" onclick="segments=segments===6?8:segments===8?12:segments===12?16:6">Segments: <span id="segV">6</span></button>
+  <button class="btn" onclick="mode=(mode+1)%3">Mode: <span id="modeV">Shapes</span></button>
+  <button class="btn" onclick="hueSpeed*=2">Faster Hue</button>
+  <button class="btn" onclick="hueSpeed/=2">Slower Hue</button>
+  <button class="btn" onclick="objects=[]">Clear</button>
+</div>
+
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+let W,H;
+function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight}
+addEventListener('resize',resize);
+
+let segments=6,mode=0,hueSpeed=.5;
+let objects=[];
+let mouseX=W/2,mouseY=H/2,pmouseX=W/2,pmouseY=H/2,mouseDown=false;
+let time=0;
+
+canvas.addEventListener('mousedown',()=>mouseDown=true);
+canvas.addEventListener('mouseup',()=>mouseDown=false);
+canvas.addEventListener('mousemove',e=>{pmouseX=mouseX;pmouseY=mouseY;mouseX=e.clientX;mouseY=e.clientY});
+
+class KObject{
+  constructor(x,y,vx,vy,r,hue){
+    this.x=x;this.y=y;this.vx=vx;this.vy=vy;
+    this.r=r;this.hue=hue;this.life=200+Math.random()*300;this.age=0;
+  }
+  update(){
+    this.x+=this.vx;this.y+=this.vy;
+    this.vx*=.99;this.vy*=.99;
+    this.age++;
+    this.hue+=.5;
+  }
+  isDead(){return this.age>this.life}
+}
+
+function draw(){
+  ctx.fillStyle='rgba(0,0,0,.05)';ctx.fillRect(0,0,W,H);
+  const cx=W/2,cy=H/2;
+
+  // Auto-generate objects
+  if(mode===0){
+    // Shapes
+    if(Math.random()<.15){
+      const angle=Math.random()*Math.PI*2;
+      const dist=50+Math.random()*150;
+      const x=cx+Math.cos(angle)*dist;
+      const y=cy+Math.sin(angle)*dist;
+      objects.push(new KObject(x,y,(Math.random()-.5)*2,(Math.random()-.5)*2,3+Math.random()*8,Math.random()*360));
+    }
+  }else if(mode===1){
+    // Mouse trail
+    if(mouseDown){
+      const dx=mouseX-pmouseX,dy=mouseY-pmouseY;
+      objects.push(new KObject(mouseX-cx,mouseY-cy,dx*.2,dy*.2,2+Math.random()*6,time*20%360));
+    }
+  }else{
+    // Wave pattern
+    for(let i=0;i<3;i++){
+      const angle=time*2+i*Math.PI*2/3;
+      const dist=100+Math.sin(time*3)*50;
+      const x=Math.cos(angle)*dist;
+      const y=Math.sin(angle)*dist;
+      objects.push(new KObject(x,y,Math.cos(angle+Math.PI/2)*.5,Math.sin(angle+Math.PI/2)*.5,2+Math.sin(time*5)*3,time*30%360));
+    }
+  }
+
+  // Update and filter
+  objects=objects.filter(o=>{o.update();return!o.isDead()});
+  if(objects.length>500)objects=objects.slice(-500);
+
+  // Draw kaleidoscope
+  const angleStep=Math.PI*2/segments;
+  for(let s=0;s<segments;s++){
+    ctx.save();
+    ctx.translate(cx,cy);
+    ctx.rotate(angleStep*s);
+    if(s%2===1)ctx.scale(-1,1);
+
+    // Clip to segment
+    ctx.beginPath();
+    ctx.moveTo(0,0);
+    ctx.lineTo(Math.max(W,H),0);
+    ctx.lineTo(Math.max(W,H)*Math.cos(angleStep),Math.max(W,H)*Math.sin(angleStep));
+    ctx.closePath();
+    ctx.clip();
+
+    // Draw objects
+    objects.forEach(o=>{
+      const alpha=Math.min(1,(1-o.age/o.life)*.7);
+      ctx.beginPath();ctx.arc(o.x,o.y,o.r,0,Math.PI*2);
+      ctx.fillStyle=`hsla(${o.hue%360},80%,55%,${alpha})`;ctx.fill();
+      // Glow
+      const g=ctx.createRadialGradient(o.x,o.y,0,o.x,o.y,o.r*3);
+      g.addColorStop(0,`hsla(${o.hue%360},80%,50%,${alpha*.3})`);
+      g.addColorStop(1,'transparent');
+      ctx.fillStyle=g;ctx.beginPath();ctx.arc(o.x,o.y,o.r*3,0,Math.PI*2);ctx.fill();
+    });
+
+    ctx.restore();
+  }
+
+  // Center glow
+  const cg=ctx.createRadialGradient(cx,cy,0,cx,cy,30);
+  cg.addColorStop(0,`hsla(${time*50%360},60%,50%,.3)`);cg.addColorStop(1,'transparent');
+  ctx.fillStyle=cg;ctx.beginPath();ctx.arc(cx,cy,30,0,Math.PI*2);ctx.fill();
+
+  time+=.01;
+}
+
+document.getElementById('segV').textContent=segments;
+const modeNames=['Shapes','Mouse','Wave'];
+document.getElementById('modeV').textContent=modeNames[mode];
+
+function loop(){draw();requestAnimationFrame(loop)}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

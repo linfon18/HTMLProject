@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Network Visualizer</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}body{background:#050508;overflow:hidden}canvas{display:block}
+.ui{position:fixed;top:12px;left:12px;z-index:10;display:flex;gap:6px;flex-wrap:wrap}
+.btn{padding:5px 10px;border-radius:6px;font-size:.7rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);color:rgba(255,255,255,.5);cursor:pointer;transition:all .2s;font-family:'Space Grotesk',sans-serif}
+.btn:hover{background:rgba(255,255,255,.1);color:#fff}
+.stats{position:fixed;bottom:12px;left:12px;font-size:.62rem;font-family:'Space Mono',monospace;color:rgba(255,255,255,.2)}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="ui">
+  <button class="btn" onclick="addNode()">Add Node</button>
+  <button class="btn" onclick="removeNode()">Remove</button>
+  <button class="btn" onclick="resetNet()">Reset</button>
+  <button class="btn" onclick="broadcast()">Broadcast Packet</button>
+  <button class="btn" onclick="topology=(topology+1)%3;resetNet()">Topology</button>
+</div>
+<div class="stats" id="stats"></div>
+
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+let W,H;
+function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight}
+addEventListener('resize',resize);
+
+let nodes=[],edges=[],packets=[],topology=0,dragging=null;
+
+class Node{
+  constructor(x,y){this.id=nodes.length;this.x=x;this.y=y;this.vx=0;this.vy=0;this.pulse=0;this.connections=0;this.type=Math.random()*3|0}
+}
+
+function resetNet(){
+  nodes=[];edges=[];packets=[];
+  const n=15+Math.random()*10|0;
+  for(let i=0;i<n;i++)nodes.push(new Node(W/2+(Math.random()-.5)*W*.6,H/2+(Math.random()-.5)*H*.6));
+
+  if(topology===0){
+    // Random graph
+    for(let i=0;i<n;i++){
+      const targets=2+Math.random()*3|0;
+      for(let t=0;t<targets;t++){
+        const j=Math.random()*n|0;
+        if(i!==j&&!edges.find(e=>(e.a===i&&e.b===j)||(e.a===j&&e.b===i)))
+          edges.push({a:i,b:j,weight:Math.random()});
+      }
+    }
+  }else if(topology===1){
+    // Mesh
+    for(let i=0;i<n;i++)for(let j=i+1;j<n;j++)
+      if(Math.hypot(nodes[i].x-nodes[j].x,nodes[i].y-nodes[j].y)<300)edges.push({a:i,b:j,weight:Math.random()});
+  }else{
+    // Ring + random
+    for(let i=0;i<n;i++)edges.push({a:i,b:(i+1)%n,weight:.5});
+    for(let i=0;i<n/2;i++){const a=Math.random()*n|0,b=Math.random()*n|0;if(a!==b)edges.push({a,b,weight:Math.random()})}
+  }
+
+  edges.forEach(e=>{nodes[e.a].connections++;nodes[e.b].connections++});
+}
+
+function addNode(){
+  const n=new Node(W/2+(Math.random()-.5)*200,H/2+(Math.random()-.5)*200);
+  nodes.push(n);
+  const targets=1+Math.random()*3|0;
+  for(let t=0;t<targets;t++){
+    const j=Math.random()*nodes.length|0;
+    if(j!==nodes.length-1)edges.push({a:nodes.length-1,b:j,weight:Math.random()});
+  }
+}
+
+function removeNode(){
+  if(nodes.length<3)return;
+  const idx=nodes.length-1;
+  edges=edges.filter(e=>e.a!==idx&&e.b!==idx);
+  edges.forEach(e=>{if(e.a>idx)e.a--;if(e.b>idx)e.b--});
+  nodes.pop();
+}
+
+function broadcast(){
+  if(!nodes.length)return;
+  const src=Math.random()*nodes.length|0;
+  packets.push({src,tgt:-1,x:nodes[src].x,y:nodes[src].y,path:[src],progress:0,speed:.01+Math.random()*.02,hue:Math.random()*360});
+  nodes[src].pulse=1;
+}
+
+canvas.addEventListener('mousedown',e=>{
+  dragging=nodes.find(n=>Math.hypot(n.x-e.clientX,n.y-e.clientY)<15);
+});
+canvas.addEventListener('mousemove',e=>{if(dragging){dragging.x=e.clientX;dragging.y=e.clientY}});
+canvas.addEventListener('mouseup',()=>{dragging=null});
+canvas.addEventListener('dblclick',e=>{
+  const n=new Node(e.clientX,e.clientY);
+  nodes.push(n);
+  const nearest=nodes.slice(0,-1).sort((a,b)=>Math.hypot(a.x-n.x,a.y-n.y)-Math.hypot(b.x-n.x,b.y-n.y)).slice(0,2+Math.random()*2|0);
+  nearest.forEach(nb=>{const idx=nodes.indexOf(nb);edges.push({a:nodes.length-1,b:idx,weight:Math.random()})});
+});
+
+resize();resetNet();
+
+function loop(){
+  ctx.fillStyle='rgba(5,5,8,.12)';ctx.fillRect(0,0,W,H);
+
+  // Force layout
+  if(!dragging){
+    nodes.forEach(a=>{
+      nodes.forEach(b=>{
+        if(a===b)return;
+        const dx=b.x-a.x,dy=b.y-a.y;
+        const dist=Math.sqrt(dx*dx+dy*dy)+1;
+        if(dist<200){a.vx-=dx/dist*2;a.vy-=dy/dist*2}
+      });
+    });
+    edges.forEach(e=>{
+      const a=nodes[e.a],b=nodes[e.b];
+      const dx=b.x-a.x,dy=b.y-a.y;
+      const dist=Math.sqrt(dx*dx+dy*dy);
+      const force=(dist-120)*.005;
+      a.vx+=dx/dist*force;a.vy+=dy/dist*force;
+      b.vx-=dx/dist*force;b.vy-=dy/dist*force;
+    });
+    nodes.forEach(n=>{
+      n.vx+=(W/2-n.x)*.0003;n.vy+=(H/2-n.y)*.0003;
+      n.vx*=.92;n.vy*=.92;
+      n.x+=n.vx;n.y+=n.vy;
+      n.x=Math.max(20,Math.min(W-20,n.x));
+      n.y=Math.max(20,Math.min(H-20,n.y));
+    });
+  }
+
+  // Edges
+  edges.forEach(e=>{
+    const a=nodes[e.a],b=nodes[e.b];
+    ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);
+    ctx.strokeStyle=`rgba(139,92,246,${.08+e.weight*.15})`;ctx.lineWidth=.5+e.weight*1.5;ctx.stroke();
+  });
+
+  // Nodes
+  nodes.forEach(n=>{
+    const r=5+n.connections*1.5;
+    const pulse=n.pulse>0?n.pulse:0;
+    if(n.pulse>0)n.pulse*=.95;
+    ctx.beginPath();ctx.arc(n.x,n.y,r+pulse*10,0,Math.PI*2);
+    const colors=['#8b5cf6','#06b6d4','#22c55e'];
+    ctx.fillStyle=colors[n.type]+(pulse>.1?'cc':'66');ctx.fill();
+    ctx.strokeStyle=colors[n.type]+'40';ctx.lineWidth=1;ctx.stroke();
+    if(pulse>.05){
+      const g=ctx.createRadialGradient(n.x,n.y,0,n.x,n.y,r+pulse*30);
+      g.addColorStop(0,colors[n.type]+'20');g.addColorStop(1,'transparent');
+      ctx.fillStyle=g;ctx.beginPath();ctx.arc(n.x,n.y,r+pulse*30,0,Math.PI*2);ctx.fill();
+    }
+    ctx.fillStyle='rgba(255,255,255,.3)';ctx.font='8px Space Mono';ctx.textAlign='center';
+    ctx.fillText(n.id,n.x,n.y-r-4);
+  });
+
+  // Packets
+  packets.forEach(p=>{
+    p.progress+=p.speed;
+    if(p.progress>=1){
+      const curr=p.path[p.path.length-1];
+      const neighbors=edges.filter(e=>e.a===curr||e.b===curr).map(e=>e.a===curr?e.b:e.a).filter(n=>!p.path.includes(n));
+      if(neighbors.length){
+        const next=neighbors[Math.random()*neighbors.length|0];
+        p.path.push(next);p.progress=0;
+        nodes[next].pulse=1;
+      }else{p.tgt=-2}
+    }
+    if(p.tgt===-2)return;
+    const from=nodes[p.path[p.path.length-1]];
+    const toIdx=p.path.length<nodes.length?p.path.length:0;
+    const to=nodes[p.path[Math.min(p.path.length-1,nodes.length-1)]];
+    p.x=from.x+(to.x-from.x)*p.progress;
+    p.y=from.y+(to.y-from.y)*p.progress;
+    ctx.beginPath();ctx.arc(p.x,p.y,3,0,Math.PI*2);
+    ctx.fillStyle=`hsla(${p.hue},80%,60%,.9)`;ctx.fill();
+    const g=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,12);
+    g.addColorStop(0,`hsla(${p.hue},80%,60%,.3)`);g.addColorStop(1,'transparent');
+    ctx.fillStyle=g;ctx.beginPath();ctx.arc(p.x,p.y,12,0,Math.PI*2);ctx.fill();
+  });
+  packets=packets.filter(p=>p.tgt!==-2);
+
+  // Auto generate packets
+  if(Math.random()<.02)broadcast();
+
+  document.getElementById('stats').textContent=`${nodes.length} nodes · ${edges.length} edges · ${packets.length} packets`;
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

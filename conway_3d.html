@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3D Game of Life</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}body{background:#050508;overflow:hidden}canvas{display:block}
+.ui{position:fixed;top:12px;left:12px;z-index:10;display:flex;gap:6px;flex-wrap:wrap}
+.btn{padding:5px 10px;border-radius:6px;font-size:.7rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);color:rgba(255,255,255,.5);cursor:pointer;transition:all .2s;font-family:'Space Grotesk',sans-serif}
+.btn:hover{background:rgba(255,255,255,.1);color:#fff}
+.btn.active{background:rgba(139,92,246,.12);border-color:rgba(139,92,246,.25);color:#a78bfa}
+.stats{position:fixed;bottom:12px;left:12px;font-size:.62rem;font-family:'Space Mono',monospace;color:rgba(255,255,255,.2)}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="ui">
+  <button class="btn active" id="runBtn" onclick="toggleRun()">▶ Run</button>
+  <button class="btn" onclick="step()">Step</button>
+  <button class="btn" onclick="randomize()">Random</button>
+  <button class="btn" onclick="clearGrid()">Clear</button>
+  <button class="btn" onclick="rotate=!rotate">Auto Rotate</button>
+  <label style="font-size:.6rem;color:rgba(255,255,255,.3)">Birth</label>
+  <input type="range" id="birth" min="4" max="8" value="5" style="width:50px">
+  <label style="font-size:.6rem;color:rgba(255,255,255,.3)">Survive</label>
+  <input type="range" id="survive" min="2" max="6" value="4" style="width:50px">
+</div>
+<div class="stats" id="stats"></div>
+
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+let W,H;
+function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight}
+addEventListener('resize',resize);
+
+const SIZE=16;
+let grid=new Uint8Array(SIZE*SIZE*SIZE);
+let nextGrid=new Uint8Array(SIZE*SIZE*SIZE);
+let running=true,rotate=true,generation=0;
+let rotX=.5,rotY=.5,mouseDown=false,lastMX,lastMY;
+
+function idx(x,y,z){return z*SIZE*SIZE+y*SIZE+x}
+
+function randomize(){grid=new Uint8Array(SIZE*SIZE*SIZE);for(let i=0;i<grid.length;i++)grid[i]=Math.random()<.15?1:0;generation=0}
+function clearGrid(){grid.fill(0);generation=0}
+function toggleRun(){running=!running;document.getElementById('runBtn').textContent=running?'⏸ Pause':'▶ Run';document.getElementById('runBtn').classList.toggle('active',running)}
+
+function step(){
+  const birth=+document.getElementById('birth').value;
+  const survive=+document.getElementById('survive').value;
+  for(let z=0;z<SIZE;z++)for(let y=0;y<SIZE;y++)for(let x=0;x<SIZE;x++){
+    let neighbors=0;
+    for(let dz=-1;dz<=1;dz++)for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
+      if(dx===0&&dy===0&&dz===0)continue;
+      const nx=(x+dx+SIZE)%SIZE,ny=(y+dy+SIZE)%SIZE,nz=(z+dz+SIZE)%SIZE;
+      neighbors+=grid[idx(nx,ny,nz)];
+    }
+    const alive=grid[idx(x,y,z)];
+    if(alive)nextGrid[idx(x,y,z)]=neighbors>=survive-1&&neighbors<=survive+1?1:0;
+    else nextGrid[idx(x,y,z)]=neighbors===birth?1:0;
+  }
+  [grid,nextGrid]=[nextGrid,grid];
+  generation++;
+}
+
+function project(x,y,z){
+  // Rotate
+  const cx=x-SIZE/2,cy=y-SIZE/2,cz=z-SIZE/2;
+  let x1=cx*Math.cos(rotY)-cz*Math.sin(rotY);
+  let z1=cx*Math.sin(rotY)+cz*Math.cos(rotY);
+  let y1=cy*Math.cos(rotX)-z1*Math.sin(rotX);
+  let z2=cy*Math.sin(rotX)+z1*Math.cos(rotX);
+  const scale=Math.min(W,H)/(SIZE*2.5);
+  const perspective=8/(8+z2*.1);
+  return{x:W/2+x1*scale*perspective,y:H/2+y1*scale*perspective,z:z2,scale:perspective};
+}
+
+canvas.addEventListener('mousedown',e=>{mouseDown=true;lastMX=e.clientX;lastMY=e.clientY});
+canvas.addEventListener('mousemove',e=>{
+  if(!mouseDown)return;
+  rotY+=(e.clientX-lastMX)*.005;rotX+=(e.clientY-lastMY)*.005;
+  lastMX=e.clientX;lastMY=e.clientY;
+});
+canvas.addEventListener('mouseup',()=>mouseDown=false);
+
+randomize();
+
+function loop(){
+  ctx.fillStyle='#050508';ctx.fillRect(0,0,W,H);
+
+  if(running)step();
+  if(rotate&&!mouseDown){rotY+=.008;rotX+=.002}
+
+  // Collect and sort cells by depth
+  const cells=[];
+  for(let z=0;z<SIZE;z++)for(let y=0;y<SIZE;y++)for(let x=0;x<SIZE;x++){
+    if(!grid[idx(x,y,z)])continue;
+    const p=project(x,y,z);
+    cells.push({x:p.x,y:p.y,z:p.z,s:p.scale});
+  }
+  cells.sort((a,b)=>a.z-b.z);
+
+  cells.forEach(c=>{
+    const r=3*c.s;
+    const brightness=Math.max(.3,.8+c.z*.05);
+    const hue=220+c.z*3;
+    ctx.beginPath();ctx.arc(c.x,c.y,r,0,Math.PI*2);
+    ctx.fillStyle=`hsla(${hue},50%,${brightness*50}%,${brightness*.8})`;ctx.fill();
+    // Glow
+    const g=ctx.createRadialGradient(c.x,c.y,0,c.x,c.y,r*2.5);
+    g.addColorStop(0,`hsla(${hue},50%,50%,${brightness*.15})`);g.addColorStop(1,'transparent');
+    ctx.fillStyle=g;ctx.beginPath();ctx.arc(c.x,c.y,r*2.5,0,Math.PI*2);ctx.fill();
+  });
+
+  // Draw size indicator
+  ctx.strokeStyle='rgba(255,255,255,.05)';ctx.lineWidth=1;
+  ctx.strokeRect(W/2-SIZE*Math.min(W,H)/(SIZE*5)/2,H/2-SIZE*Math.min(W,H)/(SIZE*5)/2,SIZE*Math.min(W,H)/(SIZE*5),SIZE*Math.min(W,H)/(SIZE*5));
+
+  const alive=grid.reduce((a,b)=>a+b,0);
+  document.getElementById('stats').textContent=`${SIZE}³ · Gen ${generation} · ${alive} alive · ${cells.length} drawn`;
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

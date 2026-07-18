@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Typing Speed Test</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#050508;--border:rgba(255,255,255,.06);--t1:#fff;--t2:rgba(255,255,255,.55);--t3:rgba(255,255,255,.25);--accent:#8b5cf6;--green:#22c55e;--red:#f43f5e}
+body{background:var(--bg);color:var(--t2);font-family:'Space Grotesk',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;-webkit-font-smoothing:antialiased}
+.header{text-align:center;margin-bottom:30px}
+.header h1{font-size:1.6rem;font-weight:800;color:var(--t1);letter-spacing:-.03em;margin-bottom:6px}
+.header p{font-size:.85rem;color:var(--t3)}
+
+.test-box{
+  max-width:700px;width:100%;padding:32px;
+  background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:16px;
+  position:relative;
+}
+.text-display{
+  font-family:'Space Mono',monospace;font-size:1.15rem;line-height:2;
+  margin-bottom:24px;min-height:120px;letter-spacing:.02em;
+  word-wrap:break-word;white-space:normal;overflow-wrap:break-word;
+}
+.text-display .char{transition:color .1s}
+.text-display .correct{color:var(--green)}
+.text-display .incorrect{color:var(--red);text-decoration:underline}
+.text-display .current{
+  background:rgba(139,92,246,.2);
+  border-radius:2px;padding:0 1px;
+  animation:blink .8s infinite;
+}
+@keyframes blink{0%,100%{border-bottom:2px solid var(--accent)}50%{border-bottom:2px solid transparent}}
+.text-display .pending{color:var(--t3)}
+
+.input-area{position:relative}
+#input{
+  width:100%;padding:14px 18px;border-radius:10px;
+  background:rgba(255,255,255,.04);border:1px solid var(--border);
+  color:var(--t1);font-family:'Space Mono',monospace;font-size:1rem;
+  outline:none;transition:border-color .2s;
+}
+#input:focus{border-color:rgba(139,92,246,.4)}
+#input::placeholder{color:var(--t3);font-family:'Space Grotesk',sans-serif}
+
+.stats-bar{
+  display:flex;gap:12px;margin-top:20px;justify-content:center;flex-wrap:wrap;
+}
+.stat{
+  padding:10px 20px;border-radius:10px;
+  background:rgba(255,255,255,.03);border:1px solid var(--border);
+  text-align:center;min-width:100px;
+}
+.stat .label{font-size:.6rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--t3)}
+.stat .val{font-size:1.3rem;font-weight:700;color:var(--t1);font-family:'Space Mono',monospace;margin-top:2px}
+.stat .val.green{color:var(--green)}
+.stat .val.red{color:var(--red)}
+.stat .val.purple{color:var(--accent)}
+
+.result{
+  position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  background:rgba(5,5,8,.92);backdrop-filter:blur(12px);border-radius:16px;
+  opacity:0;pointer-events:none;transition:opacity .4s;z-index:10;
+}
+.result.show{opacity:1;pointer-events:auto}
+.result h2{font-size:2rem;font-weight:800;color:var(--t1);margin-bottom:4px}
+.result .sub{font-size:.85rem;color:var(--t3);margin-bottom:20px}
+.result .btn{
+  padding:10px 24px;border-radius:10px;font-size:.82rem;font-weight:600;
+  background:rgba(139,92,246,.15);border:1px solid rgba(139,92,246,.3);color:#a78bfa;
+  cursor:pointer;transition:all .2s;
+}
+.result .btn:hover{background:rgba(139,92,246,.25)}
+
+.hint{margin-top:16px;font-size:.72rem;color:var(--t3)}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>Typing Speed Test</h1>
+  <p>Test your typing speed and accuracy</p>
+</div>
+<div class="test-box">
+  <div class="text-display" id="display"></div>
+  <div class="input-area">
+    <input type="text" id="input" placeholder="Start typing here..." autocomplete="off" autofocus>
+  </div>
+  <div class="stats-bar">
+    <div class="stat"><div class="label">WPM</div><div class="val purple" id="wpm">0</div></div>
+    <div class="stat"><div class="label">Accuracy</div><div class="val green" id="acc">100%</div></div>
+    <div class="stat"><div class="label">Time</div><div class="val" id="timer">0s</div></div>
+    <div class="stat"><div class="label">Errors</div><div class="val red" id="errors">0</div></div>
+  </div>
+  <div class="result" id="result">
+    <h2 id="rWpm">0 WPM</h2>
+    <div class="sub" id="rSub">Great job!</div>
+    <button class="btn" onclick="newTest()">Try Again</button>
+  </div>
+</div>
+<div class="hint">Press any key to start &middot; Tab for new text</div>
+
+<script>
+const TEXTS=[
+  "The quick brown fox jumps over the lazy dog. Pack my box with five dozen liquor jugs. How vexingly quick daft zebras jump.",
+  "Programming is the art of telling another human being what one wants the computer to do. Software is a great combination of artistry and engineering.",
+  "In the beginning there was nothing. Then there was everything. The universe began with a single point of infinite density and temperature.",
+  "Technology is best when it brings people together. Innovation distinguishes between a leader and a follower. Stay hungry, stay foolish.",
+  "The only way to do great work is to love what you do. If you haven't found it yet, keep looking. Don't settle for anything less.",
+  "Every great developer you know got there by solving problems they were unqualified to solve until they actually did it. Code is poetry.",
+  "Simplicity is the ultimate sophistication. Less is more. The best interface is no interface at all. Design is not just what it looks like.",
+  "Artificial intelligence is the new electricity. Machine learning will automate jobs but also create new ones we cannot yet imagine."
+];
+
+let targetText='',typed='',startTime=null,errors=0,completed=false;
+
+function newTest(){
+  targetText=TEXTS[Math.random()*TEXTS.length|0];
+  typed='';startTime=null;errors=0;completed=false;
+  document.getElementById('input').value='';
+  document.getElementById('input').disabled=false;
+  document.getElementById('result').classList.remove('show');
+  updateDisplay();updateStats();
+}
+
+function updateDisplay(){
+  let html='';
+  for(let i=0;i<targetText.length;i++){
+    let cls='pending';
+    if(i<typed.length){
+      cls=typed[i]===targetText[i]?'correct':'incorrect';
+    }else if(i===typed.length){cls='current'}
+    html+=`<span class="char ${cls}">${targetText[i]===' '?'&nbsp;':targetText[i]}</span>`;
+  }
+  document.getElementById('display').innerHTML=html;
+}
+
+function updateStats(){
+  if(!startTime)return;
+  const elapsed=(Date.now()-startTime)/1000;
+  const wpm=typed.length>0?Math.round((typed.split(' ').length)/(elapsed/60)):0;
+  const acc=typed.length>0?Math.round((typed.length-errors)/typed.length*100):100;
+  document.getElementById('wpm').textContent=wpm;
+  document.getElementById('acc').textContent=acc+'%';
+  document.getElementById('timer').textContent=Math.round(elapsed)+'s';
+  document.getElementById('errors').textContent=errors;
+}
+
+document.getElementById('input').addEventListener('input',e=>{
+  if(completed)return;
+  if(!startTime)startTime=Date.now();
+  typed=e.target.value;
+  errors=0;
+  for(let i=0;i<typed.length;i++)if(typed[i]!==targetText[i])errors++;
+  updateDisplay();updateStats();
+
+  if(typed.length>=targetText.length){
+    completed=true;
+    document.getElementById('input').disabled=true;
+    const elapsed=(Date.now()-startTime)/1000;
+    const wpm=Math.round((typed.split(' ').length)/(elapsed/60));
+    const acc=Math.round((typed.length-errors)/typed.length*100);
+    document.getElementById('rWpm').textContent=wpm+' WPM';
+    let msg=acc>=95&&wpm>=60?'Lightning fast!':acc>=90?'Great accuracy!':wpm>=40?'Good speed!':'Keep practicing!';
+    document.getElementById('rSub').textContent=`${acc}% accuracy in ${Math.round(elapsed)}s — ${msg}`;
+    document.getElementById('result').classList.add('show');
+  }
+});
+
+document.addEventListener('keydown',e=>{
+  if(e.key==='Tab'){e.preventDefault();newTest()}
+});
+
+newTest();
+</script>
+</body>
+</html>

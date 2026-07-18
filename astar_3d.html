@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>A* Pathfinding 3D</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}body{background:#050508;overflow:hidden}canvas{display:block}
+.ui{position:fixed;top:12px;left:12px;z-index:10;display:flex;gap:6px;flex-wrap:wrap}
+.btn{padding:5px 10px;border-radius:6px;font-size:.7rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);color:rgba(255,255,255,.5);cursor:pointer;transition:all .2s;font-family:'Space Grotesk',sans-serif}
+.btn:hover{background:rgba(255,255,255,.1);color:#fff}
+.stats{position:fixed;bottom:12px;left:12px;font-size:.62rem;font-family:'Space Mono',monospace;color:rgba(255,255,255,.2)}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="ui">
+  <button class="btn" onclick="generateGrid()">New Grid</button>
+  <button class="btn" onclick="findPath()">Find Path</button>
+  <button class="btn" onclick="animatePath()">Animate</button>
+  <button class="btn" onclick="rotY+=.5">Rotate</button>
+</div>
+<div class="stats" id="stats"></div>
+
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+let W,H;
+function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight}
+addEventListener('resize',resize);
+
+const SIZE=20;
+let grid,start,end,path,closed,open,rotY=.5,rotX=.3;
+
+function generateGrid(){
+  grid=Array.from({length:SIZE},()=>Array.from({length:SIZE},()=>Array.from({length:SIZE},()=>Math.random()<.25?1:0)));
+  start={x:0,y:0,z:0};
+  end={x:SIZE-1,y:SIZE-1,z:SIZE-1};
+  grid[0][0][0]=0;grid[SIZE-1][SIZE-1][SIZE-1]=0;
+  path=[];closed=new Set();open=[];
+}
+
+function heuristic(a){return Math.abs(a.x-end.x)+Math.abs(a.y-end.y)+Math.abs(a.z-end.z)}
+
+function findPath(){
+  open=[{x:start.x,y:start.y,z:start.z,g:0,f:heuristic(start),parent:null}];
+  closed=new Set();
+  const dirs=[];
+  for(let dx=-1;dx<=1;dx++)for(let dy=-1;dy<=1;dy++)for(let dz=-1;dz<=1;dz++){
+    if(dx===0&&dy===0&&dz===0)continue;
+    dirs.push({dx,dy,dz});
+  }
+
+  while(open.length){
+    open.sort((a,b)=>a.f-b.f);
+    const current=open.shift();
+    const key=current.x+','+current.y+','+current.z;
+    if(closed.has(key))continue;
+    closed.add(key);
+
+    if(current.x===end.x&&current.y===end.y&&current.z===end.z){
+      path=[];let node=current;
+      while(node){path.unshift({x:node.x,y:node.y,z:node.z});node=node.parent}
+      return path;
+    }
+
+    for(const{dx,dy,dz}of dirs){
+      const nx=current.x+dx,ny=current.y+dy,nz=current.z+dz;
+      if(nx<0||ny<0||nz<0||nx>=SIZE||ny>=SIZE||nz>=SIZE)continue;
+      if(grid[nz][ny][nx])continue;
+      const nk=nx+','+ny+','+nz;
+      if(closed.has(nk))continue;
+      const g=current.g+Math.sqrt(dx*dx+dy*dy+dz*dz);
+      open.push({x:nx,y:ny,z:nz,g,f:g+heuristic({x:nx,y:ny,z:nz}),parent:current});
+    }
+  }
+  path=[];return[];
+}
+
+function project(x,y,z){
+  const cx=(x-SIZE/2),cy=(y-SIZE/2),cz=(z-SIZE/2);
+  let x1=cx*Math.cos(rotY)-cz*Math.sin(rotY);
+  let z1=cx*Math.sin(rotY)+cz*Math.cos(rotY);
+  let y1=cy*Math.cos(rotX)-z1*Math.sin(rotX);
+  let z2=cy*Math.sin(rotX)+z1*Math.cos(rotX);
+  const scale=Math.min(W,H)/(SIZE*2.2);
+  const persp=10/(10+z2*.15);
+  return{x:W/2+x1*scale*persp,y:H/2+y1*scale*persp,z:z2,s:persp};
+}
+
+function animatePath(){
+  findPath();
+  let step=0;
+  const int=setInterval(()=>{
+    step++;
+    if(step>=path.length)clearInterval(int);
+    draw(step);
+  },50);
+}
+
+function draw(maxPath){
+  ctx.fillStyle='#050508';ctx.fillRect(0,0,W,H);
+
+  const cells=[];
+  // Grid cells
+  for(let z=0;z<SIZE;z++)for(let y=0;y<SIZE;y++)for(let x=0;x<SIZE;x++){
+    if(grid[z][y][x])continue;
+    const p=project(x,y,z);
+    const inClosed=closed.has(x+','+y+','+z);
+    const inPath=path.slice(0,maxPath).findIndex(n=>n.x===x&&n.y===y&&n.z===z)>=0;
+    cells.push({p,x,y,z,inClosed,inPath});
+  }
+
+  cells.sort((a,b)=>a.p.z-b.p.z);
+
+  cells.forEach(c=>{
+    const size=3*c.p.s;
+    let alpha=.1;
+    let color='rgba(255,255,255,.05)';
+    if(c.inPath){alpha=.9;color='rgba(34,197,94,.9)'}
+    else if(c.inClosed){alpha=.3;color='rgba(139,92,246,.3)'}
+    ctx.fillStyle=color;
+    ctx.fillRect(c.p.x-size/2,c.p.y-size/2,size,size);
+  });
+
+  // Start and end
+  const sp=project(start.x,start.y,start.z);
+  const ep=project(end.x,end.y,end.z);
+  ctx.beginPath();ctx.arc(sp.x,sp.y,6*sp.s,0,Math.PI*2);
+  ctx.fillStyle='rgba(34,197,94,.8)';ctx.fill();
+  ctx.beginPath();ctx.arc(ep.x,ep.y,6*ep.s,0,Math.PI*2);
+  ctx.fillStyle='rgba(244,63,94,.8)';ctx.fill();
+
+  document.getElementById('stats').textContent=`${SIZE}³ · ${path.length} path length · ${closed.size} explored`;
+}
+
+generateGrid();
+draw(0);
+function loop(){rotY+=.003;draw(path.length);requestAnimationFrame(loop)}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

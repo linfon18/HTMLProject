@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Infinity Mirror</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}body{background:#050508;overflow:hidden}canvas{display:block}
+.ui{position:fixed;top:12px;left:12px;z-index:10;display:flex;gap:6px;flex-wrap:wrap}
+.btn{padding:5px 10px;border-radius:6px;font-size:.7rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);color:rgba(255,255,255,.5);cursor:pointer;transition:all .2s;font-family:'Space Grotesk',sans-serif}
+.btn:hover{background:rgba(255,255,255,.1);color:#fff}
+.stats{position:fixed;bottom:12px;left:12px;font-size:.62rem;font-family:'Space Mono',monospace;color:rgba(255,255,255,.2)}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="ui">
+  <button class="btn" onclick="layers=Math.min(20,layers+2)">More Layers</button>
+  <button class="btn" onclick="layers=Math.max(3,layers-2)">Fewer Layers</button>
+  <button class="btn" onclick="shape=(shape+1)%3">Shape</button>
+  <button class="btn" onclick="hue=(hue+60)%360">Color</button>
+  <button class="btn" onclick="pulseMode=!pulseMode">Pulse</button>
+</div>
+<div class="stats" id="stats"></div>
+
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+let W,H;
+function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight}
+addEventListener('resize',resize);
+
+let layers=12,shape=0,hue=260,pulseMode=false,rotation=0;
+
+function loop(){
+  ctx.fillStyle='rgba(5,5,8,.05)';ctx.fillRect(0,0,W,H);
+  rotation+=.003;
+
+  const cx=W/2,cy=H/2;
+  const maxR=Math.min(W,H)*.45;
+
+  for(let l=layers-1;l>=0;l--){
+    const t=l/layers;
+    const shrink=1-t*.85;
+    const r=maxR*shrink;
+    const alpha=(1-t)*.8;
+    const hueOffset=l*20+rotation*50;
+    const h=(hue+hueOffset)%360;
+    const pulse=pulseMode?Math.sin(Date.now()*.003+l*.3)*.15+1:1;
+    const pr=r*pulse;
+
+    // Mirror frame
+    ctx.strokeStyle=`hsla(${h},60%,50%,${alpha*.2})`;
+    ctx.lineWidth=1.5;
+
+    if(shape===0){
+      // Circle
+      ctx.beginPath();ctx.arc(cx,cy,pr,0,Math.PI*2);ctx.stroke();
+      // LED lights
+      const numLeds=20+l*2;
+      for(let i=0;i<numLeds;i++){
+        const angle=i/numLeds*Math.PI*2+rotation*(1-t*2);
+        const lx=cx+Math.cos(angle)*pr;
+        const ly=cy+Math.sin(angle)*pr;
+        ctx.beginPath();ctx.arc(lx,ly,2+t,0,Math.PI*2);
+        ctx.fillStyle=`hsla(${(h+i*10)%360},80%,60%,${alpha*.7})`;ctx.fill();
+      }
+    }else if(shape===1){
+      // Square
+      const s=pr*Math.SQRT2;
+      ctx.save();ctx.translate(cx,cy);ctx.rotate(rotation*(1-t*.5)+t*.1);
+      ctx.strokeRect(-s/2,-s/2,s,s);
+      // LEDs on edges
+      const perim=s*4;
+      const numLeds=24+l*2;
+      for(let i=0;i<numLeds;i++){
+        const pos=i/numLeds*perim;
+        let lx,ly;
+        if(pos<s){lx=-s/2+pos;ly=-s/2}
+        else if(pos<s*2){lx=s/2;ly=-s/2+(pos-s)}
+        else if(pos<s*3){lx=s/2-(pos-s*2);ly=s/2}
+        else{lx=-s/2;ly=s/2-(pos-s*3)}
+        ctx.beginPath();ctx.arc(lx,ly,2+t,0,Math.PI*2);
+        ctx.fillStyle=`hsla(${(h+i*15)%360},80%,60%,${alpha*.7})`;ctx.fill();
+      }
+      ctx.restore();
+    }else{
+      // Hexagon
+      ctx.beginPath();
+      for(let i=0;i<6;i++){
+        const angle=i/6*Math.PI*2+rotation*(1-t*.5);
+        const hx=cx+Math.cos(angle)*pr;
+        const hy=cy+Math.sin(angle)*pr;
+        if(i===0)ctx.moveTo(hx,hy);else ctx.lineTo(hx,hy);
+      }
+      ctx.closePath();ctx.stroke();
+      // LEDs
+      for(let i=0;i<6;i++){
+        const angle=i/6*Math.PI*2+rotation*(1-t*.5);
+        const lx=cx+Math.cos(angle)*pr;
+        const ly=cy+Math.sin(angle)*pr;
+        ctx.beginPath();ctx.arc(lx,ly,3+t,0,Math.PI*2);
+        ctx.fillStyle=`hsla(${(h+i*60)%360},80%,60%,${alpha*.8})`;ctx.fill();
+      }
+    }
+
+    // Reflection lines between layers
+    if(l<layers-1){
+      const innerR=maxR*((l+1)/layers)*.85;
+      ctx.strokeStyle=`hsla(${h},50%,40%,${alpha*.05})`;
+      for(let i=0;i<4;i++){
+        const angle=i/4*Math.PI*2+rotation*.5;
+        ctx.beginPath();
+        ctx.moveTo(cx+Math.cos(angle)*r,cy+Math.sin(angle)*r);
+        ctx.lineTo(cx+Math.cos(angle)*innerR,cy+Math.sin(angle)*innerR);
+        ctx.stroke();
+      }
+    }
+  }
+
+  // Center light
+  const cg=ctx.createRadialGradient(cx,cy,0,cx,cy,20);
+  cg.addColorStop(0,`hsla(${hue},80%,80%,.6)`);cg.addColorStop(1,'transparent');
+  ctx.fillStyle=cg;ctx.beginPath();ctx.arc(cx,cy,20,0,Math.PI*2);ctx.fill();
+
+  document.getElementById('stats').textContent=`${layers} layers · shape ${shape}`;
+  requestAnimationFrame(loop);
+}
+resize();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

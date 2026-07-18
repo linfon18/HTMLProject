@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3D Starfield</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#000;overflow:hidden}
+canvas{display:block}
+.ui{position:fixed;top:16px;left:16px;z-index:10;display:flex;gap:6px}
+.btn{padding:6px 12px;border-radius:8px;font-size:.72rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.06);color:rgba(255,255,255,.4);cursor:pointer;transition:all .2s;font-family:'Space Grotesk',sans-serif}
+.btn:hover{background:rgba(255,255,255,.1);color:rgba(255,255,255,.7)}
+.btn.active{background:rgba(139,92,246,.15);border-color:rgba(139,92,246,.3);color:#a78bfa}
+.info{position:fixed;bottom:16px;left:16px;font-size:.65rem;font-family:'Space Mono',monospace;color:rgba(255,255,255,.2)}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="ui">
+  <button class="btn active" data-mode="warp">Warp</button>
+  <button class="btn" data-mode="gentle">Gentle</button>
+  <button class="btn" data-mode="vortex">Vortex</button>
+  <button class="btn" data-mode="explode">Explode</button>
+</div>
+<div class="info" id="info">Move mouse to steer · 2000 stars</div>
+
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+let W,H,mode='warp';
+const STARS=2000;
+let stars=[];
+
+function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight}
+resize();addEventListener('resize',resize);
+
+let mx=W/2,my=H/2;
+document.addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY});
+
+document.querySelectorAll('.btn').forEach(b=>{
+  b.addEventListener('click',()=>{
+    document.querySelectorAll('.btn').forEach(b=>b.classList.remove('active'));
+    b.classList.add('active');mode=b.dataset.mode;
+    if(mode==='explode')initStars();
+  });
+});
+
+function initStars(){
+  stars=[];
+  for(let i=0;i<STARS;i++){
+    stars.push({
+      x:(Math.random()-.5)*2000,
+      y:(Math.random()-.5)*2000,
+      z:Math.random()*1500,
+      pz:0,
+      hue:Math.random()*60+200,
+      size:Math.random()*1.5+.5,
+    });
+  }
+}
+initStars();
+
+function draw(){
+  ctx.fillStyle=mode==='explode'?'rgba(0,0,0,.15)':'rgba(0,0,0,.2)';
+  ctx.fillRect(0,0,W,H);
+
+  const speed=mode==='warp'?25:mode==='gentle'?3:mode==='vortex'?8:mode==='explode'?0:5;
+  const cx=W/2+(mx-W/2)*.1;
+  const cy=H/2+(my-H/2)*.1;
+
+  for(const s of stars){
+    s.pz=s.z;
+
+    if(mode==='explode'){
+      s.x+=s.x*.002;s.y+=s.y*.002;s.z-=2;
+      if(s.z<1||Math.abs(s.x)>5000||Math.abs(s.y)>5000){
+        s.x=(Math.random()-.5)*100;s.y=(Math.random()-.5)*100;s.z=1500;
+      }
+    }else if(mode==='vortex'){
+      const angle=Math.atan2(s.y,s.x)+.008;
+      const dist=Math.sqrt(s.x*s.x+s.y*s.y);
+      s.x=Math.cos(angle)*dist;s.y=Math.sin(angle)*dist;
+      s.z-=speed;
+    }else{
+      s.z-=speed;
+    }
+
+    if(s.z<1){
+      s.x=(Math.random()-.5)*2000;
+      s.y=(Math.random()-.5)*2000;
+      s.z=1500;s.pz=1500;
+    }
+
+    const sx=cx+s.x/s.z*400;
+    const sy=cy+s.y/s.z*400;
+    const px=cx+s.x/s.pz*400;
+    const py=cy+s.y/s.pz*400;
+
+    const brightness=1-s.z/1500;
+    const r=s.size*(1-s.z/1500)*2;
+
+    // Trail
+    ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(sx,sy);
+    ctx.strokeStyle=`hsla(${s.hue},60%,70%,${brightness*.4})`;
+    ctx.lineWidth=r*.5;ctx.stroke();
+
+    // Star
+    ctx.beginPath();ctx.arc(sx,sy,r,0,Math.PI*2);
+    ctx.fillStyle=`hsla(${s.hue},80%,80%,${brightness})`;
+    ctx.fill();
+
+    // Glow for bright stars
+    if(r>1.5){
+      ctx.beginPath();ctx.arc(sx,sy,r*3,0,Math.PI*2);
+      const g=ctx.createRadialGradient(sx,sy,0,sx,sy,r*3);
+      g.addColorStop(0,`hsla(${s.hue},80%,80%,${brightness*.15})`);
+      g.addColorStop(1,'transparent');
+      ctx.fillStyle=g;ctx.fill();
+    }
+  }
+
+  requestAnimationFrame(draw);
+}
+draw();
+</script>
+</body>
+</html>

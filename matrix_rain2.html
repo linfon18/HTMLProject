@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Matrix Rain</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Space+Mono:wght@400&display=swap');
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#050508;--border:rgba(255,255,255,.06);--t1:#fff;--t2:rgba(255,255,255,.55);--t3:rgba(255,255,255,.25)}
+body{background:var(--bg);color:var(--t2);font-family:'Space Grotesk',sans-serif;min-height:100vh;overflow:hidden;-webkit-font-smoothing:antialiased}
+canvas{display:block;position:fixed;inset:0}
+.ui{position:fixed;top:12px;left:12px;z-index:10}
+.panel{padding:12px;border-radius:10px;background:rgba(10,10,15,.8);backdrop-filter:blur(16px);border:1px solid var(--border);min-width:200px}
+.panel h3{font-size:.6rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:6px}
+.row{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;font-size:.68rem}
+.row label{color:var(--t3);font-size:.62rem}
+input[type=range]{width:80px;height:3px;-webkit-appearance:none;background:rgba(255,255,255,.1);border-radius:2px;outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;height:10px;border-radius:50%;background:#fff;cursor:pointer}
+.val{font-family:'Space Mono',monospace;font-size:.58rem;color:var(--t3);min-width:22px;text-align:right}
+.btn{padding:5px 10px;border-radius:6px;font-size:.68rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--t3);cursor:pointer;transition:all .2s;text-align:center;margin-top:4px;width:100%}
+.btn:hover{color:var(--t1);background:rgba(255,255,255,.1)}
+.fps{position:fixed;bottom:12px;left:12px;font-size:.6rem;font-family:'Space Mono',monospace;color:rgba(255,255,255,.2)}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="ui">
+  <div class="panel">
+    <h3>Matrix Rain</h3>
+    <div class="row"><label>Columns</label><input type="range" id="cols" min="20" max="200" value="80"><span class="val" id="colsV">80</span></div>
+    <div class="row"><label>Speed</label><input type="range" id="speed" min="1" max="100" value="30"><span class="val" id="speedV">30</span></div>
+    <div class="row"><label>Density</label><input type="range" id="density" min="1" max="50" value="15"><span class="val" id="densityV">15</span></div>
+    <div class="row"><label>Glow</label><input type="range" id="glow" min="0" max="100" value="60"><span class="val" id="glowV">60</span></div>
+    <button class="btn" onclick="resetCols()">Reset</button>
+    <button class="btn" onclick="charSet=(charSet+1)%3;resetCols()">Change Characters</button>
+  </div>
+</div>
+<div class="fps" id="fps"></div>
+
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+let W,H;
+function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight;resetCols()}
+addEventListener('resize',resize);
+
+const CHAR_SETS=[
+  'アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン0123456789',
+  '0123456789ABCDEF',
+  'ᚠᚡᚢᚣᚤᚥᚦᚧᚨᚩᚪᚫᚬᚭᚮᚯ'
+];
+let charSet=0;
+let columns=[];
+
+class Column{
+  constructor(x){
+    this.x=x;this.chars=[];this.speed=.5+Math.random()*2;this.y=0;this.head=0;
+    const len=10+Math.floor(Math.random()*30);
+    for(let i=0;i<len;i++){
+      this.chars.push(CHAR_SETS[charSet][Math.floor(Math.random()*CHAR_SETS[charSet].length)]);
+    }
+  }
+}
+
+function resetCols(){
+  columns=[];
+  const numCols=+document.getElementById('cols').value;
+  const colW=W/numCols;
+  for(let i=0;i<numCols;i++){
+    columns.push(new Column(i*colW+colW/2));
+    columns[i].head=Math.random()*H;
+  }
+}
+
+function update(){
+  const speedMult=+document.getElementById('speed').value/10;
+  columns.forEach(col=>{
+    col.head+=col.speed*speedMult;
+    if(col.head>H+col.chars.length*20)col.head=-col.chars.length*20;
+    // Randomly change chars
+    if(Math.random()<.05){
+      const idx=Math.floor(Math.random()*col.chars.length);
+      col.chars[idx]=CHAR_SETS[charSet][Math.floor(Math.random()*CHAR_SETS[charSet].length)];
+    }
+  });
+}
+
+function draw(){
+  ctx.fillStyle='rgba(5,5,8,.15)';ctx.fillRect(0,0,W,H);
+  const glow=+document.getElementById('glow').value/100;
+  const fontSize=14;
+  ctx.font=`${fontSize}px monospace`;
+
+  columns.forEach(col=>{
+    const len=col.chars.length;
+    for(let i=0;i<len;i++){
+      const y=col.head-i*fontSize;
+      if(y<-fontSize||y>H+fontSize)continue;
+      const alpha=(1-i/len)*.9;
+      const isHead=i===0;
+      if(isHead){
+        ctx.fillStyle=`rgba(200,255,200,${alpha})`;
+        ctx.shadowColor='rgba(0,255,0,.5)';ctx.shadowBlur=glow*10;
+      }else{
+        ctx.fillStyle=`rgba(0,${150+i*3|0},0,${alpha})`;
+        ctx.shadowBlur=0;
+      }
+      ctx.fillText(col.chars[i],col.x-5,y);
+    }
+  });
+  ctx.shadowBlur=0;
+}
+
+let frames=0,fpsT=performance.now();
+function loop(t){
+  update();draw();
+  frames++;
+  if(t-fpsT>500){document.getElementById('fps').textContent=`${Math.round(frames*1000/(t-fpsT))} FPS`;frames=0;fpsT=t}
+  requestAnimationFrame(loop);
+}
+
+document.querySelectorAll('input[type=range]').forEach(s=>{
+  const vEl=document.getElementById(s.id+'V');
+  s.addEventListener('input',()=>vEl.textContent=s.value);
+});
+
+resize();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

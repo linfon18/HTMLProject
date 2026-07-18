@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Word Clock</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Space+Mono:wght@400;700&display=swap');
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#050508;--t1:#fff;--t2:rgba(255,255,255,.55);--t3:rgba(255,255,255,.1)}
+body{background:var(--bg);color:var(--t3);font-family:'Space Mono',monospace;height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;-webkit-font-smoothing:antialiased;position:relative;overflow:hidden}
+.clock-grid{display:grid;grid-template-columns:repeat(11,1fr);gap:2px;font-size:clamp(1.2rem,3vw,2.2rem);font-weight:700;letter-spacing:.05em;user-select:none}
+.clock-grid span{width:clamp(24px,5vw,40px);text-align:center;padding:4px 0;transition:color .5s,opacity .5s;text-shadow:0 0 8px rgba(255,255,255,0)}
+.clock-grid span.lit{color:var(--t1);text-shadow:0 0 12px rgba(139,92,246,.4)}
+.time-display{position:absolute;bottom:30px;font-family:'Space Grotesk',sans-serif;font-size:.9rem;color:var(--t2);letter-spacing:.15em}
+.controls{position:absolute;top:16px;display:flex;gap:8px}
+.btn{padding:5px 10px;border-radius:6px;font-size:.65rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.06);color:var(--t2);cursor:pointer;transition:all .2s;font-family:'Space Grotesk',sans-serif}
+.btn:hover{background:rgba(255,255,255,.1);color:var(--t1)}
+.btn.active{background:rgba(139,92,246,.12);border-color:rgba(139,92,246,.2);color:#a78bfa}
+</style>
+</head>
+<body>
+<div class="controls">
+  <button class="btn active" onclick="setLang('en')" id="btnEN">English</button>
+  <button class="btn" onclick="setLang('zh')" id="btnZH">中文</button>
+</div>
+<div class="clock-grid" id="grid"></div>
+<div class="time-display" id="timeDisplay"></div>
+
+<script>
+const EN_GRID=`ITLISASAMPM
+ACQUARTERDC
+TWENTYFIVE
+XHALFSTENF
+TOJPASTORUS
+NINESIXTHREE
+FONETWOFIVE
+EIGHTSEVENE
+FOURTWELVEE
+TENNINEPAST`;
+const EN_WORDS={
+  'it':[[0,0],[0,1]],'is':[[0,3],[0,4]],
+  'a':[[1,0]],'quarter':[[1,2],[1,3],[1,4],[1,5],[1,6],[1,7],[1,8]],
+  'twenty':[[2,0],[2,1],[2,2],[2,3],[2,4],[2,5]],'five':[[2,6],[2,7],[2,8],[2,9]],
+  'half':[[3,1],[3,2],[3,3],[3,4]],'ten':[[3,6],[3,7],[3,8]],
+  'to':[[4,0],[4,1]],'past':[[4,4],[4,5],[4,6],[4,7]],
+  'nine':[[5,0],[5,1],[5,2],[5,3]],'six':[[5,4],[5,5],[5,6]],'three':[[5,6],[5,7],[5,8],[5,9],[5,10]],
+  'one':[[6,0],[6,1],[6,2]],'two':[[6,3],[6,4],[6,5]],'four':[[7,0],[7,1],[7,2],[7,3]],
+  'eight':[[7,4],[7,5],[7,6],[7,7],[7,8]],'seven':[[8,0],[8,1],[8,2],[8,3],[8,4]],
+  'eleven':[[8,4],[8,5],[8,6],[8,7],[8,8],[8,9]],'twelve':[[9,0],[9,1],[9,2],[9,3],[9,4],[9,5]],
+  'ten':[[9,6],[9,7],[9,8]],'five_m':[[6,7],[6,8],[6,9],[6,10]],
+  'am':[[0,7],[0,8]],'pm':[[0,9],[0,10]],
+  'o_clock':[[10,5],[10,6],[10,7],[10,8],[10,9],[10,10]]
+};
+
+const EN_HOURS=['twelve','one','two','three','four','five_m','six','seven','eight','nine','ten','eleven','twelve'];
+
+let lang='en',litCells=new Set();
+
+function setLang(l){
+  lang=l;
+  document.getElementById('btnEN').classList.toggle('active',l==='en');
+  document.getElementById('btnZH').classList.toggle('active',l==='zh');
+  render();
+}
+
+function render(){
+  const grid=EN_GRID.split('\n');
+  const el=document.getElementById('grid');
+  el.innerHTML='';
+
+  litCells=new Set();
+  const now=new Date();
+  let h=now.getHours()%12;
+  let m=now.getMinutes();
+
+  // Always
+  ['it','is'].forEach(w=>(EN_WORDS[w]||[]).forEach(([r,c])=>litCells.add(r*11+c)));
+
+  // Minutes
+  if(m>=5&&m<10){EN_WORDS['five'].forEach(([r,c])=>litCells.add(r*11+c));EN_WORDS['past'].forEach(([r,c])=>litCells.add(r*11+c))}
+  else if(m>=10&&m<15){EN_WORDS['ten'].forEach(([r,c])=>litCells.add(r*11+c));EN_WORDS['past'].forEach(([r,c])=>litCells.add(r*11+c))}
+  else if(m>=15&&m<20){EN_WORDS['a'].forEach(([r,c])=>litCells.add(r*11+c));EN_WORDS['quarter'].forEach(([r,c])=>litCells.add(r*11+c));EN_WORDS['past'].forEach(([r,c])=>litCells.add(r*11+c))}
+  else if(m>=20&&m<25){EN_WORDS['twenty'].forEach(([r,c])=>litCells.add(r*11+c));EN_WORDS['past'].forEach(([r,c])=>litCells.add(r*11+c))}
+  else if(m>=25&&m<30){EN_WORDS['twenty'].forEach(([r,c])=>litCells.add(r*11+c));EN_WORDS['five'].forEach(([r,c])=>litCells.add(r*11+c));EN_WORDS['past'].forEach(([r,c])=>litCells.add(r*11+c))}
+  else if(m>=30&&m<35){EN_WORDS['half'].forEach(([r,c])=>litCells.add(r*11+c));EN_WORDS['past'].forEach(([r,c])=>litCells.add(r*11+c))}
+  else if(m>=35&&m<40){EN_WORDS['twenty'].forEach(([r,c])=>litCells.add(r*11+c));EN_WORDS['five'].forEach(([r,c])=>litCells.add(r*11+c));EN_WORDS['to'].forEach(([r,c])=>litCells.add(r*11+c));h++}
+  else if(m>=40&&m<45){EN_WORDS['twenty'].forEach(([r,c])=>litCells.add(r*11+c));EN_WORDS['to'].forEach(([r,c])=>litCells.add(r*11+c));h++}
+  else if(m>=45&&m<50){EN_WORDS['a'].forEach(([r,c])=>litCells.add(r*11+c));EN_WORDS['quarter'].forEach(([r,c])=>litCells.add(r*11+c));EN_WORDS['to'].forEach(([r,c])=>litCells.add(r*11+c));h++}
+  else if(m>=50&&m<55){EN_WORDS['ten'].forEach(([r,c])=>litCells.add(r*11+c));EN_WORDS['to'].forEach(([r,c])=>litCells.add(r*11+c));h++}
+  else if(m>=55){EN_WORDS['five'].forEach(([r,c])=>litCells.add(r*11+c));EN_WORDS['to'].forEach(([r,c])=>litCells.add(r*11+c));h++}
+
+  // Hour
+  h=h%12;
+  if(EN_HOURS[h])EN_WORDS[EN_HOURS[h]]?.forEach(([r,c])=>litCells.add(r*11+c));
+
+  // AM/PM
+  if(now.getHours()<12)EN_WORDS['am']?.forEach(([r,c])=>litCells.add(r*11+c));
+  else EN_WORDS['pm']?.forEach(([r,c])=>litCells.add(r*11+c));
+
+  for(let r=0;r<grid.length;r++){
+    for(let c=0;c<grid[r].length;c++){
+      const sp=document.createElement('span');
+      sp.textContent=grid[r][c];
+      if(litCells.has(r*11+c))sp.classList.add('lit');
+      el.appendChild(sp);
+    }
+  }
+
+  const timeStr=now.toLocaleTimeString('en-US',{hour12:true,hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  document.getElementById('timeDisplay').textContent=timeStr;
+}
+
+render();setInterval(render,5000);
+</script>
+</body>
+</html>

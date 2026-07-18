@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>URL Parser & Builder</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#050508;--border:rgba(255,255,255,.06);--t1:#fff;--t2:rgba(255,255,255,.55);--t3:rgba(255,255,255,.25)}
+body{background:var(--bg);color:var(--t2);font-family:'Space Grotesk',sans-serif;min-height:100vh;padding:20px;-webkit-font-smoothing:antialiased}
+.top{display:flex;align-items:center;gap:10px;margin-bottom:20px}
+.top h1{font-size:1.1rem;font-weight:700;color:var(--t1);margin-right:auto}
+.btn{padding:6px 12px;border-radius:7px;font-size:.72rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--t2);cursor:pointer;transition:all .2s}
+.btn:hover{background:rgba(255,255,255,.1);color:var(--t1)}
+.input-url{width:100%;padding:12px 16px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:8px;color:var(--t1);font-family:'JetBrains Mono',monospace;font-size:.85rem;outline:none;margin-bottom:16px}
+.input-url:focus{border-color:rgba(139,92,246,.3)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.card{padding:14px;border-radius:10px;background:rgba(255,255,255,.025);border:1px solid var(--border)}
+.card h3{font-size:.6rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:10px}
+.field{margin-bottom:10px}
+.field label{display:block;font-size:.58rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--t3);margin-bottom:3px}
+.field input,.field textarea{width:100%;padding:8px 10px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:6px;color:var(--t2);font-family:'JetBrains Mono',monospace;font-size:.75rem;outline:none}
+.field input:focus,.field textarea:focus{border-color:rgba(139,92,246,.3)}
+.params-table{width:100%;border-collapse:collapse;font-size:.72rem}
+.params-table th{font-size:.55rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--t3);padding:4px 6px;border-bottom:1px solid var(--border);text-align:left}
+.params-table td{padding:4px 6px;border-bottom:1px solid rgba(255,255,255,.02);font-family:'JetBrains Mono',monospace;font-size:.68rem}
+.params-table td.key{color:#a78bfa}
+.params-table td.val{color:var(--t1)}
+.params-table td .del{color:#f87171;cursor:pointer;opacity:.3;transition:opacity .2s}
+.params-table td .del:hover{opacity:1}
+.encoded{margin-top:16px;padding:12px;border-radius:8px;background:rgba(0,0,0,.2);border:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:.72rem;line-height:1.8;word-break:break-all}
+.encoded .scheme{color:#22d3ee}.encoded .host{color:#22c55e}.encoded .path{color:#eab308}.encoded .param{color:#a78bfa}.encoded .hash{color:#f43f5e}
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>URL Parser & Builder</h1>
+  <button class="btn" onclick="loadSample()">Load Sample</button>
+  <button class="btn" onclick="copyURL()">Copy URL</button>
+  <button class="btn" onclick="encodeURL()">Encode</button>
+  <button class="btn" onclick="decodeURL()">Decode</button>
+</div>
+<input class="input-url" id="urlInput" value="https://user:pass@example.com:8080/path/to/page?name=test&id=42&tags=js,css#section2" oninput="parseURL()" placeholder="Enter URL to parse...">
+<div class="encoded" id="encoded"></div>
+<div class="grid" style="margin-top:16px">
+  <div class="card">
+    <h3>Components</h3>
+    <div class="field"><label>Protocol</label><input id="protocol" oninput="buildURL()"></div>
+    <div class="field"><label>Username</label><input id="username" oninput="buildURL()"></div>
+    <div class="field"><label>Password</label><input id="password" oninput="buildURL()"></div>
+    <div class="field"><label>Hostname</label><input id="hostname" oninput="buildURL()"></div>
+    <div class="field"><label>Port</label><input id="port" oninput="buildURL()"></div>
+    <div class="field"><label>Pathname</label><input id="pathname" oninput="buildURL()"></div>
+    <div class="field"><label>Hash</label><input id="hash" oninput="buildURL()"></div>
+  </div>
+  <div class="card">
+    <h3>Query Parameters</h3>
+    <table class="params-table" id="paramsTable"></table>
+    <button class="btn" onclick="addParam()" style="margin-top:8px">+ Add Parameter</button>
+    <h3 style="margin-top:16px">URL Info</h3>
+    <div id="urlInfo" style="font-size:.68rem;color:var(--t3);line-height:1.8"></div>
+  </div>
+</div>
+
+<script>
+let params=[];
+
+function parseURL(){
+  const raw=document.getElementById('urlInput').value;
+  try{
+    const url=new URL(raw);
+    document.getElementById('protocol').value=url.protocol.replace(':','');
+    document.getElementById('username').value=url.username;
+    document.getElementById('password').value=url.password;
+    document.getElementById('hostname').value=url.hostname;
+    document.getElementById('port').value=url.port;
+    document.getElementById('pathname').value=url.pathname;
+    document.getElementById('hash').value=url.hash;
+    params=[];
+    url.searchParams.forEach((v,k)=>params.push({key:k,value:v}));
+    renderParams();
+    highlightURL(url);
+    // Info
+    document.getElementById('urlInfo').innerHTML=`Origin: ${url.origin}<br>Path segments: ${url.pathname.split('/').filter(Boolean).length}<br>Params: ${params.length}<br>Search: ${url.search}<br>Full length: ${raw.length}`;
+  }catch(e){
+    document.getElementById('encoded').innerHTML=`<span style="color:#f87171">Invalid URL: ${e.message}</span>`;
+  }
+}
+
+function buildURL(){
+  const protocol=document.getElementById('protocol').value;
+  const username=document.getElementById('username').value;
+  const password=document.getElementById('password').value;
+  const hostname=document.getElementById('hostname').value;
+  const port=document.getElementById('port').value;
+  const pathname=document.getElementById('pathname').value;
+  const hash=document.getElementById('hash').value;
+  let url=`${protocol}://`;
+  if(username)url+=username+(password?':'+password:'')+'@';
+  url+=hostname;
+  if(port)url+=':'+port;
+  url+=pathname;
+  if(params.length){
+    url+='?'+params.map(p=>`${encodeURIComponent(p.key)}=${encodeURIComponent(p.value)}`).join('&');
+  }
+  if(hash)url+=hash;
+  document.getElementById('urlInput').value=url;
+  highlightURL(new URL(url));
+}
+
+function highlightURL(url){
+  let html=`<span class="scheme">${url.protocol}//</span>`;
+  if(url.username)html+=`<span class="param">${url.username}${url.password?':'+url.password:''}@</span>`;
+  html+=`<span class="host">${url.hostname}</span>`;
+  if(url.port)html+=`<span style="color:var(--t3)">:${url.port}</span>`;
+  html+=`<span class="path">${url.pathname}</span>`;
+  if(url.search)html+=`<span class="param">${url.search}</span>`;
+  if(url.hash)html+=`<span class="hash">${url.hash}</span>`;
+  document.getElementById('encoded').innerHTML=html;
+}
+
+function renderParams(){
+  const el=document.getElementById('paramsTable');
+  el.innerHTML=`<tr><th>Key</th><th>Value</th><th></th></tr>`+
+    params.map((p,i)=>`<tr><td class="key">${p.key}</td><td class="val">${p.value}</td><td><span class="del" onclick="params.splice(${i},1);renderParams();buildURL()">×</span></td></tr>`).join('');
+}
+
+function addParam(){
+  params.push({key:'new_param',value:'value'});
+  renderParams();
+  buildURL();
+}
+
+function loadSample(){
+  document.getElementById('urlInput').value='https://api.example.com:443/v2/users?limit=20&offset=0&sort=name&order=asc#results';
+  parseURL();
+}
+
+function copyURL(){navigator.clipboard.writeText(document.getElementById('urlInput').value)}
+function encodeURL(){document.getElementById('urlInput').value=encodeURI(document.getElementById('urlInput').value);parseURL()}
+function decodeURL(){document.getElementById('urlInput').value=decodeURI(document.getElementById('urlInput').value);parseURL()}
+
+parseURL();
+</script>
+</body>
+</html>

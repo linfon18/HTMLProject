@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3D Solar System</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}body{background:#000;overflow:hidden}canvas{display:block}
+.ui{position:fixed;top:12px;left:12px;z-index:10;display:flex;gap:6px;flex-wrap:wrap}
+.btn{padding:5px 10px;border-radius:6px;font-size:.7rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);color:rgba(255,255,255,.5);cursor:pointer;transition:all .2s;font-family:'Space Grotesk',sans-serif}
+.btn:hover{background:rgba(255,255,255,.1);color:#fff}
+.info{position:fixed;bottom:12px;left:12px;font-size:.65rem;font-family:'Space Mono',monospace;color:rgba(255,255,255,.2)}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="ui">
+  <button class="btn" onclick="speedMult*=2">Faster</button>
+  <button class="btn" onclick="speedMult/=2">Slower</button>
+  <button class="btn" onclick="speedMult=1">Reset Speed</button>
+  <button class="btn" onclick="showOrbits=!showOrbits">Toggle Orbits</button>
+  <button class="btn" onclick="camDist*=1.2">Zoom Out</button>
+  <button class="btn" onclick="camDist/=1.2">Zoom In</button>
+</div>
+<div class="info">Drag to rotate · Scroll to zoom · 8 planets</div>
+
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+let W,H;
+function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight}
+resize();addEventListener('resize',resize);
+
+let speedMult=1,showOrbits=true;
+let camAngleX=.4,camAngleY=0,camDist=500;
+let drag=false,lastX,lastY;
+
+canvas.addEventListener('mousedown',e=>{drag=true;lastX=e.clientX;lastY=e.clientY});
+canvas.addEventListener('mousemove',e=>{if(!drag)return;camAngleY+=(e.clientX-lastX)*.005;camAngleX=Math.max(-1.5,Math.min(1.5,camAngleX+(e.clientY-lastY)*.005));lastX=e.clientX;lastY=e.clientY});
+canvas.addEventListener('mouseup',()=>drag=false);
+canvas.addEventListener('wheel',e=>{camDist=Math.max(100,Math.min(2000,camDist+e.deltaY*.5))});
+
+function project(x,y,z){
+  // Rotate around Y
+  let x1=x*Math.cos(camAngleY)-z*Math.sin(camAngleY);
+  let z1=x*Math.sin(camAngleY)+z*Math.cos(camAngleY);
+  // Rotate around X
+  let y1=y*Math.cos(camAngleX)-z1*Math.sin(camAngleX);
+  let z2=y*Math.sin(camAngleX)+z1*Math.cos(camAngleX);
+  const scale=camDist/(camDist+z2);
+  return{x:W/2+x1*scale,y:H/2+y1*scale,scale,z:z2};
+}
+
+const PLANETS=[
+  {name:'Mercury',r:3,dist:40,period:.24,color:'#b0a090',tilt:.1},
+  {name:'Venus',r:5,dist:60,period:.62,color:'#e8c87a',tilt:.05},
+  {name:'Earth',r:5.5,dist:85,period:1,color:'#4a9de8',tilt:.4},
+  {name:'Mars',r:4,dist:110,period:1.88,color:'#c0543a',tilt:.44},
+  {name:'Jupiter',r:14,dist:155,period:11.86,color:'#d4a46a',tilt:.05},
+  {name:'Saturn',r:12,dist:200,period:29.46,color:'#e8d08a',tilt:.47,rings:true},
+  {name:'Uranus',r:8,dist:250,period:84,color:'#7de8e0',tilt:1.7},
+  {name:'Neptune',r:7.5,dist:300,period:164.8,color:'#4a6ae8',tilt:.49},
+];
+
+// Moons
+const MOONS=[
+  {planet:2,name:'Moon',r:1.5,dist:12,period:.074,color:'#aaa'},
+  {planet:4,name:'Io',r:1.2,dist:18,period:.005,color:'#e8c84a'},
+  {planet:4,name:'Europa',r:1,dist:22,period:.009,color:'#c0d8e8'},
+];
+
+let time=0;
+const orbitHistory=PLANETS.map(()=>[]);
+
+function loop(t){
+  const dt=.02*speedMult;
+  time+=dt;
+  ctx.fillStyle='rgba(0,0,0,.15)';ctx.fillRect(0,0,W,H);
+
+  // Stars (static)
+  if(time<.1){
+    for(let i=0;i<200;i++){
+      ctx.fillStyle=`rgba(255,255,255,${Math.random()*.3})`;
+      ctx.fillRect(Math.random()*W,Math.random()*H,1,1);
+    }
+  }
+
+  // Draw orbits
+  if(showOrbits){
+    PLANETS.forEach(p=>{
+      ctx.beginPath();
+      for(let a=0;a<=Math.PI*2;a+=.05){
+        const px=Math.cos(a)*p.dist,pz=Math.sin(a)*p.dist;
+        const pr=project(px,0,pz);
+        if(a===0)ctx.moveTo(pr.x,pr.y);else ctx.lineTo(pr.x,pr.y);
+      }
+      ctx.closePath();ctx.strokeStyle='rgba(255,255,255,.05)';ctx.lineWidth=.5;ctx.stroke();
+    });
+  }
+
+  // Collect all objects for depth sorting
+  const objects=[];
+
+  // Sun
+  const sunP=project(0,0,0);
+  objects.push({type:'sun',x:sunP.x,y:sunP.y,s:sunP.scale*20,z:sunP.z});
+
+  // Planets
+  PLANETS.forEach((p,i)=>{
+    const angle=time/p.period;
+    const px=Math.cos(angle)*p.dist;
+    const pz=Math.sin(angle)*p.dist;
+    const py=Math.sin(angle)*p.dist*Math.sin(p.tilt)*.1;
+    const pp=project(px,py,pz);
+    objects.push({type:'planet',x:pp.x,y:pp.y,s:Math.max(1,p.r*pp.scale),z:pp.z,color:p.color,name:p.name,rings:p.rings,px,py,pz});
+
+    // Moons
+    MOONS.filter(m=>m.planet===i).forEach(m=>{
+      const ma=time/m.period;
+      const mx=px+Math.cos(ma)*m.dist;
+      const mz=pz+Math.sin(ma)*m.dist;
+      const mp=project(mx,py,mz);
+      objects.push({type:'moon',x:mp.x,y:mp.y,s:Math.max(.5,m.r*mp.scale),z:mp.z,color:m.color});
+    });
+  });
+
+  // Sort by depth (far first)
+  objects.sort((a,b)=>b.z-a.z);
+
+  // Draw
+  objects.forEach(o=>{
+    if(o.type==='sun'){
+      // Sun glow
+      const g=ctx.createRadialGradient(o.x,o.y,0,o.x,o.y,o.s*3);
+      g.addColorStop(0,'rgba(255,200,50,.3)');g.addColorStop(1,'transparent');
+      ctx.fillStyle=g;ctx.beginPath();ctx.arc(o.x,o.y,o.s*3,0,Math.PI*2);ctx.fill();
+      ctx.beginPath();ctx.arc(o.x,o.y,o.s,0,Math.PI*2);
+      ctx.fillStyle='rgba(255,220,100,.9)';ctx.fill();
+      ctx.fillStyle='rgba(255,255,200,.3)';ctx.beginPath();ctx.arc(o.x,o.y,o.s*1.5,0,Math.PI*2);ctx.fill();
+    }else if(o.type==='planet'){
+      ctx.beginPath();ctx.arc(o.x,o.y,o.s,0,Math.PI*2);
+      const g=ctx.createRadialGradient(o.x-o.s*.3,o.y-o.s*.3,0,o.x,o.y,o.s);
+      g.addColorStop(0,o.color);g.addColorStop(1,'rgba(0,0,0,.4)');
+      ctx.fillStyle=g;ctx.fill();
+      // Name
+      if(o.s>3){
+        ctx.fillStyle='rgba(255,255,255,.3)';ctx.font='10px Space Grotesk';ctx.textAlign='center';
+        ctx.fillText(o.name,o.x,o.y-o.s-6);
+      }
+      // Saturn rings
+      if(o.rings){
+        ctx.beginPath();ctx.ellipse(o.x,o.y,o.s*2.5,o.s*.6,0,0,Math.PI*2);
+        ctx.strokeStyle='rgba(232,208,138,.3)';ctx.lineWidth=2;ctx.stroke();
+      }
+    }else{
+      ctx.beginPath();ctx.arc(o.x,o.y,o.s,0,Math.PI*2);
+      ctx.fillStyle=o.color;ctx.fill();
+    }
+  });
+
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

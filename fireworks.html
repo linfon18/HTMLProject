@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fireworks Show</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}body{background:#050508;overflow:hidden}canvas{display:block}
+.ui{position:fixed;top:12px;left:12px;z-index:10;display:flex;gap:6px;flex-wrap:wrap}
+.btn{padding:5px 10px;border-radius:6px;font-size:.7rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);color:rgba(255,255,255,.5);cursor:pointer;transition:all .2s;font-family:'Space Grotesk',sans-serif}
+.btn:hover{background:rgba(255,255,255,.1);color:#fff}
+.stats{position:fixed;bottom:12px;left:12px;font-size:.62rem;font-family:'Space Mono',monospace;color:rgba(255,255,255,.2)}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="ui">
+  <button class="btn" onclick="autoLaunch=!autoLaunch">Auto Launch</button>
+  <button class="btn" onclick="trailMode=!trailMode">Trail</button>
+  <button class="btn" onclick="particleMult=Math.min(3,particleMult+.5)">More Particles</button>
+  <button class="btn" onclick="gravity_=.05;setTimeout(()=>gravity_=.03,2000)">Gravity Burst</button>
+</div>
+<div class="stats" id="stats"></div>
+
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+let W,H;
+function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight}
+addEventListener('resize',resize);
+
+let rockets=[],particles=[],sparks=[];
+let autoLaunch=true,trailMode=false,particleMult=1,gravity_=.03;
+
+class Rocket{
+  constructor(x,targetY){
+    this.x=x;this.y=H;this.targetY=targetY;this.vy=-8-Math.random()*4;this.vx=(Math.random()-.5)*2;
+    this.trail=[];this.hue=Math.random()*360;this.alive=true;this.exploded=false;
+  }
+  update(){
+    this.trail.push({x:this.x,y:this.y});
+    if(this.trail.length>10)this.trail.shift();
+    this.x+=this.vx;this.y+=this.vy;this.vy+=.03;
+    if(this.vy>-1&&!this.exploded){this.explode();this.exploded=true}
+    if(this.y>H+10)this.alive=false;
+  }
+  draw(){
+    this.trail.forEach((t,i)=>{
+      ctx.beginPath();ctx.arc(t.x,t.y,1.5,0,Math.PI*2);
+      ctx.fillStyle=`hsla(${this.hue},50%,50%,${i/this.trail.length*.5})`;ctx.fill();
+    });
+    ctx.beginPath();ctx.arc(this.x,this.y,2,0,Math.PI*2);
+    ctx.fillStyle=`hsla(${this.hue},80%,70%,.9)`;ctx.fill();
+  }
+  explode(){
+    const count=80*particleMult|0;
+    const type=Math.random()*4|0;
+    for(let i=0;i<count;i++){
+      const angle=i/count*Math.PI*2+(Math.random()-.5)*.2;
+      const speed=2+Math.random()*5;
+      const hue=this.hue+(Math.random()-.5)*40;
+      particles.push({
+        x:this.x,y:this.y,
+        vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed,
+        life:1,decay:.008+Math.random()*.008,hue,size:1.5+Math.random(),
+        gravity:gravity_,type,
+        trail:[{x:this.x,y:this.y}]
+      });
+    }
+    // Ring effect
+    if(type===2){
+      for(let i=0;i<30;i++){
+        const angle=i/30*Math.PI*2;
+        sparks.push({x:this.x,y:this.y,vx:Math.cos(angle)*8,vy:Math.sin(angle)*8,life:1,hue:this.hue+120});
+      }
+    }
+  }
+}
+
+canvas.addEventListener('click',e=>{
+  rockets.push(new Rocket(e.clientX,50+Math.random()*H*.3));
+});
+
+function loop(){
+  ctx.fillStyle=trailMode?'rgba(5,5,8,.05)':'rgba(5,5,8,.15)';
+  ctx.fillRect(0,0,W,H);
+
+  // Auto launch
+  if(autoLaunch&&Math.random()<.03)rockets.push(new Rocket(W*.1+Math.random()*W*.8,50+Math.random()*H*.3));
+
+  // Update rockets
+  rockets.forEach(r=>{r.update();r.draw()});
+  rockets=rockets.filter(r=>r.alive);
+
+  // Update particles
+  particles.forEach(p=>{
+    p.trail.push({x:p.x,y:p.y});
+    if(p.trail.length>6)p.trail.shift();
+    p.vy+=p.gravity;
+    p.vx*=.99;p.vy*=.99;
+    p.x+=p.vx;p.y+=p.vy;
+    p.life-=p.decay;
+
+    // Draw trail
+    p.trail.forEach((t,i)=>{
+      ctx.beginPath();ctx.arc(t.x,t.y,p.size*(i/p.trail.length),0,Math.PI*2);
+      const alpha=p.life*(i/p.trail.length);
+      ctx.fillStyle=`hsla(${p.hue},80%,60%,${alpha*.5})`;ctx.fill();
+    });
+
+    // Main particle
+    ctx.beginPath();ctx.arc(p.x,p.y,p.size,0,Math.PI*2);
+    ctx.fillStyle=`hsla(${p.hue},80%,65%,${p.life})`;ctx.fill();
+
+    // Glow
+    const g=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,p.size*3);
+    g.addColorStop(0,`hsla(${p.hue},80%,65%,${p.life*.2})`);g.addColorStop(1,'transparent');
+    ctx.fillStyle=g;ctx.beginPath();ctx.arc(p.x,p.y,p.size*3,0,Math.PI*2);ctx.fill();
+  });
+  particles=particles.filter(p=>p.life>0);
+
+  // Sparks
+  sparks.forEach(s=>{
+    s.vx*=.95;s.vy*=.95;s.x+=s.vx;s.y+=s.vy;s.life-=.02;
+    ctx.beginPath();ctx.arc(s.x,s.y,1,0,Math.PI*2);
+    ctx.fillStyle=`hsla(${s.hue},90%,70%,${s.life})`;ctx.fill();
+  });
+  sparks=sparks.filter(s=>s.life>0);
+
+  document.getElementById('stats').textContent=`${rockets.length} rockets · ${particles.length} particles · ${sparks.length} sparks`;
+  requestAnimationFrame(loop);
+}
+resize();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

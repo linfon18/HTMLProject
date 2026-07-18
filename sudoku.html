@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sudoku Solver</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Space+Mono:wght@400&display=swap');
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#050508;--border:rgba(255,255,255,.06);--t1:#fff;--t2:rgba(255,255,255,.55);--t3:rgba(255,255,255,.25)}
+body{background:var(--bg);color:var(--t2);font-family:'Space Grotesk',sans-serif;height:100vh;display:flex;align-items:center;justify-content:center;-webkit-font-smoothing:antialiased}
+.wrap{display:flex;gap:20px;align-items:flex-start}
+.board{display:grid;grid-template-columns:repeat(9,42px);grid-template-rows:repeat(9,42px);border:2px solid rgba(139,92,246,.3);border-radius:6px;overflow:hidden}
+.cell{display:flex;align-items:center;justify-content:center;font-size:1.1rem;font-weight:600;border:1px solid var(--border);cursor:pointer;transition:background .15s}
+.cell.given{color:#a78bfa}
+.cell.user{color:#22c55e}
+.cell.error{color:#f87171;background:rgba(244,63,94,.1)}
+.cell.highlight{background:rgba(139,92,246,.05)}
+.cell:nth-child(3n){border-right:2px solid rgba(139,92,246,.15)}
+.cell:nth-child(9n){border-right:none}
+.cell:nth-child(n+19):nth-child(-n+27){border-bottom:2px solid rgba(139,92,246,.15)}
+.cell:nth-child(n+46):nth-child(-n+54){border-bottom:2px solid rgba(139,92,246,.15)}
+.side{width:180px;display:flex;flex-direction:column;gap:8px}
+.btn{padding:8px 12px;border-radius:8px;font-size:.72rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--t2);cursor:pointer;transition:all .2s;text-align:center}
+.btn:hover{background:rgba(255,255,255,.1);color:var(--t1)}
+.btn.primary{background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.25);color:#4ade80}
+.btn.warn{background:rgba(234,179,8,.12);border-color:rgba(234,179,8,.25);color:#fbbf24}
+.numpad{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+.num{padding:10px;border-radius:6px;font-size:1rem;font-weight:700;background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--t2);cursor:pointer;text-align:center;transition:all .15s}
+.num:hover{background:rgba(139,92,246,.1);color:var(--t1)}
+.timer{font-family:'Space Mono',monospace;font-size:.8rem;color:var(--t3);text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="board" id="board"></div>
+  <div class="side">
+    <div class="timer" id="timer">00:00</div>
+    <div class="numpad" id="numpad"></div>
+    <button class="btn" onclick="eraseCell()">Erase</button>
+    <button class="btn primary" onclick="solveAnimated()">Solve</button>
+    <button class="btn" onclick="generatePuzzle()">New Puzzle</button>
+    <button class="btn warn" onclick="checkBoard()">Check</button>
+    <button class="btn" onclick="clearBoard()">Clear All</button>
+    <div style="font-size:.6rem;color:var(--t3);line-height:1.8;margin-top:8px">
+      Difficulty:<br>
+      <button class="btn" onclick="generatePuzzle('easy')" style="display:inline;width:auto;padding:4px 8px;font-size:.6rem">Easy</button>
+      <button class="btn" onclick="generatePuzzle('medium')" style="display:inline;width:auto;padding:4px 8px;font-size:.6rem">Medium</button>
+      <button class="btn" onclick="generatePuzzle('hard')" style="display:inline;width:auto;padding:4px 8px;font-size:.6rem">Hard</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let board=Array.from({length:9},()=>Array(9).fill(0));
+let given=Array.from({length:9},()=>Array(9).fill(false));
+let selectedR=-1,selectedC=-1;
+let startTime=Date.now(),timerInterval;
+
+function generatePuzzle(diff='medium'){
+  // Generate solved board
+  board=Array.from({length:9},()=>Array(9).fill(0));
+  solve(board);
+  // Remove cells
+  const remove={easy:35,medium:45,hard:55}[diff]||45;
+  let removed=0;
+  while(removed<remove){
+    const r=Math.random()*9|0,c=Math.random()*9|0;
+    if(board[r][c]!==0){board[r][c]=0;removed++}
+  }
+  given=board.map(row=>row.map(v=>v!==0));
+  startTime=Date.now();
+  render();
+}
+
+function solve(b){
+  for(let r=0;r<9;r++)for(let c=0;c<9;c++){
+    if(b[r][c]===0){
+      const nums=[1,2,3,4,5,6,7,8,9];
+      for(let i=nums.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[nums[i],nums[j]]=[nums[j],nums[i]]}
+      for(const n of nums){
+        if(isValid(b,r,c,n)){b[r][c]=n;if(solve(b))return true;b[r][c]=0}
+      }
+      return false;
+    }
+  }
+  return true;
+}
+
+function isValid(b,r,c,n){
+  for(let i=0;i<9;i++){if(b[r][i]===n||b[i][c]===n)return false}
+  const br=r/3|0*3,bc=c/3|0*3;
+  for(let dr=0;dr<3;dr++)for(let dc=0;dc<3;dc++)if(b[br+dr][bc+dc]===n)return false;
+  return true;
+}
+
+async function solveAnimated(){
+  const b=board.map(r=>[...r]);
+  async function solveStep(){
+    for(let r=0;r<9;r++)for(let c=0;c<9;c++){
+      if(b[r][c]===0){
+        for(let n=1;n<=9;n++){
+          if(isValid(b,r,c,n)){
+            b[r][c]=n;board[r][c]=n;render();
+            await new Promise(r=>setTimeout(r,20));
+            if(await solveStep())return true;
+            b[r][c]=0;board[r][c]=0;render();
+            await new Promise(r=>setTimeout(r,10));
+          }
+        }
+        return false;
+      }
+    }
+    return true;
+  }
+  await solveStep();
+  render();
+}
+
+function checkBoard(){
+  let hasError=false;
+  for(let r=0;r<9;r++)for(let c=0;c<9;c++){
+    if(board[r][c]===0)continue;
+    const val=board[r][c];board[r][c]=0;
+    if(!isValid(board,r,c,val))hasError=true;
+    board[r][c]=val;
+  }
+  if(!hasError)alert('All correct so far!');
+  render();
+}
+
+function eraseCell(){
+  if(selectedR>=0&&selectedC>=0&&!given[selectedR][selectedC]){board[selectedR][selectedC]=0;render()}
+}
+
+function clearBoard(){
+  for(let r=0;r<9;r++)for(let c=0;c<9;c++)if(!given[r][c])board[r][c]=0;
+  render();
+}
+
+function render(){
+  const el=document.getElementById('board');
+  el.innerHTML='';
+  for(let r=0;r<9;r++)for(let c=0;c<9;c++){
+    const cell=document.createElement('div');
+    cell.className='cell';
+    if(given[r][c])cell.classList.add('given');
+    else if(board[r][c])cell.classList.add('user');
+    if(r===selectedR&&c===selectedC)cell.classList.add('highlight');
+    cell.textContent=board[r][c]||'';
+    cell.addEventListener('click',()=>{selectedR=r;selectedC=c;render()});
+    el.appendChild(cell);
+  }
+  // Numpad
+  const numEl=document.getElementById('numpad');
+  numEl.innerHTML='';
+  for(let n=1;n<=9;n++){
+    const btn=document.createElement('div');btn.className='num';btn.textContent=n;
+    btn.addEventListener('click',()=>{
+      if(selectedR>=0&&selectedC>=0&&!given[selectedR][selectedC]){board[selectedR][selectedC]=n;render()}
+    });
+    numEl.appendChild(btn);
+  }
+}
+
+document.addEventListener('keydown',e=>{
+  if(e.key>='1'&&e.key<='9'&&selectedR>=0&&!given[selectedR][selectedC]){board[selectedR][selectedC]=+e.key;render()}
+  if(e.key==='Backspace'||e.key==='Delete')eraseCell();
+  if(e.key==='ArrowUp'&&selectedR>0){selectedR--;render()}
+  if(e.key==='ArrowDown'&&selectedR<8){selectedR++;render()}
+  if(e.key==='ArrowLeft'&&selectedC>0){selectedC--;render()}
+  if(e.key==='ArrowRight'&&selectedC<8){selectedC++;render()}
+});
+
+timerInterval=setInterval(()=>{
+  const s=Math.floor((Date.now()-startTime)/1000);
+  document.getElementById('timer').textContent=`${(s/60|0).toString().padStart(2,'0')}:${(s%60).toString().padStart(2,'0')}`;
+},1000);
+
+generatePuzzle();
+</script>
+</body>
+</html>

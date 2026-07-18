@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Procedural Texture</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Space+Mono:wght@400&display=swap');
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#050508;--border:rgba(255,255,255,.06);--t1:#fff;--t2:rgba(255,255,255,.55);--t3:rgba(255,255,255,.25)}
+body{background:var(--bg);color:var(--t2);font-family:'Space Grotesk',sans-serif;height:100vh;display:flex;-webkit-font-smoothing:antialiased;overflow:hidden}
+.sidebar{width:240px;padding:16px;border-right:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column;gap:12px;flex-shrink:0}
+.sidebar h1{font-size:.9rem;font-weight:700;color:var(--t1)}
+.field label{display:block;font-size:.55rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t3);margin-bottom:3px}
+.field{margin-bottom:4px}
+input[type=range]{width:100%;height:3px;-webkit-appearance:none;background:rgba(255,255,255,.1);border-radius:2px;outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;background:#fff;cursor:pointer}
+.val{font-family:'Space Mono',monospace;font-size:.55rem;color:var(--t3);float:right}
+.btn{padding:5px 10px;border-radius:6px;font-size:.68rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--t2);cursor:pointer;transition:all .2s;width:100%;text-align:center}
+.btn:hover{background:rgba(255,255,255,.1);color:var(--t1)}
+.main{flex:1;display:flex;align-items:center;justify-content:center;padding:16px}
+canvas{border-radius:8px;border:1px solid var(--border)}
+select{width:100%;padding:6px;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:5px;color:var(--t2);font-size:.7rem;font-family:inherit}
+</style>
+</head>
+<body>
+<div class="sidebar">
+  <h1>Procedural Texture</h1>
+  <div class="field"><label>Preset</label>
+    <select id="preset" onchange="loadPreset()">
+      <option value="wood">Wood Grain</option>
+      <option value="marble">Marble</option>
+      <option value="cloud">Cloud</option>
+      <option value="lava">Lava</option>
+      <option value="water">Water Caustics</option>
+      <option value="checker">Checker Noise</option>
+    </select>
+  </div>
+  <div class="field"><label>Scale <span class="val" id="scaleV">50</span></label><input type="range" id="scale" min="5" max="200" value="50" oninput="updateTexture()"></div>
+  <div class="field"><label>Octaves <span class="val" id="octV">4</span></label><input type="range" id="octaves" min="1" max="8" value="4" oninput="updateTexture()"></div>
+  <div class="field"><label>Persistence <span class="val" id="persV">50</span></label><input type="range" id="persistence" min="10" max="90" value="50" oninput="updateTexture()"></div>
+  <div class="field"><label>Lacunarity <span class="val" id="lacV">20</span></label><input type="range" id="lacunarity" min="10" max="40" value="20" oninput="updateTexture()"></div>
+  <div class="field"><label>Offset X <span class="val" id="oxV">0</span></label><input type="range" id="ox" min="0" max="100" value="0" oninput="updateTexture()"></div>
+  <div class="field"><label>Offset Y <span class="val" id="oyV">0</span></label><input type="range" id="oy" min="0" max="100" value="0" oninput="updateTexture()"></div>
+  <button class="btn" onclick="updateTexture()">Regenerate</button>
+  <button class="btn" onclick="randomize()">Random</button>
+  <button class="btn" onclick="exportPNG()">Export PNG</button>
+  <button class="btn" onclick="exportSVG()">Export 256x256</button>
+</div>
+<div class="main"><canvas id="c" width="512" height="512"></canvas></div>
+
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+
+// Simple noise (value noise with smoothing)
+const PERM=new Uint8Array(512);
+for(let i=0;i<256;i++)PERM[i]=i;
+for(let i=255;i>0;i--){const j=Math.random()*i|0;[PERM[i],PERM[j]]=[PERM[j],PERM[i]]}
+for(let i=0;i<256;i++)PERM[256+i]=PERM[i];
+
+function fade(t){return t*t*t*(t*(t*6-15)+10)}
+function lerp(a,b,t){return a+(b-a)*t}
+function grad(hash,x,y){const h=hash&3;return((h&1)?-x:x)+((h&2)?-y:y)}
+
+function noise2D(x,y){
+  const X=Math.floor(x)&255,Y=Math.floor(y)&255;
+  x-=Math.floor(x);y-=Math.floor(y);
+  const u=fade(x),v=fade(y);
+  const A=PERM[X]+Y,B=PERM[X+1]+Y;
+  return lerp(lerp(grad(PERM[A],x,y),grad(PERM[B],x-1,y),u),
+              lerp(grad(PERM[A+1],x,y-1),grad(PERM[B+1],x-1,y-1),u),v);
+}
+
+function fbm(x,y,octaves,persistence,lacunarity){
+  let val=0,amp=1,freq=1,max=0;
+  for(let i=0;i<octaves;i++){
+    val+=noise2D(x*freq,y*freq)*amp;
+    max+=amp;amp*=persistence;freq*=lacunarity;
+  }
+  return val/max;
+}
+
+let textureType='wood';
+
+function loadPreset(){
+  textureType=document.getElementById('preset').value;
+  const presets={
+    wood:{scale:80,octaves:4,persistence:50,lacunarity:20},
+    marble:{scale:40,octaves:6,persistence:55,lacunarity:22},
+    cloud:{scale:100,octaves:5,persistence:60,lacunarity:20},
+    lava:{scale:30,octaves:5,persistence:65,lacunarity:25},
+    water:{scale:50,octaves:3,persistence:45,lacunarity:18},
+    checker:{scale:20,octaves:2,persistence:50,lacunarity:20}
+  };
+  const p=presets[textureType];
+  document.getElementById('scale').value=p.scale;
+  document.getElementById('octaves').value=p.octaves;
+  document.getElementById('persistence').value=p.persistence;
+  document.getElementById('lacunarity').value=p.lacunarity;
+  updateTexture();
+}
+
+function randomize(){
+  document.getElementById('scale').value=10+Math.random()*150|0;
+  document.getElementById('octaves').value=2+Math.random()*6|0;
+  document.getElementById('persistence').value=30+Math.random()*50|0;
+  document.getElementById('lacunarity').value=15+Math.random()*20|0;
+  document.getElementById('ox').value=Math.random()*100|0;
+  document.getElementById('oy').value=Math.random()*100|0;
+  updateTexture();
+}
+
+function updateTexture(){
+  const scale=+document.getElementById('scale').value;
+  const octaves=+document.getElementById('octaves').value;
+  const pers=+document.getElementById('persistence').value/100;
+  const lac=+document.getElementById('lacunarity').value/10;
+  const ox=+document.getElementById('ox').value;
+  const oy=+document.getElementById('oy').value;
+
+  document.getElementById('scaleV').textContent=scale;
+  document.getElementById('octV').textContent=octaves;
+  document.getElementById('persV').textContent=(pers*100)|0;
+  document.getElementById('lacV').textContent=lac.toFixed(1);
+  document.getElementById('oxV').textContent=ox;
+  document.getElementById('oyV').textContent=oy;
+
+  const W=512,H=512;
+  const imgData=ctx.createImageData(W,H);
+  const d=imgData.data;
+
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+    const nx=(x+ox)/scale,ny=(y+oy)/scale;
+    const n=fbm(nx,ny,octaves,pers,lac);
+    let r,g,b;
+
+    if(textureType==='wood'){
+      const ring=Math.sin(n*20)*.5+.5;
+      r=120+ring*100;g=80+ring*60;b=30+ring*30;
+    }else if(textureType==='marble'){
+      const v=Math.sin(nx+n*5)*.5+.5;
+      r=g=b=100+v*155;
+    }else if(textureType==='cloud'){
+      const v=n*.5+.5;
+      r=200+v*55;g=210+v*45;b=240+v*15;
+    }else if(textureType==='lava'){
+      const v=n*.5+.5;
+      r=255;g=v>6?v*200:0;b=v>3?v*100:0;
+    }else if(textureType==='water'){
+      const v=Math.sin(nx*3+n*8)*.5+.5;
+      r=10+v*30;g=50+v*100;b=100+v*155;
+    }else{
+      const v=n*.5+.5;
+      const check=((x/20|0)+(y/20|0))%2;
+      const c=check?v*255:(1-v)*255;
+      r=g=b=c;
+    }
+
+    const i=(y*W+x)*4;
+    d[i]=Math.max(0,Math.min(255,r));
+    d[i+1]=Math.max(0,Math.min(255,g));
+    d[i+2]=Math.max(0,Math.min(255,b));
+    d[i+3]=255;
+  }
+  ctx.putImageData(imgData,0,0);
+}
+
+function exportPNG(){const a=document.createElement('a');a.download='texture.png';a.href=canvas.toDataURL();a.click()}
+function exportSVG(){
+  const c2=document.createElement('canvas');c2.width=256;c2.height=256;
+  c2.getContext('2d').drawImage(canvas,0,0,256,256);
+  const a=document.createElement('a');a.download='texture_256.png';a.href=c2.toDataURL();a.click();
+}
+
+loadPreset();
+</script>
+</body>
+</html>

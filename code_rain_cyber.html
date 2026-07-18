@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cyberpunk Rain</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}body{background:#050508;overflow:hidden;font-family:'Space Mono',monospace}canvas{display:block}
+.ui{position:fixed;top:12px;left:12px;z-index:10;display:flex;gap:6px;flex-wrap:wrap}
+.btn{padding:5px 10px;border-radius:6px;font-size:.7rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);color:rgba(255,255,255,.5);cursor:pointer;transition:all .2s}
+.btn:hover{background:rgba(255,255,255,.1);color:#fff}
+.overlay{position:fixed;bottom:12px;left:12px;z-index:10;font-size:.62rem;color:rgba(255,255,255,.15);font-family:'Space Mono',monospace}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="ui">
+  <button class="btn" onclick="hue=(hue+30)%360">Hue Shift</button>
+  <button class="btn" onclick="density=Math.min(40,density+5)">Denser</button>
+  <button class="btn" onclick="density=Math.max(8,density-5)">Sparser</button>
+  <button class="btn" onclick="speed=Math.min(3,speed+.3)">Faster</button>
+  <button class="btn" onclick="speed=Math.max(.3,speed-.3)">Slower</button>
+  <button class="btn" onclick="glitch=!glitch">Glitch</button>
+</div>
+<div class="overlay">CYBER_RAIN v2.0 · click to interact</div>
+
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+let W,H;
+function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight;initColumns()}
+addEventListener('resize',resize);
+
+const CHARS='アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン0123456789ABCDEF{}[]<>=/\\|_~';
+let columns=[],hue=140,density=20,speed=1.2,glitch=false,mouseX=-1,mouseY=-1;
+
+class Column{
+  constructor(x){
+    this.x=x;this.chars=[];this.speed=.5+Math.random()*2;this.y=-Math.random()*H;
+    this.len=8+Math.random()*25;this.brightness=.3+Math.random()*.7;
+  }
+  update(){
+    this.y+=this.speed*speed*2;
+    if(this.y>H+this.len*20)this.y=-this.len*20;
+    // Mouse interaction
+    if(mouseX>0){
+      const dx=this.x-mouseX;
+      if(Math.abs(dx)<40)this.x+=dx>0?2:-2;
+    }
+  }
+  draw(){
+    const fontSize=14;
+    for(let i=0;i<this.len;i++){
+      const y=this.y-i*fontSize;
+      if(y<-fontSize||y>H+fontSize)continue;
+      const t=i/this.len;
+      const alpha=this.brightness*(1-t);
+      const char=CHARS[Math.random()*CHARS.length|0];
+      if(i===0)ctx.fillStyle=`hsla(${hue},100%,90%,${alpha})`;
+      else ctx.fillStyle=`hsla(${hue},80%,${40+t*20}%,${alpha*.6})`;
+      ctx.font=`${fontSize}px 'Space Mono',monospace`;
+      ctx.fillText(char,this.x,y);
+    }
+  }
+}
+
+function initColumns(){
+  columns=[];
+  const cols=Math.floor(W/density);
+  for(let i=0;i<cols;i++)columns.push(new Column(i*density+Math.random()*10));
+}
+
+canvas.addEventListener('mousemove',e=>{mouseX=e.clientX;mouseY=e.clientY});
+canvas.addEventListener('mouseleave',()=>{mouseX=-1;mouseY=-1});
+canvas.addEventListener('click',e=>{
+  // Explode at click
+  for(let i=0;i<10;i++){
+    const c=new Column(e.clientX+(Math.random()-.5)*200);
+    c.y=e.clientY;c.len=3+Math.random()*5;c.speed=2+Math.random()*3;
+    columns.push(c);
+  }
+});
+
+initColumns();
+
+function loop(){
+  ctx.fillStyle=glitch?'rgba(5,5,8,.15)':'rgba(5,5,8,.12)';
+  ctx.fillRect(0,0,W,H);
+
+  if(glitch&&Math.random()<.05){
+    const gy=Math.random()*H|0;
+    ctx.fillStyle=`hsla(${hue},100%,50%,.1)`;
+    ctx.fillRect(0,gy,W,2+Math.random()*20);
+  }
+
+  // Scanline
+  if(glitch){
+    const sy=(Date.now()*.5)%H;
+    ctx.fillStyle='rgba(255,255,255,.02)';ctx.fillRect(0,sy,W,2);
+  }
+
+  columns.forEach(c=>{c.update();c.draw()});
+  // Remove extra columns from click spawns
+  if(columns.length>W/density+50)columns.length=Math.floor(W/density)+10;
+
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

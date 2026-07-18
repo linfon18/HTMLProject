@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Snake AI</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Space+Mono:wght@400&display=swap');
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#050508;--border:rgba(255,255,255,.06);--t1:#fff;--t2:rgba(255,255,255,.55);--t3:rgba(255,255,255,.25)}
+body{background:var(--bg);color:var(--t2);font-family:'Space Grotesk',sans-serif;min-height:100vh;display:flex;flex-direction:column;-webkit-font-smoothing:antialiased}
+.top{padding:16px 24px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;border-bottom:1px solid var(--border)}
+.top h1{font-size:1rem;font-weight:700;color:var(--t1);margin-right:auto}
+.btn{padding:7px 14px;border-radius:8px;font-size:.75rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--t2);cursor:pointer;transition:all .2s}
+.btn:hover{background:rgba(255,255,255,.1);color:var(--t1)}
+.btn.primary{background:rgba(139,92,246,.15);border-color:rgba(139,92,246,.3);color:#a78bfa}
+.btn.active{background:rgba(34,197,94,.15);border-color:rgba(34,197,94,.3);color:#4ade80}
+label{font-size:.68rem;color:var(--t3)}
+input[type=range]{width:80px;height:3px;-webkit-appearance:none;background:rgba(255,255,255,.1);border-radius:2px;outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;background:#fff;cursor:pointer}
+.val{font-family:'Space Mono',monospace;font-size:.65rem;color:var(--t3);min-width:24px}
+select{background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:8px;color:var(--t2);font-size:.75rem;padding:7px 12px;font-family:inherit;outline:none;cursor:pointer}
+select option{background:#1a1a2e}
+.main{flex:1;display:flex;align-items:center;justify-content:center;padding:20px}
+canvas{border-radius:8px}
+.stats{position:fixed;bottom:16px;left:24px;display:flex;gap:16px;font-size:.7rem;font-family:'Space Mono',monospace;color:var(--t3)}
+.stats span{padding:4px 10px;border-radius:6px;background:rgba(255,255,255,.04);border:1px solid var(--border)}
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>Snake AI</h1>
+  <select id="algo">
+    <option value="greedy">Greedy (Shortest Path)</option>
+    <option value="hamilton">Hamilton Cycle</option>
+    <option value="astar">A* + Tail Chase</option>
+  </select>
+  <label>Speed</label><input type="range" id="speed" min="1" max="60" value="20"><span class="val" id="speedV">20</span>
+  <label>Grid</label><input type="range" id="gridSize" min="8" max="30" value="15"><span class="val" id="gridSizeV">15</span>
+  <button class="btn primary" id="playBtn">Play</button>
+  <button class="btn" id="stepBtn">Step</button>
+  <button class="btn" onclick="reset()">Reset</button>
+</div>
+<div class="main"><canvas id="c"></canvas></div>
+<div class="stats">
+  <span id="scoreS">Score: 0</span>
+  <span id="lenS">Length: 3</span>
+  <span id="stepsS">Steps: 0</span>
+  <span id="statusS">Ready</span>
+</div>
+
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+const dpr=devicePixelRatio;
+let N=15,cs,W,H;
+let snake,food,dir,score,steps,running=false,dead=false;
+let hamiltonPath,hamiltonIndex;
+
+function resize(){
+  const s=Math.min(innerWidth-48,innerHeight-120);
+  W=H=s;canvas.width=s*dpr;canvas.height=s*dpr;
+  canvas.style.width=s+'px';canvas.style.height=s+'px';
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  cs=W/N;draw();
+}
+resize();addEventListener('resize',resize);
+
+function reset(){
+  N=+document.getElementById('gridSize').value;cs=W/N;
+  snake=[[N>>1,N>>1],[N>>1-1,N>>1],[N>>1-2,N>>1]];
+  dir=[1,0];score=0;steps=0;dead=false;
+  hamiltonPath=null;hamiltonIndex=0;
+  placeFood();updateStats();draw();
+}
+
+function placeFood(){
+  const free=[];
+  for(let y=0;y<N;y++)for(let x=0;x<N;x++)if(!snake.some(s=>s[0]===x&&s[1]===y))free.push([x,y]);
+  food=free.length?free[Math.random()*free.length|0]:null;
+}
+
+function updateStats(){
+  document.getElementById('scoreS').textContent='Score: '+score;
+  document.getElementById('lenS').textContent='Length: '+snake.length;
+  document.getElementById('stepsS').textContent='Steps: '+steps;
+  document.getElementById('statusS').textContent=dead?'Dead!':food?'Playing':'Win!';
+}
+
+// BFS shortest path
+function bfs(start,target,snakeBody){
+  const visited=Array.from({length:N},()=>Array(N).fill(false));
+  const prev=Array.from({length:N},()=>Array(N).fill(null));
+  const snakeSet=new Set(snakeBody.map(s=>s[0]+','+s[1]));
+  const q=[start];visited[start[1]][start[0]]=true;
+  const dirs=[[0,-1],[1,0],[0,1],[-1,0]];
+  while(q.length){
+    const[x,y]=q.shift();
+    if(x===target[0]&&y===target[1]){
+      const path=[[x,y]];let p=prev[y][x];
+      while(p){path.unshift(p);p=prev[p[1]][p[0]]}
+      return path;
+    }
+    for(const[dx,dy]of dirs){
+      const nx=x+dx,ny=y+dy;
+      if(nx<0||nx>=N||ny<0||ny>=N||visited[ny][nx]||snakeSet.has(nx+','+ny))continue;
+      visited[ny][nx]=true;prev[ny][nx]=[x,y];q.push([nx,ny]);
+    }
+  }
+  return null;
+}
+
+// A* pathfinding
+function astar(start,target,snakeBody){
+  const snakeSet=new Set(snakeBody.slice(0,-1).map(s=>s[0]+','+s[1]));
+  const dirs=[[0,-1],[1,0],[0,1],[-1,0]];
+  const heuristic=([x,y])=>Math.abs(x-target[0])+Math.abs(y-target[1]);
+  const open=[{pos:start,g:0,f:heuristic(start)}];
+  const gMap=new Map();gMap.set(start[0]+','+start[1],0);
+  const prev=new Map();
+  while(open.length){
+    open.sort((a,b)=>a.f-b.f);
+    const cur=open.shift();
+    const[x,y]=cur.pos;
+    if(x===target[0]&&y===target[1]){
+      const path=[[x,y]];let k=prev.get(x+','+y);
+      while(k){path.unshift(k);k=prev.get(k[0]+','+k[1])}
+      return path;
+    }
+    for(const[dx,dy]of dirs){
+      const nx=x+dx,ny=y+dy,key=nx+','+ny;
+      if(nx<0||nx>=N||ny<0||ny>=N||snakeSet.has(key))continue;
+      const ng=cur.g+1;
+      if(!gMap.has(key)||ng<gMap.get(key)){
+        gMap.set(key,ng);prev.set(key,[x,y]);
+        open.push({pos:[nx,ny],g:ng,f:ng+heuristic([nx,ny])});
+      }
+    }
+  }
+  return null;
+}
+
+// Hamilton cycle generation
+function genHamilton(){
+  // Simple approach: generate via DFS on even grid
+  const visited=Array.from({length:N},()=>Array(N).fill(false));
+  const path=[];
+  function dfs(x,y){
+    visited[y][x]=true;path.push([x,y]);
+    if(path.length===N*N)return true;
+    const dirs=[[0,-1],[1,0],[0,1],[-1,0]];
+    // Prefer going straight to create longer paths
+    for(const[dx,dy]of dirs){
+      const nx=x+dx,ny=y+dy;
+      if(nx>=0&&nx<N&&ny>=0&&ny<N&&!visited[ny][nx]){
+        if(dfs(nx,ny))return true;
+      }
+    }
+    visited[y][x]=false;path.pop();
+    return false;
+  }
+  dfs(0,0);
+  // Make it a cycle
+  hamiltonPath=path;
+  hamiltonIndex=0;
+}
+
+function step(){
+  if(dead||!food)return;
+  const algo=document.getElementById('algo').value;
+  const head=snake[0];
+  let nextDir;
+
+  if(algo==='greedy'){
+    const path=bfs(head,food,snake);
+    if(path&&path.length>1){nextDir=[path[1][0]-head[0],path[1][1]-head[1]]}
+    else{
+      // Survive: try to follow tail
+      const tail=snake[snake.length-1];
+      const path2=bfs(head,tail,snake);
+      if(path2&&path2.length>1)nextDir=[path2[1][0]-head[0],path2[1][1]-head[1]];
+    }
+  }else if(algo==='astar'){
+    const path=astar(head,food,snake);
+    if(path&&path.length>1){nextDir=[path[1][0]-head[0],path[1][1]-head[1]]}
+    else{
+      const tail=snake[snake.length-1];
+      const path2=astar(head,tail,snake);
+      if(path2&&path2.length>1)nextDir=[path2[1][0]-head[0],path2[1][1]-head[1]];
+    }
+  }else if(algo==='hamilton'){
+    if(!hamiltonPath)genHamilton();
+    // Find head position in hamilton path
+    const hIdx=hamiltonPath.findIndex(p=>p[0]===head[0]&&p[1]===head[1]);
+    if(hIdx>=0){
+      const next=(hIdx+1)%hamiltonPath.length;
+      nextDir=[hamiltonPath[next][0]-head[0],hamiltonPath[next][1]-head[1]];
+    }
+  }
+
+  if(!nextDir){dead=true;updateStats();draw();return}
+  dir=nextDir;
+
+  const nx=head[0]+dir[0],ny=head[1]+dir[1];
+  // Check collision
+  if(nx<0||nx>=N||ny<0||ny>=N||snake.some(s=>s[0]===nx&&s[1]===ny)){
+    dead=true;updateStats();draw();return;
+  }
+  snake.unshift([nx,ny]);
+  if(food&&nx===food[0]&&ny===food[1]){score++;placeFood()}
+  else snake.pop();
+  steps++;updateStats();draw();
+}
+
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  // Grid
+  for(let y=0;y<N;y++)for(let x=0;x<N;x++){
+    ctx.fillStyle=(x+y)%2===0?'rgba(255,255,255,.02)':'rgba(255,255,255,.01)';
+    ctx.fillRect(x*cs,y*cs,cs,cs);
+  }
+  // Snake
+  snake.forEach(([x,y],i)=>{
+    const t=1-i/snake.length;
+    ctx.fillStyle=i===0?'rgba(139,92,246,.9)':`rgba(139,92,246,${.3+t*.5})`;
+    const pad=i===0?1:2;
+    ctx.beginPath();
+    ctx.roundRect(x*cs+pad,y*cs+pad,cs-pad*2,cs-pad*2,3);
+    ctx.fill();
+  });
+  // Eyes on head
+  if(snake.length){
+    const[hx,hy]=snake[0];
+    ctx.fillStyle='rgba(255,255,255,.8)';
+    ctx.beginPath();ctx.arc(hx*cs+cs*.35,hy*cs+cs*.35,cs*.08,0,Math.PI*2);ctx.fill();
+    ctx.beginPath();ctx.arc(hx*cs+cs*.65,hy*cs+cs*.35,cs*.08,0,Math.PI*2);ctx.fill();
+  }
+  // Food
+  if(food){
+    ctx.beginPath();ctx.arc(food[0]*cs+cs/2,food[1]*cs+cs/2,cs*.35,0,Math.PI*2);
+    ctx.fillStyle='rgba(244,63,94,.7)';ctx.fill();
+    ctx.beginPath();ctx.arc(food[0]*cs+cs/2,food[1]*cs+cs/2,cs*.55,0,Math.PI*2);
+    ctx.fillStyle='rgba(244,63,94,.1)';ctx.fill();
+  }
+  // Dead overlay
+  if(dead){
+    ctx.fillStyle='rgba(244,63,94,.1)';ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='rgba(255,255,255,.7)';ctx.font='bold 24px Space Grotesk';ctx.textAlign='center';
+    ctx.fillText('Game Over — Score: '+score,W/2,H/2);
+  }
+  if(running&&!dead)requestAnimationFrame(()=>{});
+}
+
+let loopId;
+document.getElementById('playBtn').addEventListener('click',()=>{
+  running=!running;
+  const btn=document.getElementById('playBtn');
+  if(running){btn.textContent='Pause';btn.classList.add('active');gameLoop()}
+  else{btn.textContent='Play';btn.classList.remove('active');cancelAnimationFrame(loopId)}
+});
+document.getElementById('stepBtn').addEventListener('click',()=>{if(!dead)step()});
+
+function gameLoop(){
+  if(!running||dead)return;
+  const spd=1000/(+document.getElementById('speed').value);
+  step();
+  loopId=setTimeout(gameLoop,spd);
+}
+
+document.getElementById('gridSize').addEventListener('input',e=>{
+  document.getElementById('gridSizeV').textContent=e.target.value;
+  reset();
+});
+document.getElementById('speed').addEventListener('input',e=>{document.getElementById('speedV').textContent=e.target.value});
+
+// Manual controls
+document.addEventListener('keydown',e=>{
+  if(['ArrowUp','w'].includes(e.key))dir=[0,-1];
+  if(['ArrowDown','s'].includes(e.key))dir=[0,1];
+  if(['ArrowLeft','a'].includes(e.key))dir=[-1,0];
+  if(['ArrowRight','d'].includes(e.key))dir=[1,0];
+  if(e.key===' '){e.preventDefault();document.getElementById('playBtn').click()}
+});
+
+reset();
+</script>
+</body>
+</html>

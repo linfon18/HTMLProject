@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wave Equation</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}body{background:#050508;overflow:hidden}canvas{display:block}
+.ui{position:fixed;top:12px;left:12px;z-index:10;display:flex;gap:6px;flex-wrap:wrap}
+.btn{padding:5px 10px;border-radius:6px;font-size:.7rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);color:rgba(255,255,255,.5);cursor:pointer;transition:all .2s;font-family:'Space Grotesk',sans-serif}
+.btn:hover{background:rgba(255,255,255,.1);color:#fff}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="ui">
+  <button class="btn" onclick="reset()">Reset</button>
+  <button class="btn" onclick="damping=damping>0?0:.99">Toggle Damping</button>
+  <button class="btn" onclick="addDrop()">Drop</button>
+  <button class="btn" onclick="wallMode=!wallMode">Draw Walls</button>
+  <button class="btn" onclick="colorMode=(colorMode+1)%3">Color Mode</button>
+</div>
+
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+const SCALE=3;
+let N,M;
+let u0,u1,u2,walls;
+let damping=.999,wallMode=false,colorMode=0;
+let mouseX=-1,mouseY=-1,mouseDown=false;
+
+canvas.addEventListener('mousedown',e=>{mouseDown=true;mouseX=Math.floor(e.clientX/SCALE);mouseY=Math.floor(e.clientY/SCALE);if(!wallMode)addDrop()});
+canvas.addEventListener('mousemove',e=>{mouseX=Math.floor(e.clientX/SCALE);mouseY=Math.floor(e.clientY/SCALE);if(mouseDown&&wallMode)drawWall()});
+canvas.addEventListener('mouseup',()=>mouseDown=false);
+
+function resize(){
+  N=Math.floor(innerWidth/SCALE);M=Math.floor(innerHeight/SCALE);
+  canvas.width=N*SCALE;canvas.height=M*SCALE;
+  reset();
+}
+addEventListener('resize',resize);
+
+function reset(){
+  u0=new Float32Array(N*M);u1=new Float32Array(N*M);u2=new Float32Array(N*M);
+  walls=new Uint8Array(N*M);
+}
+
+function addDrop(){
+  const r=15;
+  const cx=mouseX>=0?mouseX:N/2,cy=mouseY>=0?mouseY:M/2;
+  for(let y=-r;y<=r;y++)for(let x=-r;x<=r;x++){
+    const nx=cx+x,ny=cy+y;
+    if(nx>=0&&nx<N&&ny>=0&&ny<M){
+      const d=Math.sqrt(x*x+y*y);
+      if(d<r)u1[ny*N+nx]=Math.cos(d/r*Math.PI/2)*5;
+    }
+  }
+}
+
+function drawWall(){
+  if(mouseX<0||mouseX>=N||mouseY<0||mouseY>=M)return;
+  for(let dy=-2;dy<=2;dy++)for(let dx=-2;dx<=2;dx++){
+    const nx=mouseX+dx,ny=mouseY+dy;
+    if(nx>=0&&nx<N&&ny>=0&&ny<M)walls[ny*N+nx]=1;
+  }
+}
+
+function step(){
+  const c=.5; // wave speed
+  const c2=c*c;
+  for(let y=1;y<M-1;y++)for(let x=1;x<N-1;x++){
+    const i=y*N+x;
+    if(walls[i]){u2[i]=0;continue}
+    u2[i]=2*u1[i]-u0[i]+c2*(u1[i-1]+u1[i+1]+u1[i-N]+u1[i+N]-4*u1[i]);
+    u2[i]*=damping;
+  }
+  // Boundary
+  for(let x=0;x<N;x++){u2[x]=0;u2[(M-1)*N+x]=0}
+  for(let y=0;y<M;y++){u2[y*N]=0;u2[y*N+N-1]=0}
+  [u0,u1,u2]=[u1,u2,u0];
+}
+
+function draw(){
+  const imgData=ctx.createImageData(N,M);
+  const data=imgData.data;
+  for(let i=0;i<N*M;i++){
+    const v=u1[i];
+    const idx=i*4;
+    if(walls[i]){
+      data[idx]=40;data[idx+1]=40;data[idx+2]=50;
+    }else if(colorMode===0){
+      // Blue/Red
+      const c=Math.min(255,Math.abs(v)*50);
+      if(v>0){data[idx]=c*.3;data[idx+1]=c*.3;data[idx+2]=c}
+      else{data[idx]=c;data[idx+1]=c*.2;data[idx+2]=c*.2}
+    }else if(colorMode===1){
+      // Green
+      const c=Math.min(255,Math.abs(v)*50);
+      data[idx]=c*.2;data[idx+1]=c;data[idx+2]=c*.3;
+    }else{
+      // Purple
+      const c=Math.min(255,Math.abs(v)*50);
+      data[idx]=c*.6;data[idx+1]=c*.1;data[idx+2]=c;
+    }
+    data[idx+3]=255;
+  }
+  // Scale up
+  const tmpCanvas=document.createElement('canvas');
+  tmpCanvas.width=N;tmpCanvas.height=M;
+  tmpCanvas.getContext('2d').putImageData(imgData,0,0);
+  ctx.imageSmoothingEnabled=false;
+  ctx.drawImage(tmpCanvas,0,0,canvas.width,canvas.height);
+}
+
+// Random drops
+function ambientDrops(){
+  if(Math.random()<.02)addDrop();
+}
+
+resize();addDrop();
+function loop(){ambientDrops();step();draw();requestAnimationFrame(loop)}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

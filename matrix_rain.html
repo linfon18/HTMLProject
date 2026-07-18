@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Matrix Rain</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#000;overflow:hidden}
+canvas{display:block}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+let W,H,cols,drops;
+
+const chars='アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン0123456789ABCDEF<>{}[]|/\\';
+const fontSize=14;
+
+function resize(){
+  W=canvas.width=innerWidth;H=canvas.height=innerHeight;
+  cols=Math.ceil(W/fontSize);
+  drops=Array.from({length:cols},()=>Math.random()*-100);
+}
+resize();addEventListener('resize',resize);
+
+// Mouse interaction
+let mouseX=-1,mouseY=-1;
+canvas.addEventListener('mousemove',e=>{mouseX=e.clientX;mouseY=e.clientY});
+canvas.addEventListener('mouseleave',()=>{mouseX=-1});
+
+function draw(){
+  ctx.fillStyle='rgba(0,0,0,.05)';
+  ctx.fillRect(0,0,W,H);
+
+  for(let i=0;i<cols;i++){
+    const x=i*fontSize;
+    const y=drops[i]*fontSize;
+
+    // Mouse proximity glow
+    const dist=mouseX>=0?Math.sqrt((x-mouseX)**2+(y-mouseY)**2):Infinity;
+    const glow=dist<120;
+
+    // Head character (bright)
+    const char=chars[Math.random()*chars.length|0];
+    if(glow){
+      ctx.fillStyle=`rgba(${180+Math.random()*75},${255},${180+Math.random()*75},.95)`;
+      ctx.shadowColor='#0f0';ctx.shadowBlur=15;
+    }else{
+      ctx.fillStyle=`rgba(${80+Math.random()*40},255,${80+Math.random()*40},.9)`;
+      ctx.shadowBlur=0;
+    }
+    ctx.font=`${fontSize}px monospace`;
+    ctx.fillText(char,x,y);
+    ctx.shadowBlur=0;
+
+    // Trail characters
+    for(let j=1;j<6;j++){
+      const ty=y-j*fontSize;
+      if(ty<0)continue;
+      const tchar=chars[Math.random()*chars.length|0];
+      const alpha=.15-j*.025;
+      ctx.fillStyle=glow?`rgba(100,255,100,${alpha})`:`rgba(0,${180-j*30},0,${alpha})`;
+      ctx.fillText(tchar,x,ty);
+    }
+
+    drops[i]+=1+Math.random()*.5;
+    if(drops[i]*fontSize>H&&Math.random()>.975)drops[i]=Math.random()*-20;
+  }
+
+  requestAnimationFrame(draw);
+}
+draw();
+</script>
+</body>
+</html>

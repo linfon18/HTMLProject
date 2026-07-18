@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Barnsley Fern</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}body{background:#050508;overflow:hidden}canvas{display:block}
+.ui{position:fixed;top:12px;left:12px;z-index:10;display:flex;gap:6px;flex-wrap:wrap}
+.btn{padding:5px 10px;border-radius:6px;font-size:.7rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);color:rgba(255,255,255,.5);cursor:pointer;transition:all .2s;font-family:'Space Grotesk',sans-serif}
+.btn:hover{background:rgba(255,255,255,.1);color:#fff}
+.stats{position:fixed;bottom:12px;left:12px;font-size:.62rem;font-family:'Space Mono',monospace;color:rgba(255,255,255,.2)}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="ui">
+  <button class="btn" onclick="resetSim()">Reset</button>
+  <button class="btn" onclick="variant=(variant+1)%4;resetSim()">Variant</button>
+  <button class="btn" onclick="colorMode=(colorMode+1)%3">Color</button>
+  <button class="btn" onclick="autoRotate=!autoRotate">Rotate</button>
+  <button class="btn" onclick="exportPNG()">Export</button>
+</div>
+<div class="stats" id="stats"></div>
+
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+let W,H;
+function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight;resetSim()}
+addEventListener('resize',resize);
+
+let x=0,y=0,iterations=0,variant=0,colorMode=0,autoRotate=false;
+let rotation=0;
+const maxIter=100000;
+
+const VARIANTS=[
+  // Barnsley fern
+  [{a:0,b:0,c:0,d:.16,e:0,f:0,p:.01},
+   {a:.85,b:.04,c:-.04,d:.85,e:0,f:1.6,p:.85},
+   {a:.2,b:-.26,c:.23,d:.22,e:0,f:1.6,p:.07},
+   {a:-.15,b:.28,c:.26,d:.24,e:0,f:.44,p:.07}],
+  // Thelypteridaceae
+  [{a:0,b:0,c:0,d:.25,e:0,f:-.4,p:.02},
+   {a:.95,b:.005,c:-.005,d:.93,e:-.002,f:5,p:.84},
+   {a:.035,b:-.2,c:.16,d:.04,e:-.09,f:2,p:.07},
+   {a:-.04,b:.2,c:.16,d:.04,e:.083,f:1.2,p:.07}],
+  // Cyclosorus
+  [{a:0,b:0,c:0,d:.25,e:0,f:-.14,p:.02},
+   {a:.85,b:.02,c:-.02,d:.83,e:0,f:1,p:.84},
+   {a:.09,b:-.28,c:.3,d:.11,e:0,f:.6,p:.07},
+   {a:-.09,b:.28,c:.3,d:.09,e:0,f:.7,p:.07}],
+  // Modified fern
+  [{a:0,b:0,c:0,d:.2,e:0,f:-.12,p:.01},
+   {a:.845,b:.035,c:-.035,d:.82,e:0,f:1.6,p:.85},
+   {a:.2,b:-.31,c:.255,d:.245,e:0,f:.29,p:.07},
+   {a:-.15,b:.24,c:.25,d:.2,e:0,f:.68,p:.07}]
+];
+
+function resetSim(){
+  ctx.fillStyle='#050508';ctx.fillRect(0,0,W,H);
+  x=0;y=0;iterations=0;rotation=0;
+}
+
+function step(){
+  const rules=VARIANTS[variant];
+  const r=Math.random();
+  let cum=0,rule;
+  for(const ru of rules){cum+=ru.p;if(r<cum){rule=ru;break}}
+  if(!rule)rule=rules[0];
+  const nx=rule.a*x+rule.b*y+rule.e;
+  const ny=rule.c*x+rule.d*y+rule.f;
+  x=nx;y=ny;
+  iterations++;
+
+  // Map to screen
+  const scale=Math.min(W,H)/10;
+  let sx=W/2+x*scale;
+  let sy=H-y*scale-H*.1;
+
+  if(autoRotate){
+    rotation+=.0001;
+    const cx=W/2,cy=H*.6;
+    const dx=sx-cx,dy=sy-cy;
+    sx=cx+dx*Math.cos(rotation)-dy*Math.sin(rotation);
+    sy=cy+dx*Math.sin(rotation)+dy*Math.cos(rotation);
+  }
+
+  if(sx<0||sx>=W||sy<0||sy>=H)return;
+
+  // Color
+  let r2,g,b;
+  if(colorMode===0){
+    const t=y/10;
+    r2=20+t*30;g=80+t*120;b=20+t*40;
+  }else if(colorMode===1){
+    const t=x/3+5;
+    r2=200+t*10;g=100+t*20;b=50;
+  }else{
+    r2=150+y*15;g=200+x*20;b=180-y*10;
+  }
+
+  ctx.fillStyle=`rgba(${r2|0},${g|0},${b|0},.6)`;
+  ctx.fillRect(sx,sy,1.5,1.5);
+}
+
+function exportPNG(){
+  const a=document.createElement('a');a.download='barnsley_fern.png';a.href=canvas.toDataURL();a.click();
+}
+
+resetSim();
+function loop(){
+  for(let i=0;i<500;i++)step();
+  document.getElementById('stats').textContent=`${iterations} points · variant ${variant}`;
+  if(iterations<maxIter)requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

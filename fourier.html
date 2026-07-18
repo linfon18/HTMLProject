@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fourier Series</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Space+Mono:wght@400&display=swap');
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#050508;--border:rgba(255,255,255,.06);--t1:#fff;--t2:rgba(255,255,255,.55);--t3:rgba(255,255,255,.25)}
+body{background:var(--bg);color:var(--t2);font-family:'Space Grotesk',sans-serif;min-height:100vh;display:flex;flex-direction:column;-webkit-font-smoothing:antialiased}
+.top{padding:12px 20px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;border-bottom:1px solid var(--border)}
+.top h1{font-size:.95rem;font-weight:700;color:var(--t1);margin-right:auto}
+.btn{padding:6px 12px;border-radius:7px;font-size:.72rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--t2);cursor:pointer;transition:all .2s}
+.btn:hover{background:rgba(255,255,255,.1);color:var(--t1)}
+.btn.active{background:rgba(139,92,246,.12);border-color:rgba(139,92,246,.25);color:#a78bfa}
+label{font-size:.65rem;color:var(--t3)}
+input[type=range]{width:80px;height:3px;-webkit-appearance:none;background:rgba(255,255,255,.1);border-radius:2px;outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;height:10px;border-radius:50%;background:#fff;cursor:pointer}
+.val{font-family:'Space Mono',monospace;font-size:.6rem;color:var(--t3);min-width:20px}
+canvas{flex:1;display:block}
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>Fourier Series</h1>
+  <button class="btn active" data-wave="square">Square</button>
+  <button class="btn" data-wave="sawtooth">Sawtooth</button>
+  <button class="btn" data-wave="triangle">Triangle</button>
+  <button class="btn" data-wave="custom">Custom</button>
+  <label>Terms</label><input type="range" id="terms" min="1" max="50" value="5"><span class="val" id="termsV">5</span>
+  <label>Speed</label><input type="range" id="speed" min="1" max="20" value="5"><span class="val" id="speedV">5</span>
+</div>
+<canvas id="c"></canvas>
+
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+let W,H;
+function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight}
+resize();addEventListener('resize',resize);
+
+let waveType='square',time=0;
+let waveHistory=[];
+
+document.querySelectorAll('.btn[data-wave]').forEach(b=>{
+  b.addEventListener('click',()=>{
+    document.querySelectorAll('.btn[data-wave]').forEach(b=>b.classList.remove('active'));
+    b.classList.add('active');waveType=b.dataset.wave;waveHistory=[];
+  });
+});
+document.getElementById('terms').addEventListener('input',e=>document.getElementById('termsV').textContent=e.target.value);
+document.getElementById('speed').addEventListener('input',e=>document.getElementById('speedV').textContent=e.target.value);
+
+function getFourierCoeffs(n,type){
+  if(type==='square'){
+    const k=2*n-1;return{a:0,b:4/(Math.PI*k),freq:k};
+  }else if(type==='sawtooth'){
+    return{a:0,b:2*(-1)**(n+1)/(Math.PI*n),freq:n};
+  }else if(type==='triangle'){
+    const k=2*n-1;return{a:0,b:8*(-1)**(n-1)/(Math.PI*Math.PI*k*k),freq:k};
+  }
+  return{a:0,b:4/(Math.PI*(2*n-1)),freq:2*n-1};
+}
+
+function draw(){
+  ctx.fillStyle='rgba(5,5,8,.3)';ctx.fillRect(0,0,W,H);
+
+  const terms=+document.getElementById('terms').value;
+  const spd=+document.getElementById('speed').value/100;
+  time+=spd;
+
+  const cx=W*.3,cy=H*.35;
+  let x=cx,y=cy;
+
+  // Draw epicycles
+  for(let n=1;n<=terms;n++){
+    const{a,b,freq}=getFourierCoeffs(n,waveType);
+    const prevX=x,prevY=y;
+    const r=Math.abs(b)*80;
+    x+=r*Math.cos(freq*time+a);
+    y+=r*Math.sin(freq*time+b);
+
+    // Circle
+    ctx.beginPath();ctx.arc(prevX,prevY,r,0,Math.PI*2);
+    ctx.strokeStyle=`rgba(139,92,246,${.1+Math.min(.2,.5/n)})`;ctx.lineWidth=.8;ctx.stroke();
+
+    // Radius line
+    ctx.beginPath();ctx.moveTo(prevX,prevY);ctx.lineTo(x,y);
+    ctx.strokeStyle=`rgba(139,92,246,${.2+Math.min(.3,.5/n)})`;ctx.lineWidth=1;ctx.stroke();
+  }
+
+  // Point on circle
+  ctx.beginPath();ctx.arc(x,y,4,0,Math.PI*2);
+  ctx.fillStyle='rgba(234,179,8,.9)';ctx.fill();
+
+  // Add to wave history
+  waveHistory.unshift(y);
+  if(waveHistory.length>W*.55)waveHistory.pop();
+
+  // Draw wave
+  const waveX=W*.55;
+  ctx.beginPath();
+  waveHistory.forEach((wy,i)=>{
+    const wx=waveX+i*2;
+    if(i===0)ctx.moveTo(wx,wy);else ctx.lineTo(wx,wy);
+  });
+  ctx.strokeStyle='rgba(6,182,212,.8)';ctx.lineWidth=2;ctx.stroke();
+
+  // Connection line
+  ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(waveX,waveHistory[0]);
+  ctx.strokeStyle='rgba(255,255,255,.1)';ctx.lineWidth=.5;ctx.setLineDash([4,4]);ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Dot on wave
+  if(waveHistory.length){
+    ctx.beginPath();ctx.arc(waveX,waveHistory[0],4,0,Math.PI*2);
+    ctx.fillStyle='rgba(6,182,212,.9)';ctx.fill();
+  }
+
+  // Labels
+  ctx.fillStyle='rgba(255,255,255,.2)';ctx.font='12px Space Grotesk';ctx.textAlign='center';
+  ctx.fillText(`${waveType} wave · ${terms} terms`,W/2,H-20);
+
+  // Center line
+  ctx.beginPath();ctx.moveTo(waveX,0);ctx.lineTo(waveX,H);
+  ctx.strokeStyle='rgba(255,255,255,.03)';ctx.lineWidth=1;ctx.stroke();
+
+  requestAnimationFrame(draw);
+}
+requestAnimationFrame(draw);
+</script>
+</body>
+</html>

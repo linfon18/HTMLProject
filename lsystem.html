@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>L-System Generator</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Space+Mono:wght@400&display=swap');
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#050508;--border:rgba(255,255,255,.06);--t1:#fff;--t2:rgba(255,255,255,.55);--t3:rgba(255,255,255,.25)}
+body{background:var(--bg);color:var(--t2);font-family:'Space Grotesk',sans-serif;height:100vh;display:flex;flex-direction:column;-webkit-font-smoothing:antialiased}
+.top{padding:8px 14px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap}
+.top h1{font-size:.85rem;font-weight:700;color:var(--t1);margin-right:auto}
+.btn{padding:5px 10px;border-radius:6px;font-size:.7rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--t2);cursor:pointer;transition:all .2s}
+.btn:hover{background:rgba(255,255,255,.1);color:var(--t1)}
+.btn.active{background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.25);color:#22c55e}
+label{font-size:.62rem;color:var(--t3)}
+input[type=range]{width:60px;height:3px;-webkit-appearance:none;background:rgba(255,255,255,.1);border-radius:2px;outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;height:10px;border-radius:50%;background:#fff;cursor:pointer}
+.val{font-family:'Space Mono',monospace;font-size:.58rem;color:var(--t3)}
+.main{flex:1;display:flex;overflow:hidden}
+.sidebar{width:280px;border-right:1px solid var(--border);padding:12px;overflow-y:auto;flex-shrink:0}
+.field{margin-bottom:10px}
+.field label{display:block;margin-bottom:3px;font-size:.62rem;color:var(--t3);font-weight:600;letter-spacing:.05em;text-transform:uppercase}
+.field input,.field textarea{width:100%;padding:6px 8px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:6px;color:var(--t2);font-family:'Space Mono',monospace;font-size:.72rem;outline:none}
+.field textarea{resize:vertical;height:80px}
+canvas{flex:1;display:block}
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>L-System</h1>
+  <button class="btn active" onclick="loadPreset('tree')">Tree</button>
+  <button class="btn" onclick="loadPreset('koch')">Koch</button>
+  <button class="btn" onclick="loadPreset('sierpinski')">Sierpinski</button>
+  <button class="btn" onclick="loadPreset('dragon')">Dragon</button>
+  <button class="btn" onclick="loadPreset('hilbert')">Hilbert</button>
+  <button class="btn" onclick="loadPreset('plant')">Plant</button>
+  <label>Iter</label><input type="range" id="iter" min="1" max="8" value="5"><span class="val" id="iterV">5</span>
+  <label>Angle</label><input type="range" id="angle" min="5" max="90" value="25"><span class="val" id="angleV">25</span>
+  <button class="btn" onclick="generate()">Generate</button>
+</div>
+<div class="main">
+  <div class="sidebar">
+    <div class="field"><label>Axiom</label><input id="axiom" value="F"></div>
+    <div class="field"><label>Rules</label><textarea id="rules">F=FF+[+F-F-F]-[-F+F+F]</textarea></div>
+    <div class="field"><label>Step Length</label><input type="range" id="step" min="1" max="30" value="8"><span class="val" id="stepV">8</span></div>
+    <div class="field"><label>Color Mode</label>
+      <select id="colorMode" style="width:100%;padding:6px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:6px;color:var(--t2);font-size:.72rem">
+        <option value="hue">Rainbow Hue</option>
+        <option value="green">Green Gradient</option>
+        <option value="autumn">Autumn</option>
+      </select>
+    </div>
+    <div class="field"><label>String Length: <span id="strLen">0</span></label></div>
+  </div>
+  <canvas id="c"></canvas>
+</div>
+
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+let W,H;
+function resize(){W=canvas.width=canvas.parentElement.offsetWidth;H=canvas.height=canvas.parentElement.offsetHeight;generate()}
+addEventListener('resize',resize);
+
+const PRESETS={
+  tree:{axiom:'F',rules:'F=FF+[+F-F-F]-[-F+F+F]',angle:25,iter:4,step:8},
+  koch:{axiom:'F',rules:'F=F+F-F-F+F',angle:90,iter:4,step:5},
+  sierpinski:{axiom:'F-G-G',rules:'F=F-G+F+G-F\nG=GG',angle:120,iter:6,step:4},
+  dragon:{axiom:'FX',rules:'X=X+YF+\nY=-FX-Y',angle:90,iter:12,step:5},
+  hilbert:{axiom:'A',rules:'A=-BF+AFA+FB-\nB=+AF-BFB-FA+',angle:90,iter:6,step:6},
+  plant:{axiom:'X',rules:'X=F+[[X]-X]-F[-FX]+X\nF=FF',angle:25,iter:5,step:6}
+};
+
+function loadPreset(name){
+  const p=PRESETS[name];
+  document.getElementById('axiom').value=p.axiom;
+  document.getElementById('rules').value=p.rules;
+  document.getElementById('angle').value=p.angle;document.getElementById('angleV').textContent=p.angle;
+  document.getElementById('iter').value=p.iter;document.getElementById('iterV').textContent=p.iter;
+  document.getElementById('step').value=p.step;document.getElementById('stepV').textContent=p.step;
+  document.querySelectorAll('.btn').forEach(b=>b.classList.remove('active'));
+  event.target.classList.add('active');
+  generate();
+}
+
+function generate(){
+  const axiom=document.getElementById('axiom').value;
+  const rulesText=document.getElementById('rules').value;
+  const iterations=+document.getElementById('iter').value;
+  const angle=+document.getElementById('angle').value;
+  const stepLen=+document.getElementById('step').value;
+  const colorMode=document.getElementById('colorMode').value;
+
+  // Parse rules
+  const rules={};
+  rulesText.split('\n').forEach(line=>{
+    const[left,right]=line.split('=');
+    if(left&&right)rules[left.trim()]=right.trim();
+  });
+
+  // Generate string
+  let str=axiom;
+  for(let i=0;i<iterations;i++){
+    let next='';
+    for(const c of str)next+=rules[c]||c;
+    str=next;
+    if(str.length>1000000){str=str.substring(0,1000000);break}
+  }
+  document.getElementById('strLen').textContent=str.length;
+
+  // Draw
+  ctx.fillStyle='#050508';ctx.fillRect(0,0,W,H);
+
+  // Find bounds
+  let x=0,y=0,dir=-90,minX=0,maxX=0,minY=0,maxY=0;
+  const stack=[];
+  for(const c of str){
+    if(c==='F'||c==='G'){x+=Math.cos(dir*Math.PI/180)*stepLen;y+=Math.sin(dir*Math.PI/180)*stepLen;minX=Math.min(minX,x);maxX=Math.max(maxX,x);minY=Math.min(minY,y);maxY=Math.max(maxY,y)}
+    else if(c==='+')dir+=angle;
+    else if(c==='-')dir-=angle;
+    else if(c==='[')stack.push({x,y,dir});
+    else if(c===']'){const s=stack.pop();x=s.x;y=s.y;dir=s.dir}
+  }
+
+  // Scale to fit
+  const pad=40;
+  const scale=Math.min((W-pad*2)/(maxX-minX||1),(H-pad*2)/(maxY-minY||1));
+  const ox=W/2-(minX+maxX)/2*scale;
+  const oy=H/2-(minY+maxY)/2*scale;
+
+  // Draw
+  x=0;y=0;dir=-90;
+  let depth=0;
+  ctx.lineWidth=.8;
+  for(let i=0;i<str.length;i++){
+    const c=str[i];
+    if(c==='F'||c==='G'){
+      const nx=x+Math.cos(dir*Math.PI/180)*stepLen;
+      const ny=y+Math.sin(dir*Math.PI/180)*stepLen;
+      ctx.beginPath();ctx.moveTo(x*scale+ox,y*scale+oy);ctx.lineTo(nx*scale+ox,ny*scale+oy);
+      let col;
+      if(colorMode==='hue')col=`hsla(${depth*5%360},60%,55%,.6)`;
+      else if(colorMode==='green')col=`hsla(${120+i/str.length*40},${50+i/str.length*30}%,${30+depth*.5}%,.6)`;
+      else col=`hsla(${30+i/str.length*30},${60}%,${40+depth*.3}%,.6)`;
+      ctx.strokeStyle=col;ctx.stroke();
+      x=nx;y=ny;depth++;
+    }else if(c==='+')dir+=angle;
+    else if(c==='-')dir-=angle;
+    else if(c==='[')stack.push({x,y,dir});
+    else if(c===']'){const s=stack.pop();x=s.x;y=s.y;dir=s.dir;depth--}
+  }
+}
+
+document.getElementById('iter').addEventListener('input',e=>{document.getElementById('iterV').textContent=e.target.value;generate()});
+document.getElementById('angle').addEventListener('input',e=>{document.getElementById('angleV').textContent=e.target.value;generate()});
+document.getElementById('step').addEventListener('input',e=>{document.getElementById('stepV').textContent=e.target.value;generate()});
+document.getElementById('colorMode').addEventListener('change',generate);
+
+setTimeout(()=>{resize()},50);
+</script>
+</body>
+</html>

@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bezier Editor</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Space+Mono:wght@400&display=swap');
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#050508;--border:rgba(255,255,255,.06);--t1:#fff;--t2:rgba(255,255,255,.55);--t3:rgba(255,255,255,.25)}
+body{background:var(--bg);color:var(--t2);font-family:'Space Grotesk',sans-serif;height:100vh;display:flex;flex-direction:column;-webkit-font-smoothing:antialiased}
+.top{padding:8px 14px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border);flex-shrink:0}
+.top h1{font-size:.85rem;font-weight:700;color:var(--t1);margin-right:auto}
+.btn{padding:5px 10px;border-radius:6px;font-size:.7rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--t2);cursor:pointer;transition:all .2s}
+.btn:hover{background:rgba(255,255,255,.1);color:var(--t1)}
+.btn.active{background:rgba(139,92,246,.12);border-color:rgba(139,92,246,.25);color:#a78bfa}
+canvas{flex:1;display:block}
+.info{padding:8px 14px;border-top:1px solid var(--border);font-size:.65rem;font-family:'Space Mono',monospace;color:var(--t3);display:flex;gap:20px;flex-shrink:0}
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>Bezier Curve Editor</h1>
+  <button class="btn active" onclick="setOrder(3)">Cubic</button>
+  <button class="btn" onclick="setOrder(2)">Quadratic</button>
+  <button class="btn" onclick="setOrder(4)">Degree 4</button>
+  <button class="btn" onclick="addPoint()">Add Point</button>
+  <button class="btn" onclick="resetPoints()">Reset</button>
+  <button class="btn" id="animBtn" onclick="toggleAnim()">Animate</button>
+  <button class="btn" onclick="exportSVG()">Export SVG</button>
+</div>
+<canvas id="c"></canvas>
+<div class="info">
+  <span>t: <span id="tVal">0.00</span></span>
+  <span>Points: <span id="nPts">4</span></span>
+  <span>Length: <span id="arcLen">0</span>px</span>
+  <span>Click canvas to add points · Drag to move</span>
+</div>
+
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+let W,H;
+function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight;draw()}
+addEventListener('resize',resize);
+
+let points=[];
+let dragging=-1;
+let animating=true,animT=0;
+let order=3;
+
+function setOrder(o){
+  order=o;
+  document.querySelectorAll('.btn').forEach(b=>{
+    if(b.textContent==='Cubic'||b.textContent==='Quadratic'||b.textContent==='Degree 4')b.classList.remove('active');
+  });
+  event.target.classList.add('active');
+  resetPoints();
+}
+
+function resetPoints(){
+  points=[];
+  const pad=100;
+  for(let i=0;i<=order;i++){
+    points.push({x:pad+i*(W-pad*2)/order,y:H/2+(i%2===0?-100:100)*(Math.random()>.5?1:-1)});
+  }
+  draw();
+}
+
+function addPoint(){
+  const last=points[points.length-1];
+  points.push({x:last.x+100,y:last.y+(Math.random()-.5)*200});
+  draw();
+}
+
+function toggleAnim(){animating=!animating;document.getElementById('animBtn').classList.toggle('active')}
+
+function binomial(n,k){
+  let r=1;for(let i=0;i<k;i++){r=r*(n-i)/(i+1)}return r;
+}
+
+function bezier(t){
+  const n=points.length-1;
+  let x=0,y=0;
+  for(let i=0;i<=n;i++){
+    const b=binomial(n,i)*Math.pow(1-t,n-i)*Math.pow(t,i);
+    x+=points[i].x*b;y+=points[i].y*b;
+  }
+  return{x,y};
+}
+
+function bezierDerivative(t){
+  const n=points.length-1;
+  let x=0,y=0;
+  for(let i=0;i<n;i++){
+    const b=binomial(n-1,i)*Math.pow(1-t,n-1-i)*Math.pow(t,i);
+    x+=(points[i+1].x-points[i].x)*n*b;
+    y+=(points[i+1].y-points[i].y)*n*b;
+  }
+  return{x,y};
+}
+
+// De Casteljau for subdivision visualization
+function deCasteljau(pts,t){
+  let curve=[pts.map(p=>({...p}))];
+  let current=pts.map(p=>({...p}));
+  while(current.length>1){
+    const next=[];
+    for(let i=0;i<current.length-1;i++){
+      next.push({
+        x:current[i].x*(1-t)+current[i+1].x*t,
+        y:current[i].y*(1-t)+current[i+1].y*t
+      });
+    }
+    curve.push(next);
+    current=next;
+  }
+  return curve;
+}
+
+canvas.addEventListener('mousedown',e=>{
+  const mx=e.clientX,my=e.clientY;
+  for(let i=0;i<points.length;i++){
+    if(Math.hypot(points[i].x-mx,points[i].y-my)<15){dragging=i;return}
+  }
+});
+canvas.addEventListener('mousemove',e=>{
+  if(dragging>=0){points[dragging].x=e.clientX;points[dragging].y=e.clientY;draw()}
+});
+canvas.addEventListener('mouseup',()=>dragging=-1);
+canvas.addEventListener('dblclick',e=>{
+  points.push({x:e.clientX,y:e.clientY});
+  draw();
+});
+
+function draw(){
+  ctx.fillStyle='#050508';ctx.fillRect(0,0,W,H);
+
+  // Grid
+  ctx.strokeStyle='rgba(255,255,255,.02)';ctx.lineWidth=.5;
+  for(let x=0;x<W;x+=50){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke()}
+  for(let y=0;y<H;y+=50){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke()}
+
+  if(points.length<2)return;
+
+  // Control polygon
+  ctx.beginPath();ctx.moveTo(points[0].x,points[0].y);
+  for(let i=1;i<points.length;i++)ctx.lineTo(points[i].x,points[i].y);
+  ctx.strokeStyle='rgba(255,255,255,.1)';ctx.lineWidth=1;ctx.setLineDash([5,5]);ctx.stroke();ctx.setLineDash([]);
+
+  // Bezier curve
+  ctx.beginPath();
+  const steps=200;
+  for(let i=0;i<=steps;i++){
+    const p=bezier(i/steps);
+    if(i===0)ctx.moveTo(p.x,p.y);else ctx.lineTo(p.x,p.y);
+  }
+  ctx.strokeStyle='rgba(139,92,246,.7)';ctx.lineWidth=2.5;ctx.stroke();
+
+  // Arc length calculation
+  let arcLen=0;
+  let prev=bezier(0);
+  for(let i=1;i<=100;i++){
+    const curr=bezier(i/100);
+    arcLen+=Math.hypot(curr.x-prev.x,curr.y-prev.y);
+    prev=curr;
+  }
+  document.getElementById('arcLen').textContent=Math.round(arcLen);
+  document.getElementById('nPts').textContent=points.length;
+
+  // Control points
+  points.forEach((p,i)=>{
+    ctx.beginPath();ctx.arc(p.x,p.y,7,0,Math.PI*2);
+    ctx.fillStyle=i===0||i===points.length-1?'rgba(34,197,94,.3)':'rgba(255,255,255,.06)';
+    ctx.fill();
+    ctx.strokeStyle='rgba(255,255,255,.2)';ctx.lineWidth=1;ctx.stroke();
+    // Index
+    ctx.fillStyle='rgba(255,255,255,.3)';ctx.font='10px Space Mono';ctx.textAlign='center';
+    ctx.fillText(i,p.x,p.y-12);
+  });
+
+  // Animation
+  if(animating){
+    const t=animT%1;
+    const pt=bezier(t);
+    const deriv=bezierDerivative(t);
+    const angle=Math.atan2(deriv.y,deriv.x);
+
+    // Tangent line
+    ctx.beginPath();
+    ctx.moveTo(pt.x-Math.cos(angle)*60,pt.y-Math.sin(angle)*60);
+    ctx.lineTo(pt.x+Math.cos(angle)*60,pt.y+Math.sin(angle)*60);
+    ctx.strokeStyle='rgba(234,179,8,.3)';ctx.lineWidth=1;ctx.stroke();
+
+    // Normal line
+    ctx.beginPath();
+    ctx.moveTo(pt.x-Math.sin(angle)*40,pt.y+Math.cos(angle)*40);
+    ctx.lineTo(pt.x+Math.sin(angle)*40,pt.y-Math.cos(angle)*40);
+    ctx.strokeStyle='rgba(6,182,212,.3)';ctx.lineWidth=1;ctx.stroke();
+
+    // Point on curve
+    ctx.beginPath();ctx.arc(pt.x,pt.y,5,0,Math.PI*2);
+    ctx.fillStyle='rgba(234,179,8,.9)';ctx.fill();
+    const g=ctx.createRadialGradient(pt.x,pt.y,0,pt.x,pt.y,15);
+    g.addColorStop(0,'rgba(234,179,8,.2)');g.addColorStop(1,'transparent');
+    ctx.fillStyle=g;ctx.beginPath();ctx.arc(pt.x,pt.y,15,0,Math.PI*2);ctx.fill();
+
+    // De Casteljau construction lines
+    const curve=deCasteljau(points,t);
+    for(let level=1;level<curve.length-1;level++){
+      const pts=curve[level];
+      ctx.beginPath();ctx.moveTo(pts[0].x,pts[0].y);
+      for(let i=1;i<pts.length;i++)ctx.lineTo(pts[i].x,pts[i].y);
+      ctx.strokeStyle=`rgba(255,255,255,${.05+level*.03})`;ctx.lineWidth=.5;ctx.stroke();
+      pts.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,2,0,Math.PI*2);ctx.fillStyle='rgba(255,255,255,.15)';ctx.fill()});
+    }
+
+    // t label
+    ctx.fillStyle='rgba(234,179,8,.5)';ctx.font='12px Space Mono';ctx.textAlign='left';
+    ctx.fillText(`t=${t.toFixed(2)}`,pt.x+12,pt.y-10);
+
+    document.getElementById('tVal').textContent=t.toFixed(2);
+    animT+=.003;
+  }
+}
+
+function exportSVG(){
+  let svg=`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}"><rect fill="#050508" width="${W}" height="${H}"/><path d="M`;
+  for(let i=0;i<=200;i++){const p=bezier(i/200);svg+=`${i===0?'':'L'}${p.x.toFixed(1)},${p.y.toFixed(1)} `}
+  svg+='" fill="none" stroke="#8b5cf6" stroke-width="2.5"/></svg>';
+  const blob=new Blob([svg],{type:'image/svg+xml'});
+  const a=document.createElement('a');a.download='bezier.svg';a.href=URL.createObjectURL(blob);a.click();
+}
+
+resetPoints();
+function loop(){if(animating)draw();requestAnimationFrame(loop)}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

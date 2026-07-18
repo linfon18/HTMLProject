@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>排序算法可视化</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Space+Mono:wght@400&display=swap');
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#050508;--border:rgba(255,255,255,.06);--t1:#fff;--t2:rgba(255,255,255,.55);--t3:rgba(255,255,255,.25)}
+body{background:var(--bg);color:var(--t2);font-family:'Space Grotesk',sans-serif;min-height:100vh;display:flex;flex-direction:column;-webkit-font-smoothing:antialiased}
+.top{padding:20px 24px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;border-bottom:1px solid var(--border)}
+.top h1{font-size:1.1rem;font-weight:700;color:var(--t1);margin-right:auto}
+.btn{padding:7px 14px;border-radius:8px;font-size:.75rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--t2);cursor:pointer;transition:all .2s}
+.btn:hover{background:rgba(255,255,255,.1);color:var(--t1)}
+.btn.primary{background:rgba(139,92,246,.15);border-color:rgba(139,92,246,.3);color:#a78bfa}
+.btn.active{background:rgba(34,197,94,.15);border-color:rgba(34,197,94,.3);color:#4ade80}
+select{background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:8px;color:var(--t2);font-size:.75rem;padding:7px 12px;font-family:inherit;outline:none;cursor:pointer}
+select option{background:#1a1a2e}
+label{font-size:.68rem;color:var(--t3)}
+input[type=range]{width:80px;height:3px;-webkit-appearance:none;background:rgba(255,255,255,.1);border-radius:2px;outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;background:#fff;cursor:pointer}
+.canvas-wrap{flex:1;display:flex;align-items:flex-end;justify-content:center;padding:20px 24px 40px}
+canvas{width:100%;max-width:1200px;border-radius:8px}
+.stats{position:fixed;bottom:16px;left:24px;display:flex;gap:20px;font-size:.7rem;font-family:'Space Mono',monospace;color:var(--t3)}
+.stats span{padding:4px 10px;border-radius:6px;background:rgba(255,255,255,.04);border:1px solid var(--border)}
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>Sorting Visualizer</h1>
+  <select id="algo">
+    <option value="bubble">Bubble Sort</option>
+    <option value="selection">Selection Sort</option>
+    <option value="insertion">Insertion Sort</option>
+    <option value="merge">Merge Sort</option>
+    <option value="quick">Quick Sort</option>
+    <option value="heap">Heap Sort</option>
+    <option value="radix">Radix Sort</option>
+    <option value="shell">Shell Sort</option>
+  </select>
+  <label>Size</label>
+  <input type="range" id="size" min="10" max="200" value="80">
+  <label>Speed</label>
+  <input type="range" id="speed" min="1" max="100" value="50">
+  <button class="btn primary" id="startBtn">Start</button>
+  <button class="btn" id="shuffleBtn">Shuffle</button>
+  <button class="btn" id="compareBtn">Compare All</button>
+</div>
+<div class="canvas-wrap"><canvas id="c"></canvas></div>
+<div class="stats">
+  <span id="compS">Comparisons: 0</span>
+  <span id="swapS">Swaps: 0</span>
+  <span id="timeS">Time: 0ms</span>
+</div>
+
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+const dpr=devicePixelRatio;
+let W,H;
+function resize(){const r=canvas.parentElement.getBoundingClientRect();W=canvas.width=r.width*dpr;H=canvas.height=r.height*dpr;ctx.scale(dpr,dpr);draw()}
+resize();addEventListener('resize',resize);
+
+let arr=[],comparisons=0,swaps=0,running=false,startTime=0;
+let highlights={compare:[],swap:[],sorted:[],pivot:-1};
+
+function generate(n){arr=Array.from({length:n},()=>Math.random()*1);highlights={compare:[],swap:[],sorted:[],pivot:-1};comparisons=0;swaps=0}
+function draw(){
+  const w=W/dpr,h=H/dpr;
+  ctx.clearRect(0,0,w,h);
+  const bw=w/arr.length;
+  for(let i=0;i<arr.length;i++){
+    let color='rgba(139,92,246,.7)';
+    if(highlights.sorted.includes(i))color='rgba(34,197,94,.8)';
+    if(highlights.compare.includes(i))color='rgba(234,179,8,.9)';
+    if(highlights.swap.includes(i))color='rgba(244,63,94,.9)';
+    if(i===highlights.pivot)color='rgba(6,182,212,.9)';
+    ctx.fillStyle=color;
+    ctx.fillRect(i*bw+1,h-arr[i]*h*.92,bw-2,arr[i]*h*.92);
+  }
+  document.getElementById('compS').textContent='Comparisons: '+comparisons;
+  document.getElementById('swapS').textContent='Swaps: '+swaps;
+  if(startTime)document.getElementById('timeS').textContent='Time: '+(performance.now()-startTime|0)+'ms';
+}
+
+function speed(){return 201-(+document.getElementById('speed').value*2)}
+function delay(){return new Promise(r=>setTimeout(r,speed()))}
+async function compare(i,j){comparisons++;highlights.compare=[i,j];draw();await delay()}
+async function swap(i,j){swaps++;[arr[i],arr[j]]=[arr[j],arr[i]];highlights.swap=[i,j];draw();await delay()}
+function markSorted(i){highlights.sorted.push(i)}
+
+// === ALGORITHMS ===
+async function bubble(){
+  for(let i=0;i<arr.length-1;i++){
+    let swapped=false;
+    for(let j=0;j<arr.length-1-i;j++){
+      await compare(j,j+1);
+      if(arr[j]>arr[j+1]){await swap(j,j+1);swapped=true}
+    }
+    markSorted(arr.length-1-i);
+    if(!swapped)break;
+  }
+  markSorted(0);
+}
+
+async function selection(){
+  for(let i=0;i<arr.length-1;i++){
+    let min=i;
+    for(let j=i+1;j<arr.length;j++){
+      await compare(min,j);
+      if(arr[j]<arr[min])min=j;
+    }
+    if(min!==i)await swap(i,min);
+    markSorted(i);
+  }
+  markSorted(arr.length-1);
+}
+
+async function insertion(){
+  for(let i=1;i<arr.length;i++){
+    let j=i;
+    while(j>0){await compare(j-1,j);if(arr[j-1]<=arr[j])break;await swap(j-1,j);j--}
+  }
+  for(let i=0;i<arr.length;i++)markSorted(i);
+}
+
+async function mergeSort(l=0,r=arr.length-1){
+  if(l>=r)return;
+  const m=(l+r)>>1;
+  await mergeSort(l,m);
+  await mergeSort(m+1,r);
+  const tmp=[];
+  let i=l,j=m+1;
+  while(i<=m&&j<=r){
+    await compare(i,j);
+    if(arr[i]<=arr[j])tmp.push(arr[i++]);else tmp.push(arr[j++]);
+  }
+  while(i<=m)tmp.push(arr[i++]);
+  while(j<=r)tmp.push(arr[j++]);
+  for(let k=0;k<tmp.length;k++){arr[l+k]=tmp[k];swaps++;highlights.swap=[l+k];draw();await delay()}
+  if(l===0&&r===arr.length-1)for(let i=0;i<arr.length;i++)markSorted(i);
+}
+
+async function quickSort(l=0,r=arr.length-1){
+  if(l>=r){markSorted(l);return}
+  let pivot=arr[r],i=l;
+  highlights.pivot=r;
+  for(let j=l;j<r;j++){await compare(j,r);if(arr[j]<pivot){await swap(i,j);i++}}
+  await swap(i,r);
+  markSorted(i);
+  await quickSort(l,i-1);
+  await quickSort(i+1,r);
+}
+
+async function heapSort(){
+  const n=arr.length;
+  async function heapify(size,root){
+    let largest=root,l=2*root+1,r=2*root+2;
+    if(l<size){await compare(l,largest);if(arr[l]>arr[largest])largest=l}
+    if(r<size){await compare(r,largest);if(arr[r]>arr[largest])largest=r}
+    if(largest!==root){await swap(root,largest);await heapify(size,largest)}
+  }
+  for(let i=(n>>1)-1;i>=0;i--)await heapify(n,i);
+  for(let i=n-1;i>0;i--){await swap(0,i);markSorted(i);await heapify(i,0)}
+  markSorted(0);
+}
+
+async function radixSort(){
+  const max=Math.max(...arr);
+  for(let exp=1;max/exp>1;exp*=10){
+    const output=new Array(arr.length),count=new Array(10).fill(0);
+    for(let i=0;i<arr.length;i++){const d=Math.floor(arr[i]*1000/exp)%10;count[d]++}
+    for(let i=1;i<10;i++)count[i]+=count[i-1];
+    for(let i=arr.length-1;i>=0;i--){const d=Math.floor(arr[i]*1000/exp)%10;output[--count[d]]=arr[i]}
+    for(let i=0;i<arr.length;i++){arr[i]=output[i];swaps++;highlights.swap=[i];draw();await delay()}
+  }
+  for(let i=0;i<arr.length;i++)markSorted(i);
+}
+
+async function shellSort(){
+  let gap=arr.length>>1;
+  while(gap>0){
+    for(let i=gap;i<arr.length;i++){
+      let j=i;
+      while(j>=gap){await compare(j-gap,j);if(arr[j-gap]<=arr[j])break;await swap(j-gap,j);j-=gap}
+    }
+    gap>>=1;
+  }
+  for(let i=0;i<arr.length;i++)markSorted(i);
+}
+
+const algos={bubble,selection,insertion,merge:mergeSort,quick:quickSort,heap:heapSort,radix:radixSort,shell:shellSort};
+
+document.getElementById('startBtn').addEventListener('click',async()=>{
+  if(running)return;running=true;
+  document.getElementById('startBtn').classList.add('active');
+  document.getElementById('startBtn').textContent='Running...';
+  startTime=performance.now();
+  highlights={compare:[],swap:[],sorted:[],pivot:-1};
+  await algos[document.getElementById('algo').value]();
+  highlights.compare=[];highlights.swap=[];highlights.pivot=-1;
+  draw();
+  running=false;
+  document.getElementById('startBtn').classList.remove('active');
+  document.getElementById('startBtn').textContent='Start';
+});
+
+document.getElementById('shuffleBtn').addEventListener('click',()=>{if(running)return;generate(+document.getElementById('size').value);draw()});
+document.getElementById('size').addEventListener('input',e=>{if(running)return;generate(+e.target.value);draw()});
+
+document.getElementById('compareBtn').addEventListener('click',async()=>{
+  if(running)return;running=true;
+  const names=Object.keys(algos);
+  const results=[];
+  for(const name of names){
+    generate(+document.getElementById('size').value);
+    const copy=[...arr];
+    startTime=performance.now();
+    await algos[name]();
+    results.push({name,time:performance.now()-startTime|0,comparisons,swaps});
+    arr=[...copy];
+  }
+  running=false;
+  generate(+document.getElementById('size').value);draw();
+  const msg=results.map(r=>`${r.name}: ${r.time}ms, ${r.comparisons} cmp, ${r.swaps} swp`).join('\n');
+  alert('Comparison Results:\n\n'+msg);
+});
+
+generate(80);draw();
+</script>
+</body>
+</html>

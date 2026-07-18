@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Endless Runner</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}body{background:#050508;overflow:hidden}canvas{display:block}
+.ui{position:fixed;top:12px;left:12px;z-index:10;display:flex;gap:8px;align-items:center}
+.btn{padding:5px 10px;border-radius:6px;font-size:.7rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);color:rgba(255,255,255,.5);cursor:pointer;transition:all .2s;font-family:'Space Grotesk',sans-serif}
+.btn:hover{background:rgba(255,255,255,.1);color:#fff}
+.score{position:fixed;top:12px;right:16px;font-size:1.4rem;font-weight:700;font-family:'Space Grotesk',sans-serif;color:#fff;z-index:10}
+.score small{font-size:.6rem;color:rgba(255,255,255,.3);font-weight:400;display:block;text-align:right}
+.overlay{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(5,5,8,.8);z-index:20;backdrop-filter:blur(8px)}
+.overlay h1{font-family:'Space Grotesk',sans-serif;font-size:2rem;color:#fff;margin-bottom:8px}
+.overlay p{font-family:'Space Mono',monospace;font-size:.8rem;color:rgba(255,255,255,.4);margin-bottom:20px}
+.overlay .btn{padding:10px 28px;font-size:.85rem}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="ui">
+  <button class="btn" onclick="startGame()">Restart</button>
+</div>
+<div class="score" id="score">0<small>0</small></div>
+<div class="overlay" id="overlay">
+  <h1>Endless Runner</h1>
+  <p>Space or Click to jump · Double jump available</p>
+  <button class="btn" onclick="startGame()">Start</button>
+</div>
+
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+let W,H;
+function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight}
+addEventListener('resize',resize);
+
+let player,obstacles,particles,score,bestScore=0,speed,running,groundY;
+let stars=[];
+
+function init(){
+  groundY=H*.78;
+  player={x:120,y:groundY,vy:0,w:28,h:42,jumps:0,maxJumps:2,alive:true};
+  obstacles=[];particles=[];score=0;speed=4;running=true;
+  stars=Array.from({length:80},()=>({x:Math.random()*W,y:Math.random()*groundY*.8,s:Math.random()*2+.5,b:Math.random()}));
+  document.getElementById('overlay').style.display='none';
+}
+
+function startGame(){init()}
+
+function jump(){
+  if(!running)return;
+  if(player.jumps<player.maxJumps){
+    player.vy=-12+player.jumps*2;player.jumps++;
+    for(let i=0;i<8;i++)particles.push({x:player.x,y:player.y+player.h,vx:(Math.random()-.5)*4,vy:Math.random()*3,life:1,color:'#8b5cf6'});
+  }
+}
+
+function spawnObstacle(){
+  const types=['spike','box','tall','double'];
+  const type=types[Math.random()*types.length|0];
+  let w,h;
+  if(type==='spike'){w=20+h=30;w=20;h=30}
+  else if(type==='box'){w=30;h=30}
+  else if(type==='tall'){w=20;h=50}
+  else{w=40;h=25}
+  obstacles.push({x:W+50,y:groundY-h,w,h,type,speed:speed+Math.random()});
+  // Occasionally spawn high obstacle
+  if(Math.random()<.25)obstacles.push({x:W+50+60,y:groundY-80-Math.random()*40,w:35,h:20,type:'bird'});
+}
+
+function update(){
+  if(!running)return;
+  // Player physics
+  player.vy+=.65;
+  player.y+=player.vy;
+  if(player.y>=groundY-player.h){player.y=groundY-player.h;player.vy=0;player.jumps=0}
+
+  // Obstacles
+  if(Math.random()<.02+speed*.002)spawnObstacle();
+  obstacles.forEach(o=>{o.x-=speed});
+  obstacles=obstacles.filter(o=>o.x>-50);
+
+  // Collision
+  obstacles.forEach(o=>{
+    const px=player.x+4,pw=player.w-8,py=player.y+4,ph=player.h-4;
+    if(px+pw>o.x&&px<o.x+o.w&&py+ph>o.y&&py<o.y+o.h){
+      player.alive=false;running=false;
+      bestScore=Math.max(bestScore,score);
+      document.getElementById('overlay').style.display='flex';
+      document.getElementById('overlay').querySelector('h1').textContent='Game Over';
+      document.getElementById('overlay').querySelector('p').textContent=`Score: ${score} · Best: ${bestScore}`;
+    }
+  });
+
+  // Particles
+  particles.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.vy+=.1;p.life-=.03});
+  particles=particles.filter(p=>p.life>0);
+
+  // Stars scroll
+  stars.forEach(s=>{s.x-=speed*.2;if(s.x<0)s.x=W});
+
+  score++;
+  speed=4+score*.005;
+  document.getElementById('score').innerHTML=`${score}<small>Best: ${bestScore}</small>`;
+}
+
+function draw(){
+  ctx.fillStyle='#050508';ctx.fillRect(0,0,W,H);
+
+  // Stars
+  stars.forEach(s=>{
+    ctx.fillStyle=`rgba(255,255,255,${.1+s.b*.3})`;
+    ctx.fillRect(s.x,s.y,s.s,s.s);
+  });
+
+  // Ground
+  ctx.fillStyle='rgba(139,92,246,.15)';ctx.fillRect(0,groundY,W,2);
+  for(let x=0;x<W;x+=3){
+    const h=Math.sin(x*.1+Date.now()*.003)*3;
+    ctx.fillStyle='rgba(139,92,246,.08)';ctx.fillRect(x,groundY,2,8+h);
+  }
+
+  // Obstacles
+  obstacles.forEach(o=>{
+    if(o.type==='spike'){
+      ctx.beginPath();ctx.moveTo(o.x+o.w/2,o.y);ctx.lineTo(o.x+o.w,o.y+o.h);ctx.lineTo(o.x,o.y+o.h);ctx.closePath();
+      ctx.fillStyle='rgba(244,63,94,.8)';ctx.fill();
+    }else if(o.type==='bird'){
+      ctx.fillStyle='rgba(234,179,8,.7)';
+      ctx.beginPath();ctx.ellipse(o.x+o.w/2,o.y+o.h/2,o.w/2,o.h/2,0,0,Math.PI*2);ctx.fill();
+      // Wing
+      ctx.beginPath();ctx.moveTo(o.x+5,o.y+o.h/2);ctx.lineTo(o.x-10,o.y+Math.sin(Date.now()*.01)*8);ctx.lineTo(o.x+15,o.y+o.h/2);ctx.strokeStyle='rgba(234,179,8,.5)';ctx.lineWidth=2;ctx.stroke();
+    }else{
+      ctx.fillStyle='rgba(6,182,212,.6)';ctx.fillRect(o.x,o.y,o.w,o.h);
+      ctx.strokeStyle='rgba(6,182,212,.3)';ctx.strokeRect(o.x,o.y,o.w,o.h);
+    }
+  });
+
+  // Player
+  if(player.alive||Date.now()%200>100){
+    ctx.fillStyle='rgba(139,92,246,.8)';
+    ctx.fillRect(player.x,player.y,player.w,player.h);
+    // Eyes
+    ctx.fillStyle='#fff';ctx.fillRect(player.x+8,player.y+10,5,5);ctx.fillRect(player.x+18,player.y+10,5,5);
+    // Glow
+    const g=ctx.createRadialGradient(player.x+player.w/2,player.y+player.h/2,0,player.x+player.w/2,player.y+player.h/2,30);
+    g.addColorStop(0,'rgba(139,92,246,.15)');g.addColorStop(1,'transparent');
+    ctx.fillStyle=g;ctx.beginPath();ctx.arc(player.x+player.w/2,player.y+player.h/2,30,0,Math.PI*2);ctx.fill();
+  }
+
+  // Particles
+  particles.forEach(p=>{
+    ctx.globalAlpha=p.life;ctx.fillStyle=p.color;
+    ctx.fillRect(p.x,p.y,3,3);
+  });
+  ctx.globalAlpha=1;
+}
+
+document.addEventListener('keydown',e=>{if(e.code==='Space'){e.preventDefault();jump()}});
+canvas.addEventListener('click',jump);
+
+function loop(){update();draw();requestAnimationFrame(loop)}
+resize();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

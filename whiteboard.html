@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Drawing Whiteboard</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Space+Mono:wght@400&display=swap');
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0f0f14;--border:rgba(255,255,255,.06);--t1:#fff;--t2:rgba(255,255,255,.55);--t3:rgba(255,255,255,.25)}
+body{background:var(--bg);color:var(--t2);font-family:'Space Grotesk',sans-serif;height:100vh;overflow:hidden;display:flex;flex-direction:column;-webkit-font-smoothing:antialiased}
+.top{padding:8px 16px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border);background:rgba(15,15,20,.9);backdrop-filter:blur(16px);z-index:10;flex-shrink:0}
+.top h1{font-size:.85rem;font-weight:700;color:var(--t1);margin-right:auto}
+.toolbar{display:flex;gap:3px;align-items:center}
+.tool{
+  width:32px;height:32px;border-radius:7px;border:1px solid transparent;
+  background:transparent;color:var(--t3);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;font-size:.85rem;
+  transition:all .15s;
+}
+.tool:hover{background:rgba(255,255,255,.06);color:var(--t1);border-color:var(--border)}
+.tool.active{background:rgba(139,92,246,.12);border-color:rgba(139,92,246,.3);color:#a78bfa}
+.sep{width:1px;height:24px;background:var(--border);margin:0 4px}
+input[type=color]{width:28px;height:28px;border:1px solid var(--border);border-radius:6px;background:none;cursor:pointer;padding:1px}
+input[type=color]::-webkit-color-swatch-wrapper{padding:1px}
+input[type=color]::-webkit-color-swatch{border:none;border-radius:4px}
+input[type=range]{width:60px;height:3px;-webkit-appearance:none;background:rgba(255,255,255,.1);border-radius:2px;outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;height:10px;border-radius:50%;background:#fff;cursor:pointer}
+.val{font-family:'Space Mono',monospace;font-size:.6rem;color:var(--t3);min-width:16px}
+.btn{padding:5px 10px;border-radius:6px;font-size:.7rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--t3);cursor:pointer;transition:all .2s}
+.btn:hover{color:var(--t1);background:rgba(255,255,255,.1)}
+.canvas-wrap{flex:1;position:relative;overflow:hidden}
+canvas{position:absolute;inset:0;cursor:crosshair}
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>Whiteboard</h1>
+  <div class="toolbar">
+    <button class="tool active" data-tool="pen" title="Pen">✏️</button>
+    <button class="tool" data-tool="brush" title="Brush">🖌️</button>
+    <button class="tool" data-tool="line" title="Line">╱</button>
+    <button class="tool" data-tool="rect" title="Rectangle">▭</button>
+    <button class="tool" data-tool="circle" title="Circle">○</button>
+    <button class="tool" data-tool="eraser" title="Eraser">◻</button>
+    <div class="sep"></div>
+    <input type="color" id="color" value="#a78bfa">
+    <input type="range" id="size" min="1" max="50" value="3">
+    <span class="val" id="sizeV">3</span>
+    <div class="sep"></div>
+    <button class="btn" onclick="undo()">Undo</button>
+    <button class="btn" onclick="redo()">Redo</button>
+    <button class="btn" onclick="clearCanvas()">Clear</button>
+    <button class="btn" onclick="savePNG()">Save</button>
+  </div>
+</div>
+<div class="canvas-wrap">
+  <canvas id="bg"></canvas>
+  <canvas id="main"></canvas>
+  <canvas id="temp"></canvas>
+</div>
+
+<script>
+const bgCanvas=document.getElementById('bg');
+const mainCanvas=document.getElementById('main');
+const tempCanvas=document.getElementById('temp');
+const bgCtx=bgCanvas.getContext('2d');
+const mainCtx=mainCanvas.getContext('2d');
+const tempCtx=tempCanvas.getContext('2d');
+
+let W,H,tool='pen',color='#a78bfa',size=3;
+let drawing=false,startX,startY,history=[],histIdx=-1;
+
+function resize(){
+  W=mainCanvas.width=innerWidth;H=mainCanvas.height=innerHeight-48;
+  bgCanvas.width=tempCanvas.width=W;bgCanvas.height=tempCanvas.height=H;
+  drawGrid();
+  redrawHistory();
+}
+function drawGrid(){
+  bgCtx.fillStyle='#0f0f14';bgCtx.fillRect(0,0,W,H);
+  bgCtx.strokeStyle='rgba(255,255,255,.025)';bgCtx.lineWidth=.5;
+  for(let x=0;x<W;x+=40){bgCtx.beginPath();bgCtx.moveTo(x,0);bgCtx.lineTo(x,H);bgCtx.stroke()}
+  for(let y=0;y<H;y+=40){bgCtx.beginPath();bgCtx.moveTo(0,y);bgCtx.lineTo(W,y);bgCtx.stroke()}
+}
+resize();addEventListener('resize',resize);
+
+function saveState(){
+  history=history.slice(0,histIdx+1);
+  history.push(mainCanvas.toDataURL());
+  histIdx=history.length-1;
+  if(history.length>50){history.shift();histIdx--}
+}
+function undo(){if(histIdx>0){histIdx--;redrawHistory()}}
+function redo(){if(histIdx<history.length-1){histIdx++;redrawHistory()}}
+function redrawHistory(){
+  mainCtx.clearRect(0,0,W,H);
+  if(histIdx>=0&&history[histIdx]){
+    const img=new Image();img.onload=()=>mainCtx.drawImage(img,0,0);img.src=history[histIdx];
+  }
+}
+function clearCanvas(){mainCtx.clearRect(0,0,W,H);saveState()}
+function savePNG(){
+  const tmp=document.createElement('canvas');tmp.width=W;tmp.height=H;
+  const tc=tmp.getContext('2d');
+  tc.drawImage(bgCanvas,0,0);tc.drawImage(mainCanvas,0,0);
+  const a=document.createElement('a');a.download='whiteboard.png';a.href=tmp.toDataURL();a.click();
+}
+
+function getPos(e){const r=tempCanvas.getBoundingClientRect();return[e.clientX-r.left,e.clientY-r.top]}
+
+tempCanvas.addEventListener('mousedown',e=>{
+  drawing=true;[startX,startY]=getPos(e);
+  if(tool==='pen'||tool==='brush'||tool==='eraser'){
+    mainCtx.beginPath();mainCtx.moveTo(startX,startY);
+    mainCtx.strokeStyle=tool==='eraser'?'#0f0f14':color;
+    mainCtx.lineWidth=tool==='brush'?size*3:size;
+    mainCtx.lineCap='round';mainCtx.lineJoin='round';
+    mainCtx.globalCompositeOperation=tool==='eraser'?'destination-out':'source-over';
+  }
+});
+
+tempCanvas.addEventListener('mousemove',e=>{
+  if(!drawing)return;
+  const[x,y]=getPos(e);
+  if(tool==='pen'||tool==='brush'||tool==='eraser'){
+    mainCtx.lineTo(x,y);mainCtx.stroke();
+  }else{
+    tempCtx.clearRect(0,0,W,H);
+    tempCtx.strokeStyle=color;tempCtx.lineWidth=size;tempCtx.lineCap='round';
+    tempCtx.setLineDash(tool==='line'?[]:[]);
+    if(tool==='line'){
+      tempCtx.beginPath();tempCtx.moveTo(startX,startY);tempCtx.lineTo(x,y);tempCtx.stroke();
+    }else if(tool==='rect'){
+      tempCtx.strokeRect(Math.min(startX,x),Math.min(startY,y),Math.abs(x-startX),Math.abs(y-startY));
+    }else if(tool==='circle'){
+      const r=Math.sqrt((x-startX)**2+(y-startY)**2);
+      tempCtx.beginPath();tempCtx.arc(startX,startY,r,0,Math.PI*2);tempCtx.stroke();
+    }
+  }
+});
+
+tempCanvas.addEventListener('mouseup',e=>{
+  if(!drawing)return;drawing=false;
+  const[x,y]=getPos(e);
+  if(tool==='line'||tool==='rect'||tool==='circle'){
+    mainCtx.strokeStyle=color;mainCtx.lineWidth=size;mainCtx.lineCap='round';
+    mainCtx.globalCompositeOperation='source-over';
+    if(tool==='line'){mainCtx.beginPath();mainCtx.moveTo(startX,startY);mainCtx.lineTo(x,y);mainCtx.stroke()}
+    else if(tool==='rect'){mainCtx.strokeRect(Math.min(startX,x),Math.min(startY,y),Math.abs(x-startX),Math.abs(y-startY))}
+    else{const r=Math.sqrt((x-startX)**2+(y-startY)**2);mainCtx.beginPath();mainCtx.arc(startX,startY,r,0,Math.PI*2);mainCtx.stroke()}
+  }
+  mainCtx.globalCompositeOperation='source-over';
+  tempCtx.clearRect(0,0,W,H);
+  saveState();
+});
+
+// Tools
+document.querySelectorAll('.tool').forEach(t=>{
+  t.addEventListener('click',()=>{
+    document.querySelectorAll('.tool').forEach(t=>t.classList.remove('active'));
+    t.classList.add('active');tool=t.dataset.tool;
+    tempCanvas.style.cursor=tool==='eraser'?'cell':'crosshair';
+  });
+});
+document.getElementById('color').addEventListener('input',e=>color=e.target.value);
+document.getElementById('size').addEventListener('input',e=>{size=+e.target.value;document.getElementById('sizeV').textContent=size});
+
+// Keyboard shortcuts
+document.addEventListener('keydown',e=>{
+  if(e.ctrlKey&&e.key==='z'){e.preventDefault();undo()}
+  if(e.ctrlKey&&e.key==='y'){e.preventDefault();redo()}
+});
+
+saveState();
+</script>
+</body>
+</html>

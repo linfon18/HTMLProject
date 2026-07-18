@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pathfinding Visualizer</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Space+Mono:wght@400&display=swap');
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#050508;--border:rgba(255,255,255,.06);--t1:#fff;--t2:rgba(255,255,255,.55);--t3:rgba(255,255,255,.25)}
+body{background:var(--bg);color:var(--t2);font-family:'Space Grotesk',sans-serif;min-height:100vh;display:flex;flex-direction:column;-webkit-font-smoothing:antialiased}
+.top{padding:12px 20px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;border-bottom:1px solid var(--border)}
+.top h1{font-size:.95rem;font-weight:700;color:var(--t1);margin-right:auto}
+.btn{padding:6px 12px;border-radius:7px;font-size:.72rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--t2);cursor:pointer;transition:all .2s}
+.btn:hover{background:rgba(255,255,255,.1);color:var(--t1)}
+.btn.primary{background:rgba(139,92,246,.12);border-color:rgba(139,92,246,.25);color:#a78bfa}
+.btn.active{background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.25);color:#4ade80}
+select{background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:8px;color:var(--t2);font-size:.75rem;padding:6px 10px;font-family:inherit;outline:none}
+select option{background:#1a1a2e}
+label{font-size:.65rem;color:var(--t3)}
+input[type=range]{width:60px;height:3px;-webkit-appearance:none;background:rgba(255,255,255,.1);border-radius:2px;outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;height:10px;border-radius:50%;background:#fff;cursor:pointer}
+.val{font-family:'Space Mono',monospace;font-size:.6rem;color:var(--t3);min-width:20px}
+.main{flex:1;display:flex;align-items:center;justify-content:center;padding:12px}
+canvas{border-radius:8px;cursor:crosshair}
+.stats{position:fixed;bottom:12px;left:20px;display:flex;gap:10px;font-size:.65rem;font-family:'Space Mono',monospace;color:var(--t3)}
+.stats span{padding:3px 8px;border-radius:5px;background:rgba(255,255,255,.03);border:1px solid var(--border)}
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>Pathfinding</h1>
+  <select id="algo">
+    <option value="bfs">BFS</option>
+    <option value="dijkstra">Dijkstra</option>
+    <option value="astar" selected>A*</option>
+    <option value="greedy">Greedy Best-First</option>
+    <option value="dfs">DFS</option>
+  </select>
+  <label>Speed</label><input type="range" id="speed" min="1" max="50" value="25"><span class="val" id="speedV">25</span>
+  <label>Density</label><input type="range" id="density" min="10" max="50" value="25"><span class="val" id="densityV">25</span>
+  <button class="btn primary" id="runBtn" onclick="run()">Visualize</button>
+  <button class="btn" onclick="randomWalls()">Random Walls</button>
+  <button class="btn" onclick="clearGrid()">Clear</button>
+  <button class="btn" onclick="genMaze()">Generate Maze</button>
+</div>
+<div class="main"><canvas id="c"></canvas></div>
+<div class="stats">
+  <span id="visitedS">Visited: 0</span>
+  <span id="pathS">Path: 0</span>
+  <span id="timeS">Time: 0ms</span>
+</div>
+
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+const dpr=devicePixelRatio;
+let W,H,cols=40,rows=25,cs;
+let grid,start,end,running=false;
+
+function resize(){
+  const s=Math.min(innerWidth-40,innerHeight-100);
+  cs=Math.floor(s/Math.max(cols,rows));
+  W=cols*cs;H=rows*cs;
+  canvas.width=W*dpr;canvas.height=H*dpr;
+  canvas.style.width=W+'px';canvas.style.height=H+'px';
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  draw();
+}
+resize();addEventListener('resize',resize);
+
+function init(){
+  grid=Array.from({length:rows},()=>Array(cols).fill(0)); // 0=empty, 1=wall
+  start=[1,1];end=[cols-2,rows-2];
+  draw();
+}
+
+function clearGrid(){
+  for(let y=0;y<rows;y++)for(let x=0;x<cols;x++)if(grid[y][x]!==1)grid[y][x]=0;
+  draw();
+}
+
+function randomWalls(){
+  const d=+document.getElementById('density').value/100;
+  for(let y=0;y<rows;y++)for(let x=0;x<cols;x++){
+    if((x===start[0]&&y===start[1])||(x===end[0]&&y===end[1]))continue;
+    grid[y][x]=Math.random()<d?1:0;
+  }
+  draw();
+}
+
+function genMaze(){
+  grid=Array.from({length:rows},()=>Array(cols).fill(1));
+  const stack=[[1,1]];grid[1][1]=0;
+  const dirs=[[0,-2],[2,0],[0,2],[-2,0]];
+  while(stack.length){
+    const[x,y]=stack[stack.length-1];
+    const neighbors=[];
+    for(const[dx,dy]of dirs){
+      const nx=x+dx,ny=y+dy;
+      if(nx>0&&nx<cols-1&&ny>0&&ny<rows-1&&grid[ny][nx]===1)neighbors.push([nx,ny,x+dx/2,y+dy/2]);
+    }
+    if(!neighbors.length){stack.pop();continue}
+    const[nx,ny,mx,my]=neighbors[Math.random()*neighbors.length|0];
+    grid[my][mx]=0;grid[ny][nx]=0;stack.push([nx,ny]);
+  }
+  start=[1,1];end=[cols-2,rows-2];
+  draw();
+}
+
+function heuristic([x,y],[gx,gy]){return Math.abs(x-gx)+Math.abs(y-gy)}
+
+async function run(){
+  if(running)return;running=true;
+  document.getElementById('runBtn').textContent='Running...';
+  document.getElementById('runBtn').classList.add('active');
+  // Reset visited/path
+  for(let y=0;y<rows;y++)for(let x=0;x<cols;x++)if(grid[y][x]!==1)grid[y][x]=0;
+
+  const algo=document.getElementById('algo').value;
+  const spd=()=>new Promise(r=>setTimeout(r,1005-(+document.getElementById('speed').value*20)));
+  const t0=performance.now();
+  let visited=0,pathLen=0;
+
+  const dirs=[[0,-1],[1,0],[0,1],[-1,0]];
+  const inBounds=(x,y)=>x>=0&&x<cols&&y>=0&&y<rows;
+  const key=(x,y)=>x+','+y;
+
+  let found=false;
+  const prev=new Map();
+  const dist=new Map();
+  dist.set(key(start[0],start[1]),0);
+
+  if(algo==='bfs'||algo==='dijkstra'||algo==='astar'||algo==='greedy'){
+    let open;
+    if(algo==='bfs'||algo==='dijkstra'){
+      open=[start];
+      if(algo==='dijkstra'){
+        // Use simple array as priority queue
+        open.sort((a,b)=>(dist.get(key(a[0],a[1]))||Infinity)-(dist.get(key(b[0],b[1]))||Infinity));
+      }
+    }else{
+      open=[start];
+    }
+
+    const closed=new Set();
+
+    while(open.length){
+      // Sort for priority-based algorithms
+      if(algo==='dijkstra')open.sort((a,b)=>(dist.get(key(a[0],a[1]))||Infinity)-(dist.get(key(b[0],b[1]))||Infinity));
+      if(algo==='astar')open.sort((a,b)=>{
+        const fa=(dist.get(key(a[0],a[1]))||Infinity)+heuristic(a,end);
+        const fb=(dist.get(key(b[0],b[1]))||Infinity)+heuristic(b,end);
+        return fa-fb;
+      });
+      if(algo==='greedy')open.sort((a,b)=>heuristic(a,end)-heuristic(b,end));
+
+      const cur=open.shift();
+      const ck=key(cur[0],cur[1]);
+      if(closed.has(ck))continue;
+      closed.add(ck);
+
+      if(cur[0]===end[0]&&cur[1]===end[1]){found=true;break}
+
+      grid[cur[1]][cur[0]]=2; // visited
+      visited++;
+      if(visited%3===0){draw();document.getElementById('visitedS').textContent='Visited: '+visited;await spd()}
+
+      for(const[dx,dy]of dirs){
+        const nx=cur[0]+dx,ny=cur[1]+dy;
+        if(!inBounds(nx,ny)||grid[ny][nx]===1||closed.has(key(nx,ny)))continue;
+        const nd=(dist.get(ck)||0)+1;
+        if(!dist.has(key(nx,ny))||nd<dist.get(key(nx,ny))){
+          dist.set(key(nx,ny),nd);
+          prev.set(key(nx,ny),cur);
+          open.push([nx,ny]);
+        }
+      }
+    }
+  }else if(algo==='dfs'){
+    const stack=[start];const closed=new Set();
+    while(stack.length){
+      const cur=stack.pop();
+      const ck=key(cur[0],cur[1]);
+      if(closed.has(ck))continue;
+      closed.add(ck);
+      if(cur[0]===end[0]&&cur[1]===end[1]){found=true;break}
+      grid[cur[1]][cur[0]]=2;visited++;
+      if(visited%3===0){draw();document.getElementById('visitedS').textContent='Visited: '+visited;await spd()}
+      for(const[dx,dy]of dirs){
+        const nx=cur[0]+dx,ny=cur[1]+dy;
+        if(inBounds(nx,ny)&&grid[ny][nx]!==1&&!closed.has(key(nx,ny))){
+          prev.set(key(nx,ny),cur);
+          stack.push([nx,ny]);
+        }
+      }
+    }
+  }
+
+  // Trace path
+  if(found){
+    let cur=end;
+    while(cur&&!(cur[0]===start[0]&&cur[1]===start[1])){
+      grid[cur[1]][cur[0]]=3;pathLen++;cur=prev.get(key(cur[0],cur[1]));
+    }
+    grid[start[1]][start[0]]=3;
+  }
+
+  draw();
+  const elapsed=(performance.now()-t0)|0;
+  document.getElementById('visitedS').textContent='Visited: '+visited;
+  document.getElementById('pathS').textContent='Path: '+pathLen;
+  document.getElementById('timeS').textContent='Time: '+elapsed+'ms';
+  document.getElementById('status')&&(document.getElementById('status').textContent=found?'Found!':'No path');
+  running=false;
+  document.getElementById('runBtn').textContent='Visualize';
+  document.getElementById('runBtn').classList.remove('active');
+}
+
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  for(let y=0;y<rows;y++)for(let x=0;x<cols;x++){
+    const px=x*cs,py=y*cs;
+    if(grid[y][x]===0)ctx.fillStyle='rgba(255,255,255,.02)';
+    else if(grid[y][x]===1)ctx.fillStyle='rgba(255,255,255,.15)';
+    else if(grid[y][x]===2)ctx.fillStyle='rgba(139,92,246,.2)';
+    else if(grid[y][x]===3)ctx.fillStyle='rgba(234,179,8,.6)';
+    ctx.fillRect(px+1,py+1,cs-2,cs-2);
+  }
+  // Start
+  ctx.fillStyle='rgba(34,197,94,.6)';
+  ctx.fillRect(start[0]*cs+1,start[1]*cs+1,cs-2,cs-2);
+  // End
+  ctx.fillStyle='rgba(244,63,94,.6)';
+  ctx.fillRect(end[0]*cs+1,end[1]*cs+1,cs-2,cs-2);
+  // Grid lines
+  ctx.strokeStyle='rgba(255,255,255,.03)';ctx.lineWidth=.5;
+  for(let x=0;x<=cols;x++){ctx.beginPath();ctx.moveTo(x*cs,0);ctx.lineTo(x*cs,H);ctx.stroke()}
+  for(let y=0;y<=rows;y++){ctx.beginPath();ctx.moveTo(0,y*cs);ctx.lineTo(W,y*cs);ctx.stroke()}
+}
+
+// Drawing walls
+let drawing=false,drawMode=1;
+canvas.addEventListener('mousedown',e=>{
+  drawing=true;
+  const rect=canvas.getBoundingClientRect();
+  const x=Math.floor((e.clientX-rect.left)/cs);
+  const y=Math.floor((e.clientY-rect.top)/cs);
+  if(x===start[0]&&y===start[1])return;
+  if(x===end[0]&&y===end[1])return;
+  drawMode=grid[y][x]===1?0:1;
+  grid[y][x]=drawMode;draw();
+});
+canvas.addEventListener('mousemove',e=>{
+  if(!drawing)return;
+  const rect=canvas.getBoundingClientRect();
+  const x=Math.floor((e.clientX-rect.left)/cs);
+  const y=Math.floor((e.clientY-rect.top)/cs);
+  if(x<0||x>=cols||y<0||y>=rows)return;
+  if(x===start[0]&&y===start[1])return;
+  if(x===end[0]&&y===end[1])return;
+  grid[y][x]=drawMode;draw();
+});
+canvas.addEventListener('mouseup',()=>drawing=false);
+canvas.addEventListener('mouseleave',()=>drawing=false);
+
+document.getElementById('speed').addEventListener('input',e=>document.getElementById('speedV').textContent=e.target.value);
+document.getElementById('density').addEventListener('input',e=>document.getElementById('densityV').textContent=e.target.value);
+
+init();
+</script>
+</body>
+</html>

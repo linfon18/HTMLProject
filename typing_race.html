@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Typing Speed Race</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#050508;--border:rgba(255,255,255,.06);--t1:#fff;--t2:rgba(255,255,255,.55);--t3:rgba(255,255,255,.25)}
+body{background:var(--bg);color:var(--t2);font-family:'Space Grotesk',sans-serif;height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;-webkit-font-smoothing:antialiased;padding:30px}
+h1{font-size:1.3rem;font-weight:700;color:var(--t1);margin-bottom:8px}
+.subtitle{font-size:.72rem;color:var(--t3);margin-bottom:24px}
+.text-display{max-width:700px;width:100%;font-family:'JetBrains Mono',monospace;font-size:1rem;line-height:2;padding:20px;border-radius:10px;background:rgba(255,255,255,.02);border:1px solid var(--border);margin-bottom:20px;min-height:100px;user-select:none}
+.text-display .correct{color:#4ade80}
+.text-display .incorrect{color:#f87171;background:rgba(244,63,94,.1);text-decoration:underline}
+.text-display .current{background:rgba(139,92,246,.2);border-bottom:2px solid #a78bfa}
+.text-display .pending{color:var(--t3)}
+.stats-bar{display:flex;gap:24px;margin-bottom:20px}
+.stat{text-align:center}
+.stat .value{font-size:1.5rem;font-weight:700;color:var(--t1);font-family:'Space Mono',monospace}
+.stat .label{font-size:.55rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t3)}
+.btn{padding:8px 18px;border-radius:8px;font-size:.78rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--t2);cursor:pointer;transition:all .2s}
+.btn:hover{background:rgba(255,255,255,.1);color:var(--t1)}
+.btn.primary{background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.25);color:#4ade80}
+.wpm-graph{max-width:700px;width:100%;height:80px;border:1px solid var(--border);border-radius:8px;background:rgba(0,0,0,.2);overflow:hidden;margin-bottom:16px}
+.ended{text-align:center;margin-top:16px}
+.ended h2{font-size:1.5rem;color:var(--t1);margin-bottom:8px}
+.ended .final{font-size:.8rem;color:var(--t3);line-height:1.8}
+</style>
+</head>
+<body>
+<h1>Typing Speed Race</h1>
+<div class="subtitle">Type the text as fast as you can · Click Start to begin</div>
+<div class="stats-bar">
+  <div class="stat"><div class="value" id="wpm">0</div><div class="label">WPM</div></div>
+  <div class="stat"><div class="value" id="accuracy">100</div><div class="label">Accuracy %</div></div>
+  <div class="stat"><div class="value" id="time">0</div><div class="label">Seconds</div></div>
+  <div class="stat"><div class="value" id="chars">0</div><div class="label">Chars</div></div>
+</div>
+<div class="text-display" id="display"></div>
+<canvas class="wpm-graph" id="graph" width="700" height="80"></canvas>
+<button class="btn primary" id="startBtn" onclick="startTest()">Start</button>
+<div class="ended" id="ended" style="display:none"></div>
+
+<script>
+const TEXTS=[
+  "The quick brown fox jumps over the lazy dog. Pack my box with five dozen liquor jugs. How vexingly quick daft zebras jump.",
+  "In the beginning was the Word, and the Word was with God, and the Word was God. All things were made through him.",
+  "To be or not to be, that is the question. Whether tis nobler in the mind to suffer the slings and arrows of outrageous fortune.",
+  "Programming is the art of telling another human being what one wants the computer to do. Software is a great combination of artistry and engineering.",
+  "The only way to learn a new programming language is by writing programs in it. The best error message is the one that never shows up.",
+  "Any sufficiently advanced technology is indistinguishable from magic. The future is already here, it is just not evenly distributed.",
+  "Simplicity is the soul of efficiency. Make it work, make it right, make it fast. First solve the problem then write the code.",
+  "Every great developer you know got there by solving problems they were unqualified to solve until they actually did it. Code is poetry."
+];
+
+let text='',typed='',startTime=null,running=false,errors=0,wpmHistory=[];
+
+function startTest(){
+  text=TEXTS[Math.random()*TEXTS.length|0];
+  typed='';errors=0;startTime=null;running=true;wpmHistory=[];
+  document.getElementById('ended').style.display='none';
+  document.getElementById('startBtn').style.display='none';
+  renderText();
+  document.addEventListener('keydown',onKey);
+}
+
+function onKey(e){
+  if(!running)return;
+  if(e.key==='Escape'){endTest();return}
+  if(e.key==='Backspace'){typed=typed.slice(0,-1);renderText();return}
+  if(e.key.length!==1)return;
+  e.preventDefault();
+
+  if(!startTime)startTime=Date.now();
+  typed+=e.key;
+  if(typed[typed.length-1]!==text[typed.length-1])errors++;
+  renderText();
+
+  // Track WPM
+  const elapsed=(Date.now()-startTime)/1000/60;
+  const wpm=Math.round((typed.length/5)/Math.max(.01,elapsed));
+  wpmHistory.push(wpm);
+
+  if(typed.length>=text.length)endTest();
+}
+
+function renderText(){
+  let html='';
+  for(let i=0;i<text.length;i++){
+    let cls='pending';
+    if(i<typed.length){
+      cls=typed[i]===text[i]?'correct':'incorrect';
+    }else if(i===typed.length)cls='current';
+    html+=`<span class="${cls}">${text[i]===' '?'&nbsp;':text[i]}</span>`;
+  }
+  document.getElementById('display').innerHTML=html;
+
+  if(startTime){
+    const elapsed=(Date.now()-startTime)/1000;
+    const wpm=Math.round((typed.length/5)/(elapsed/60));
+    const acc=Math.round(((typed.length-errors)/Math.max(1,typed.length))*100);
+    document.getElementById('wpm').textContent=wpm;
+    document.getElementById('accuracy').textContent=acc;
+    document.getElementById('time').textContent=Math.floor(elapsed);
+    document.getElementById('chars').textContent=typed.length;
+  }
+}
+
+function endTest(){
+  running=false;
+  document.removeEventListener('keydown',onKey);
+  const elapsed=(Date.now()-startTime)/1000;
+  const wpm=Math.round((typed.length/5)/(elapsed/60));
+  const acc=Math.round(((typed.length-errors)/Math.max(1,typed.length))*100);
+
+  document.getElementById('ended').style.display='block';
+  document.getElementById('ended').innerHTML=`<h2>${wpm} WPM</h2><div class="final">Accuracy: ${acc}%<br>Time: ${elapsed.toFixed(1)}s<br>Errors: ${errors}</div>`;
+  document.getElementById('startBtn').style.display='inline-block';
+  document.getElementById('startBtn').textContent='Try Again';
+
+  drawGraph();
+}
+
+function drawGraph(){
+  const c=document.getElementById('graph');
+  const ctx=c.getContext('2d');
+  const W=700,H=80;
+  ctx.fillStyle='rgba(5,5,8,.5)';ctx.fillRect(0,0,W,H);
+  if(wpmHistory.length<2)return;
+  const max=Math.max(...wpmHistory,1);
+  ctx.beginPath();
+  wpmHistory.forEach((v,i)=>{
+    const x=i/wpmHistory.length*W;
+    const y=H-v/max*H*.8;
+    if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
+  });
+  ctx.strokeStyle='rgba(139,92,246,.8)';ctx.lineWidth=2;ctx.stroke();
+  ctx.lineTo(W,H);ctx.lineTo(0,H);ctx.closePath();
+  ctx.fillStyle='rgba(139,92,246,.1)';ctx.fill();
+}
+
+renderText();
+</script>
+</body>
+</html>

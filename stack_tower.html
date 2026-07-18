@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cube Stack Tower</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}body{background:#050508;overflow:hidden}canvas{display:block}
+.ui{position:fixed;top:12px;left:12px;z-index:10;display:flex;gap:8px;align-items:center}
+.btn{padding:5px 10px;border-radius:6px;font-size:.7rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);color:rgba(255,255,255,.5);cursor:pointer;transition:all .2s;font-family:'Space Grotesk',sans-serif}
+.btn:hover{background:rgba(255,255,255,.1);color:#fff}
+.score{position:fixed;top:12px;right:16px;font-size:1.2rem;font-weight:700;font-family:'Space Grotesk',sans-serif;color:#fff;z-index:10}
+.info{position:fixed;bottom:12px;left:12px;font-size:.55rem;font-family:'Space Mono',monospace;color:rgba(255,255,255,.15)}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="ui">
+  <button class="btn" onclick="resetGame()">New Game</button>
+</div>
+<div class="score" id="score">0</div>
+<div class="info">Click or Space to drop block · Perfect drops grow your tower</div>
+
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+let W,H;
+function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight}
+addEventListener('resize',resize);
+
+let stack=[],current=null,direction=1,speed=2,score=0,gameOver=false;
+const BLOCK_H=25;
+
+function resetGame(){
+  stack=[{x:W/2-80,y:H-40,w:160,h:BLOCK_H,hue:200}];
+  score=0;gameOver=false;direction=1;speed=2;
+  nextBlock();
+}
+
+function nextBlock(){
+  if(gameOver)return;
+  const prev=stack[stack.length-1];
+  current={x:direction>0?0:W,y:H-stack.length*BLOCK_H-40,w:prev.w,h:BLOCK_H,hue:(prev.hue+15)%360};
+}
+
+function dropBlock(){
+  if(!current||gameOver)return;
+  const prev=stack[stack.length-1];
+  const overlap=current.x<prev.x+prev.w&&current.x+current.w>prev.x;
+  if(!overlap){
+    gameOver=true;
+    return;
+  }
+
+  const left=Math.max(current.x,prev.x);
+  const right=Math.min(current.x+current.w,prev.x+prev.w);
+  const newW=right-left;
+
+  // Perfect drop
+  const perfect=Math.abs(newW-prev.w)<5;
+  const finalW=perfect?prev.w:newW;
+
+  stack.push({x:left,y:current.y,w:finalW,h:BLOCK_H,hue:current.hue});
+  score++;
+
+  if(stack.length>15){
+    stack.forEach(b=>b.y+=BLOCK_H);
+    stack.shift();
+  }
+
+  speed=2+score*.15;
+  nextBlock();
+}
+
+document.addEventListener('keydown',e=>{if(e.code==='Space'){e.preventDefault();dropBlock()}});
+canvas.addEventListener('click',dropBlock);
+
+resize();resetGame();
+
+function loop(){
+  ctx.fillStyle='#050508';ctx.fillRect(0,0,W,H);
+
+  if(current&&!gameOver){
+    current.x+=speed*direction;
+    if(current.x+current.w>W){current.x=W-current.w;direction=-1}
+    if(current.x<0){current.x=0;direction=1}
+  }
+
+  // Draw stack
+  stack.forEach((b,i)=>{
+    const depth=stack.length-i;
+    const brightness=Math.max(.3,1-depth*.03);
+    ctx.fillStyle=`hsla(${b.hue},60%,${brightness*40}%,.9)`;
+    ctx.fillRect(b.x,b.y,b.w,b.h);
+    ctx.strokeStyle=`hsla(${b.hue},60%,${brightness*50}%,.3)`;
+    ctx.strokeRect(b.x,b.y,b.w,b.h);
+    // Top highlight
+    ctx.fillStyle=`hsla(${b.hue},50%,${brightness*60}%,.2)`;
+    ctx.fillRect(b.x,b.y,b.w,3);
+  });
+
+  // Draw current
+  if(current&&!gameOver){
+    ctx.fillStyle=`hsla(${current.hue},60%,55%,.8)`;
+    ctx.fillRect(current.x,current.y,current.w,current.h);
+    // Dotted line to target
+    ctx.setLineDash([4,4]);
+    const prev=stack[stack.length-1];
+    ctx.strokeStyle='rgba(255,255,255,.1)';ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(prev.x+prev.w/2,prev.y);ctx.lineTo(current.x+current.w/2,current.y);ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  if(gameOver){
+    ctx.fillStyle='rgba(5,5,8,.6)';ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='#fff';ctx.font='bold 2rem Space Grotesk,sans-serif';ctx.textAlign='center';
+    ctx.fillText('Game Over',W/2,H/2-20);
+    ctx.font='1rem Space Grotesk,sans-serif';ctx.fillStyle='rgba(255,255,255,.5)';
+    ctx.fillText(`Score: ${score}`,W/2,H/2+20);
+    ctx.fillText('Click to restart',W/2,H/2+50);
+    if(canvas.onclick===null)canvas.onclick=()=>{resetGame()};
+  }
+
+  document.getElementById('score').textContent=score;
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

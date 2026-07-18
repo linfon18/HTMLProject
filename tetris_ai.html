@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tetris AI</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Space+Mono:wght@400&display=swap');
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#050508;--border:rgba(255,255,255,.06);--t1:#fff;--t2:rgba(255,255,255,.55);--t3:rgba(255,255,255,.25)}
+body{background:var(--bg);color:var(--t2);font-family:'Space Grotesk',sans-serif;height:100vh;display:flex;align-items:center;justify-content:center;-webkit-font-smoothing:antialiased}
+.wrap{display:flex;gap:20px;align-items:flex-start}
+.board{display:grid;grid-template-columns:repeat(10,28px);grid-template-rows:repeat(20,28px);border:1px solid var(--border);border-radius:4px;overflow:hidden}
+.cell{border:1px solid rgba(255,255,255,.02);transition:background .05s}
+.side{width:180px;display:flex;flex-direction:column;gap:10px}
+.panel{padding:12px;border-radius:10px;background:rgba(255,255,255,.025);border:1px solid var(--border)}
+.panel h3{font-size:.6rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:6px}
+.stat{display:flex;justify-content:space-between;font-size:.72rem;padding:3px 0;border-bottom:1px solid rgba(255,255,255,.02)}
+.stat label{color:var(--t3);font-size:.65rem}
+.stat .v{font-family:'Space Mono',monospace;font-size:.7rem;color:var(--t1)}
+.next-piece{display:grid;grid-template-columns:repeat(4,20px);grid-template-rows:repeat(4,20px);margin:6px auto}
+.next-cell{border:1px solid rgba(255,255,255,.02)}
+.btn{padding:6px 12px;border-radius:7px;font-size:.72rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--t2);cursor:pointer;transition:all .2s;width:100%;text-align:center}
+.btn:hover{background:rgba(255,255,255,.1);color:var(--t1)}
+.btn.active{background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.25);color:#4ade80}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div>
+    <div class="board" id="board"></div>
+  </div>
+  <div class="side">
+    <div class="panel">
+      <h3>Next</h3>
+      <div class="next-piece" id="nextPiece"></div>
+    </div>
+    <div class="panel">
+      <h3>Stats</h3>
+      <div class="stat"><label>Score</label><span class="v" id="score">0</span></div>
+      <div class="stat"><label>Lines</label><span class="v" id="lines">0</span></div>
+      <div class="stat"><label>Level</label><span class="v" id="level">1</span></div>
+      <div class="stat"><label>Pieces</label><span class="v" id="pieces">0</span></div>
+    </div>
+    <div class="btn" id="aiBtn" onclick="toggleAI()">AI: OFF</div>
+    <div class="btn" onclick="resetGame()">New Game</div>
+    <div class="panel">
+      <h3>Controls</h3>
+      <div style="font-size:.62rem;color:var(--t3);line-height:1.8">
+        ← → Move<br>↑ Rotate<br>↓ Soft drop<br>Space Hard drop<br>P Pause
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const COLS=10,ROWS=20;
+const SHAPES=[
+  [[1,1,1,1]], // I
+  [[1,1],[1,1]], // O
+  [[0,1,0],[1,1,1]], // T
+  [[0,1,1],[1,1,0]], // S
+  [[1,1,0],[0,1,1]], // Z
+  [[1,0,0],[1,1,1]], // L
+  [[0,0,1],[1,1,1]], // J
+];
+const COLORS=[null,'#06b6d4','#eab308','#a855f7','#22c55e','#ef4444','#f97316','#3b82f6'];
+
+let board,piece,nextPiece,px,py,score,lines,level,pieceCount;
+let gameRunning=true,aiEnabled=false,dropTimer,dropInterval=500;
+
+function resetGame(){
+  board=Array.from({length:ROWS},()=>Array(COLS).fill(0));
+  score=0;lines=0;level=1;pieceCount=0;
+  nextPiece=newPiece();
+  spawnPiece();
+  render();
+  clearInterval(dropTimer);
+  dropTimer=setInterval(tick,dropInterval);
+}
+
+function newPiece(){
+  const idx=Math.floor(Math.random()*SHAPES.length);
+  return{shape:SHAPES[idx].map(r=>[...r]),color:idx+1};
+}
+
+function spawnPiece(){
+  piece=nextPiece;nextPiece=newPiece();
+  px=Math.floor((COLS-piece.shape[0].length)/2);py=0;
+  pieceCount++;
+  if(collides(piece.shape,px,py)){gameRunning=false;clearInterval(dropTimer)}
+  renderNext();
+  if(aiEnabled)aiMove();
+}
+
+function collides(shape,ox,oy){
+  for(let y=0;y<shape.length;y++)for(let x=0;x<shape[y].length;x++){
+    if(!shape[y][x])continue;
+    const bx=ox+x,by=oy+y;
+    if(bx<0||bx>=COLS||by>=ROWS)return true;
+    if(by>=0&&board[by][bx])return true;
+  }
+  return false;
+}
+
+function merge(){
+  for(let y=0;y<piece.shape.length;y++)for(let x=0;x<piece.shape[y].length;x++){
+    if(!piece.shape[y][x])continue;
+    const by=py+y,bx=px+x;
+    if(by>=0&&by<ROWS&&bx>=0&&bx<COLS)board[by][bx]=piece.color;
+  }
+}
+
+function clearLines(){
+  let cleared=0;
+  for(let y=ROWS-1;y>=0;y--){
+    if(board[y].every(c=>c)){
+      board.splice(y,1);board.unshift(Array(COLS).fill(0));
+      cleared++;y++;
+    }
+  }
+  if(cleared){
+    lines+=cleared;
+    score+=[0,100,300,500,800][cleared]*level;
+    level=Math.floor(lines/10)+1;
+    dropInterval=Math.max(50,500-level*40);
+    clearInterval(dropTimer);
+    dropTimer=setInterval(tick,dropInterval);
+  }
+}
+
+function rotate(shape){
+  const rows=shape.length,cols=shape[0].length;
+  const rotated=Array.from({length:cols},()=>Array(rows).fill(0));
+  for(let y=0;y<rows;y++)for(let x=0;x<cols;x++)rotated[x][rows-1-y]=shape[y][x];
+  return rotated;
+}
+
+function hardDrop(){
+  while(!collides(piece.shape,px,py+1))py++;
+  merge();clearLines();spawnPiece();render();
+}
+
+function tick(){
+  if(!gameRunning)return;
+  if(collides(piece.shape,px,py+1)){merge();clearLines();spawnPiece()}
+  else py++;
+  render();
+}
+
+function render(){
+  const boardEl=document.getElementById('board');
+  let html='';
+  for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++){
+    let c=board[y][x];
+    // Check if current piece covers this cell
+    if(piece){
+      const lx=x-px,ly=y-py;
+      if(lx>=0&&lx<piece.shape[0]?.length&&ly>=0&&ly<piece.shape.length&&piece.shape[ly]?.[lx])
+        c=piece.color;
+    }
+    html+=`<div class="cell" style="background:${c?COLORS[c]:'rgba(5,5,8,.8)'};${c?'box-shadow:inset 0 0 4px rgba(255,255,255,.1)':''}"></div>`;
+  }
+  boardEl.innerHTML=html;
+  document.getElementById('score').textContent=score;
+  document.getElementById('lines').textContent=lines;
+  document.getElementById('level').textContent=level;
+  document.getElementById('pieces').textContent=pieceCount;
+}
+
+function renderNext(){
+  const el=document.getElementById('nextPiece');
+  let html='';
+  for(let y=0;y<4;y++)for(let x=0;x<4;x++){
+    const c=nextPiece.shape[y]?.[x]?nextPiece.color:0;
+    html+=`<div class="next-cell" style="background:${c?COLORS[c]:'transparent'}"></div>`;
+  }
+  el.innerHTML=html;
+}
+
+function toggleAI(){
+  aiEnabled=!aiEnabled;
+  document.getElementById('aiBtn').textContent='AI: '+(aiEnabled?'ON':'OFF');
+  document.getElementById('aiBtn').classList.toggle('active');
+  if(aiEnabled)aiMove();
+}
+
+// AI: evaluate all possible placements and pick best
+function aiMove(){
+  if(!aiEnabled||!gameRunning||!piece)return;
+  let bestScore=-Infinity,bestX=px,bestRot=0;
+  const shape0=piece.shape;
+
+  for(let r=0;r<4;r++){
+    let shape=piece.shape;
+    for(let i=0;i<r;i++)shape=rotate(shape);
+    const w=shape[0].length;
+    for(let x=-2;x<COLS;x++){
+      if(collides(shape,x,py))continue;
+      let testY=py;
+      while(!collides(shape,x,testY+1))testY++;
+      // Evaluate
+      const testBoard=board.map(r=>[...r]);
+      for(let sy=0;sy<shape.length;sy++)for(let sx=0;sx<shape[sy].length;sx++){
+        if(shape[sy][sx]&&testY+sy>=0&&testY+sy<ROWS&&x+sx>=0&&x+sx<COLS)
+          testBoard[testY+sy][x+sx]=piece.color;
+      }
+      const s=evalBoard(testBoard);
+      if(s>bestScore){bestScore=s;bestX=x;bestRot=r}
+    }
+  }
+
+  // Apply best move
+  for(let i=0;i<bestRot;i++)piece.shape=rotate(piece.shape);
+  px=bestX;
+}
+
+function evalBoard(b){
+  let aggregateHeight=0,completeLines=0,holes=0,bumpiness=0;
+  const heights=[];
+  for(let x=0;x<COLS;x++){
+    let h=0;
+    for(let y=0;y<ROWS;y++){if(b[y][x]){h=ROWS-y;break}}
+    heights.push(h);
+    aggregateHeight+=h;
+  }
+  // Complete lines
+  for(let y=0;y<ROWS;y++){if(b[y].every(c=>c))completeLines++}
+  // Holes
+  for(let x=0;x<COLS;x++){
+    let blocked=false;
+    for(let y=0;y<ROWS;y++){if(b[y][x])blocked=true;else if(blocked)holes++}
+  }
+  // Bumpiness
+  for(let i=0;i<heights.length-1;i++)bumpiness+=Math.abs(heights[i]-heights[i+1]);
+
+  return -0.51*aggregateHeight+0.76*completeLines-0.36*holes-0.18*bumpiness;
+}
+
+document.addEventListener('keydown',e=>{
+  if(!gameRunning)return;
+  if(aiEnabled&&e.key!=='p')return;
+  if(e.key==='ArrowLeft'&&!collides(piece.shape,px-1,py))px--;
+  if(e.key==='ArrowRight'&&!collides(piece.shape,px+1,py))px++;
+  if(e.key==='ArrowDown'){if(!collides(piece.shape,px,py+1))py++;score++}
+  if(e.key==='ArrowUp'){
+    const r=rotate(piece.shape);
+    if(!collides(r,px,py))piece.shape=r;
+  }
+  if(e.key===' '){e.preventDefault();hardDrop()}
+  if(e.key==='p'||e.key==='P'){
+    gameRunning=!gameRunning;
+    if(gameRunning)dropTimer=setInterval(tick,dropInterval);else clearInterval(dropTimer);
+  }
+  render();
+});
+
+resetGame();
+</script>
+</body>
+</html>

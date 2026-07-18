@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pixel Art Processor</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Space+Mono:wght@400&display=swap');
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#050508;--border:rgba(255,255,255,.06);--t1:#fff;--t2:rgba(255,255,255,.55);--t3:rgba(255,255,255,.25)}
+body{background:var(--bg);color:var(--t2);font-family:'Space Grotesk',sans-serif;min-height:100vh;display:flex;flex-direction:column;-webkit-font-smoothing:antialiased}
+.top{padding:8px 14px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap}
+.top h1{font-size:.85rem;font-weight:700;color:var(--t1);margin-right:auto}
+.btn{padding:5px 10px;border-radius:6px;font-size:.7rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--t2);cursor:pointer;transition:all .2s}
+.btn:hover{background:rgba(255,255,255,.1);color:var(--t1)}
+label{font-size:.62rem;color:var(--t3)}
+input[type=range]{width:60px;height:3px;-webkit-appearance:none;background:rgba(255,255,255,.1);border-radius:2px;outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;height:10px;border-radius:50%;background:#fff;cursor:pointer}
+.val{font-family:'Space Mono',monospace;font-size:.58rem;color:var(--t3)}
+.main{flex:1;display:flex;overflow:hidden}
+.canvas-wrap{flex:1;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.2);position:relative}
+canvas{max-width:90%;max-height:90%;image-rendering:pixelated;border:1px solid var(--border)}
+.sidebar{width:260px;border-left:1px solid var(--border);padding:12px;overflow-y:auto;flex-shrink:0}
+.sidebar h3{font-size:.6rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin:12px 0 6px}
+.sidebar h3:first-child{margin-top:0}
+.drop-hint{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--t3);font-size:.85rem;pointer-events:none}
+.drop-hint span{font-size:3rem;margin-bottom:12px;opacity:.2}
+.hidden{display:none}
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>Pixel Art Processor</h1>
+  <button class="btn" onclick="loadSample()">Load Sample</button>
+  <button class="btn" onclick="applyPixelate()">Pixelate</button>
+  <button class="btn" onclick="applyPosterize()">Posterize</button>
+  <button class="btn" onclick="applyDither()">Dither</button>
+  <button class="btn" onclick="applyOutline()">Outline</button>
+  <button class="btn" onclick="applyInvert()">Invert</button>
+  <button class="btn" onclick="applyGrayscale()">Grayscale</button>
+  <button class="btn" onclick="resetImage()">Reset</button>
+  <button class="btn" onclick="exportPNG()">Export PNG</button>
+</div>
+<div class="main">
+  <div class="canvas-wrap" id="dropZone">
+    <canvas id="c"></canvas>
+    <div class="drop-hint" id="hint"><span>📷</span>Drop an image here or click Load Sample</div>
+  </div>
+  <div class="sidebar">
+    <h3>Pixelation</h3>
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+      <label>Block Size</label><input type="range" id="pixelSize" min="2" max="32" value="8"><span class="val" id="pixelSizeV">8</span>
+    </div>
+    <button class="btn" onclick="applyPixelate()" style="width:100%;margin-bottom:8px">Apply Pixelation</button>
+
+    <h3>Color Reduction</h3>
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+      <label>Levels</label><input type="range" id="levels" min="2" max="16" value="4"><span class="val" id="levelsV">4</span>
+    </div>
+    <button class="btn" onclick="applyPosterize()" style="width:100%;margin-bottom:8px">Apply Posterize</button>
+
+    <h3>Dithering</h3>
+    <button class="btn" onclick="applyDither()" style="width:100%;margin-bottom:4px">Floyd-Steinberg Dither</button>
+    <button class="btn" onclick="applyOrderedDither()" style="width:100%;margin-bottom:8px">Ordered Dither</button>
+
+    <h3>Effects</h3>
+    <button class="btn" onclick="applyOutline()" style="width:100%;margin-bottom:4px">Edge Detect</button>
+    <button class="btn" onclick="applyInvert()" style="width:100%;margin-bottom:4px">Invert Colors</button>
+    <button class="btn" onclick="applyGrayscale()" style="width:100%;margin-bottom:4px">Grayscale</button>
+    <button class="btn" onclick="applySepia()" style="width:100%;margin-bottom:4px">Sepia Tone</button>
+    <button class="btn" onclick="applyBlur()" style="width:100%;margin-bottom:4px">Blur</button>
+
+    <h3>Info</h3>
+    <div id="info" style="font-size:.62rem;font-family:'Space Mono',monospace;color:var(--t3);line-height:1.8">No image loaded</div>
+  </div>
+</div>
+
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+let originalData=null,imgW=0,imgH=0;
+
+function loadImage(img){
+  imgW=img.width;imgH=img.height;
+  canvas.width=imgW;canvas.height=imgH;
+  ctx.drawImage(img,0,0);
+  originalData=ctx.getImageData(0,0,imgW,imgH);
+  document.getElementById('hint').classList.add('hidden');
+  document.getElementById('info').textContent=`${imgW}x${imgH} pixels`;
+}
+
+function getPixels(){return ctx.getImageData(0,0,imgW,imgH)}
+function putPixels(data){ctx.putImageData(data,0,0)}
+
+function resetImage(){if(originalData){putPixels(originalData);document.getElementById('info').textContent=`${imgW}x${imgH} pixels (original)`}}
+
+function applyPixelate(){
+  const size=+document.getElementById('pixelSize').value;
+  const img=ctx.getImageData(0,0,imgW,imgH);
+  const data=img.data;
+  for(let y=0;y<imgH;y+=size)for(let x=0;x<imgW;x+=size){
+    let r=0,g=0,b=0,cnt=0;
+    for(let dy=0;dy<size&&y+dy<imgH;dy++)for(let dx=0;dx<size&&x+dx<imgW;dx++){
+      const i=((y+dy)*imgW+(x+dx))*4;
+      r+=data[i];g+=data[i+1];b+=data[i+2];cnt++;
+    }
+    r/=cnt;g/=cnt;b/=cnt;
+    for(let dy=0;dy<size&&y+dy<imgH;dy++)for(let dx=0;dx<size&&x+dx<imgW;dx++){
+      const i=((y+dy)*imgW+(x+dx))*4;
+      data[i]=r;data[i+1]=g;data[i+2]=b;
+    }
+  }
+  putPixels(img);
+  document.getElementById('info').textContent=`Pixelated ${size}px`;
+}
+
+function applyPosterize(){
+  const levels=+document.getElementById('levels').value;
+  const img=getPixels();const d=img.data;
+  const step=255/levels;
+  for(let i=0;i<d.length;i+=4){
+    d[i]=Math.round(d[i]/step)*step;
+    d[i+1]=Math.round(d[i+1]/step)*step;
+    d[i+2]=Math.round(d[i+2]/step)*step;
+  }
+  putPixels(img);
+  document.getElementById('info').textContent=`Posterized ${levels} levels`;
+}
+
+function applyDither(){
+  const img=getPixels();const d=img.data;
+  // Floyd-Steinberg
+  for(let y=0;y<imgH;y++)for(let x=0;x<imgW;x++){
+    const i=(y*imgW+x)*4;
+    for(let c=0;c<3;c++){
+      const old=d[i+c];
+      const new_=old<128?0:255;
+      d[i+c]=new_;
+      const err=old-new_;
+      if(x+1<imgW)d[i+4+c]+=err*7/16;
+      if(y+1<imgH){d[i+imgW*4+c]+=err*5/16;if(x>0)d[i+imgW*4-4+c]+=err*3/16;if(x+1<imgW)d[i+imgW*4+4+c]+=err*1/16}
+    }
+  }
+  putPixels(img);
+  document.getElementById('info').textContent='Floyd-Steinberg dithered';
+}
+
+function applyOrderedDither(){
+  const img=getPixels();const d=img.data;
+  const matrix=[[0,8,2,10],[12,4,14,6],[3,11,1,9],[15,7,13,5]];
+  for(let y=0;y<imgH;y++)for(let x=0;x<imgW;x++){
+    const i=(y*imgW+x)*4;
+    const t=matrix[y%4][x%4]/16*128;
+    for(let c=0;c<3;c++)d[i+c]=d[i+c]>t?255:0;
+  }
+  putPixels(img);
+  document.getElementById('info').textContent='Ordered dithered';
+}
+
+function applyOutline(){
+  const img=getPixels();const d=img.data;
+  const out=new Uint8ClampedArray(d.length);
+  for(let y=1;y<imgH-1;y++)for(let x=1;x<imgW-1;x++){
+    const i=(y*imgW+x)*4;
+    for(let c=0;c<3;c++){
+      const dx=d[((y)*imgW+x+1)*4+c]-d[((y)*imgW+x-1)*4+c];
+      const dy=d[((y+1)*imgW+x)*4+c]-d[((y-1)*imgW+x)*4+c];
+      out[i+c]=Math.min(255,Math.sqrt(dx*dx+dy*dy)*2);
+    }
+    out[i+3]=255;
+  }
+  const result=new ImageData(out,imgW,imgH);
+  putPixels(result);
+  document.getElementById('info').textContent='Edge detection applied';
+}
+
+function applyInvert(){
+  const img=getPixels();const d=img.data;
+  for(let i=0;i<d.length;i+=4){d[i]=255-d[i];d[i+1]=255-d[i+1];d[i+2]=255-d[i+2]}
+  putPixels(img);
+}
+
+function applyGrayscale(){
+  const img=getPixels();const d=img.data;
+  for(let i=0;i<d.length;i+=4){const g=d[i]*.299+d[i+1]*.587+d[i+2]*.114;d[i]=d[i+1]=d[i+2]=g}
+  putPixels(img);
+}
+
+function applySepia(){
+  const img=getPixels();const d=img.data;
+  for(let i=0;i<d.length;i+=4){
+    const r=d[i],g=d[i+1],b=d[i+2];
+    d[i]=Math.min(255,r*.393+g*.769+b*.189);
+    d[i+1]=Math.min(255,r*.349+g*.686+b*.168);
+    d[i+2]=Math.min(255,r*.272+g*.534+b*.131);
+  }
+  putPixels(img);
+}
+
+function applyBlur(){
+  const img=getPixels();const d=img.data;
+  const out=new Uint8ClampedArray(d.length);
+  const k=[[1,2,1],[2,4,2],[1,2,1]];
+  for(let y=1;y<imgH-1;y++)for(let x=1;x<imgW-1;x++){
+    let r=0,g=0,b=0;
+    for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
+      const i=((y+dy)*imgW+(x+dx))*4;
+      r+=d[i]*k[dy+1][dx+1];g+=d[i+1]*k[dy+1][dx+1];b+=d[i+2]*k[dy+1][dx+1];
+    }
+    const i=(y*imgW+x)*4;
+    out[i]=r/16;out[i+1]=g/16;out[i+2]=b/16;out[i+3]=255;
+  }
+  putPixels(new ImageData(out,imgW,imgH));
+}
+
+function exportPNG(){
+  const a=document.createElement('a');a.download='pixel_art.png';a.href=canvas.toDataURL();a.click();
+}
+
+function loadSample(){
+  // Generate a simple pixel art sample
+  const w=128,h=128;
+  canvas.width=w;canvas.height=h;imgW=w;imgH=h;
+  const img=ctx.createImageData(w,h);
+  const d=img.data;
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+    const i=(y*w+x)*4;
+    const cx=x/32|0,cy=y/32|0;
+    const checker=(cx+cy)%2;
+    d[i]=checker?139:200;d[i+1]=checker?92:180;d[i+2]=checker?246:160;d[i+3]=255;
+    // Add a circle
+    const dx=x-64,dy=y-64;
+    if(dx*dx+dy*dy<40*40){d[i]=244;d[i+1]=63;d[i+2]=94;d[i+3]=255}
+    if(dx*dx+dy*dy<25*25){d[i]=6;d[i+1]=182;d[i+2]=212;d[i+3]=255}
+  }
+  ctx.putImageData(img,0,0);
+  originalData=ctx.getImageData(0,0,w,h);
+  document.getElementById('hint').classList.add('hidden');
+  document.getElementById('info').textContent=`${w}x${h} sample`;
+}
+
+// Drag and drop
+const zone=document.getElementById('dropZone');
+zone.addEventListener('dragover',e=>{e.preventDefault();zone.style.background='rgba(139,92,246,.1)'});
+zone.addEventListener('dragleave',()=>zone.style.background='');
+zone.addEventListener('drop',e=>{
+  e.preventDefault();zone.style.background='';
+  const file=e.dataTransfer.files[0];
+  if(!file||!file.type.startsWith('image/'))return;
+  const img=new Image();
+  img.onload=()=>loadImage(img);
+  img.src=URL.createObjectURL(file);
+});
+
+document.getElementById('pixelSize').addEventListener('input',e=>document.getElementById('pixelSizeV').textContent=e.target.value);
+document.getElementById('levels').addEventListener('input',e=>document.getElementById('levelsV').textContent=e.target.value);
+</script>
+</body>
+</html>

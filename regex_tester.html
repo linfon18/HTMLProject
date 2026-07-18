@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Regex Visualizer</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#050508;--border:rgba(255,255,255,.06);--t1:#fff;--t2:rgba(255,255,255,.55);--t3:rgba(255,255,255,.25)}
+body{background:var(--bg);color:var(--t2);font-family:'Space Grotesk',sans-serif;height:100vh;display:flex;flex-direction:column;-webkit-font-smoothing:antialiased}
+.top{padding:10px 14px;display:flex;flex-direction:column;gap:8px;border-bottom:1px solid var(--border);flex-shrink:0}
+.top-row{display:flex;align-items:center;gap:8px}
+.top-row h1{font-size:.85rem;font-weight:700;color:var(--t1);margin-right:auto}
+.btn{padding:5px 10px;border-radius:6px;font-size:.7rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--t2);cursor:pointer;transition:all .2s}
+.btn:hover{background:rgba(255,255,255,.1);color:var(--t1)}
+.regex-input{display:flex;align-items:center;gap:4px}
+.regex-input .slash{font-family:'JetBrains Mono',monospace;font-size:.85rem;color:var(--t3)}
+.regex-input input{flex:1;padding:8px 12px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:6px;color:var(--t1);font-family:'JetBrains Mono',monospace;font-size:.82rem;outline:none}
+.regex-input input:focus{border-color:rgba(139,92,246,.3)}
+.flags{display:flex;gap:4px}
+.flag{padding:3px 8px;border-radius:4px;font-size:.6rem;font-weight:700;font-family:'JetBrains Mono',monospace;cursor:pointer;background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--t3)}
+.flag.active{background:rgba(139,92,246,.12);border-color:rgba(139,92,246,.3);color:#a78bfa}
+.presets{display:flex;gap:4px;flex-wrap:wrap}
+.presets .btn{font-size:.6rem;padding:3px 8px}
+.main{flex:1;display:flex;overflow:hidden}
+.pane{flex:1;display:flex;flex-direction:column;border-right:1px solid var(--border)}
+.pane-h{padding:4px 14px;font-size:.58rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);border-bottom:1px solid var(--border);background:rgba(255,255,255,.015)}
+textarea{flex:1;resize:none;border:none;outline:none;padding:14px;background:#0a0a10;color:#e6edf3;font-family:'JetBrains Mono',monospace;font-size:.78rem;line-height:1.8}
+.match{background:rgba(139,92,246,.2);border-bottom:2px solid rgba(139,92,246,.5)}
+.match-1{background:rgba(34,197,94,.2);border-bottom:2px solid rgba(34,197,94,.5)}
+.match-2{background:rgba(244,63,94,.2);border-bottom:2px solid rgba(244,63,94,.5)}
+.results{flex:1;padding:14px;font-family:'JetBrains Mono',monospace;font-size:.75rem;line-height:2;overflow-y:auto;background:#080810}
+.results .group{color:#a78bfa}
+.results .match-text{color:var(--t1);background:rgba(139,92,246,.1);padding:1px 4px;border-radius:3px}
+.info-bar{padding:6px 14px;border-top:1px solid var(--border);font-size:.6rem;font-family:'Space Mono',monospace;color:var(--t3);display:flex;gap:16px;flex-shrink:0}
+.error{color:#f87171}
+.tree{padding:14px;font-family:'JetBrains Mono',monospace;font-size:.7rem;line-height:1.8;overflow-y:auto;background:#080810;flex:1}
+.tree .node{color:#a78bfa}
+.tree .quantifier{color:#22d3ee}
+.tree .char{color:#22c55e}
+.tree .group{color:#eab308}
+.tree .anchor{color:#f87171}
+.tree .class{color:#f97316}
+</style>
+</head>
+<body>
+<div class="top">
+  <div class="top-row">
+    <h1>Regex Visualizer</h1>
+    <div class="presets">
+      <button class="btn" onclick="loadPreset('email')">Email</button>
+      <button class="btn" onclick="loadPreset('url')">URL</button>
+      <button class="btn" onclick="loadPreset('ipv4')">IPv4</button>
+      <button class="btn" onclick="loadPreset('date')">Date</button>
+      <button class="btn" onclick="loadPreset('hex')">Hex Color</button>
+      <button class="btn" onclick="loadPreset('password')">Password</button>
+    </div>
+  </div>
+  <div class="regex-input">
+    <span class="slash">/</span>
+    <input id="regex" value="(\w+)@(\w+)\.(\w+)" oninput="test()" placeholder="Enter regex pattern...">
+    <span class="slash">/</span>
+    <div class="flags">
+      <span class="flag active" data-flag="g" onclick="toggleFlag(this)">g</span>
+      <span class="flag" data-flag="i" onclick="toggleFlag(this)">i</span>
+      <span class="flag active" data-flag="m" onclick="toggleFlag(this)">m</span>
+      <span class="flag" data-flag="s" onclick="toggleFlag(this)">s</span>
+    </div>
+  </div>
+</div>
+<div class="main">
+  <div class="pane" style="flex:.8">
+    <div class="pane-h">Test String</div>
+    <textarea id="testStr" oninput="test()">Contact us at hello@example.com or support@test.org for help.
+Also try admin@company.net or user123@mail.co.uk</textarea>
+  </div>
+  <div class="pane">
+    <div class="pane-h">Matches</div>
+    <div class="results" id="results"></div>
+  </div>
+  <div class="pane">
+    <div class="pane-h">Pattern Tree</div>
+    <div class="tree" id="tree"></div>
+  </div>
+</div>
+<div class="info-bar">
+  <span>Matches: <span id="matchCount">0</span></span>
+  <span>Groups: <span id="groupCount">0</span></span>
+  <span id="error" class="error"></span>
+</div>
+
+<script>
+const PRESETS={
+  email:{pattern:'(\\w+)@(\\w+)\\.(\\w+)',text:'test@example.com\nuser@mail.org\nadmin@company.net'},
+  url:{pattern:'https?://[\\w.-]+(?:/[\\w./-]*)?',text:'Visit https://example.com/path or http://test.org'},
+  ipv4:{pattern:'\\b(?:\\d{1,3}\\.){3}\\d{1,3}\\b',text:'Server at 192.168.1.1 and 10.0.0.255'},
+  date:{pattern:'(\\d{4})-(\\d{2})-(\\d{2})',text:'Born: 1990-05-15, Updated: 2024-01-30'},
+  hex:{pattern:'#([0-9a-fA-F]{3,8})\\b',text:'Colors: #ff0000, #00ff00, #0000ff, #8b5cf6'},
+  password:{pattern:'(?=.*[A-Z])(?=.*[a-z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]{8,}',text:'Str0ng@Pass\nweak\nHello1!world\nabc'}
+};
+
+function loadPreset(name){
+  const p=PRESETS[name];
+  document.getElementById('regex').value=p.pattern;
+  document.getElementById('testStr').value=p.text;
+  test();
+}
+
+function toggleFlag(el){
+  el.classList.toggle('active');
+  test();
+}
+
+function getFlags(){
+  return Array.from(document.querySelectorAll('.flag.active')).map(f=>f.dataset.flag).join('');
+}
+
+function test(){
+  const pattern=document.getElementById('regex').value;
+  const testStr=document.getElementById('testStr').value;
+  const errorEl=document.getElementById('error');
+  errorEl.textContent='';
+
+  if(!pattern){document.getElementById('results').innerHTML='';document.getElementById('tree').innerHTML='';return}
+
+  try{
+    const flags=getFlags();
+    const regex=new RegExp(pattern,flags);
+    const matches=[];
+    let match;
+
+    if(flags.includes('g')){
+      while((match=regex.exec(testStr))!==null){
+        matches.push({index:match.index,full:match[0],groups:match.slice(1)});
+        if(match[0].length===0)regex.lastIndex++;
+      }
+    }else{
+      match=regex.exec(testStr);
+      if(match)matches.push({index:match.index,full:match[0],groups:match.slice(1)});
+    }
+
+    // Display matches
+    const resultsEl=document.getElementById('results');
+    resultsEl.innerHTML=matches.length===0?'<span style="color:var(--t3)">No matches found</span>':
+      matches.map((m,i)=>{
+        let html=`<div style="margin-bottom:8px"><span style="color:var(--t3)">Match ${i+1} @ ${m.index}:</span><br>`;
+        html+=`<span class="match-text">${escapeHtml(m.full)}</span>`;
+        if(m.groups.length){
+          html+='<br>';
+          m.groups.forEach((g,j)=>{
+            html+=`<span class="group">Group ${j+1}:</span> <span class="match-text">${g!==undefined?escapeHtml(g):'<undefined>'}</span><br>`;
+          });
+        }
+        html+='</div>';
+        return html;
+      }).join('');
+
+    document.getElementById('matchCount').textContent=matches.length;
+    const groupCount=matches.length>0?matches[0].groups.length:0;
+    document.getElementById('groupCount').textContent=groupCount;
+
+    // Highlight in test string
+    highlightMatches(testStr,matches);
+
+    // Parse and show tree
+    showTree(pattern);
+
+  }catch(e){errorEl.textContent=e.message}
+}
+
+function escapeHtml(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+
+function highlightMatches(text,matches){
+  // Build highlighted version in results
+  const resultsEl=document.getElementById('results');
+  let html='<div style="margin-top:12px;padding-top:8px;border-top:1px solid var(--border)"><span style="color:var(--t3)">Highlighted Text:</span><br><span style="line-height:1.8">';
+  let lastIdx=0;
+  matches.forEach((m,i)=>{
+    html+=escapeHtml(text.slice(lastIdx,m.index));
+    html+=`<span class="match" style="background:rgba(${i%2?'34,197,94':'139,92,246'},.2);border-bottom:2px solid rgba(${i%2?'34,197,94':'139,92,246'},.5);padding:1px 0">${escapeHtml(m.full)}</span>`;
+    lastIdx=m.index+m.full.length;
+  });
+  html+=escapeHtml(text.slice(lastIdx));
+  html+='</span></div>';
+  resultsEl.innerHTML+=html;
+}
+
+function showTree(pattern){
+  const treeEl=document.getElementById('tree');
+  let html='';
+  let depth=0;
+
+  for(let i=0;i<pattern.length;i++){
+    const c=pattern[i];
+    if(c==='('){html+=`<div style="padding-left:${depth*16}px"><span class="group">(...)</span> Group</div>`;depth++}
+    else if(c===')'){depth--;html+=`<div style="padding-left:${depth*16}px"><span class="group">)</span> End Group</div>`}
+    else if(c==='['){
+      let cls='[';while(i+1<pattern.length&&pattern[i+1]!==']'){i++;cls+=pattern[i]}cls+=']';i++;
+      html+=`<div style="padding-left:${depth*16}px"><span class="class">${escapeHtml(cls)}</span> Character Class</div>`;
+    }
+    else if(c==='\\'){i++;html+=`<div style="padding-left:${depth*16}px"><span class="class">\\${pattern[i]}</span> Escape</div>`}
+    else if(c==='*'||c==='+'||c==='?'){html+=`<div style="padding-left:${depth*16}px"><span class="quantifier">${c}</span> Quantifier</div>`}
+    else if(c==='{'){let q='{';while(i+1<pattern.length&&pattern[i+1]!=='}'){i++;q+=pattern[i]}q+='}';i++;html+=`<div style="padding-left:${depth*16}px"><span class="quantifier">${q}</span> Quantifier</div>`}
+    else if(c==='^'||c==='$'){html+=`<div style="padding-left:${depth*16}px"><span class="anchor">${c}</span> Anchor</div>`}
+    else if(c==='|'){html+=`<div style="padding-left:${depth*16}px"><span class="quantifier">|</span> Alternation</div>`}
+    else if(c==='.'){html+=`<div style="padding-left:${depth*16}px"><span class="char">.</span> Any char</div>`}
+    else{html+=`<div style="padding-left:${depth*16}px"><span class="char">${escapeHtml(c)}</span> Literal</div>`}
+  }
+  treeEl.innerHTML=html;
+}
+
+document.getElementById('regex').addEventListener('keydown',e=>{
+  if(e.ctrlKey&&e.key==='Enter'){e.preventDefault();test()}
+});
+
+test();
+</script>
+</body>
+</html>

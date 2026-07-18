@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hexagonal Grid</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Space+Mono:wght@400&display=swap');
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#050508;--border:rgba(255,255,255,.06);--t1:#fff;--t2:rgba(255,255,255,.55);--t3:rgba(255,255,255,.25)}
+body{background:var(--bg);color:var(--t2);font-family:'Space Grotesk',sans-serif;min-height:100vh;overflow:hidden;-webkit-font-smoothing:antialiased}
+canvas{display:block;position:fixed;inset:0}
+.ui{position:fixed;top:12px;left:12px;z-index:10}
+.panel{padding:12px;border-radius:10px;background:rgba(10,10,15,.8);backdrop-filter:blur(16px);border:1px solid var(--border);min-width:180px}
+.panel h3{font-size:.6rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:6px}
+.row{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;font-size:.68rem}
+.row label{color:var(--t3);font-size:.62rem}
+input[type=range]{width:70px;height:3px;-webkit-appearance:none;background:rgba(255,255,255,.1);border-radius:2px;outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;height:10px;border-radius:50%;background:#fff;cursor:pointer}
+.val{font-family:'Space Mono',monospace;font-size:.58rem;color:var(--t3);min-width:22px;text-align:right}
+.btn{padding:5px 10px;border-radius:6px;font-size:.68rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--t3);cursor:pointer;transition:all .2s;text-align:center;margin-top:4px;width:100%}
+.btn:hover{color:var(--t1);background:rgba(255,255,255,.1)}
+.info{position:fixed;bottom:12px;left:12px;font-size:.62rem;font-family:'Space Mono',monospace;color:rgba(255,255,255,.2)}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="ui">
+  <div class="panel">
+    <h3>Hexagonal Grid</h3>
+    <div class="row"><label>Size</label><input type="range" id="size" min="10" max="50" value="25"><span class="val" id="sizeV">25</span></div>
+    <div class="row"><label>Offset</label><input type="range" id="offset" min="0" max="100" value="50"><span class="val" id="offsetV">50</span></div>
+    <button class="btn" onclick="mode='grid'">Grid</button>
+    <button class="btn" onclick="mode='wave'">Wave</button>
+    <button class="btn" onclick="mode='spiral'">Spiral</button>
+    <button class="btn" onclick="mode='noise'">Noise</button>
+    <button class="btn" onclick="animating=!animating">Toggle Animation</button>
+  </div>
+</div>
+<div class="info" id="info"></div>
+
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+let W,H;
+function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight}
+addEventListener('resize',resize);
+
+let mode='wave',animating=true,time=0;
+
+function hexCorner(cx,cy,size,i){
+  const angle=Math.PI/3*i-Math.PI/6;
+  return{x:cx+size*Math.cos(angle),y:cy+size*Math.sin(angle)};
+}
+
+function drawHex(cx,cy,size,fill,stroke){
+  ctx.beginPath();
+  const p0=hexCorner(cx,cy,size,0);
+  ctx.moveTo(p0.x,p0.y);
+  for(let i=1;i<6;i++){
+    const p=hexCorner(cx,cy,size,i);
+    ctx.lineTo(p.x,p.y);
+  }
+  ctx.closePath();
+  if(fill){ctx.fillStyle=fill;ctx.fill()}
+  if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=.5;ctx.stroke()}
+}
+
+function draw(){
+  ctx.fillStyle='rgba(5,5,8,.2)';ctx.fillRect(0,0,W,H);
+  const size=+document.getElementById('size').value;
+  const off=+document.getElementById('offset').value/100;
+  const hexW=size*2,hexH=size*Math.sqrt(3);
+  const cols=Math.ceil(W/(hexW*.75))+2;
+  const rows=Math.ceil(H/hexH)+2;
+
+  let count=0;
+  for(let row=-1;row<rows;row++){
+    for(let col=-1;col<cols;col++){
+      const cx=col*hexW*.75;
+      const cy=row*hexH+(col%2)*hexH*off;
+      const dx=cx-W/2,dy=cy-H/2;
+      const dist=Math.sqrt(dx*dx+dy*dy);
+      const angle=Math.atan2(dy,dx);
+
+      let hue,sat,light,alpha;
+
+      if(mode==='grid'){
+        hue=(col+row)*30+time*50;
+        sat=60;light=30+Math.sin(col*.5+row*.3+time)*15;
+        alpha=.6;
+      }else if(mode==='wave'){
+        const wave=Math.sin(dist*.02-time*2)*.5+.5;
+        hue=180+wave*180;
+        sat=60+wave*30;
+        light=20+wave*40;
+        alpha=.5+wave*.3;
+      }else if(mode==='spiral'){
+        const spiral=Math.sin(angle*3+dist*.01-time*2)*.5+.5;
+        hue=(angle*180/Math.PI+360)%360;
+        sat=60+spiral*30;
+        light=20+spiral*40;
+        alpha=.4+spiral*.4;
+      }else{
+        const n=Math.sin(cx*.01+time)*Math.cos(cy*.01+time*.7)*.5+.5;
+        hue=270+n*90;
+        sat=50+n*40;
+        light=20+n*40;
+        alpha=.4+n*.4;
+      }
+
+      drawHex(cx,cy,size*.9,`hsla(${hue},${sat}%,${light}%,${alpha})`,`hsla(${hue},${sat}%,${light+20}%,${alpha*.3})`);
+      count++;
+    }
+  }
+
+  document.getElementById('info').textContent=`${count} hexagons · mode: ${mode}`;
+}
+
+function loop(){
+  if(animating)time+=.01;
+  draw();
+  requestAnimationFrame(loop);
+}
+
+document.querySelectorAll('input[type=range]').forEach(s=>{
+  const vEl=document.getElementById(s.id+'V');
+  s.addEventListener('input',()=>vEl.textContent=s.value);
+});
+
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

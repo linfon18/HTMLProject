@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Voronoi Diagram</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Space+Mono:wght@400&display=swap');
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#050508;--border:rgba(255,255,255,.06);--t1:#fff;--t2:rgba(255,255,255,.55);--t3:rgba(255,255,255,.25)}
+body{background:var(--bg);color:var(--t2);font-family:'Space Grotesk',sans-serif;min-height:100vh;overflow:hidden;-webkit-font-smoothing:antialiased}
+canvas{display:block;position:fixed;inset:0}
+.ui{position:fixed;top:12px;left:12px;z-index:10}
+.panel{padding:12px;border-radius:10px;background:rgba(10,10,15,.8);backdrop-filter:blur(16px);border:1px solid var(--border);min-width:180px}
+.panel h3{font-size:.6rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:6px}
+.row{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;font-size:.68rem}
+.row label{color:var(--t3);font-size:.62rem}
+input[type=range]{width:80px;height:3px;-webkit-appearance:none;background:rgba(255,255,255,.1);border-radius:2px;outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;height:10px;border-radius:50%;background:#fff;cursor:pointer}
+.val{font-family:'Space Mono',monospace;font-size:.58rem;color:var(--t3);min-width:22px;text-align:right}
+.btn{padding:5px 10px;border-radius:6px;font-size:.68rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--t3);cursor:pointer;transition:all .2s;text-align:center;margin-top:4px;width:100%}
+.btn:hover{color:var(--t1);background:rgba(255,255,255,.1)}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="ui">
+  <div class="panel">
+    <h3>Voronoi Diagram</h3>
+    <div class="row"><label>Points</label><input type="range" id="count" min="5" max="200" value="40"><span class="val" id="countV">40</span></div>
+    <div class="row"><label>Seed</label><input type="range" id="seed" min="1" max="999" value="42"><span class="val" id="seedV">42</span></div>
+    <button class="btn" onclick="generate()">Randomize</button>
+    <button class="btn" onclick="animatePoints()">Animate</button>
+    <button class="btn" onclick="toggleEdges()">Toggle Edges</button>
+    <button class="btn" onclick="toggleDelaunay()">Delaunay</button>
+  </div>
+</div>
+
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+let W,H;
+function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight;generate()}
+addEventListener('resize',resize);
+
+let points=[],showEdges=true,showDelaunay=false,animating=false;
+
+function seededRandom(s){let x=Math.sin(s)*10000;return x-Math.floor(x)}
+
+function generate(){
+  const count=+document.getElementById('count').value;
+  const seed=+document.getElementById('seed').value;
+  points=[];
+  for(let i=0;i<count;i++){
+    points.push({x:seededRandom(seed+i*137.5)*W,y:seededRandom(seed+i*237.7)*H,vx:0,vy:0});
+  }
+  drawVoronoi();
+}
+
+function drawVoronoi(){
+  const imageData=ctx.createImageData(W,H);
+  const data=imageData.data;
+  const count=points.length;
+
+  // For each pixel, find nearest point
+  for(let py=0;py<H;py+=2){
+    for(let px=0;px<W;px+=2){
+      let minDist=Infinity,minIdx=0;
+      let secondDist=Infinity;
+      for(let i=0;i<count;i++){
+        const dx=px-points[i].x,dy=py-points[i].y;
+        const dist=dx*dx+dy*dy;
+        if(dist<minDist){secondDist=minDist;minDist=dist;minIdx=i}
+        else if(dist<secondDist){secondDist=dist}
+      }
+      // Color based on nearest point
+      const hue=(minIdx*137.5)%360;
+      const edge=Math.sqrt(secondDist)-Math.sqrt(minDist);
+      const edgeFactor=showEdges?Math.max(0,1-edge*.08):1;
+
+      const r=Math.floor((20+Math.sin(hue*.017)*30)*edgeFactor);
+      const g=Math.floor((15+Math.sin(hue*.017+2)*25)*edgeFactor);
+      const b=Math.floor((30+Math.sin(hue*.017+4)*35)*edgeFactor);
+
+      // Fill 2x2 block
+      for(let dy=0;dy<2;dy++)for(let dx=0;dx<2;dx++){
+        const idx=((py+dy)*W+(px+dx))*4;
+        data[idx]=r;data[idx+1]=g;data[idx+2]=b;data[idx+3]=255;
+      }
+    }
+  }
+  ctx.putImageData(imageData,0,0);
+
+  // Draw points
+  points.forEach(p=>{
+    ctx.beginPath();ctx.arc(p.x,p.y,3,0,Math.PI*2);
+    ctx.fillStyle='rgba(255,255,255,.8)';ctx.fill();
+    ctx.beginPath();ctx.arc(p.x,p.y,5,0,Math.PI*2);
+    ctx.strokeStyle='rgba(255,255,255,.2)';ctx.lineWidth=.5;ctx.stroke();
+  });
+
+  // Delaunay (approximate via edges between neighboring Voronoi sites)
+  if(showDelaunay){
+    ctx.strokeStyle='rgba(139,92,246,.2)';ctx.lineWidth=.5;
+    for(let i=0;i<count;i++){
+      // Find neighbors by checking nearby points
+      for(let j=i+1;j<count;j++){
+        const midX=(points[i].x+points[j].x)/2;
+        const midY=(points[i].y+points[j].y)/2;
+        const dist=Math.hypot(points[i].x-points[j].x,points[i].y-points[j].y);
+        // Check if they're Voronoi neighbors (approximate)
+        let isNeighbor=true;
+        for(let k=0;k<count;k++){
+          if(k===i||k===j)continue;
+          if(Math.hypot(points[k].x-midX,points[k].y-midY)<dist/2*.95){isNeighbor=false;break}
+        }
+        if(isNeighbor){ctx.beginPath();ctx.moveTo(points[i].x,points[i].y);ctx.lineTo(points[j].x,points[j].y);ctx.stroke()}
+      }
+    }
+  }
+}
+
+function toggleEdges(){showEdges=!showEdges;drawVoronoi()}
+function toggleDelaunay(){showDelaunay=!showDelaunay;drawVoronoi()}
+
+function animatePoints(){
+  if(animating)return;animating=true;
+  points.forEach(p=>{p.vx=(Math.random()-.5)*2;p.vy=(Math.random()-.5)*2});
+
+  function step(){
+    if(!animating)return;
+    points.forEach(p=>{
+      p.x+=p.vx;p.y+=p.vy;
+      if(p.x<20||p.x>W-20)p.vx*=-1;
+      if(p.y<20||p.y>H-20)p.vy*=-1;
+    });
+    drawVoronoi();
+    requestAnimationFrame(step);
+  }
+  step();
+}
+
+canvas.addEventListener('click',e=>{
+  if(e.target===canvas){
+    points.push({x:e.clientX,y:e.clientY,vx:0,vy:0});
+    drawVoronoi();
+  }
+});
+
+generate();
+</script>
+</body>
+</html>

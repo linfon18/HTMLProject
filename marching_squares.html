@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Marching Squares</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Space+Mono:wght@400&display=swap');
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#050508;--border:rgba(255,255,255,.06);--t1:#fff;--t2:rgba(255,255,255,.55);--t3:rgba(255,255,255,.25)}
+body{background:var(--bg);color:var(--t2);font-family:'Space Grotesk',sans-serif;height:100vh;display:flex;flex-direction:column;-webkit-font-smoothing:antialiased}
+.top{padding:8px 14px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap}
+.top h1{font-size:.85rem;font-weight:700;color:var(--t1);margin-right:auto}
+.btn{padding:5px 10px;border-radius:6px;font-size:.7rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--t2);cursor:pointer;transition:all .2s}
+.btn:hover{background:rgba(255,255,255,.1);color:var(--t1)}
+canvas{flex:1;display:block}
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>Marching Squares</h1>
+  <button class="btn" onclick="mode='circles';initField()">Circles</button>
+  <button class="btn" onclick="mode='noise';initField()">Noise</button>
+  <button class="btn" onclick="mode='mouse'">Mouse</button>
+  <button class="btn" onclick="animating=!animating">Toggle</button>
+  <button class="btn" onclick="threshold=.5;initField()">Reset Threshold</button>
+  <button class="btn" onclick="showGrid=!showGrid">Grid</button>
+  <button class="btn" onclick="showField=!showField">Field</button>
+</div>
+<canvas id="c"></canvas>
+
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+let W,H;
+function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight}
+addEventListener('resize',resize);
+
+let field=[];
+let cols=80,rows=50;
+let threshold=.5;
+let mode='circles',animating=true,showGrid=false,showField=true;
+let circles=[];
+let time=0;
+let mouseX=0,mouseY=0;
+canvas.addEventListener('mousemove',e=>{mouseX=e.clientX;mouseY=e.clientY});
+
+function initField(){
+  cols=80;rows=50;
+  circles=[];
+  if(mode==='circles'){
+    for(let i=0;i<5;i++){
+      circles.push({x:Math.random()*W,y:Math.random()*H,r:50+Math.random()*100,vx:(Math.random()-.5)*2,vy:(Math.random()-.5)*2});
+    }
+  }
+}
+
+function getField(x,y){
+  const wx=x/cols*W,wy=y/rows*H;
+  if(mode==='circles'){
+    let sum=0;
+    circles.forEach(c=>{
+      const d=Math.hypot(wx-c.x,wy-c.y);
+      sum+=c.r*c.r/(d*d+1);
+    });
+    return sum;
+  }else if(mode==='noise'){
+    return Math.sin(x*.3+time)*Math.cos(y*.3+time*.7)+Math.sin((x+y)*.2+time*.5);
+  }else{
+    const d=Math.hypot(wx-mouseX,wy-mouseY);
+    return 3000/(d*d+100)+Math.sin(x*.2+time)*.3;
+  }
+}
+
+// Lookup table for marching squares edges
+const EDGE_TABLE=[
+  [],//0
+  [[3,0]],//1
+  [[0,1]],//2
+  [[3,1]],//3
+  [[1,2]],//4
+  [[3,0],[1,2]],//5
+  [[0,2]],//6
+  [[3,2]],//7
+  [[2,3]],//8
+  [[2,0]],//9
+  [[0,1],[2,3]],//10
+  [[2,1]],//11
+  [[1,3]],//12
+  [[1,0]],//13
+  [[0,3]],//14
+  []//15
+];
+
+function lerp(a,b,va,vb){
+  const t=(threshold-va)/(vb-va+.0001);
+  return a+(b-a)*t;
+}
+
+function draw(){
+  ctx.fillStyle='#050508';ctx.fillRect(0,0,W,H);
+
+  // Compute field
+  field=[];
+  for(let y=0;y<=rows;y++){
+    field[y]=[];
+    for(let x=0;x<=cols;x++){
+      field[y][x]=getField(x,y);
+    }
+  }
+
+  const cw=W/cols,ch=H/rows;
+
+  // Field visualization
+  if(showField){
+    for(let y=0;y<rows;y++)for(let x=0;x<cols;x++){
+      const v=(field[y][x]+field[y][x+1]+field[y+1][x]+field[y+1][x+1])/4;
+      const t=Math.min(1,Math.max(0,v));
+      ctx.fillStyle=`rgba(${t*60|0},${t*100|0},${t*160|0},.3)`;
+      ctx.fillRect(x*cw,y*ch,cw,ch);
+    }
+  }
+
+  // Grid
+  if(showGrid){
+    ctx.strokeStyle='rgba(255,255,255,.03)';
+    for(let x=0;x<=cols;x++){ctx.beginPath();ctx.moveTo(x*cw,0);ctx.lineTo(x*cw,H);ctx.stroke()}
+    for(let y=0;y<=rows;y++){ctx.beginPath();ctx.moveTo(0,y*ch);ctx.lineTo(W,y*ch);ctx.stroke()}
+  }
+
+  // Marching squares
+  ctx.strokeStyle='rgba(139,92,246,.7)';ctx.lineWidth=2;
+  for(let y=0;y<rows;y++)for(let x=0;x<cols;x++){
+    const v0=field[y][x]>threshold?1:0;
+    const v1=field[y][x+1]>threshold?1:0;
+    const v2=field[y+1][x+1]>threshold?1:0;
+    const v3=field[y+1][x]>threshold?1:0;
+    const code=v0|v1<<1|v2<<2|v3<<3;
+    if(code===0||code===15)continue;
+
+    // Edge interpolation points
+    const edges=[];
+    edges[0]=()=>{const t=lerp(0,1,field[y][x],field[y][x+1]);return{x:x*cw+t*cw,y:y*ch}};
+    edges[1]=()=>{const t=lerp(0,1,field[y][x+1],field[y+1][x+1]);return{x:(x+1)*cw,y:y*ch+t*ch}};
+    edges[2]=()=>{const t=lerp(0,1,field[y+1][x],field[y+1][x+1]);return{x:x*cw+t*cw,y:(y+1)*ch}};
+    edges[3]=()=>{const t=lerp(0,1,field[y][x],field[y+1][x]);return{x:x*cw,y:y*ch+t*ch}};
+
+    // Draw lines
+    const lineConfigs=EDGE_TABLE[code];
+    if(lineConfigs.length===1){
+      const a=edges[lineConfigs[0][0]](),b=edges[lineConfigs[0][1]]();
+      ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
+    }else if(lineConfigs.length===2){
+      lineConfigs.forEach(([e1,e2])=>{
+        const a=edges[e1](),b=edges[e2]();
+        ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
+      });
+    }
+  }
+
+  // Circles indicator
+  if(mode==='circles'){
+    circles.forEach(c=>{
+      ctx.beginPath();ctx.arc(c.x,c.y,3,0,Math.PI*2);
+      ctx.fillStyle='rgba(255,255,255,.2)';ctx.fill();
+    });
+  }
+}
+
+function update(){
+  if(mode==='circles'){
+    circles.forEach(c=>{
+      c.x+=c.vx;c.y+=c.vy;
+      if(c.x<0||c.x>W)c.vx*=-1;
+      if(c.y<0||c.y>H)c.vy*=-1;
+    });
+  }
+  time+=.02;
+}
+
+initField();
+function loop(){update();draw();requestAnimationFrame(loop)}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

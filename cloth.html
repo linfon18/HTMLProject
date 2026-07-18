@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cloth Simulation</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}body{background:#050508;overflow:hidden}canvas{display:block}
+.ui{position:fixed;top:12px;left:12px;z-index:10;display:flex;gap:6px;flex-wrap:wrap}
+.btn{padding:5px 10px;border-radius:6px;font-size:.7rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);color:rgba(255,255,255,.5);cursor:pointer;transition:all .2s;font-family:'Space Grotesk',sans-serif}
+.btn:hover{background:rgba(255,255,255,.1);color:#fff}
+.info{position:fixed;bottom:12px;left:12px;font-size:.62rem;font-family:'Space Mono',monospace;color:rgba(255,255,255,.2)}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="ui">
+  <button class="btn" onclick="initCloth()">Reset</button>
+  <button class="btn" onclick="tear()">Tear</button>
+  <button class="btn" onclick="wind=!wind">Toggle Wind</button>
+  <button class="btn" onclick="gravity*=-1">Reverse Gravity</button>
+</div>
+<div class="info">Click and drag to interact with cloth</div>
+
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+let W,H;
+function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight}
+addEventListener('resize',resize);
+
+const COLS=40,ROWS=30,SPACING=12;
+let points=[],constraints=[];
+let gravity=.5,wind=false,damping=.99;
+let mouseX=0,mouseY=0,pmouseX=0,pmouseY=0,mouseDown=false;
+
+canvas.addEventListener('mousedown',e=>{mouseDown=true;mouseX=e.clientX;mouseY=e.clientY});
+canvas.addEventListener('mousemove',e=>{pmouseX=mouseX;pmouseY=mouseY;mouseX=e.clientX;mouseY=e.clientY});
+canvas.addEventListener('mouseup',()=>mouseDown=false);
+
+class Point{
+  constructor(x,y,pinned=false){
+    this.x=x;this.y=y;this.ox=x;this.oy=y;
+    this.pinned=pinned;this.mass=1;
+  }
+  update(dt){
+    if(this.pinned)return;
+    const vx=(this.x-this.ox)*damping;
+    const vy=(this.y-this.oy)*damping;
+    this.ox=this.x;this.oy=this.y;
+    this.x+=vx;this.y+=vy+gravity;
+    if(wind)this.x+=Math.sin(Date.now()*.003+this.y*.05)*.3;
+    // Bounds
+    if(this.y>H){this.y=H;this.oy=this.y}
+    if(this.x<0){this.x=0}
+    if(this.x>W){this.x=W}
+  }
+}
+
+class Constraint{
+  constructor(p1,p2){
+    this.p1=p1;this.p2=p2;
+    const dx=p2.x-p1.x,dy=p2.y-p1.y;
+    this.restLength=Math.sqrt(dx*dx+dy*dy);
+    this.broken=false;
+  }
+  solve(){
+    if(this.broken)return;
+    const dx=this.p2.x-this.p1.x;
+    const dy=this.p2.y-this.p1.y;
+    const dist=Math.sqrt(dx*dx+dy*dy);
+    if(dist>this.restLength*3){this.broken=true;return}
+    const diff=(this.restLength-dist)/dist*.5;
+    const ox=dx*diff,oy=dy*diff;
+    if(!this.p1.pinned){this.p1.x-=ox;this.p1.y-=oy}
+    if(!this.p2.pinned){this.p2.x+=ox;this.p2.y+=oy}
+  }
+}
+
+function initCloth(){
+  points=[];constraints=[];
+  const startX=W/2-(COLS*SPACING)/2,startY=60;
+  for(let y=0;y<ROWS;y++){
+    for(let x=0;x<COLS;x++){
+      const p=new Point(startX+x*SPACING,startY+y*SPACING,y===0&&x%3===0);
+      points.push(p);
+      if(x>0)constraints.push(new Constraint(p,points[points.length-2]));
+      if(y>0)constraints.push(new Constraint(p,points[(y-1)*COLS+x]));
+    }
+  }
+}
+
+function tear(){
+  // Remove some constraints randomly
+  for(let i=0;i<20;i++){
+    const idx=Math.floor(Math.random()*constraints.length);
+    if(constraints[idx])constraints[idx].broken=true;
+  }
+}
+
+function update(){
+  // Mouse interaction
+  if(mouseDown){
+    const radius=40;
+    points.forEach(p=>{
+      if(p.pinned)return;
+      const dx=p.x-mouseX,dy=p.y-mouseY;
+      const dist=Math.sqrt(dx*dx+dy*dy);
+      if(dist<radius){
+        const force=(radius-dist)/radius;
+        p.x+=(mouseX-pmouseX)*force*.3;
+        p.y+=(mouseY-pmouseY)*force*.3;
+      }
+    });
+  }
+
+  // Physics steps
+  for(let iter=0;iter<3;iter++){
+    points.forEach(p=>p.update());
+    constraints.forEach(c=>c.solve());
+  }
+}
+
+function draw(){
+  ctx.fillStyle='rgba(5,5,8,.4)';ctx.fillRect(0,0,W,H);
+
+  // Draw constraints (cloth fabric)
+  ctx.strokeStyle='rgba(139,92,246,.3)';ctx.lineWidth=.8;
+  constraints.forEach(c=>{
+    if(c.broken)return;
+    ctx.beginPath();ctx.moveTo(c.p1.x,c.p1.y);ctx.lineTo(c.p2.x,c.p2.y);ctx.stroke();
+  });
+
+  // Draw points (pinned highlighted)
+  points.forEach(p=>{
+    if(p.pinned){
+      ctx.beginPath();ctx.arc(p.x,p.y,3,0,Math.PI*2);
+      ctx.fillStyle='rgba(244,63,94,.6)';ctx.fill();
+    }
+  });
+
+  // Mouse indicator
+  if(mouseDown){
+    ctx.beginPath();ctx.arc(mouseX,mouseY,40,0,Math.PI*2);
+    ctx.strokeStyle='rgba(255,255,255,.1)';ctx.lineWidth=1;ctx.stroke();
+  }
+}
+
+initCloth();
+function loop(){update();draw();requestAnimationFrame(loop)}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

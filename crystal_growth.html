@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Crystal Growth</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}body{background:#050508;overflow:hidden}canvas{display:block}
+.ui{position:fixed;top:12px;left:12px;z-index:10;display:flex;gap:6px;flex-wrap:wrap}
+.btn{padding:5px 10px;border-radius:6px;font-size:.7rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);color:rgba(255,255,255,.5);cursor:pointer;transition:all .2s;font-family:'Space Grotesk',sans-serif}
+.btn:hover{background:rgba(255,255,255,.1);color:#fff}
+.stats{position:fixed;bottom:12px;left:12px;font-size:.62rem;font-family:'Space Mono',monospace;color:rgba(255,255,255,.2)}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="ui">
+  <button class="btn" onclick="resetCrystal()">New Crystal</button>
+  <button class="btn" onclick="hue=(hue+40)%360">Color Shift</button>
+  <button class="btn" onclick="growthRate=Math.min(5,growthRate+1)">Faster Growth</button>
+  <button class="btn" onclick="growMode=(growMode+1)%3">Growth Mode</button>
+  <button class="btn" onclick="exportPNG()">Export</button>
+</div>
+<div class="stats" id="stats"></div>
+
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+let W,H;
+function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight}
+addEventListener('resize',resize);
+
+let grid,cols,rows,hue=260,growthRate=2,growMode=0,count=0;
+const CELL=3;
+
+function resetCrystal(){
+  cols=Math.ceil(W/CELL);rows=Math.ceil(H/CELL);
+  grid=Array.from({length:rows},()=>new Int8Array(cols));
+  ctx.fillStyle='#050508';ctx.fillRect(0,0,W,H);
+  // Seed crystals
+  const seeds=3+Math.random()*3|0;
+  for(let i=0;i<seeds;i++){
+    const sx=cols/4+Math.random()*cols/2|0;
+    const sy=rows/4+Math.random()*rows/2|0;
+    grid[sy][sx]=1;
+  }
+  count=0;
+}
+
+canvas.addEventListener('click',e=>{
+  const cx=e.clientX/CELL|0,cy=e.clientY/CELL|0;
+  if(cx>=0&&cx<cols&&cy>=0&&cy<rows)grid[cy][cx]=1;
+});
+
+function grow(){
+  const newGrid=grid.map(r=>new Int8Array(r));
+  for(let y=1;y<rows-1;y++)for(let x=1;x<cols-1;x++){
+    if(grid[y][x])continue;
+    // Check neighbors
+    let neighborCount=0;
+    let totalDist=0;
+    for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
+      if(dx===0&&dy===0)continue;
+      if(grid[y+dy][x+dx]>0){neighborCount++;totalDist+=Math.sqrt(dx*dx+dy*dy)}
+    }
+    let prob=0;
+    if(growMode===0)prob=neighborCount>=1?.15+neighborCount*.05:0;
+    else if(growMode===1)prob=neighborCount>=2?.2:0;
+    else prob=neighborCount===1?.3:neighborCount>=2?.05:0;
+    if(neighborCount>0&&Math.random()<prob*growthRate*.5){
+      newGrid[y][x]=1;count++;
+      // Draw
+      const nx=x*CELL,ny=y*CELL;
+      const hueOffset=neighborCount*20+Math.atan2(y-rows/2,x-cols/2)*30;
+      const h=(hue+hueOffset)%360;
+      const brightness=30+neighborCount*10;
+      ctx.fillStyle=`hsla(${h},60%,${brightness}%,.8)`;
+      ctx.fillRect(nx,ny,CELL,CELL);
+      // Glow
+      ctx.fillStyle=`hsla(${h},60%,${brightness}%,.1)`;
+      ctx.fillRect(nx-CELL,ny-CELL,CELL*3,CELL*3);
+    }
+  }
+  grid=newGrid;
+}
+
+resetCrystal();
+
+function loop(){
+  for(let i=0;i<growthRate;i++)grow();
+  document.getElementById('stats').textContent=`${count} cells grown · mode ${growMode}`;
+  requestAnimationFrame(loop);
+}
+
+function exportPNG(){const a=document.createElement('a');a.download='crystal.png';a.href=canvas.toDataURL();a.click()}
+
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

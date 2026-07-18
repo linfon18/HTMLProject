@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Neural Style Transfer Visual</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}body{background:#050508;overflow:hidden}canvas{display:block}
+.ui{position:fixed;top:12px;left:12px;z-index:10;display:flex;gap:6px;flex-wrap:wrap}
+.btn{padding:5px 10px;border-radius:6px;font-size:.7rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);color:rgba(255,255,255,.5);cursor:pointer;transition:all .2s;font-family:'Space Grotesk',sans-serif}
+.btn:hover{background:rgba(255,255,255,.1);color:#fff}
+.stats{position:fixed;bottom:12px;left:12px;font-size:.62rem;font-family:'Space Mono',monospace;color:rgba(255,255,255,.2)}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="ui">
+  <button class="btn" onclick="randomize()">New Style</button>
+  <button class="btn" onclick="styleType=(styleType+1)%5;randomize()">Next Style</button>
+  <button class="btn" onclick="resolution=Math.max(4,resolution-2)">Low Res</button>
+  <button class="btn" onclick="resolution=Math.min(32,resolution+2)">High Res</button>
+  <button class="btn" onclick="exportPNG()">Export</button>
+</div>
+<div class="stats" id="stats"></div>
+
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+let W,H;
+function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight}
+addEventListener('resize',resize);
+
+let styleType=0,resolution=10,weights=[],iteration=0;
+
+// Noise
+const PERM=new Uint8Array(512);
+for(let i=0;i<256;i++)PERM[i]=i;
+for(let i=255;i>0;i--){const j=Math.random()*i|0;[PERM[i],PERM[j]]=[PERM[j],PERM[i]]}
+for(let i=0;i<256;i++)PERM[256+i]=PERM[i];
+function fade(t){return t*t*t*(t*(t*6-15)+10)}
+function lerp(a,b,t){return a+(b-a)*t}
+function grad(hash,x,y){const h=hash&3;return((h&1)?-x:x)+((h&2)?-y:y)}
+function noise(x,y){
+  const X=Math.floor(x)&255,Y=Math.floor(y)&255;x-=Math.floor(x);y-=Math.floor(y);
+  const u=fade(x),v=fade(y),A=PERM[X]+Y,B=PERM[X+1]+Y;
+  return lerp(lerp(grad(PERM[A],x,y),grad(PERM[B],x-1,y),u),lerp(grad(PERM[A+1],x,y-1),grad(PERM[B+1],x-1,y-1),u),v);
+}
+function fbm(x,y,oct){let v=0,a=1,f=1,m=0;for(let i=0;i<oct;i++){v+=noise(x*f,y*f)*a;m+=a;a*=.5;f*=2}return v/m}
+
+function randomize(){
+  weights=[];
+  for(let l=0;l<6;l++){
+    const w=[];
+    for(let o=0;o<4;o++){
+      const neuron=[];
+      for(let i=0;i<(l===0?4:5);i++)neuron.push((Math.random()-.5)*2);
+      neuron.push((Math.random()-.5)*2);
+      w.push(neuron);
+    }
+    weights.push(w);
+  }
+  iteration=0;
+}
+
+function activate(x,type){
+  if(type===0)return Math.tanh(x);
+  if(type===1)return Math.max(0,x);
+  return 1/(1+Math.exp(-x));
+}
+
+function forward(inp){
+  let data=[...inp];
+  for(let l=0;l<weights.length;l++){
+    const out=[];
+    for(const neuron of weights[l]){
+      let sum=neuron[neuron.length-1];
+      for(let i=0;i<data.length&&i<neuron.length-1;i++)sum+=neuron[i]*data[i];
+      out.push(activate(sum,l%3));
+    }
+    data=out;
+  }
+  return data;
+}
+
+function render(){
+  const scale=resolution;
+  const cols=Math.ceil(W/scale),rows=Math.ceil(H/scale);
+  const imgData=ctx.createImageData(cols,rows);
+  const d=imgData.data;
+
+  const t=iteration*.01;
+
+  for(let py=0;py<rows;py++)for(let px=0;px<cols;px++){
+    const nx=px/cols,ny=py/rows;
+
+    let inp;
+    if(styleType===0){
+      inp=[nx,ny,fbm(nx*4,ny*4,4),Math.sin(nx*10+t)*.5+.5];
+    }else if(styleType===1){
+      const r=Math.hypot(nx-.5,ny-.5)*2;
+      const a=Math.atan2(ny-.5,nx-.5);
+      inp=[r,Math.sin(a*3+t)*.5+.5,Math.cos(a*5)*.5+.5,fbm(r*3,a,3)];
+    }else if(styleType===2){
+      inp=[Math.sin(nx*20+t)*.5+.5,Math.sin(ny*20+t)*.5+.5,Math.sin((nx+ny)*15)*.5+.5,fbm(nx*8+t*.1,ny*8,5)];
+    }else if(styleType===3){
+      const v1=fbm(nx*3+t*.2,ny*3,4);
+      const v2=fbm(nx*5-t*.1,ny*5+10,3);
+      inp=[v1*.5+.5,v2*.5+.5,Math.abs(v1*v2),Math.sin(v1*10+t)*.5+.5];
+    }else{
+      inp=[Math.sin(nx*Math.PI*4)*Math.cos(ny*Math.PI*4+t)*.5+.5,
+           fbm(nx*6,ny*6+t*.05,4)*.5+.5,
+           Math.sin(nx*ny*20+t)*.5+.5,
+           Math.abs(noise(nx*10,ny*10+t*.1))];
+    }
+
+    const out=forward(inp);
+    const idx=(py*cols+px)*4;
+    d[idx]=Math.abs(out[0])*255|0;
+    d[idx+1]=Math.abs(out[1]||out[0])*.7*255|0;
+    d[idx+2]=Math.abs(out[2]||out[0])*.5*255|0;
+    d[idx+3]=255;
+  }
+
+  const tmpC=document.createElement('canvas');tmpC.width=cols;tmpC.height=rows;
+  tmpC.getContext('2d').putImageData(imgData,0,0);
+  ctx.imageSmoothingEnabled=true;
+  ctx.drawImage(tmpC,0,0,W,H);
+
+  iteration++;
+  document.getElementById('stats').textContent=`style ${styleType} · res ${scale}px · iter ${iteration}`;
+}
+
+function exportPNG(){const a=document.createElement('a');a.download='neural_style.png';a.href=canvas.toDataURL();a.click()}
+
+resize();randomize();
+function loop(){render();requestAnimationFrame(loop)}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

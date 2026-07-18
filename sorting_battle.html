@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sorting Battle</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Space+Mono:wght@400&display=swap');
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#050508;--border:rgba(255,255,255,.06);--t1:#fff;--t2:rgba(255,255,255,.55);--t3:rgba(255,255,255,.25)}
+body{background:var(--bg);color:var(--t2);font-family:'Space Grotesk',sans-serif;height:100vh;display:flex;flex-direction:column;-webkit-font-smoothing:antialiased;padding:12px}
+.top{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+.top h1{font-size:.9rem;font-weight:700;color:var(--t1);margin-right:auto}
+.btn{padding:5px 10px;border-radius:6px;font-size:.7rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--t2);cursor:pointer;transition:all .2s}
+.btn:hover{background:rgba(255,255,255,.1);color:var(--t1)}
+.btn.primary{background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.25);color:#4ade80}
+.grids{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:8px;overflow:hidden}
+.algo{display:flex;flex-direction:column;border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.algo-title{padding:4px 10px;font-size:.6rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);border-bottom:1px solid var(--border);display:flex;justify-content:space-between}
+canvas{flex:1;width:100%}
+.stats-bar{display:flex;gap:16px;padding:6px 0;font-size:.6rem;font-family:'Space Mono',monospace;color:var(--t3)}
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>Sorting Battle</h1>
+  <button class="btn primary" onclick="startRace()">Race!</button>
+  <button class="btn" onclick="shuffle()">Shuffle</button>
+  <button class="btn" onclick="arrSize=Math.min(256,arrSize*2);shuffle()">+ Size</button>
+  <button class="btn" onclick="arrSize=Math.max(16,arrSize/2);shuffle()">- Size</button>
+</div>
+<div class="grids">
+  <div class="algo"><div class="algo-title"><span>Quick Sort</span><span id="qs-stat">0 ops</span></div><canvas id="qs"></canvas></div>
+  <div class="algo"><div class="algo-title"><span>Merge Sort</span><span id="ms-stat">0 ops</span></div><canvas id="ms"></canvas></div>
+  <div class="algo"><div class="algo-title"><span>Bubble Sort</span><span id="bs-stat">0 ops</span></div><canvas id="bs"></canvas></div>
+  <div class="algo"><div class="algo-title"><span>Insertion Sort</span><span id="is-stat">0 ops</span></div><canvas id="is-c"></canvas></div>
+</div>
+<div class="stats-bar" id="statsBar"></div>
+
+<script>
+let arrSize=64;
+let baseArr=[],running=false;
+
+function shuffle(){
+  baseArr=Array.from({length:arrSize},()=>Math.random());
+  running=false;
+  drawAll();
+}
+
+function startRace(){
+  if(running)return;
+  running=true;
+  const arrs={qs:[...baseArr],ms:[...baseArr],bs:[...baseArr],is:[...baseArr]};
+  const ops={qs:0,ms:0,bs:0,is:0};
+  const highlights={qs:-1,ms:-1,bs:-1,is:-1};
+  const done={qs:false,ms:false,bs:false,is:false};
+
+  function drawAlgo(id,arr,hl){
+    const canvas=document.getElementById(id==='is'?'is-c':id);
+    const ctx=canvas.getContext('2d');
+    canvas.width=canvas.offsetWidth*2;canvas.height=canvas.offsetHeight*2;
+    const W=canvas.width,H=canvas.height;
+    ctx.fillStyle='rgba(5,5,8,.3)';ctx.fillRect(0,0,W,H);
+    const barW=W/arr.length;
+    arr.forEach((v,i)=>{
+      const hue=i/arr.length*200+200;
+      ctx.fillStyle=i===hl?`hsla(${hue},80%,60%,.9)`:`hsla(${hue},50%,40%,.6)`;
+      ctx.fillRect(i*barW,H-v*H*.9,Math.max(1,barW-1),v*H*.9);
+    });
+    document.getElementById(id==='is'?'is-stat':id+'-stat').textContent=ops[id]+' ops';
+  }
+
+  function drawAll(){
+    Object.keys(arrs).forEach(id=>drawAlgo(id,arrs[id],highlights[id]));
+  }
+
+  // Generator-based sorting
+  function* bubbleSort(arr){
+    for(let i=0;i<arr.length;i++)for(let j=0;j<arr.length-i-1;j++){
+      ops.bs++;
+      if(arr[j]>arr[j+1]){[arr[j],arr[j+1]]=[arr[j+1],arr[j]];highlights.bs=j+1;yield}
+    }
+    done.bs=true;
+  }
+
+  function* insertionSort(arr){
+    for(let i=1;i<arr.length;i++){
+      let j=i;
+      while(j>0&&arr[j-1]>arr[j]){
+        ops.is++;[arr[j],arr[j-1]]=[arr[j-1],arr[j]];highlights.is=j;j--;yield
+      }
+      ops.is++;
+    }
+    done.is=true;
+  }
+
+  function* quickSort(arr,lo=0,hi=arr.length-1){
+    if(lo>=hi)return;
+    const pivot=arr[hi];
+    let i=lo;
+    for(let j=lo;j<hi;j++){
+      ops.qs++;highlights.qs=j;
+      if(arr[j]<pivot){[arr[i],arr[j]]=[arr[j],arr[i]];i++;yield}
+    }
+    [arr[i],arr[hi]]=[arr[hi],arr[i]];highlights.qs=i;yield;
+    yield* quickSort(arr,lo,i-1);
+    yield* quickSort(arr,i+1,hi);
+    if(lo===0&&hi===arr.length-1)done.qs=true;
+  }
+
+  function* mergeSort(arr,lo=0,hi=arr.length-1){
+    if(lo>=hi)return;
+    const mid=(lo+hi)>>1;
+    yield* mergeSort(arr,lo,mid);
+    yield* mergeSort(arr,mid+1,hi);
+    const temp=[];
+    let i=lo,j=mid+1;
+    while(i<=mid&&j<=hi){
+      ops.ms++;highlights.ms=i;
+      if(arr[i]<=arr[j])temp.push(arr[i++]);else temp.push(arr[j++]);yield
+    }
+    while(i<=mid){temp.push(arr[i++]);yield}
+    while(j<=hi){temp.push(arr[j++]);yield}
+    for(let k=0;k<temp.length;k++){arr[lo+k]=temp[k];yield}
+    if(lo===0&&hi===arr.length-1)done.ms=true;
+  }
+
+  const gens={qs:quickSort(arrs.qs),ms:mergeSort(arrs.ms),bs:bubbleSort(arrs.bs),is:insertionSort(arrs.is)};
+
+  function step(){
+    let anyActive=false;
+    for(const id of Object.keys(gens)){
+      if(done[id])continue;
+      for(let i=0;i<3;i++){const r=gens[id].next();if(r.done){done[id]=true;break}}
+      anyActive=!done[id]||anyActive;
+    }
+    drawAll();
+    if(Object.values(done).every(d=>d)){
+      running=false;
+      document.getElementById('statsBar').innerHTML=
+        Object.keys(ops).map(k=>`<span>${k}: ${ops[k]} ops</span>`).join(' · ');
+      return;
+    }
+    requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+shuffle();
+window.addEventListener('resize',()=>{if(!running)drawAll()});
+function drawAll(){
+  ['qs','ms','bs'].forEach(id=>{
+    const canvas=document.getElementById(id==='is'?'is-c':id);
+    const ctx=canvas.getContext('2d');
+    canvas.width=canvas.offsetWidth*2;canvas.height=canvas.offsetHeight*2;
+    const W=canvas.width,H=canvas.height;
+    ctx.fillStyle='rgba(5,5,8,.3)';ctx.fillRect(0,0,W,H);
+    const barW=W/baseArr.length;
+    baseArr.forEach((v,i)=>{
+      const hue=i/baseArr.length*200+200;
+      ctx.fillStyle=`hsla(${hue},50%,40%,.6)`;
+      ctx.fillRect(i*barW,H-v*H*.9,Math.max(1,barW-1),v*H*.9);
+    });
+  });
+}
+</script>
+</body>
+</html>

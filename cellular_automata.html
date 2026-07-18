@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cellular Automata</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Space+Mono:wght@400&display=swap');
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#050508;--border:rgba(255,255,255,.06);--t1:#fff;--t2:rgba(255,255,255,.55);--t3:rgba(255,255,255,.25)}
+body{background:var(--bg);color:var(--t2);font-family:'Space Grotesk',sans-serif;height:100vh;display:flex;flex-direction:column;-webkit-font-smoothing:antialiased}
+.top{padding:8px 14px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap}
+.top h1{font-size:.85rem;font-weight:700;color:var(--t1);margin-right:auto}
+.btn{padding:5px 10px;border-radius:6px;font-size:.7rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--t2);cursor:pointer;transition:all .2s}
+.btn:hover{background:rgba(255,255,255,.1);color:var(--t1)}
+.btn.active{background:rgba(139,92,246,.12);border-color:rgba(139,92,246,.25);color:#a78bfa}
+label{font-size:.62rem;color:var(--t3)}
+input[type=range]{width:60px;height:3px;-webkit-appearance:none;background:rgba(255,255,255,.1);border-radius:2px;outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;height:10px;border-radius:50%;background:#fff;cursor:pointer}
+.val{font-family:'Space Mono',monospace;font-size:.58rem;color:var(--t3)}
+.main{flex:1;display:flex;overflow:hidden}
+.sidebar{width:260px;border-right:1px solid var(--border);padding:12px;overflow-y:auto;flex-shrink:0}
+.field{margin-bottom:10px}
+.field label{display:block;margin-bottom:3px;font-size:.62rem;color:var(--t3);font-weight:600;letter-spacing:.05em;text-transform:uppercase}
+.rule-display{display:flex;gap:2px;flex-wrap:wrap;margin-bottom:10px}
+.rule-cell{width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:.6rem;font-family:'Space Mono',monospace;border-radius:4px;cursor:pointer;border:1px solid var(--border)}
+.rule-cell.on{background:rgba(139,92,246,.3);border-color:rgba(139,92,246,.3);color:#a78bfa}
+.rule-cell.off{background:rgba(255,255,255,.03);color:var(--t3)}
+canvas{flex:1;display:block}
+.stats{font-size:.6rem;color:var(--t3);font-family:'Space Mono',monospace;margin-top:8px}
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>Cellular Automata</h1>
+  <button class="btn active" onclick="loadPreset(30)">Rule 30</button>
+  <button class="btn" onclick="loadPreset(110)">Rule 110</button>
+  <button class="btn" onclick="loadPreset(90)">Rule 90</button>
+  <button class="btn" onclick="loadPreset(184)">Rule 184</button>
+  <button class="btn" onclick="loadGameOfLife()">Game of Life</button>
+  <label>Speed</label><input type="range" id="speed" min="1" max="20" value="10"><span class="val" id="speedV">10</span>
+  <button class="btn" onclick="resetSim()">Reset</button>
+  <button class="btn" id="playBtn" onclick="togglePlay()">Pause</button>
+</div>
+<div class="main">
+  <div class="sidebar">
+    <div class="field"><label>Rule Number (0-255)</label><input type="number" id="ruleNum" min="0" max="255" value="30" style="padding:6px 8px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:6px;color:var(--t2);font-family:'Space Mono',monospace;font-size:.72rem;width:100%"></div>
+    <div class="field"><label>Rule Binary</label><div class="rule-display" id="ruleDisplay"></div></div>
+    <div class="field"><label>Cell Size</label><input type="range" id="cellSize" min="1" max="8" value="2"><span class="val" id="cellSizeV">2</span></div>
+    <div class="stats">Generation: <span id="gen">0</span></div>
+    <div class="stats">Live cells: <span id="live">0</span></div>
+    <div class="field"><label>Color</label>
+      <select id="color" style="width:100%;padding:6px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:6px;color:var(--t2);font-size:.72rem">
+        <option value="purple">Purple</option>
+        <option value="rainbow">Rainbow</option>
+        <option value="heat">Heat Map</option>
+      </select>
+    </div>
+  </div>
+  <canvas id="c"></canvas>
+</div>
+
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+let W,H,cols,rows;
+let grid,nextGrid;
+let rule=30,gen=0,playing=true;
+let mode='1d'; // '1d' or '2d'
+
+function resize(){
+  W=canvas.width=canvas.parentElement.offsetWidth;
+  H=canvas.height=canvas.parentElement.offsetHeight;
+  resetSim();
+}
+addEventListener('resize',resize);
+
+function loadPreset(r){
+  rule=r;document.getElementById('ruleNum').value=r;
+  mode='1d';
+  document.querySelectorAll('.btn').forEach(b=>b.classList.remove('active'));
+  event.target.classList.add('active');
+  resetSim();
+}
+
+function loadGameOfLife(){
+  mode='2d';
+  document.querySelectorAll('.btn').forEach(b=>b.classList.remove('active'));
+  event.target.classList.add('active');
+  resetSim();
+}
+
+function getRuleBinary(){return rule.toString(2).padStart(8,'0').split('').map(Number).reverse()}
+
+function renderRuleDisplay(){
+  const el=document.getElementById('ruleDisplay');
+  const bin=getRuleBinary();
+  el.innerHTML='';
+  for(let i=7;i>=0;i--){
+    const cell=document.createElement('div');
+    cell.className='rule-cell '+(bin[i]?'on':'off');
+    cell.textContent=bin[i];
+    cell.title=`Pattern ${i.toString(2).padStart(3,'0')} → ${bin[i]}`;
+    cell.addEventListener('click',()=>{bin[i]=bin[i]?0:1;rule=bin.reduce((s,v,j)=>s+v*Math.pow(2,j),0);document.getElementById('ruleNum').value=rule;renderRuleDisplay()});
+    el.appendChild(cell);
+  }
+}
+
+document.getElementById('ruleNum').addEventListener('change',e=>{rule=Math.min(255,Math.max(0,+e.target.value));renderRuleDisplay();resetSim()});
+
+function resetSim(){
+  const cs=+document.getElementById('cellSize').value;
+  cols=Math.floor(W/cs);rows=Math.floor(H/cs);
+  gen=0;
+  if(mode==='1d'){
+    grid=new Uint8Array(cols);nextGrid=new Uint8Array(cols);
+    grid[Math.floor(cols/2)]=1;
+  }else{
+    grid=new Uint8Array(cols*rows);
+    nextGrid=new Uint8Array(cols*rows);
+    // Random init
+    for(let i=0;i<grid.length;i++)grid[i]=Math.random()>.7?1:0;
+  }
+  ctx.fillStyle='#050508';ctx.fillRect(0,0,W,H);
+  renderRuleDisplay();
+}
+
+function step1D(){
+  const bin=getRuleBinary();
+  const cs=+document.getElementById('cellSize').value;
+  for(let x=0;x<cols;x++){
+    const l=grid[(x-1+cols)%cols],c=grid[x],r=grid[(x+1)%cols];
+    nextGrid[x]=bin[l*4+c*2+r];
+  }
+  // Shift grid down by drawing current row
+  const colorMode=document.getElementById('color').value;
+  for(let x=0;x<cols;x++){
+    if(grid[x]){
+      if(colorMode==='purple')ctx.fillStyle=`hsla(270,50%,${30+gen*.1}%,.8)`;
+      else if(colorMode==='rainbow')ctx.fillStyle=`hsla(${gen*2%360},60%,55%,.8)`;
+      else ctx.fillStyle=`hsl(${gen*.5},80%,${50+grid[x]*20}%)`;
+    }else ctx.fillStyle='rgba(5,5,8,.01)';
+    ctx.fillRect(x*cs,gen%rows*cs,cs,cs);
+  }
+  [grid,nextGrid]=[nextGrid,grid];
+  gen++;
+}
+
+function step2D(){
+  const cs=+document.getElementById('cellSize').value;
+  const colorMode=document.getElementById('color').value;
+  for(let y=0;y<rows;y++)for(let x=0;x<cols;x++){
+    let n=0;
+    for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
+      if(dx===0&&dy===0)continue;
+      n+=grid[((y+dy+rows)%rows)*cols+(x+dx+cols)%cols];
+    }
+    const i=y*cols+x;
+    if(grid[i])nextGrid[i]=(n===2||n===3)?1:0;
+    else nextGrid[i]=(n===3)?1:0;
+  }
+  // Draw
+  for(let y=0;y<rows;y++)for(let x=0;x<cols;x++){
+    const i=y*cols+x;
+    if(nextGrid[i]){
+      if(colorMode==='purple')ctx.fillStyle=`hsla(270,50%,${30+nextGrid[i]*20}%,.9)`;
+      else if(colorMode==='rainbow')ctx.fillStyle=`hsla(${(x+y+gen)%360},60%,55%,.9)`;
+      else ctx.fillStyle=`hsl(${0},80%,${50}%)`;
+    }else ctx.fillStyle='rgba(5,5,8,.05)';
+    ctx.fillRect(x*cs,y*cs,cs,cs);
+  }
+  [grid,nextGrid]=[nextGrid,grid];
+  gen++;
+}
+
+function togglePlay(){playing=!playing;document.getElementById('playBtn').textContent=playing?'Pause':'Play'}
+
+function loop(){
+  if(playing){
+    const speed=+document.getElementById('speed').value;
+    for(let i=0;i<speed;i++){
+      if(mode==='1d')step1D();else step2D();
+    }
+  }
+  document.getElementById('gen').textContent=gen;
+  const cs=+document.getElementById('cellSize').value;
+  let live=0;if(grid)for(let i=0;i<grid.length;i++)if(grid[i])live++;
+  document.getElementById('live').textContent=live;
+  requestAnimationFrame(loop);
+}
+
+document.getElementById('cellSize').addEventListener('input',e=>{document.getElementById('cellSizeV').textContent=e.target.value;resetSim()});
+document.getElementById('speed').addEventListener('input',e=>document.getElementById('speedV').textContent=e.target.value);
+
+resize();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>2D Physics Engine</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Space+Mono:wght@400&display=swap');
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#050508;--border:rgba(255,255,255,.06);--t1:#fff;--t2:rgba(255,255,255,.55);--t3:rgba(255,255,255,.25)}
+body{background:var(--bg);color:var(--t2);font-family:'Space Grotesk',sans-serif;height:100vh;display:flex;flex-direction:column;-webkit-font-smoothing:antialiased}
+.top{padding:6px 14px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border);flex-shrink:0}
+.top h1{font-size:.82rem;font-weight:700;color:var(--t1);margin-right:auto}
+.btn{padding:5px 10px;border-radius:6px;font-size:.7rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--t2);cursor:pointer;transition:all .2s}
+.btn:hover{background:rgba(255,255,255,.1);color:var(--t1)}
+.btn.primary{background:rgba(139,92,246,.12);border-color:rgba(139,92,246,.25);color:#a78bfa}
+canvas{flex:1;display:block}
+.stats{position:absolute;bottom:8px;left:12px;font-size:.6rem;font-family:'Space Mono',monospace;color:rgba(255,255,255,.2)}
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>2D Physics Engine</h1>
+  <button class="btn primary" onclick="addBalls(10)">+Balls</button>
+  <button class="btn" onclick="addBoxes(5)">+Boxes</button>
+  <button class="btn" onclick="rain()">Rain</button>
+  <button class="btn" id="gravBtn" onclick="toggleGrav()">Gravity: ON</button>
+  <button class="btn" onclick="clearAll()">Clear</button>
+  <span class="stats" id="countS">Bodies: 0</span>
+  <span class="stats" id="fpsS">0 FPS</span>
+</div>
+<canvas id="c"></canvas>
+
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+let W,H;
+function resize(){W=canvas.width=canvas.offsetWidth;H=canvas.height=canvas.offsetHeight}
+resize();addEventListener('resize',resize);
+
+const gravity={x:0,y:400};
+const SUB=4;
+let bodies=[];
+let mouseDown=false,mouseX=0,mouseY=0,pmouseX=0,pmouseY=0;
+
+class Body{
+  constructor(x,y,r,opts={}){
+    this.x=x;this.y=y;
+    this.vx=opts.vx||0;this.vy=opts.vy||0;
+    this.r=r;this.mass=r*r*.01;
+    this.restitution=opts.restitution||.6;
+    this.friction=opts.friction||.01;
+    this.color=opts.color||`hsla(${200+Math.random()*160},60%,55%,.5)`;
+    this.isBox=opts.isBox||false;
+    this.w=opts.w||r*2;this.h=opts.h||r*2;
+    if(this.isBox)this.mass=this.w*this.h*.001;
+  }
+}
+
+function addBalls(n){
+  for(let i=0;i<n;i++){
+    const r=8+Math.random()*20;
+    bodies.push(new Body(100+Math.random()*(W-200),50+Math.random()*200,r));
+  }
+}
+
+function addBoxes(n){
+  for(let i=0;i<n;i++){
+    const s=15+Math.random()*30;
+    bodies.push(new Body(100+Math.random()*(W-200),50+Math.random()*200,s,{isBox:true,w:s*(1+Math.random()),h:s*(1+Math.random())}));
+  }
+}
+
+function rain(){
+  for(let i=0;i<40;i++){
+    setTimeout(()=>{
+      const r=4+Math.random()*8;
+      bodies.push(new Body(Math.random()*W,-20,r,{vy:200+Math.random()*200,color:`hsla(200,60%,60%,.6)`}));
+    },i*50);
+  }
+}
+
+function clearAll(){bodies=[]}
+function toggleGrav(){
+  gravity.y=gravity.y===0?400:0;
+  document.getElementById('gravBtn').textContent='Gravity: '+(gravity.y?'ON':'OFF');
+}
+
+canvas.addEventListener('mousedown',e=>{mouseDown=true;mouseX=e.clientX;mouseY=e.clientY});
+canvas.addEventListener('mousemove',e=>{pmouseX=mouseX;pmouseY=mouseY;mouseX=e.clientX;mouseY=e.clientY});
+canvas.addEventListener('mouseup',()=>mouseDown=false);
+canvas.addEventListener('dblclick',e=>{
+  const r=15+Math.random()*25;
+  bodies.push(new Body(e.clientX,e.clientY,r));
+});
+
+function update(dt){
+  dt/=SUB;
+  for(let s=0;s<SUB;s++){
+    // Mouse interaction
+    if(mouseDown){
+      bodies.forEach(b=>{
+        const dx=mouseX-b.x,dy=mouseY-b.y;
+        const dist=Math.sqrt(dx*dx+dy*dy)+1;
+        if(dist<150){
+          const f=50000/(dist+10);
+          b.vx+=dx/dist*f*dt;b.vy+=dy/dist*f*dt;
+        }
+      });
+    }
+
+    // Apply gravity & integrate
+    bodies.forEach(b=>{
+      b.vx+=gravity.x*dt;b.vy+=gravity.y*dt;
+      b.x+=b.vx*dt;b.y+=b.vy*dt;
+      b.vx*=(1-b.friction);b.vy*=(1-b.friction);
+
+      // Walls
+      const r=b.isBox?Math.max(b.w,b.h)/2:b.r;
+      if(b.x-r<0){b.x=r;b.vx=Math.abs(b.vx)*b.restitution}
+      if(b.x+r>W){b.x=W-r;b.vx=-Math.abs(b.vx)*b.restitution}
+      if(b.y-r<0){b.y=r;b.vy=Math.abs(b.vy)*b.restitution}
+      if(b.y+r>H){b.y=H-r;b.vy=-Math.abs(b.vy)*b.restitution}
+    });
+
+    // Collision detection (simple O(n²))
+    for(let i=0;i<bodies.length;i++){
+      for(let j=i+1;j<bodies.length;j++){
+        const a=bodies[i],b=bodies[j];
+        const dx=b.x-a.x,dy=b.y-a.y;
+        const dist=Math.sqrt(dx*dx+dy*dy);
+        const minDist=a.r+b.r;
+        if(dist<minDist&&dist>0){
+          const nx=dx/dist,ny=dy/dist;
+          const overlap=minDist-dist;
+          const totalMass=a.mass+b.mass;
+          a.x-=nx*overlap*b.mass/totalMass;
+          a.y-=ny*overlap*b.mass/totalMass;
+          b.x+=nx*overlap*a.mass/totalMass;
+          b.y+=ny*overlap*a.mass/totalMass;
+          // Impulse
+          const dvx=a.vx-b.vx,dvy=a.vy-b.vy;
+          const dvn=dvx*nx+dvy*ny;
+          if(dvn>0)continue;
+          const rest=Math.min(a.restitution,b.restitution);
+          const j_imp=-(1+rest)*dvn/(1/a.mass+1/b.mass);
+          a.vx+=j_imp*nx/a.mass;a.vy+=j_imp*ny/a.mass;
+          b.vx-=j_imp*nx/b.mass;b.vy-=j_imp*ny/b.mass;
+        }
+      }
+    }
+
+    // Remove off-screen
+    bodies=bodies.filter(b=>b.y<H+200&&b.x>-200&&b.x<W+200);
+  }
+}
+
+function draw(){
+  ctx.clearRect(0,0,W,H);
+
+  // Background grid
+  ctx.strokeStyle='rgba(255,255,255,.02)';ctx.lineWidth=.5;
+  for(let x=0;x<W;x+=50){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke()}
+  for(let y=0;y<H;y+=50){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke()}
+
+  bodies.forEach(b=>{
+    ctx.beginPath();
+    if(b.isBox)ctx.rect(b.x-b.w/2,b.y-b.h/2,b.w,b.h);
+    else ctx.arc(b.x,b.y,b.r,0,Math.PI*2);
+    ctx.fillStyle=b.color;ctx.fill();
+    // Highlight
+    if(!b.isBox){
+      ctx.beginPath();ctx.arc(b.x-b.r*.3,b.y-b.r*.3,b.r*.2,0,Math.PI*2);
+      ctx.fillStyle='rgba(255,255,255,.15)';ctx.fill();
+    }
+  });
+
+  // Mouse indicator
+  if(mouseDown){
+    ctx.beginPath();ctx.arc(mouseX,mouseY,80,0,Math.PI*2);
+    ctx.strokeStyle='rgba(139,92,246,.2)';ctx.lineWidth=1;ctx.stroke();
+  }
+
+  document.getElementById('countS').textContent='Bodies: '+bodies.length;
+}
+
+let frames=0,fpsT=performance.now();
+function loop(t){
+  const dt=Math.min((t-(fpsT||t))*.001,.05);
+  fpsT=t;
+  update(dt);draw();
+  frames++;
+  if(frames%30===0){
+    document.getElementById('fpsS').textContent=Math.round(1000/(performance.now()-fpsT+dt*1000||16))+' FPS';
+  }
+  requestAnimationFrame(loop);
+}
+
+addBalls(15);
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

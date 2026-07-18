@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Langton's Ant</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Space+Mono:wght@400&display=swap');
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+body{background:#050508;overflow:hidden;font-family:'Space Grotesk',sans-serif}
+canvas{display:block}
+.ui{position:fixed;top:12px;left:12px;z-index:10;display:flex;gap:6px;flex-wrap:wrap}
+.btn{padding:5px 10px;border-radius:6px;font-size:.7rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);color:rgba(255,255,255,.5);cursor:pointer;transition:all .2s}
+.btn:hover{background:rgba(255,255,255,.1);color:#fff}
+.btn.active{background:rgba(139,92,246,.12);border-color:rgba(139,92,246,.25);color:#a78bfa}
+.stats{position:fixed;bottom:12px;left:12px;font-size:.62rem;font-family:'Space Mono',monospace;color:rgba(255,255,255,.2)}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="ui">
+  <button class="btn" id="playBtn" onclick="playing=!playing;playBtn.textContent=playing?'Pause':'Play'">Pause</button>
+  <button class="btn" onclick="resetSim()">Reset</button>
+  <button class="btn" onclick="speed=Math.min(1000,speed*2)">Faster</button>
+  <button class="btn" onclick="speed=Math.max(1,speed/2)">Slower</button>
+  <button class="btn active" onclick="setRule('RL')">RL</button>
+  <button class="btn" onclick="setRule('RLR')">RLR</button>
+  <button class="btn" onclick="setRule('LLRR')">LLRR</button>
+  <button class="btn" onclick="setRule('RLLR')">RLLR</button>
+  <button class="btn" onclick="addAnt()">Add Ant</button>
+</div>
+<div class="stats" id="stats"></div>
+
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+let W,H,CELL=3,cols,rows;
+
+function resize(){
+  W=canvas.width=innerWidth;H=canvas.height=innerHeight;
+  cols=Math.floor(W/CELL);rows=Math.floor(H/CELL);
+  resetSim();
+}
+addEventListener('resize',resize);
+
+let grid,ants,rule='RL',playing=true,speed=100,steps=0;
+
+class Ant{
+  constructor(x,y){this.x=x;this.y=y;this.dir=0;this.color=`hsl(${Math.random()*360},70%,60%)`}
+  step(){
+    const idx=this.y*cols+this.x;
+    const state=grid[idx]%rule.length;
+    if(state===0)grid[idx]=1;else grid[idx]=(grid[idx]+1)%rule.length;
+    // Turn
+    const turn=rule[state]==='R'?1:-1;
+    this.dir=(this.dir+turn+4)%4;
+    // Move
+    const dx=[0,1,0,-1][this.dir],dy=[-1,0,1,0][this.dir];
+    this.x=(this.x+dx+cols)%cols;this.y=(this.y+dy+rows)%rows;
+  }
+}
+
+function setRule(r){
+  rule=r;
+  document.querySelectorAll('.btn').forEach(b=>{
+    if(b.textContent===r||b.textContent===rule)b.classList.add('active');
+    else if(['RL','RLR','LLRR','RLLR'].includes(b.textContent))b.classList.remove('active');
+  });
+  resetSim();
+}
+
+function addAnt(){
+  ants.push(new Ant(Math.floor(cols/2)+Math.floor(Math.random()*50-25),Math.floor(rows/2)+Math.floor(Math.random()*50-25)));
+}
+
+function resetSim(){
+  grid=new Uint8Array(cols*rows);
+  ants=[new Ant(Math.floor(cols/2),Math.floor(rows/2))];
+  steps=0;
+}
+
+const imgData=ctx.createImageData(1,1);
+function draw(){
+  const data=ctx.createImageData(cols,rows);
+  const d=data.data;
+  for(let i=0;i<cols*rows;i++){
+    const v=grid[i];
+    const idx=i*4;
+    if(v===0){d[idx]=5;d[idx+1]=5;d[idx+2]=8}
+    else{
+      const hue=(v*60+steps*.1)%360;
+      d[idx]=20+Math.sin(hue*.017)*40|0;
+      d[idx+1]=15+Math.sin(hue*.017+2)*35|0;
+      d[idx+2]=30+Math.sin(hue*.017+4)*50|0;
+    }
+    d[idx+3]=255;
+  }
+  // Draw ants
+  ants.forEach(a=>{
+    const i=(a.y*cols+a.x)*4;
+    d[i]=255;d[i+1]=80;d[i+2]=100;d[i+3]=255;
+  });
+  ctx.putImageData(data,0,0);
+}
+
+function loop(){
+  if(playing){
+    for(let i=0;i<speed;i++){ants.forEach(a=>a.step());steps++}
+  }
+  draw();
+  document.getElementById('stats').textContent=`Steps: ${steps} · Ants: ${ants.length} · Rule: ${rule}`;
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

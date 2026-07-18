@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Conway Variants</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}body{background:#050508;overflow:hidden}canvas{display:block}
+.ui{position:fixed;top:12px;left:12px;z-index:10;display:flex;gap:6px;flex-wrap:wrap}
+.btn{padding:5px 10px;border-radius:6px;font-size:.7rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);color:rgba(255,255,255,.5);cursor:pointer;transition:all .2s;font-family:'Space Grotesk',sans-serif}
+.btn:hover{background:rgba(255,255,255,.1);color:#fff}
+.btn.active{background:rgba(139,92,246,.12);border-color:rgba(139,92,246,.25);color:#a78bfa}
+.stats{position:fixed;bottom:12px;left:12px;font-size:.62rem;font-family:'Space Mono',monospace;color:rgba(255,255,255,.2)}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="ui">
+  <button class="btn active" id="runBtn" onclick="running=!running;this.textContent=running?'⏸ Pause':'▶ Run';this.classList.toggle('active',running)">⏸ Pause</button>
+  <button class="btn" onclick="step()">Step</button>
+  <button class="btn" onclick="randomize()">Random</button>
+  <button class="btn" onclick="clearGrid()">Clear</button>
+  <button class="btn" onclick="setRule('life')">Life</button>
+  <button class="btn" onclick="setRule('highlife')">HighLife</button>
+  <button class="btn" onclick="setRule('daynight')">Day&Night</button>
+  <button class="btn" onclick="setRule('seeds')">Seeds</button>
+  <button class="btn" onclick="setRule('brians')">Brian's Brain</button>
+  <button class="btn" onclick="setRule('wireworld')">Wireworld</button>
+</div>
+<div class="stats" id="stats"></div>
+
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+let W,H;
+function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight}
+addEventListener('resize',resize);
+
+const CELL=4;
+let cols,rows,grid,nextGrid,running=true,generation=0;
+let rule='life';
+let birth=new Set([3]),survive=new Set([2,3]);
+
+function setRule(r){
+  rule=r;
+  document.querySelectorAll('.btn').forEach(b=>{if(b.id!=='runBtn')b.classList.remove('active')});
+  switch(r){
+    case'life':birth=new Set([3]);survive=new Set([2,3]);break;
+    case'highlife':birth=new Set([3,6]);survive=new Set([2,3]);break;
+    case'daynight':birth=new Set([3,6,7,8]);survive=new Set([3,4,6,7,8]);break;
+    case'seeds':birth=new Set([2]);survive=new Set();break;
+    case'brians':birth=new Set([2]);survive=new Set();break;
+    case'wireworld':birth=new Set([2]);survive=new Set();break;
+  }
+}
+
+function init(){
+  cols=Math.ceil(W/CELL);rows=Math.ceil(H/CELL);
+  grid=new Uint8Array(cols*rows);nextGrid=new Uint8Array(cols*rows);
+  randomize();
+}
+
+function randomize(){
+  for(let i=0;i<grid.length;i++)grid[i]=Math.random()<.25?(rule==='brians'||rule==='wireworld'?1:1):0;
+  generation=0;
+}
+
+function clearGrid(){grid.fill(0);generation=0}
+
+canvas.addEventListener('click',e=>{
+  const cx=e.clientX/CELL|0,cy=e.clientY/CELL|0;
+  // Toggle 3x3
+  for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
+    const nx=cx+dx,ny=cy+dy;
+    if(nx>=0&&nx<cols&&ny>=0&&ny<rows)grid[ny*cols+nx]=grid[ny*cols+nx]?0:1;
+  }
+});
+
+canvas.addEventListener('mousemove',e=>{
+  if(e.buttons===0)return;
+  const cx=e.clientX/CELL|0,cy=e.clientY/CELL|0;
+  for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
+    const nx=cx+dx,ny=cy+dy;
+    if(nx>=0&&nx<cols&&ny>=0&&ny<rows)grid[ny*cols+nx]=1;
+  }
+});
+
+function step(){
+  for(let y=0;y<rows;y++)for(let x=0;x<cols;x++){
+    const idx=y*cols+x;
+    let neighbors=0;
+    for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
+      if(dx===0&&dy===0)continue;
+      const nx=(x+dx+cols)%cols,ny=(y+dy+rows)%rows;
+      const nv=grid[ny*cols+nx];
+      if(rule==='brians'||rule==='wireworld'){
+        if(nv===1)neighbors++;
+      }else{
+        if(nv)neighbors++;
+      }
+    }
+
+    if(rule==='brians'){
+      const v=grid[idx];
+      if(v===0&&neighbors===2)nextGrid[idx]=1; // born
+      else if(v===1)nextGrid[idx]=2; // dying
+      else nextGrid[idx]=0; // dead
+    }else if(rule==='wireworld'){
+      const v=grid[idx];
+      if(v===0)nextGrid[idx]=0;
+      else if(v===1)nextGrid[idx]=2; // electron tail → conductor
+      else if(v===2&&neighbors>=1&&neighbors<=2)nextGrid[idx]=1; // conductor → electron head
+      else nextGrid[idx]=v===0?0:2;
+    }else{
+      const alive=grid[idx];
+      if(alive)nextGrid[idx]=survive.has(neighbors)?1:0;
+      else nextGrid[idx]=birth.has(neighbors)?1:0;
+    }
+  }
+  [grid,nextGrid]=[nextGrid,grid];
+  generation++;
+}
+
+function draw(){
+  ctx.fillStyle='#050508';ctx.fillRect(0,0,W,H);
+  const imgData=ctx.createImageData(cols*CELL,rows*CELL);
+  const d=imgData.data;
+  for(let y=0;y<rows;y++)for(let x=0;x<cols;x++){
+    const v=grid[y*cols+x];
+    if(!v)continue;
+    let r,g,b;
+    if(rule==='brians'){
+      if(v===1){r=255;g=100;b=100}else{r=50;g=20;b=20}
+    }else if(rule==='wireworld'){
+      if(v===1){r=100;g=200;b=255}else{r=255;g=150;b=30}
+    }else{
+      const age=Math.min(1,generation*.001);
+      r=50+age*100;g=100+age*80;b=150+age*100;
+    }
+    for(let dy=0;dy<CELL;dy++)for(let dx=0;dx<CELL;dx++){
+      const i=((y*CELL+dy)*cols*CELL+x*CELL+dx)*4;
+      d[i]=r;d[i+1]=g;d[i+2]=b;d[i+3]=255;
+    }
+  }
+  ctx.putImageData(imgData,0,0);
+
+  const alive=grid.reduce((a,b)=>a+(b>0?1:0),0);
+  document.getElementById('stats').textContent=`${rule} · ${cols}x${rows} · Gen ${generation} · ${alive} alive`;
+}
+
+init();
+function loop(){
+  if(running)step();
+  draw();
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

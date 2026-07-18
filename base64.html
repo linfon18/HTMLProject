@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Base64 Codec</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#050508;--border:rgba(255,255,255,.06);--t1:#fff;--t2:rgba(255,255,255,.55);--t3:rgba(255,255,255,.25)}
+body{background:var(--bg);color:var(--t2);font-family:'Space Grotesk',sans-serif;height:100vh;display:flex;flex-direction:column;-webkit-font-smoothing:antialiased}
+.top{padding:10px 14px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border);flex-shrink:0}
+.top h1{font-size:.85rem;font-weight:700;color:var(--t1);margin-right:auto}
+.btn{padding:6px 12px;border-radius:7px;font-size:.72rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--t2);cursor:pointer;transition:all .2s}
+.btn:hover{background:rgba(255,255,255,.1);color:var(--t1)}
+.btn.primary{background:rgba(139,92,246,.12);border-color:rgba(139,92,246,.25);color:#a78bfa}
+.btn.green{background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.25);color:#4ade80}
+.mode-tabs{display:flex;gap:4px;margin-right:8px}
+.mode-tab{padding:4px 12px;border-radius:6px;font-size:.68rem;font-weight:600;background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--t3);cursor:pointer}
+.mode-tab.active{background:rgba(139,92,246,.12);border-color:rgba(139,92,246,.3);color:#a78bfa}
+.main{flex:1;display:flex;overflow:hidden}
+.pane{flex:1;display:flex;flex-direction:column;border-right:1px solid var(--border)}
+.pane:last-child{border-right:none}
+.pane-h{padding:4px 14px;font-size:.58rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);border-bottom:1px solid var(--border);background:rgba(255,255,255,.015);display:flex;align-items:center;gap:6px}
+.pane-h .dot{width:5px;height:5px;border-radius:50%}
+textarea{flex:1;resize:none;border:none;outline:none;padding:14px;background:#0a0a10;color:#e6edf3;font-family:'JetBrains Mono',monospace;font-size:.75rem;line-height:1.6}
+.info-bar{padding:6px 14px;border-top:1px solid var(--border);font-size:.6rem;font-family:'Space Mono',monospace;color:var(--t3);display:flex;gap:16px;flex-shrink:0}
+.error{color:#f87171}
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>Base64 Codec</h1>
+  <div class="mode-tabs">
+    <div class="mode-tab active" onclick="setMode('text')">Text</div>
+    <div class="mode-tab" onclick="setMode('url')">URL</div>
+    <div class="mode-tab" onclick="setMode('jwt')">JWT</div>
+    <div class="mode-tab" onclick="setMode('hex')">Hex</div>
+  </div>
+  <button class="btn primary" onclick="encode()">Encode →</button>
+  <button class="btn green" onclick="decode()">← Decode</button>
+  <button class="btn" onclick="swap()">Swap</button>
+  <button class="btn" onclick="clear()">Clear</button>
+  <button class="btn" onclick="copyOutput()">Copy Output</button>
+</div>
+<div class="main">
+  <div class="pane">
+    <div class="pane-h"><span class="dot" style="background:#22c55e"></span>Input</div>
+    <textarea id="input" placeholder="Enter text to encode..." oninput="autoConvert()">Hello, World! 你好世界 🌍</textarea>
+  </div>
+  <div class="pane">
+    <div class="pane-h"><span class="dot" style="background:#8b5cf6"></span>Output</div>
+    <textarea id="output" placeholder="Base64 output..." readonly></textarea>
+  </div>
+</div>
+<div class="info-bar">
+  <span>Input: <span id="inLen">0</span> chars</span>
+  <span>Output: <span id="outLen">0</span> chars</span>
+  <span>Ratio: <span id="ratio">-</span></span>
+  <span id="error" class="error"></span>
+</div>
+
+<script>
+let mode='text',autoConvert_=true;
+
+function setMode(m){
+  mode=m;
+  document.querySelectorAll('.mode-tab').forEach(t=>t.classList.toggle('active',t.textContent===m.toUpperCase()));
+  document.getElementById('error').textContent='';
+  if(m==='jwt'){
+    document.getElementById('input').placeholder='Paste JWT token here...';
+    document.getElementById('output').placeholder='Decoded payload will appear here...';
+  }else if(m==='url'){
+    document.getElementById('input').placeholder='URL or text to encode...';
+  }else if(m==='hex'){
+    document.getElementById('input').placeholder='Hex string or text...';
+  }else{
+    document.getElementById('input').placeholder='Enter text to encode...';
+  }
+  autoConvert();
+}
+
+function encode(){
+  const input=document.getElementById('input').value;
+  document.getElementById('error').textContent='';
+  try{
+    let output='';
+    if(mode==='text'){
+      output=btoa(unescape(encodeURIComponent(input)));
+    }else if(mode==='url'){
+      output=btoa(unescape(encodeURIComponent(input)))
+        .replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+    }else if(mode==='hex'){
+      const hex=input.replace(/\s/g,'');
+      const bytes=new Uint8Array(hex.match(/.{1,2}/g).map(b=>parseInt(b,16)));
+      output=btoa(String.fromCharCode(...bytes));
+    }else if(mode==='jwt'){
+      document.getElementById('error').textContent='Use decode for JWT';
+      return;
+    }
+    document.getElementById('output').value=output;
+    updateInfo(input,output);
+  }catch(e){document.getElementById('error').textContent=e.message}
+}
+
+function decode(){
+  const input=document.getElementById('input').value.trim();
+  document.getElementById('error').textContent='';
+  try{
+    let output='';
+    if(mode==='text'){
+      output=decodeURIComponent(escape(atob(input)));
+    }else if(mode==='url'){
+      let b64=input.replace(/-/g,'+').replace(/_/g,'/');
+      while(b64.length%4)b64+='=';
+      output=decodeURIComponent(escape(atob(b64)));
+    }else if(mode==='hex'){
+      const bytes=atob(input);
+      output=Array.from(bytes,c=>c.charCodeAt(0).toString(16).padStart(2,'0')).join(' ');
+    }else if(mode==='jwt'){
+      const parts=input.split('.');
+      if(parts.length!==3){document.getElementById('error').textContent='Invalid JWT format';return}
+      const header=JSON.parse(atob(parts[0].replace(/-/g,'+').replace(/_/g,'/')));
+      const payload=JSON.parse(atob(parts[1].replace(/-/g,'+').replace(/_/g,'/')));
+      output=JSON.stringify({header,payload},null,2);
+      // Show expiry
+      if(payload.exp){
+        const exp=new Date(payload.exp*1000);
+        const now=new Date();
+        document.getElementById('error').textContent=exp<now?`EXPIRED: ${exp.toLocaleString()}`:`Expires: ${exp.toLocaleString()}`;
+        document.getElementById('error').className=exp<now?'error':'';
+      }
+    }
+    document.getElementById('output').value=output;
+    updateInfo(input,output);
+  }catch(e){document.getElementById('error').textContent='Decode error: '+e.message}
+}
+
+function autoConvert(){if(autoConvert_)encode()}
+
+function swap(){
+  const inp=document.getElementById('input');
+  const out=document.getElementById('output');
+  [inp.value,out.value]=[out.value,inp.value];
+}
+
+function clear(){
+  document.getElementById('input').value='';
+  document.getElementById('output').value='';
+  document.getElementById('error').textContent='';
+  updateInfo('','');
+}
+
+function copyOutput(){
+  navigator.clipboard.writeText(document.getElementById('output').value);
+}
+
+function updateInfo(input,output){
+  document.getElementById('inLen').textContent=input.length;
+  document.getElementById('outLen').textContent=output.length;
+  document.getElementById('ratio').textContent=input.length?(output.length/input.length*100).toFixed(0)+'%':'-';
+}
+
+document.getElementById('input').addEventListener('keydown',e=>{
+  if(e.ctrlKey&&e.key==='Enter'){e.preventDefault();encode()}
+});
+
+autoConvert();
+</script>
+</body>
+</html>

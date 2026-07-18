@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tower of Hanoi</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Space+Mono:wght@400&display=swap');
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#050508;--border:rgba(255,255,255,.06);--t1:#fff;--t2:rgba(255,255,255,.55);--t3:rgba(255,255,255,.25)}
+body{background:var(--bg);color:var(--t2);font-family:'Space Grotesk',sans-serif;height:100vh;display:flex;flex-direction:column;align-items:center;-webkit-font-smoothing:antialiased;padding:20px}
+.top{display:flex;align-items:center;gap:8px;margin-bottom:20px;flex-wrap:wrap}
+.top h1{font-size:1rem;font-weight:700;color:var(--t1);margin-right:16px}
+.btn{padding:6px 12px;border-radius:7px;font-size:.72rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--t2);cursor:pointer;transition:all .2s}
+.btn:hover{background:rgba(255,255,255,.1);color:var(--t1)}
+.btn.primary{background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.25);color:#22c55e}
+label{font-size:.65rem;color:var(--t3)}
+input[type=range]{width:80px;height:3px;-webkit-appearance:none;background:rgba(255,255,255,.1);border-radius:2px;outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;background:#fff;cursor:pointer}
+.val{font-family:'Space Mono',monospace;font-size:.65rem;color:var(--t3)}
+.canvas-wrap{flex:1;display:flex;align-items:center;justify-content:center;width:100%}
+canvas{max-width:100%;border-radius:12px}
+.stats{font-size:.65rem;font-family:'Space Mono',monospace;color:var(--t3);margin-top:12px}
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>Tower of Hanoi</h1>
+  <label>Disks</label><input type="range" id="diskCount" min="3" max="15" value="6"><span class="val" id="diskCountV">6</span>
+  <label>Speed</label><input type="range" id="speed" min="1" max="100" value="30"><span class="val" id="speedV">30</span>
+  <button class="btn" onclick="resetHanoi()">Reset</button>
+  <button class="btn primary" onclick="solve()">Auto Solve</button>
+  <button class="btn" onclick="stepMode()">Step</button>
+</div>
+<div class="canvas-wrap">
+  <canvas id="c" width="900" height="450"></canvas>
+</div>
+<div class="stats" id="stats">Moves: 0 / 63</div>
+
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+const W=900,H=450;
+
+let pegs=[[],[],[]];
+let diskCount=6,moves=0,solving=false,moveQueue=[];
+let selected=-1;
+
+const COLORS=['#f43f5e','#f97316','#eab308','#22c55e','#06b6d4','#8b5cf6','#ec4899','#14b8a6','#f59e0b','#3b82f6','#a855f7','#ef4444','#10b981','#6366f1','#d946ef'];
+
+function resetHanoi(){
+  solving=false;moveQueue=[];
+  diskCount=+document.getElementById('diskCount').value;
+  moves=0;
+  pegs=[[],[],[]];
+  for(let i=diskCount;i>=1;i--)pegs[0].push(i);
+  selected=-1;
+  draw();
+  updateStats();
+}
+
+function updateStats(){
+  const optimal=Math.pow(2,diskCount)-1;
+  document.getElementById('stats').textContent=`Moves: ${moves} / ${optimal} (${diskCount} disks)`;
+}
+
+function draw(){
+  ctx.fillStyle='#0a0a12';ctx.fillRect(0,0,W,H);
+
+  // Base
+  ctx.fillStyle='rgba(255,255,255,.05)';
+  ctx.fillRect(50,H-30,W-100,10);
+
+  const pegX=[W*.2,W*.5,W*.8];
+
+  // Pegs (vertical lines)
+  pegX.forEach(x=>{
+    ctx.fillStyle='rgba(255,255,255,.08)';
+    ctx.fillRect(x-4,H-220,8,190);
+  });
+
+  // Disks
+  const diskH=18,maxW=120,minW=30;
+  pegs.forEach((peg,pi)=>{
+    peg.forEach((disk,di)=>{
+      const w=minW+(disk/diskCount)*(maxW-minW);
+      const x=pegX[pi]-w/2;
+      const y=H-30-(di+1)*diskH;
+      const hue=(disk/diskCount)*300+200;
+
+      // Disk shadow
+      ctx.fillStyle='rgba(0,0,0,.2)';
+      ctx.fillRect(x+2,y+2,w,diskH-2);
+
+      // Disk
+      const grad=ctx.createLinearGradient(x,y,x,y+diskH);
+      grad.addColorStop(0,`hsla(${hue},60%,50%,.8)`);
+      grad.addColorStop(1,`hsla(${hue},60%,35%,.8)`);
+      ctx.fillStyle=grad;
+      ctx.beginPath();
+      ctx.roundRect(x,y,w,diskH-2,4);
+      ctx.fill();
+
+      // Disk highlight
+      ctx.fillStyle='rgba(255,255,255,.1)';
+      ctx.fillRect(x+4,y+2,w-8,4);
+
+      // Disk number
+      ctx.fillStyle='rgba(255,255,255,.5)';
+      ctx.font='10px Space Mono';ctx.textAlign='center';
+      ctx.fillText(disk,pegX[pi],y+diskH/2+2);
+    });
+  });
+
+  // Selected indicator
+  if(selected>=0){
+    ctx.strokeStyle='rgba(139,92,246,.5)';ctx.lineWidth=2;
+    ctx.setLineDash([5,5]);
+    ctx.strokeRect(pegX[selected]-80,H-230,160,220);
+    ctx.setLineDash([]);
+  }
+
+  // Labels
+  ctx.fillStyle='rgba(255,255,255,.2)';ctx.font='12px Space Grotesk';ctx.textAlign='center';
+  ['A','B','C'].forEach((l,i)=>ctx.fillText(l,pegX[i],H-8));
+}
+
+function moveDisk(from,to){
+  if(pegs[from].length===0)return;
+  const disk=pegs[from].pop();
+  // Validate move
+  if(pegs[to].length>0&&pegs[to][pegs[to].length-1]<disk){
+    pegs[from].push(disk); // Invalid, put back
+    return;
+  }
+  pegs[to].push(disk);
+  moves++;
+  draw();
+  updateStats();
+}
+
+// Click to select/move
+canvas.addEventListener('click',e=>{
+  if(solving)return;
+  const rect=canvas.getBoundingClientRect();
+  const mx=(e.clientX-rect.left)*(W/rect.width);
+  const pegX=[W*.2,W*.5,W*.8];
+  let clicked=-1;
+  pegX.forEach((x,i)=>{if(Math.abs(mx-x)<80)clicked=i});
+  if(clicked<0)return;
+
+  if(selected<0){
+    if(pegs[clicked].length>0)selected=clicked;
+  }else{
+    moveDisk(selected,clicked);
+    selected=-1;
+  }
+  draw();
+});
+
+// Auto solve
+async function solve(){
+  if(solving)return;solving=true;
+  resetHanoi();
+  solving=true;
+  const n=diskCount;
+  const speed=+document.getElementById('speed').value;
+  const delay=()=>new Promise(r=>setTimeout(r,1050-speed*10));
+
+  async function hanoi(n,from,to,aux){
+    if(!solving)return;
+    if(n===0)return;
+    await hanoi(n-1,from,aux,to);
+    if(!solving)return;
+    moveDisk(from,to);
+    await delay();
+    await hanoi(n-1,aux,to,from);
+  }
+  await hanoi(n,0,2,1);
+  solving=false;
+}
+
+function stepMode(){
+  // Manual step-through with simplified approach
+  if(solving)return;
+  solving=true;
+  resetHanoi();
+  solving=true;
+  const steps=[];
+  function genSteps(n,from,to,aux){
+    if(n===0)return;
+    genSteps(n-1,from,aux,to);
+    steps.push([from,to]);
+    genSteps(n-1,aux,to,from);
+  }
+  genSteps(diskCount,0,2,1);
+  let si=0;
+  const speed=+document.getElementById('speed').value;
+  const interval=setInterval(()=>{
+    if(si>=steps.length||!solving){clearInterval(interval);solving=false;return}
+    moveDisk(steps[si][0],steps[si][1]);
+    si++;
+  },1050-speed*10);
+}
+
+document.getElementById('diskCount').addEventListener('input',e=>{
+  document.getElementById('diskCountV').textContent=e.target.value;
+  resetHanoi();
+});
+document.getElementById('speed').addEventListener('input',e=>document.getElementById('speedV').textContent=e.target.value);
+
+resetHanoi();
+</script>
+</body>
+</html>

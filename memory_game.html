@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Memory Game</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Space+Mono:wght@400&display=swap');
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#050508;--border:rgba(255,255,255,.06);--t1:#fff;--t2:rgba(255,255,255,.55);--t3:rgba(255,255,255,.25)}
+body{background:var(--bg);color:var(--t2);font-family:'Space Grotesk',sans-serif;height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;-webkit-font-smoothing:antialiased;padding:20px}
+h1{font-size:1.2rem;font-weight:700;color:var(--t1);margin-bottom:8px}
+.info{display:flex;gap:16px;font-family:'Space Mono',monospace;font-size:.75rem;color:var(--t3);margin-bottom:16px}
+.board{display:grid;gap:6px;perspective:600px}
+.card{width:60px;height:70px;cursor:pointer;position:relative;transform-style:preserve-3d;transition:transform .4s}
+.card.flipped{transform:rotateY(180deg)}
+.card.matched{transform:rotateY(180deg);opacity:.6}
+.card .front,.card .back{position:absolute;inset:0;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.5rem;backface-visibility:hidden}
+.card .back{background:rgba(139,92,246,.12);border:1px solid rgba(139,92,246,.2)}
+.card .front{background:rgba(255,255,255,.04);border:1px solid var(--border);transform:rotateY(180deg)}
+.btn{padding:8px 18px;border-radius:8px;font-size:.78rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--t2);cursor:pointer;transition:all .2s;margin-top:12px}
+.btn:hover{background:rgba(255,255,255,.1);color:var(--t1)}
+.overlay{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(5,5,8,.7);z-index:20;backdrop-filter:blur(6px)}
+.overlay h2{font-size:1.5rem;color:var(--t1);margin-bottom:6px}
+.overlay p{color:var(--t3);margin-bottom:12px;font-size:.8rem}
+select{background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:5px;color:var(--t2);font-size:.7rem;padding:4px 8px;font-family:inherit}
+</style>
+</head>
+<body>
+<h1>Memory Game</h1>
+<div class="info">
+  <span>Moves: <span id="moves" style="color:var(--t1)">0</span></span>
+  <span>Pairs: <span id="pairs" style="color:#22c55e">0</span></span>
+  <span><select id="size" onchange="newGame()"><option value="4">4x3</option><option value="6" selected>4x4</option><option value="8">6x4</option><option value="12">6x6</option></select></span>
+</div>
+<div class="board" id="board"></div>
+<button class="btn" onclick="newGame()">New Game</button>
+<div class="overlay" id="overlay" style="display:none">
+  <h2>You Win!</h2>
+  <p id="winMsg"></p>
+  <button class="btn" onclick="document.getElementById('overlay').style.display='none';newGame()">Play Again</button>
+</div>
+
+<script>
+const EMOJIS=['🍎','🍊','🍋','🍇','🍉','🍓','🍑','🥝','🫐','🍒','🥭','🍌','🫒','🌽','🥕','🍆','🥑','🍄','🌶️','🥜','🧀','🍕','🍔','🌮','🍣','🍩','🍰','🍪','🎂','🧁','🍫','🍬','🍭','🧋','☕','🍵','🍺','🍷','🥂','🥤'];
+let cards,flipped,matched,moves,cols,rows,totalPairs;
+
+function newGame(){
+  const n=+document.getElementById('size').value;
+  if(n<=6){cols=4;rows=n===6?4:3}
+  else if(n<=8){cols=4;rows=4}
+  else if(n<=12){cols=6;rows=4}
+  else{cols=6;rows=6}
+  totalPairs=cols*rows/2;
+
+  const emojis=EMOJIS.slice().sort(()=>Math.random()-.5).slice(0,totalPairs);
+  cards=[...emojis,...emojis].sort(()=>Math.random()-.5);
+  flipped=Array(cards.length).fill(false);
+  matched=Array(cards.length).fill(false);
+  moves=0;
+  document.getElementById('overlay').style.display='none';
+  render();
+}
+
+let selected=[];
+let locked=false;
+
+function cardClick(i){
+  if(locked||flipped[i]||matched[i])return;
+  flipped[i]=true;selected.push(i);
+  render();
+
+  if(selected.length===2){
+    moves++;
+    document.getElementById('moves').textContent=moves;
+    if(cards[selected[0]]===cards[selected[1]]){
+      matched[selected[0]]=matched[selected[1]]=true;
+      selected=[];
+      const matchCount=matched.filter(Boolean).length/2;
+      document.getElementById('pairs').textContent=matchCount;
+      if(matchCount===totalPairs){
+        setTimeout(()=>{
+          document.getElementById('winMsg').textContent=`${moves} moves · ${totalPairs} pairs`;
+          document.getElementById('overlay').style.display='flex';
+        },300);
+      }
+    }else{
+      locked=true;
+      setTimeout(()=>{flipped[selected[0]]=flipped[selected[1]]=false;selected=[];locked=false;render()},700);
+    }
+  }
+}
+
+function render(){
+  const el=document.getElementById('board');
+  el.style.gridTemplateColumns=`repeat(${cols},60px)`;
+  el.innerHTML='';
+  cards.forEach((c,i)=>{
+    const div=document.createElement('div');
+    div.className='card'+(flipped[i]||matched[i]?' flipped':'')+(matched[i]?' matched':'');
+    div.innerHTML=`<div class="back">?</div><div class="front">${c}</div>`;
+    div.addEventListener('click',()=>cardClick(i));
+    el.appendChild(div);
+  });
+  document.getElementById('moves').textContent=moves;
+  document.getElementById('pairs').textContent=matched.filter(Boolean).length/2;
+}
+
+newGame();
+</script>
+</body>
+</html>

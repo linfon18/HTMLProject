@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pong</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700;800&family=Space+Mono:wght@400&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#050508;display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:'Space Grotesk',sans-serif}
+canvas{border-radius:12px}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+const W=canvas.width=800,H=canvas.height=500;
+
+const PADDLE_W=12,PADDLE_H=80,BALL_R=8,PADDLE_SPEED=5,BALL_SPEED=5;
+let p1,p2,ball,score1,score2,gameState;
+
+function reset(){
+  p1={x:20,y:H/2-PADDLE_H/2,w:PADDLE_W,h:PADDLE_H,vy:0};
+  p2={x=W-20-PADDLE_W,y:H/2-PADDLE_H/2,w:PADDLE_W,h:PADDLE_H,vy:0};
+  ball={x:W/2,y:H/2,vx:BALL_SPEED*(Math.random()>.5?1:-1),vy:BALL_SPEED*(Math.random()-.5)};
+  score1=0;score2=0;gameState='ready';
+}
+
+function update(){
+  if(gameState!=='playing')return;
+  // Player movement
+  p1.y+=p1.vy;p2.y+=p2.vy;
+  p1.y=Math.max(0,Math.min(H-p1.h,p1.y));
+  p2.y=Math.max(0,Math.min(H-p2.h,p2.y));
+
+  // AI for p2
+  const target=ball.y-p2.h/2;
+  p2.y+=(target-p2.y)*.06;
+  p2.y=Math.max(0,Math.min(H-p2.h,p2.y));
+
+  // Ball
+  ball.x+=ball.vx;ball.y+=ball.vy;
+
+  // Wall bounce
+  if(ball.y-BALL_R<0||ball.y+BALL_R>H)ball.vy*=-1;
+
+  // Paddle collision
+  function paddleHit(p){
+    if(ball.x-BALL_R<p.x+p.w&&ball.x+BALL_R>p.x&&ball.y>p.y&&ball.y<p.y+p.h){
+      const rel=(ball.y-(p.y+p.h/2))/(p.h/2);
+      ball.vy=rel*BALL_SPEED*1.5;
+      ball.vx*=-1.05;
+      ball.x=p===p1?p.x+p.w+BALL_R:p.x-BALL_R;
+    }
+  }
+  paddleHit(p1);paddleHit(p2);
+
+  // Scoring
+  if(ball.x<0){score2++;resetBall()}
+  if(ball.x>W){score1++;resetBall()}
+}
+
+function resetBall(){
+  ball={x:W/2,y:H/2,vx:BALL_SPEED*(Math.random()>.5?1:-1),vy:BALL_SPEED*(Math.random()-.5)};
+}
+
+function draw(){
+  // Background
+  const grad=ctx.createLinearGradient(0,0,W,H);
+  grad.addColorStop(0,'#0a0a1a');grad.addColorStop(1,'#0a0a0f');
+  ctx.fillStyle=grad;ctx.fillRect(0,0,W,H);
+
+  // Center line
+  ctx.setLineDash([8,8]);ctx.strokeStyle='rgba(255,255,255,.08)';ctx.lineWidth=2;
+  ctx.beginPath();ctx.moveTo(W/2,0);ctx.lineTo(W/2,H);ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Scores
+  ctx.textAlign='center';ctx.textBaseline='top';
+  ctx.font='800 48px Space Mono';ctx.fillStyle='rgba(255,255,255,.15)';
+  ctx.fillText(score1,W/4,20);ctx.fillText(score2,W*3/4,20);
+
+  // Paddles
+  [[p1,'rgba(139,92,246,.7)','rgba(139,92,246,.15)'],[p2,'rgba(6,182,212,.7)','rgba(6,182,212,.15)']].forEach(([p,col,glow])=>{
+    // Glow
+    ctx.shadowColor=col;ctx.shadowBlur=15;
+    ctx.fillStyle=col;
+    ctx.beginPath();ctx.roundRect(p.x,p.y,p.w,p.h,4);ctx.fill();
+    ctx.shadowBlur=0;
+    // Trail glow
+    ctx.fillStyle=glow;
+    ctx.beginPath();ctx.roundRect(p.x-5,p.y-5,p.w+10,p.h+10,8);ctx.fill();
+  });
+
+  // Ball
+  if(gameState==='playing'||gameState==='ready'){
+    // Trail
+    ctx.beginPath();ctx.arc(ball.x,ball.y,BALL_R*3,0,Math.PI*2);
+    const glow=ctx.createRadialGradient(ball.x,ball.y,0,ball.x,ball.y,BALL_R*3);
+    glow.addColorStop(0,'rgba(255,255,255,.1)');glow.addColorStop(1,'transparent');
+    ctx.fillStyle=glow;ctx.fill();
+    // Ball
+    ctx.beginPath();ctx.arc(ball.x,ball.y,BALL_R,0,Math.PI*2);
+    ctx.fillStyle='rgba(255,255,255,.9)';ctx.fill();
+  }
+
+  // Ready state
+  if(gameState==='ready'){
+    ctx.font='600 20px Space Grotesk';ctx.fillStyle='rgba(255,255,255,.4)';ctx.textAlign='center';
+    ctx.fillText('Press Space to start',W/2,H/2+50);
+    ctx.font='400 14px Space Grotesk';ctx.fillStyle='rgba(255,255,255,.2)';
+    ctx.fillText('W/S for P1 · AI controls P2',W/2,H/2+80);
+  }
+}
+
+function loop(){update();draw();requestAnimationFrame(loop)}
+
+document.addEventListener('keydown',e=>{
+  if(e.key==='w'||e.key==='W')p1.vy=-PADDLE_SPEED;
+  if(e.key==='s'||e.key==='S')p1.vy=PADDLE_SPEED;
+  if(e.key===' '){e.preventDefault();if(gameState==='ready')gameState='playing'}
+});
+document.addEventListener('keyup',e=>{
+  if(e.key==='w'||e.key==='W'||e.key==='s'||e.key==='S')p1.vy=0;
+});
+
+reset();loop();
+</script>
+</body>
+</html>

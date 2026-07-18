@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>迷宫生成与求解</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Space+Mono:wght@400&display=swap');
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#050508;--border:rgba(255,255,255,.06);--t1:#fff;--t2:rgba(255,255,255,.55);--t3:rgba(255,255,255,.25)}
+body{background:var(--bg);color:var(--t2);font-family:'Space Grotesk',sans-serif;min-height:100vh;display:flex;flex-direction:column;-webkit-font-smoothing:antialiased}
+.top{padding:16px 24px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;border-bottom:1px solid var(--border)}
+.top h1{font-size:1rem;font-weight:700;color:var(--t1);margin-right:auto}
+.btn{padding:7px 14px;border-radius:8px;font-size:.75rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--t2);cursor:pointer;transition:all .2s}
+.btn:hover{background:rgba(255,255,255,.1);color:var(--t1)}
+.btn.primary{background:rgba(139,92,246,.15);border-color:rgba(139,92,246,.3);color:#a78bfa}
+label{font-size:.68rem;color:var(--t3)}
+input[type=range]{width:80px;height:3px;-webkit-appearance:none;background:rgba(255,255,255,.1);border-radius:2px;outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;background:#fff;cursor:pointer}
+.val{font-family:'Space Mono',monospace;font-size:.65rem;color:var(--t3);min-width:24px}
+.canvas-wrap{flex:1;display:flex;align-items:center;justify-content:center;padding:20px}
+canvas{border-radius:8px}
+.info{position:fixed;bottom:16px;left:24px;font-size:.7rem;font-family:'Space Mono',monospace;color:var(--t3)}
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>Maze Generator & Solver</h1>
+  <label>Size</label><input type="range" id="size" min="5" max="50" value="20"><span class="val" id="sizeV">20</span>
+  <label>Speed</label><input type="range" id="speed" min="1" max="50" value="10"><span class="val" id="speedV">10</span>
+  <button class="btn primary" onclick="runSolve()">Solve (BFS)</button>
+  <button class="btn" onclick="runDFS()">Generate (Animate)</button>
+  <button class="btn" onclick="genMaze()">New Maze</button>
+</div>
+<div class="canvas-wrap"><canvas id="c"></canvas></div>
+<div class="info" id="info">Ready</div>
+
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+const dpr=devicePixelRatio;
+let W,H,grid,solution,sx,sy,cellSize,mazeSize=20,solving=false;
+const DIR=[[0,-1],[1,0],[0,1],[-1,0]];
+
+function resize(){
+  const s=Math.min(innerWidth-48,innerHeight-120);
+  W=H=s;canvas.width=s*dpr;canvas.height=s*dpr;
+  canvas.style.width=s+'px';canvas.style.height=s+'px';
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  draw();
+}
+resize();addEventListener('resize',resize);
+
+function init(){
+  sx=sy=mazeSize;
+  cellSize=W/sx;
+  grid=Array.from({length:sy},(_,y)=>Array.from({length:sx},(_,x)=>({x,y,walls:[true,true,true,true],visited:false})));
+  solution=null;
+}
+
+function genMaze(){
+  init();
+  // DFS maze gen
+  const stack=[];
+  const start=grid[0][0];start.visited=true;stack.push(start);
+  while(stack.length){
+    const cur=stack[stack.length-1];
+    const neighbors=[];
+    for(let d=0;d<4;d++){
+      const nx=cur.x+DIR[d][0],ny=cur.y+DIR[d][1];
+      if(nx>=0&&nx<sx&&ny>=0&&ny<sy&&!grid[ny][nx].visited)neighbors.push({cell:grid[ny][nx],dir:d});
+    }
+    if(!neighbors.length){stack.pop();continue}
+    const{cell,dir}=neighbors[Math.random()*neighbors.length|0];
+    cur.walls[dir]=false;cell.walls[(dir+2)%4]=false;
+    cell.visited=true;stack.push(cell);
+  }
+  // Reset visited
+  grid.forEach(row=>row.forEach(c=>c.visited=false));
+  draw();
+  document.getElementById('info').textContent=`${sx}×${sy} maze generated`;
+}
+
+async function runDFS(){
+  init();
+  const stack=[grid[0][0]];grid[0][0].visited=true;
+  const spd=()=>new Promise(r=>setTimeout(r,510-(+document.getElementById('speed').value*10)));
+  while(stack.length){
+    const cur=stack[stack.length-1];
+    const neighbors=[];
+    for(let d=0;d<4;d++){
+      const nx=cur.x+DIR[d][0],ny=cur.y+DIR[d][1];
+      if(nx>=0&&nx<sx&&ny>=0&&ny<sy&&!grid[ny][nx].visited)neighbors.push({cell:grid[ny][nx],dir:d});
+    }
+    if(!neighbors.length){stack.pop();cur.explored=true;draw();await spd();continue}
+    const{cell,dir}=neighbors[Math.random()*neighbors.length|0];
+    cur.walls[dir]=false;cell.walls[(dir+2)%4]=false;
+    cell.visited=true;stack.push(cell);
+    draw();await spd();
+  }
+  grid.forEach(row=>row.forEach(c=>{c.visited=false;c.explored=false}));
+  draw();
+  document.getElementById('info').textContent='Generation complete';
+}
+
+async function runSolve(){
+  // BFS
+  grid.forEach(row=>row.forEach(c=>{c.visited=false;c.explored=false;c.dist=Infinity;c.prev=null}));
+  const q=[grid[0][0]];grid[0][0].visited=true;grid[0][0].dist=0;
+  const spd=()=>new Promise(r=>setTimeout(r,510-(+document.getElementById('speed').value*10)));
+  let found=false;
+  while(q.length){
+    const cur=q.shift();cur.explored=true;
+    if(cur.x===sx-1&&cur.y===sy-1){found=true;break}
+    for(let d=0;d<4;d++){
+      if(cur.walls[d])continue;
+      const nx=cur.x+DIR[d][0],ny=cur.y+DIR[d][1];
+      if(nx<0||nx>=sx||ny<0||ny>=sy)continue;
+      const next=grid[ny][nx];
+      if(next.visited)continue;
+      next.visited=true;next.dist=cur.dist+1;next.prev=cur;q.push(next);
+    }
+    draw();await spd();
+  }
+  if(!found){document.getElementById('info').textContent='No path!';return}
+  // Trace path
+  solution=[];let cur=grid[sy-1][sx-1];
+  while(cur){solution.unshift([cur.x,cur.y]);cur=cur.prev}
+  draw();
+  document.getElementById('info').textContent=`Solved! Path length: ${solution.length}`;
+}
+
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  if(!grid)return;
+  // Cells
+  for(let y=0;y<sy;y++)for(let x=0;x<sx;x++){
+    const c=grid[y][x];
+    const px=x*cellSize,py=y*cellSize;
+    if(c.explored)ctx.fillStyle='rgba(139,92,246,.08)';
+    else if(c.visited)ctx.fillStyle='rgba(234,179,8,.06)';
+    else ctx.fillStyle='rgba(255,255,255,.015)';
+    ctx.fillRect(px,py,cellSize,cellSize);
+  }
+  // Solution path
+  if(solution&&solution.length>1){
+    ctx.beginPath();
+    ctx.moveTo(solution[0][0]*cellSize+cellSize/2,solution[0][1]*cellSize+cellSize/2);
+    for(const[x,y]of solution)ctx.lineTo(x*cellSize+cellSize/2,y*cellSize+cellSize/2);
+    ctx.strokeStyle='rgba(139,92,246,.6)';ctx.lineWidth=cellSize*.25;ctx.lineCap='round';ctx.lineJoin='round';ctx.stroke();
+    // Animated dot
+    const t=(Date.now()*.002)%1;const idx=Math.floor(t*solution.length);
+    const dp=solution[Math.min(idx,solution.length-1)];
+    ctx.beginPath();ctx.arc(dp[0]*cellSize+cellSize/2,dp[1]*cellSize+cellSize/2,cellSize*.3,0,Math.PI*2);
+    ctx.fillStyle='rgba(139,92,246,.9)';ctx.fill();
+  }
+  // Walls
+  ctx.strokeStyle='rgba(255,255,255,.2)';ctx.lineWidth=1.5;
+  for(let y=0;y<sy;y++)for(let x=0;x<sx;x++){
+    const c=grid[y][x],px=x*cellSize,py=y*cellSize;
+    if(c.walls[0]){ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(px+cellSize,py);ctx.stroke()}
+    if(c.walls[1]){ctx.beginPath();ctx.moveTo(px+cellSize,py);ctx.lineTo(px+cellSize,py+cellSize);ctx.stroke()}
+    if(c.walls[2]){ctx.beginPath();ctx.moveTo(px,py+cellSize);ctx.lineTo(px+cellSize,py+cellSize);ctx.stroke()}
+    if(c.walls[3]){ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(px,py+cellSize);ctx.stroke()}
+  }
+  // Start & End markers
+  ctx.fillStyle='rgba(34,197,94,.35)';ctx.fillRect(2,2,cellSize-4,cellSize-4);
+  ctx.fillStyle='rgba(244,63,94,.35)';ctx.fillRect((sx-1)*cellSize+2,(sy-1)*cellSize+2,cellSize-4,cellSize-4);
+  ctx.fillStyle='rgba(255,255,255,.6)';ctx.font=`${cellSize*.4}px Space Grotesk`;ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText('S',cellSize/2,cellSize/2);ctx.fillText('E',(sx-.5)*cellSize,(sy-.5)*cellSize);
+  if(solution)requestAnimationFrame(draw);
+}
+
+document.getElementById('size').addEventListener('input',e=>{mazeSize=+e.target.value;document.getElementById('sizeV').textContent=mazeSize;genMaze()});
+genMaze();
+</script>
+</body>
+</html>

@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clock Screensaver</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#050508;overflow:hidden;font-family:'Space Grotesk',sans-serif}
+canvas{display:block;position:fixed;inset:0}
+.ui{position:fixed;top:20px;left:20px;z-index:10;display:flex;gap:6px}
+.btn{padding:6px 12px;border-radius:8px;font-size:.72rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.06);color:rgba(255,255,255,.4);cursor:pointer;transition:all .2s}
+.btn:hover{background:rgba(255,255,255,.1);color:rgba(255,255,255,.7)}
+.btn.active{background:rgba(139,92,246,.15);border-color:rgba(139,92,246,.3);color:#a78bfa}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="ui">
+  <button class="btn active" data-mode="digital">Digital</button>
+  <button class="btn" data-mode="analog">Analog</button>
+  <button class="btn" data-mode="binary">Binary</button>
+  <button class="btn" data-mode="words">Words</button>
+</div>
+
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+let W,H,mode='digital';
+
+function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight}
+resize();addEventListener('resize',resize);
+
+document.querySelectorAll('.btn').forEach(b=>{
+  b.addEventListener('click',()=>{
+    document.querySelectorAll('.btn').forEach(b=>b.classList.remove('active'));
+    b.classList.add('active');mode=b.dataset.mode;
+  });
+});
+
+function drawDigital(t){
+  const now=new Date();
+  const h=String(now.getHours()).padStart(2,'0');
+  const m=String(now.getMinutes()).padStart(2,'0');
+  const s=String(now.getSeconds()).padStart(2,'0');
+  const ms=String(now.getMilliseconds()).padStart(3,'0');
+
+  // Main time
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.font='800 '+Math.min(W*.15,H*.25)+'px Space Grotesk';
+  ctx.fillStyle='rgba(255,255,255,.9)';
+  ctx.fillText(`${h}:${m}`,W/2,H/2-Math.min(W*.02,H*.03));
+
+  // Seconds
+  ctx.font='300 '+Math.min(W*.06,H*.1)+'px Space Mono';
+  ctx.fillStyle='rgba(139,92,246,.6)';
+  ctx.fillText(`${s}.${ms}`,W/2,H/2+Math.min(W*.08,H*.12));
+
+  // Date
+  const days=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const months=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  ctx.font='500 '+Math.min(W*.02,H*.03)+'px Space Grotesk';
+  ctx.fillStyle='rgba(255,255,255,.25)';
+  ctx.fillText(`${days[now.getDay()]}, ${months[now.getMonth()]} ${now.getDate()}, ${now.getFullYear()}`,W/2,H/2+Math.min(W*.14,H*.2));
+
+  // Progress ring
+  const cx=W/2,cy=H/2;
+  const r=Math.min(W,H)*.35;
+  const secProg=now.getSeconds()/60;
+  const minProg=now.getMinutes()/60;
+  const hrProg=now.getHours()%12/12;
+
+  ctx.lineWidth=2;
+  // Hours
+  ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.strokeStyle='rgba(255,255,255,.04)';ctx.stroke();
+  ctx.beginPath();ctx.arc(cx,cy,r,-Math.PI/2,-Math.PI/2+Math.PI*2*hrProg);ctx.strokeStyle='rgba(139,92,246,.3)';ctx.lineWidth=3;ctx.stroke();
+  // Minutes
+  ctx.beginPath();ctx.arc(cx,cy,r-12,0,Math.PI*2);ctx.strokeStyle='rgba(255,255,255,.03)';ctx.lineWidth=1.5;ctx.stroke();
+  ctx.beginPath();ctx.arc(cx,cy,r-12,-Math.PI/2,-Math.PI/2+Math.PI*2*minProg);ctx.strokeStyle='rgba(6,182,212,.3)';ctx.stroke();
+  // Seconds
+  ctx.beginPath();ctx.arc(cx,cy,r-24,0,Math.PI*2);ctx.strokeStyle='rgba(255,255,255,.02)';ctx.lineWidth=1;ctx.stroke();
+  ctx.beginPath();ctx.arc(cx,cy,r-24,-Math.PI/2,-Math.PI/2+Math.PI*2*secProg);ctx.strokeStyle='rgba(244,63,94,.4)';ctx.stroke();
+}
+
+function drawAnalog(t){
+  const now=new Date();
+  const cx=W/2,cy=H/2;
+  const r=Math.min(W,H)*.35;
+
+  // Face
+  ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);
+  ctx.fillStyle='rgba(255,255,255,.02)';ctx.fill();
+  ctx.strokeStyle='rgba(255,255,255,.1)';ctx.lineWidth=2;ctx.stroke();
+
+  // Hour marks
+  for(let i=0;i<60;i++){
+    const a=i/60*Math.PI*2-Math.PI/2;
+    const isHr=i%5===0;
+    const inner=r-(isHr?20:10);
+    const outer=r-4;
+    ctx.beginPath();ctx.moveTo(cx+Math.cos(a)*inner,cy+Math.sin(a)*inner);
+    ctx.lineTo(cx+Math.cos(a)*outer,cy+Math.sin(a)*outer);
+    ctx.strokeStyle=isHr?'rgba(255,255,255,.4)':'rgba(255,255,255,.1)';
+    ctx.lineWidth=isHr?2.5:1;ctx.stroke();
+  }
+
+  // Numbers
+  ctx.font='500 '+r*.12+'px Space Grotesk';ctx.fillStyle='rgba(255,255,255,.5)';ctx.textAlign='center';ctx.textBaseline='middle';
+  for(let i=1;i<=12;i++){
+    const a=i/12*Math.PI*2-Math.PI/2;
+    ctx.fillText(i,cx+Math.cos(a)*(r-35),cy+Math.sin(a)*(r-35));
+  }
+
+  const hr=now.getHours()%12+now.getMinutes()/60;
+  const min=now.getMinutes()+now.getSeconds()/60;
+  const sec=now.getSeconds()+now.getMilliseconds()/1000;
+
+  // Hour hand
+  const ha=hr/12*Math.PI*2-Math.PI/2;
+  ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+Math.cos(ha)*r*.5,cy+Math.sin(ha)*r*.5);
+  ctx.strokeStyle='rgba(255,255,255,.8)';ctx.lineWidth=4;ctx.lineCap='round';ctx.stroke();
+
+  // Minute hand
+  const ma=min/60*Math.PI*2-Math.PI/2;
+  ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+Math.cos(ma)*r*.7,cy+Math.sin(ma)*r*.7);
+  ctx.strokeStyle='rgba(139,92,246,.7)';ctx.lineWidth=3;ctx.stroke();
+
+  // Second hand
+  const sa=sec/60*Math.PI*2-Math.PI/2;
+  ctx.beginPath();ctx.moveTo(cx-Math.cos(sa)*r*.1,cy-Math.sin(sa)*r*.1);
+  ctx.lineTo(cx+Math.cos(sa)*r*.8,cy+Math.sin(sa)*r*.8);
+  ctx.strokeStyle='rgba(244,63,94,.6)';ctx.lineWidth=1.5;ctx.stroke();
+
+  // Center dot
+  ctx.beginPath();ctx.arc(cx,cy,5,0,Math.PI*2);ctx.fillStyle='rgba(244,63,94,.8)';ctx.fill();
+
+  // Date
+  ctx.font='500 '+r*.08+'px Space Grotesk';ctx.fillStyle='rgba(255,255,255,.3)';
+  ctx.fillText(new Date().toLocaleDateString(),cx,cy+r*.3);
+}
+
+function drawBinary(t){
+  const now=new Date();
+  const vals=[now.getHours(),now.getMinutes(),now.getSeconds()];
+  const labels=['Hours','Minutes','Seconds'];
+  const cs=Math.min(W*.04,H*.06);
+  const gap=cs*.6;
+
+  ctx.textAlign='right';ctx.textBaseline='middle';
+  const startX=W/2-3.5*(cs+gap);
+  const startY=H/2-1.5*(cs+gap*2);
+
+  vals.forEach((v,row)=>{
+    const y=startY+row*(cs+gap*2);
+    // Label
+    ctx.font='500 '+cs*.6+'px Space Grotesk';
+    ctx.fillStyle='rgba(255,255,255,.2)';
+    ctx.fillText(labels[row],startX-cs*1.5,y+cs/2);
+
+    for(let bit=0;bit<6;bit++){
+      const on=(v>>(5-bit))&1;
+      const x=startX+bit*(cs+gap);
+      ctx.beginPath();
+      ctx.roundRect(x,y,cs,cs,4);
+      ctx.fillStyle=on?'rgba(139,92,246,.6)':'rgba(255,255,255,.04)';
+      ctx.fill();
+      if(on){
+        ctx.beginPath();ctx.roundRect(x,y,cs,cs,4);
+        ctx.shadowColor='rgba(139,92,246,.3)';ctx.shadowBlur=10;
+        ctx.fill();ctx.shadowBlur=0;
+      }
+      // Bit value
+      ctx.font='500 '+cs*.5+'px Space Mono';
+      ctx.fillStyle=on?'rgba(255,255,255,.7)':'rgba(255,255,255,.15)';
+      ctx.textAlign='center';
+      ctx.fillText(1-bit%2?on:'0',x+cs/2,y+cs/2);
+    }
+    // Decimal
+    ctx.font='700 '+cs*.8+'px Space Mono';
+    ctx.fillStyle='rgba(255,255,255,.5)';
+    ctx.textAlign='left';
+    ctx.fillText(String(v).padStart(2,'0'),startX+6*(cs+gap)+cs,y+cs/2);
+  });
+
+  // Separator dots
+  [1,2].forEach(i=>{
+    const y=startY+i*(cs+gap*2)-gap*1.2;
+    const x=W/2-cs;
+    ctx.fillStyle='rgba(255,255,255,.3)';
+    ctx.beginPath();ctx.arc(x,y,3,0,Math.PI*2);ctx.fill();
+    ctx.beginPath();ctx.arc(x,y+gap*1.5,3,0,Math.PI*2);ctx.fill();
+  });
+}
+
+function drawWords(t){
+  const now=new Date();
+  const h=now.getHours(),m=now.getMinutes();
+
+  const hourWords=['TWELVE','ONE','TWO','THREE','FOUR','FIVE','SIX','SEVEN','EIGHT','NINE','TEN','ELEVEN'];
+  const minWords=['O\'CLOCK','FIVE','TEN','QUARTER','TWENTY','TWENTY FIVE','HALF'];
+  const prepositions=['PAST','TO'];
+
+  const hour=h%12;
+  const minRound=Math.round(m/5)*5;
+  const pastOrTo=minRound<=30?'PAST':'TO';
+  const displayHour=minRound<=30?hour:(hour+1)%12;
+  const minIdx=minRound<=30?minRound/5:(60-minRound)/5;
+
+  const words=[];
+  words.push('IT IS');
+  if(minIdx===0){words.push(hourWords[displayHour]);words.push('O\'CLOCK')}
+  else{words.push(minWords[minIdx]);words.push(pastOrTo);words.push(hourWords[displayHour])}
+
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  const fontSize=Math.min(W*.035,H*.05);
+  ctx.font='600 '+fontSize+'px Space Grotesk';
+
+  const text=words.join('  ');
+  const chars='IT IS '+hourWords.join(' ')+' '+minWords.join(' ')+' PAST TO';
+  const allChars=chars.split('');
+
+  let x=W/2-text.length*fontSize*.32/2;
+  const y=H/2;
+  let wordIdx=0,charIdx=0;
+
+  for(const ch of text){
+    const isWord=words.some(w=>w.includes(ch));
+    ctx.fillStyle=ch!==' '?'rgba(139,92,246,.8)':'transparent';
+    if(ch===' '){x+=fontSize*.35;continue}
+    ctx.fillText(ch,x+fontSize*.16,y);
+    x+=fontSize*.45;
+  }
+
+  // Date
+  ctx.font='400 '+fontSize*.5+'px Space Grotesk';
+  ctx.fillStyle='rgba(255,255,255,.2)';
+  ctx.fillText(now.toLocaleDateString(),W/2,y+fontSize*2);
+}
+
+// Particle background
+const particles=Array.from({length:50},()=>({
+  x:Math.random()*2000,y:Math.random()*1200,
+  vx:(Math.random()-.5)*.3,vy:(Math.random()-.5)*.3,
+  r:Math.random()*1.5+.5,a:Math.random()*.15+.03
+}));
+
+function drawBg(){
+  ctx.fillStyle='rgba(5,5,8,.1)';ctx.fillRect(0,0,W,H);
+  particles.forEach(p=>{
+    p.x+=p.vx;p.y+=p.vy;
+    if(p.x<0)p.x=W;if(p.x>W)p.x=0;if(p.y<0)p.y=H;if(p.y>H)p.y=0;
+    ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+    ctx.fillStyle=`rgba(139,92,246,${p.a})`;ctx.fill();
+  });
+}
+
+function loop(t){
+  drawBg();
+  if(mode==='digital')drawDigital(t);
+  else if(mode==='analog')drawAnalog(t);
+  else if(mode==='binary')drawBinary(t);
+  else if(mode==='words')drawWords(t);
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

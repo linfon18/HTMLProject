@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Game of Life</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Space+Mono:wght@400&display=swap');
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#050508;--border:rgba(255,255,255,.06);--t1:#fff;--t2:rgba(255,255,255,.55);--t3:rgba(255,255,255,.25)}
+body{background:var(--bg);color:var(--t2);font-family:'Space Grotesk',sans-serif;min-height:100vh;display:flex;flex-direction:column;-webkit-font-smoothing:antialiased}
+.top{padding:12px 20px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;border-bottom:1px solid var(--border)}
+.top h1{font-size:.95rem;font-weight:700;color:var(--t1);margin-right:auto}
+.btn{padding:6px 12px;border-radius:7px;font-size:.72rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--t2);cursor:pointer;transition:all .2s}
+.btn:hover{background:rgba(255,255,255,.1);color:var(--t1)}
+.btn.primary{background:rgba(139,92,246,.12);border-color:rgba(139,92,246,.25);color:#a78bfa}
+.btn.active{background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.25);color:#4ade80}
+label{font-size:.65rem;color:var(--t3)}
+input[type=range]{width:70px;height:3px;-webkit-appearance:none;background:rgba(255,255,255,.1);border-radius:2px;outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;height:10px;border-radius:50%;background:#fff;cursor:pointer}
+.val{font-family:'Space Mono',monospace;font-size:.6rem;color:var(--t3);min-width:20px}
+.main{flex:1;display:flex;align-items:center;justify-content:center;padding:16px}
+canvas{border-radius:8px;cursor:crosshair}
+.stats{position:fixed;bottom:12px;left:20px;display:flex;gap:12px;font-size:.65rem;font-family:'Space Mono',monospace;color:var(--t3)}
+.stats span{padding:3px 8px;border-radius:5px;background:rgba(255,255,255,.03);border:1px solid var(--border)}
+.presets{display:flex;gap:4px}
+.presets .btn{font-size:.65rem;padding:4px 8px}
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>Game of Life</h1>
+  <div class="presets">
+    <button class="btn" onclick="loadPreset('glider')">Glider</button>
+    <button class="btn" onclick="loadPreset('blinker')">Blinker</button>
+    <button class="btn" onclick="loadPreset('pulsar')">Pulsar</button>
+    <button class="btn" onclick="loadPreset('gosper')">Gosper Gun</button>
+    <button class="btn" onclick="loadPreset('acorn')">Acorn</button>
+    <button class="btn" onclick="loadPreset('random')">Random</button>
+  </div>
+  <label>Speed</label><input type="range" id="speed" min="1" max="30" value="10"><span class="val" id="speedV">10</span>
+  <label>Cell</label><input type="range" id="cellSize" min="3" max="20" value="8"><span class="val" id="cellSizeV">8</span>
+  <button class="btn primary" id="playBtn">Play</button>
+  <button class="btn" onclick="step()">Step</button>
+  <button class="btn" onclick="clear()">Clear</button>
+</div>
+<div class="main"><canvas id="c"></canvas></div>
+<div class="stats">
+  <span id="genS">Gen: 0</span>
+  <span id="aliveS">Alive: 0</span>
+  <span id="fpsS">0 FPS</span>
+</div>
+
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+const dpr=devicePixelRatio;
+let W,H,cs=8,cols,rows,grid,nextGrid,generation=0,playing=false,loopId;
+let frames=0,fpsTime=performance.now();
+
+function resize(){
+  const s=Math.min(innerWidth-40,innerHeight-100);
+  W=H=s;canvas.width=s*dpr;canvas.height=s*dpr;
+  canvas.style.width=s+'px';canvas.style.height=s+'px';
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  cols=Math.floor(W/cs);rows=Math.floor(H/cs);
+  if(!grid){grid=Array.from({length:rows},()=>new Uint8Array(cols));nextGrid=Array.from({length:rows},()=>new Uint8Array(cols))}
+  draw();
+}
+resize();addEventListener('resize',()=>{cs=+document.getElementById('cellSize').value;resize()});
+
+function clear(){
+  grid=Array.from({length:rows},()=>new Uint8Array(cols));
+  generation=0;draw();
+}
+
+function countNeighbors(g,x,y){
+  let c=0;
+  for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
+    if(!dx&&!dy)continue;
+    const nx=(x+dx+cols)%cols,ny=(y+dy+rows)%rows;
+    c+=g[ny][nx];
+  }
+  return c;
+}
+
+function step(){
+  let alive=0;
+  for(let y=0;y<rows;y++)for(let x=0;x<cols;x++){
+    const n=countNeighbors(grid,x,y);
+    if(grid[y][x]){nextGrid[y][x]=(n===2||n===3)?1:0}
+    else{nextGrid[y][x]=n===3?1:0}
+    alive+=nextGrid[y][x];
+  }
+  [grid,nextGrid]=[nextGrid,grid];
+  generation++;
+  document.getElementById('genS').textContent='Gen: '+generation;
+  document.getElementById('aliveS').textContent='Alive: '+alive;
+  draw();
+}
+
+function draw(){
+  ctx.fillStyle='rgba(5,5,8,1)';ctx.fillRect(0,0,W,H);
+  // Grid lines
+  ctx.strokeStyle='rgba(255,255,255,.03)';ctx.lineWidth=.5;
+  for(let x=0;x<=cols;x++){ctx.beginPath();ctx.moveTo(x*cs,0);ctx.lineTo(x*cs,rows*cs);ctx.stroke()}
+  for(let y=0;y<=rows;y++){ctx.beginPath();ctx.moveTo(0,y*cs);ctx.lineTo(cols*cs,y*cs);ctx.stroke()}
+  // Cells
+  for(let y=0;y<rows;y++)for(let x=0;x<cols;x++){
+    if(grid[y][x]){
+      const n=countNeighbors(grid,x,y);
+      const hue=260+n*15;
+      ctx.fillStyle=`hsla(${hue},70%,55%,.8)`;
+      ctx.fillRect(x*cs+1,y*cs+1,cs-2,cs-2);
+      // Glow
+      if(cs>6){
+        ctx.fillStyle=`hsla(${hue},70%,55%,.15)`;
+        ctx.fillRect(x*cs,y*cs,cs,cs);
+      }
+    }
+  }
+  // FPS
+  frames++;
+  if(performance.now()-fpsTime>500){
+    document.getElementById('fpsS').textContent=Math.round(frames*1000/(performance.now()-fpsTime))+' FPS';
+    frames=0;fpsTime=performance.now();
+  }
+}
+
+// Drawing
+let drawing=false;
+canvas.addEventListener('mousedown',e=>{drawing=true;paintCell(e)});
+canvas.addEventListener('mousemove',e=>{if(drawing)paintCell(e)});
+canvas.addEventListener('mouseup',()=>{drawing=false});
+canvas.addEventListener('mouseleave',()=>{drawing=false});
+
+function paintCell(e){
+  const rect=canvas.getBoundingClientRect();
+  const x=Math.floor((e.clientX-rect.left)/cs);
+  const y=Math.floor((e.clientY-rect.top)/cs);
+  if(x>=0&&x<cols&&y>=0&&y<rows){grid[y][x]=1;draw()}
+}
+
+document.getElementById('playBtn').addEventListener('click',()=>{
+  playing=!playing;
+  const btn=document.getElementById('playBtn');
+  if(playing){btn.textContent='Pause';btn.classList.add('active');gameLoop()}
+  else{btn.textContent='Play';btn.classList.remove('active');clearTimeout(loopId)}
+});
+
+function gameLoop(){
+  if(!playing)return;
+  step();
+  loopId=setTimeout(gameLoop,1000/(+document.getElementById('speed').value));
+}
+
+document.getElementById('speed').addEventListener('input',e=>{document.getElementById('speedV').textContent=e.target.value});
+document.getElementById('cellSize').addEventListener('input',e=>{cs=+e.target.value;document.getElementById('cellSizeV').textContent=cs;resize()});
+
+// Presets
+const presets={
+  glider:[[1,0],[2,1],[0,2],[1,2],[2,2]],
+  blinker:[[1,0],[1,1],[1,2]],
+  pulsar:[], // too complex, generate
+  gosper:[[24,0],[22,1],[24,1],[12,2],[13,2],[20,2],[21,2],[34,2],[35,2],[11,3],[15,3],[20,3],[21,3],[34,3],[35,3],[0,4],[1,4],[10,4],[16,4],[20,4],[21,4],[0,5],[1,5],[10,5],[14,5],[16,5],[17,5],[22,5],[24,5],[10,6],[16,6],[24,6],[11,7],[15,7],[12,8],[13,8]],
+  acorn:[[1,0],[3,1],[0,2],[1,2],[4,2],[5,2],[6,2]],
+  random:null
+};
+
+function loadPreset(name){
+  clear();
+  if(name==='random'){
+    for(let y=0;y<rows;y++)for(let x=0;x<cols;x++)grid[y][x]=Math.random()>.7?1:0;
+  }else if(name==='pulsar'){
+    const p=[[2,0],[3,0],[4,0],[8,0],[9,0],[10,0],[0,2],[5,2],[7,2],[12,2],[0,3],[5,3],[7,3],[12,3],[0,4],[5,4],[7,4],[12,4],[2,5],[3,5],[4,5],[8,5],[9,5],[10,5]];
+    const cx=cols>>1,cy=rows>>1;
+    p.forEach(([x,y])=>{if(cy-6+y>=0&&cy-6+y<rows&&cx-6+x>=0&&cx-6+x<cols)grid[cy-6+y][cx-6+x]=1;
+      if(cy+6-y>=0&&cy+6-y<rows&&cx-6+x>=0&&cx-6+x<cols)grid[cy+6-y][cx-6+x]=1;
+      if(cy-6+y>=0&&cy-6+y<rows&&cx+6-x>=0&&cx+6-x<cols)grid[cy-6+y][cx+6-x]=1;
+      if(cy+6-y>=0&&cy+6-y<rows&&cx+6-x>=0&&cx+6-x<cols)grid[cy+6-y][cx+6-x]=1;
+    });
+  }else{
+    const cells=presets[name];
+    if(!cells)return;
+    const ox=(cols>>1)-12,oy=(rows>>1)-4;
+    cells.forEach(([x,y])=>{if(oy+y>=0&&oy+y<rows&&ox+x>=0&&ox+x<cols)grid[oy+y][ox+x]=1});
+  }
+  draw();
+}
+
+loadPreset('random');
+</script>
+</body>
+</html>

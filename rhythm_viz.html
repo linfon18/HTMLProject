@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rhythm Visualizer</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}body{background:#050508;overflow:hidden}canvas{display:block}
+.ui{position:fixed;top:12px;left:12px;z-index:10;display:flex;gap:6px;flex-wrap:wrap}
+.btn{padding:5px 10px;border-radius:6px;font-size:.7rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);color:rgba(255,255,255,.5);cursor:pointer;transition:all .2s;font-family:'Space Grotesk',sans-serif}
+.btn:hover{background:rgba(255,255,255,.1);color:#fff}
+.btn.active{background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.25);color:#4ade80}
+.info{position:fixed;bottom:12px;left:12px;font-size:.55rem;font-family:'Space Mono',monospace;color:rgba(255,255,255,.15)}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="ui">
+  <button class="btn" id="micBtn" onclick="toggleMic()">🎤 Microphone</button>
+  <button class="btn" onclick="mode=(mode+1)%5">Mode</button>
+  <button class="btn" onclick="hueShift+=30">Hue+</button>
+  <button class="btn" onclick="hueShift-=30">Hue-</button>
+</div>
+<div class="info">Click "Microphone" to analyze real-time audio, or watch the demo mode</div>
+
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+let W,H;
+function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight}
+addEventListener('resize',resize);
+
+let mode=0,hueShift=0,audioCtx,analyser,dataArray,freqData,micStream,hasMic=false;
+let beat=0,lastBeat=0,energy=0,smoothEnergy=0;
+
+async function toggleMic(){
+  if(hasMic){micStream?.getTracks().forEach(t=>t.stop());hasMic=false;return}
+  audioCtx=new AudioContext();
+  analyser=audioCtx.createAnalyser();analyser.fftSize=2048;
+  dataArray=new Uint8Array(analyser.frequencyBinCount);
+  freqData=new Uint8Array(analyser.frequencyBinCount);
+  try{
+    micStream=await navigator.mediaDevices.getUserMedia({audio:true});
+    const source=audioCtx.createMediaStreamSource(micStream);
+    source.connect(analyser);hasMic=true;
+  }catch(e){console.log('No mic');hasMic=false}
+}
+
+function demoData(t){
+  // Generate synthetic music-like data
+  const len=1024;
+  if(!dataArray||dataArray.length!==len){dataArray=new Uint8Array(len);freqData=new Uint8Array(len/2)}
+  for(let i=0;i<len;i++){
+    dataArray[i]=128+Math.sin(t*.005+i*.02)*40+Math.sin(t*.013+i*.05)*20+Math.random()*10;
+  }
+  for(let i=0;i<len/2;i++){
+    const f=i/len*2;
+    freqData[i]=Math.max(0,120-Math.abs(i-30)*2)+Math.sin(t*.008+i*.1)*30+Math.random()*20;
+    freqData[i]=Math.max(0,Math.min(255,freqData[i]));
+  }
+}
+
+function getEnergy(){
+  if(!freqData)return 0;
+  let sum=0;
+  for(let i=0;i<Math.min(freqData.length,64);i++)sum+=freqData[i];
+  return sum/64/255;
+}
+
+function draw(time){
+  ctx.fillStyle='rgba(5,5,8,.12)';ctx.fillRect(0,0,W,H);
+
+  if(hasMic&&analyser){
+    analyser.getByteTimeDomainData(dataArray);
+    analyser.getByteFrequencyData(freqData);
+  }else{
+    demoData(time);
+  }
+
+  energy=getEnergy();
+  smoothEnergy+=(energy-smoothEnergy)*.15;
+  if(energy>smoothEnergy*1.3&&time-lastBeat>200){beat=time;lastBeat=time}
+
+  const pulse=Math.max(0,1-(time-beat)/300);
+
+  if(mode===0){
+    // Circular bars
+    const cx=W/2,cy=H/2,r=Math.min(W,H)*.25;
+    const bars=freqData?.length||128;
+    for(let i=0;i<bars;i++){
+      const angle=i/bars*Math.PI*2-Math.PI/2;
+      const val=(freqData[i]||0)/255;
+      const len=val*Math.min(W,H)*.3+pulse*40;
+      const hue=(i/bars*360+hueShift)%360;
+      ctx.beginPath();
+      ctx.moveTo(cx+Math.cos(angle)*r,cy+Math.sin(angle)*r);
+      ctx.lineTo(cx+Math.cos(angle)*(r+len),cy+Math.sin(angle)*(r+len));
+      ctx.strokeStyle=`hsla(${hue},70%,55%,${.3+val*.7})`;ctx.lineWidth=3;ctx.stroke();
+    }
+    // Center glow
+    const g=ctx.createRadialGradient(cx,cy,0,cx,cy,r);
+    g.addColorStop(0,`hsla(${hueShift},70%,55%,${.1+pulse*.2})`);g.addColorStop(1,'transparent');
+    ctx.fillStyle=g;ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.fill();
+  }else if(mode===1){
+    // Waveform
+    ctx.beginPath();
+    const sliceW=W/(dataArray?.length||1);
+    for(let i=0;i<(dataArray?.length||0);i++){
+      const v=dataArray[i]/128;const y=v*H/2;
+      if(i===0)ctx.moveTo(0,y);else ctx.lineTo(i*sliceW,y);
+    }
+    ctx.strokeStyle=`hsla(${hueShift},70%,55%,.8)`;ctx.lineWidth=2;ctx.stroke();
+    ctx.strokeStyle=`hsla(${hueShift},70%,55%,.15)`;ctx.lineWidth=8;ctx.stroke();
+  }else if(mode===2){
+    // Bars
+    const barCount=64;
+    const barW=W/barCount;
+    for(let i=0;i<barCount;i++){
+      const val=(freqData[i]||0)/255;
+      const barH=val*H*.8;
+      const hue=(i/barCount*360+hueShift)%360;
+      ctx.fillStyle=`hsla(${hue},70%,55%,${.5+val*.5})`;
+      ctx.fillRect(i*barW+2,H-barH,barW-4,barH);
+      // Reflection
+      ctx.fillStyle=`hsla(${hue},70%,55%,${.1+val*.1})`;
+      ctx.fillRect(i*barW+2,H,barW-4,barH*.3);
+    }
+  }else if(mode===3){
+    // Particles
+    for(let i=0;i<20;i++){
+      const val=(freqData[i*4]||0)/255;
+      const angle=time*.001+i*.3;
+      const r=val*Math.min(W,H)*.4;
+      const x=W/2+Math.cos(angle)*r;
+      const y=H/2+Math.sin(angle)*r;
+      ctx.beginPath();ctx.arc(x,y,3+val*10,0,Math.PI*2);
+      ctx.fillStyle=`hsla(${(hueShift+i*20)%360},70%,55%,${.3+val*.7})`;ctx.fill();
+    }
+  }else{
+    // Spectrogram-like scroll
+    const imgData=ctx.getImageData(0,0,W,H);
+    // Shift left
+    const d=imgData.data;
+    for(let y=0;y<H;y++){
+      for(let x=0;x<W-1;x++){
+        const src=(y*W+x+1)*4;const dst=(y*W+x)*4;
+        d[dst]=d[src];d[dst+1]=d[src+1];d[dst+2]=d[src+2];d[dst+3]=d[src+3];
+      }
+    }
+    // Draw new column
+    for(let y=0;y<H;y++){
+      const freqIdx=Math.floor((1-y/H)*(freqData?.length||128));
+      const val=(freqData[freqIdx]||0)/255;
+      const hue=(val*200+hueShift)%360;
+      const i=(y*W+W-1)*4;
+      const[rr,gg,bb]=hslToRgb(hue/360,.7,val*.7);
+      d[i]=rr;d[i+1]=gg;d[i+2]=bb;d[i+3]=255;
+    }
+    ctx.putImageData(imgData,0,0);
+  }
+}
+
+function hslToRgb(h,s,l){
+  let r,g,b;if(s===0){r=g=b=l}else{
+    const q=l<.5?l*(1+s):l+s-l*s,p=2*l-q;
+    function hue2rgb(p,q,t){if(t<0)t+=1;if(t>1)t-=1;if(t<1/6)return p+(q-p)*6*t;if(t<1/2)return q;if(t<2/3)return p+(q-p)*(2/3-t)*6;return p}
+    r=hue2rgb(p,q,h+1/3);g=hue2rgb(p,q,h);b=hue2rgb(p,q,h-1/3);
+  }
+  return[r*255|0,g*255|0,b*255|0];
+}
+
+resize();
+function loop(t){draw(t);requestAnimationFrame(loop)}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

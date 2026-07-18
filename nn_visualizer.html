@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Neural Network</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Space+Mono:wght@400&display=swap');
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#050508;--border:rgba(255,255,255,.06);--t1:#fff;--t2:rgba(255,255,255,.55);--t3:rgba(255,255,255,.25)}
+body{background:var(--bg);color:var(--t2);font-family:'Space Grotesk',sans-serif;min-height:100vh;display:flex;-webkit-font-smoothing:antialiased}
+canvas{flex:1;display:block}
+.panel{width:280px;flex-shrink:0;padding:16px;background:rgba(10,10,15,.9);border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column;gap:12px}
+.panel h2{font-size:.9rem;font-weight:700;color:var(--t1)}
+.panel h3{font-size:.6rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:6px}
+.group{padding:12px;border-radius:10px;background:rgba(255,255,255,.025);border:1px solid var(--border)}
+.row{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;font-size:.72rem}
+.row label{color:var(--t3);font-size:.68rem}
+input[type=range]{width:100px;height:3px;-webkit-appearance:none;background:rgba(255,255,255,.1);border-radius:2px;outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;background:#fff;cursor:pointer}
+.val{font-family:'Space Mono',monospace;font-size:.65rem;color:var(--t2);min-width:28px;text-align:right}
+.btn{padding:7px 12px;border-radius:8px;font-size:.72rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--t2);cursor:pointer;transition:all .2s;text-align:center}
+.btn:hover{background:rgba(255,255,255,.1);color:var(--t1)}
+.btn.primary{background:rgba(139,92,246,.12);border-color:rgba(139,92,246,.25);color:#a78bfa}
+.btn.active{background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.25);color:#4ade80}
+select{width:100%;padding:6px 10px;border-radius:6px;font-size:.72rem;background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--t2);font-family:inherit;outline:none}
+select option{background:#1a1a2e}
+.info-bar{font-size:.6rem;color:var(--t3);font-family:'Space Mono',monospace;padding:8px;border-radius:6px;background:rgba(255,255,255,.02);border:1px solid var(--border)}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="panel">
+  <h2>Neural Network</h2>
+  <div class="group">
+    <h3>Architecture</h3>
+    <div class="row"><label>Hidden Layers</label><input type="range" id="layers" min="1" max="5" value="2"><span class="val" id="layersV">2</span></div>
+    <div class="row"><label>Neurons/Layer</label><input type="range" id="neurons" min="2" max="12" value="6"><span class="val" id="neuronsV">6</span></div>
+    <div class="row"><label>Activation</label>
+      <select id="activation"><option value="sigmoid">Sigmoid</option><option value="relu">ReLU</option><option value="tanh">Tanh</option></select>
+    </div>
+  </div>
+  <div class="group">
+    <h3>Training</h3>
+    <div class="row"><label>Learning Rate</label><input type="range" id="lr" min="1" max="100" value="30"><span class="val" id="lrV">0.03</span></div>
+    <div class="row"><label>Epochs</label><input type="range" id="epochs" min="10" max="500" value="100"><span class="val" id="epochsV">100</span></div>
+    <div class="row"><label>Dataset</label>
+      <select id="dataset"><option value="xor">XOR</option><option value="circle">Circle</option><option value="spiral">Spiral</option><option value="moons">Moons</option></select>
+    </div>
+  </div>
+  <button class="btn primary" id="trainBtn" onclick="train()">Train</button>
+  <button class="btn" onclick="reset()">Reset Weights</button>
+  <button class="btn" onclick="stepTrain()">Step (1 Epoch)</button>
+  <div class="group">
+    <h3>Status</h3>
+    <div class="info-bar" id="status">Ready</div>
+  </div>
+  <div class="group">
+    <h3>Loss History</h3>
+    <canvas id="lossCanvas" width="248" height="80" style="width:100%;border-radius:4px"></canvas>
+  </div>
+</div>
+
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+const dpr=devicePixelRatio;
+let W,H;
+function resize(){const r=canvas.getBoundingClientRect();W=canvas.width=r.width*dpr;H=canvas.height=r.height*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);draw()}
+resize();addEventListener('resize',resize);
+
+// Neural Network
+class NN{
+  constructor(sizes,activation='sigmoid'){
+    this.sizes=sizes;this.activation=activation;
+    this.weights=[];this.biases=[];
+    for(let i=0;i<sizes.length-1;i++){
+      this.weights.push(Array.from({length:sizes[i]},()=>Array.from({length:sizes[i+1]},()=>(Math.random()-.5)*2)));
+      this.biases.push(Array.from({length:sizes[i+1]},()=>(Math.random()-.5)*2));
+    }
+  }
+  activate(x){
+    if(this.activation==='sigmoid')return 1/(1+Math.exp(-x));
+    if(this.activation==='relu')return Math.max(0,x);
+    return Math.tanh(x);
+  }
+  activateDeriv(x){
+    if(this.activation==='sigmoid'){const s=this.activate(x);return s*(1-s)}
+    if(this.activation==='relu')return x>0?1:0;
+    return 1-x*x;
+  }
+  forward(input){
+    let activations=[input];let zs=[];
+    let a=input;
+    for(let l=0;l<this.weights.length;l++){
+      let z=[];
+      for(let j=0;j<this.sizes[l+1];j++){
+        let sum=this.biases[l][j];
+        for(let i=0;i<this.sizes[l];i++)sum+=a[i]*this.weights[l][i][j];
+        z.push(sum);
+      }
+      zs.push(z);
+      a=z.map(x=>this.activate(x));
+      activations.push(a);
+    }
+    return{activations,zs};
+  }
+  train(data,lr,epochs,onEpoch){
+    const lossHistory=[];
+    for(let e=0;e<epochs;e++){
+      let totalLoss=0;
+      // Accumulate gradients
+      let wGrad=this.weights.map(w=>w.map(row=>row.map(()=>0)));
+      let bGrad=this.biases.map(b=>b.map(()=>0));
+      for(const{input,target}of data){
+        const{activations,zs}=this.forward(input);
+        const output=activations[activations.length-1];
+        totalLoss+=output.reduce((s,o,i)=>s+(o-target[i])**2,0);
+        // Backprop
+        let delta=output.map((o,i)=>2*(o-target[i])*this.activateDeriv(zs[zs.length-1][i]));
+        for(let l=this.weights.length-1;l>=0;l--){
+          for(let j=0;j<this.sizes[l+1];j++){
+            bGrad[l][j]+=delta[j];
+            for(let i=0;i<this.sizes[l];i++)wGrad[l][i][j]+=activations[l][i]*delta[j];
+          }
+          if(l>0){
+            let newDelta=Array(this.sizes[l]).fill(0);
+            for(let i=0;i<this.sizes[l];i++){
+              for(let j=0;j<this.sizes[l+1];j++)newDelta[i]+=this.weights[l][i][j]*delta[j];
+              newDelta[i]*=this.activateDeriv(zs[l-1][i]);
+            }
+            delta=newDelta;
+          }
+        }
+      }
+      // Apply gradients
+      const n=data.length;
+      for(let l=0;l<this.weights.length;l++)
+        for(let i=0;i<this.sizes[l];i++)
+          for(let j=0;j<this.sizes[l+1];j++){
+            this.weights[l][i][j]-=lr*wGrad[l][i][j]/n;
+            this.biases[l][j]-=lr*bGrad[l][j]/n;
+          }
+      lossHistory.push(totalLoss/n);
+      if(onEpoch)onEpoch(e,totalLoss/n);
+    }
+    return lossHistory;
+  }
+  predict(input){return this.forward(input).activations[this.forward(input).activations.length-1]}
+}
+
+// Datasets
+function genData(name){
+  const data=[];
+  if(name==='xor'){
+    data.push({input:[0,0],target:[0]},{input:[0,1],target:[1]},{input:[1,0],target:[1]},{input:[1,1],target:[0]});
+    // Augment
+    for(let i=0;i<200;i++){
+      const x=Math.random(),y=Math.random();
+      const t=(x>.5)^(y>.5)?1:0;
+      data.push({input:[x,y],target:[t]});
+    }
+  }else if(name==='circle'){
+    for(let i=0;i<300;i++){
+      const x=Math.random()*2-1,y=Math.random()*2-1;
+      data.push({input:[(x+1)/2,(y+1)/2],target:[x*x+y*y<.5?1:0]});
+    }
+  }else if(name==='spiral'){
+    for(let i=0;i<300;i++){
+      const t=i/300*4*Math.PI;
+      const r=t/20;
+      if(i<150)data.push({input:[(r*Math.cos(t)+1.5)/3,(r*Math.sin(t)+1.5)/3],target:[1,0]});
+      else data.push({input:[(r*Math.cos(t+Math.PI)+1.5)/3,(r*Math.sin(t+Math.PI)+1.5)/3],target:[0,1]});
+    }
+  }else{
+    for(let i=0;i<300;i++){
+      const x=Math.random(),y=Math.random();
+      const t=y<.5+Math.sin(x*Math.PI*2)*.2?1:0;
+      data.push({input:[x,y],target:[t]});
+    }
+  }
+  return data;
+}
+
+let nn,dataset,lossHistory=[],training=false;
+
+function reset(){
+  const hLayers=+document.getElementById('layers').value;
+  const hNeurons=+document.getElementById('neurons').value;
+  const act=document.getElementById('activation').value;
+  const ds=document.getElementById('dataset').value;
+  const outputSize=ds==='spiral'?2:1;
+  const sizes=[2,...Array(hLayers).fill(hNeurons),outputSize];
+  nn=new NN(sizes,act);
+  dataset=genData(ds);
+  lossHistory=[];
+  draw();
+  document.getElementById('status').textContent=`${sizes.join('→')} | ${dataset.length} samples`;
+}
+
+async function train(){
+  if(training)return;training=true;
+  document.getElementById('trainBtn').textContent='Training...';
+  document.getElementById('trainBtn').classList.add('active');
+  const lr=+document.getElementById('lr').value/1000;
+  const epochs=+document.getElementById('epochs').value;
+  const l=nn.train(dataset,lr,epochs,(e,loss)=>{
+    lossHistory.push(loss);
+    if(e%5===0){draw();drawLoss()}
+  });
+  training=false;
+  document.getElementById('trainBtn').textContent='Train';
+  document.getElementById('trainBtn').classList.remove('active');
+  draw();drawLoss();
+  document.getElementById('status').textContent=`Done! Final loss: ${lossHistory[lossHistory.length-1]?.toFixed(4)}`;
+}
+
+function stepTrain(){
+  const lr=+document.getElementById('lr').value/1000;
+  nn.train(dataset,lr,1,(e,loss)=>{lossHistory.push(loss)});
+  draw();drawLoss();
+  document.getElementById('status').textContent=`Loss: ${lossHistory[lossHistory.length-1]?.toFixed(4)} | Epoch ${lossHistory.length}`;
+}
+
+function draw(){
+  const w=W/dpr,h=H/dpr;
+  ctx.clearRect(0,0,w,h);
+  if(!nn||!dataset)return;
+
+  const res=4;
+  const outputSize=nn.sizes[nn.sizes.length-1];
+  // Decision boundary
+  for(let x=0;x<w;x+=res)for(let y=0;y<h;y+=res){
+    const input=[x/w,y/h];
+    const out=nn.forward(input).activations[nn.forward(input).activations.length-1];
+    const v=outputSize===2?out[0]:out[0];
+    const r=Math.round(v*60+20);
+    const g=Math.round((1-v)*20+10);
+    const b=Math.round(v*130+40);
+    ctx.fillStyle=`rgba(${r},${g},${b},.6)`;
+    ctx.fillRect(x,y,res,res);
+  }
+
+  // Data points
+  const dotSize=Math.max(3,w/200);
+  dataset.forEach(({input,target})=>{
+    const x=input[0]*w,y=input[1]*h;
+    const cls=target[0]>.5;
+    ctx.beginPath();ctx.arc(x,y,dotSize,0,Math.PI*2);
+    ctx.fillStyle=cls?'rgba(139,92,246,.9)':'rgba(6,182,212,.9)';
+    ctx.fill();
+    ctx.strokeStyle='rgba(255,255,255,.3)';ctx.lineWidth=.5;ctx.stroke();
+  });
+
+  // Network structure on top-left
+  drawNetworkStructure(w,h);
+}
+
+function drawNetworkStructure(w,h){
+  const ox=30,oy=30;
+  const layerGap=Math.min(60,(w-60)/(nn.sizes.length-1));
+  const maxN=Math.max(...nn.sizes);
+
+  nn.sizes.forEach((n,l)=>{
+    const x=ox+l*layerGap;
+    for(let i=0;i<n;i++){
+      const y=oy+(maxN-n)*12+i*24;
+      // Connections
+      if(l<nn.sizes.length-1){
+        for(let j=0;j<nn.sizes[l+1];j++){
+          const nx=ox+(l+1)*layerGap;
+          const ny=oy+(maxN-nn.sizes[l+1])*12+j*24;
+          const w=nn.weights[l][i][j];
+          ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(nx,ny);
+          ctx.strokeStyle=w>0?`rgba(139,92,246,${Math.min(Math.abs(w),1)*.3})`:`rgba(244,63,94,${Math.min(Math.abs(w),1)*.3})`;
+          ctx.lineWidth=Math.min(Math.abs(w),2);ctx.stroke();
+        }
+      }
+      // Neuron
+      ctx.beginPath();ctx.arc(x,y,6,0,Math.PI*2);
+      ctx.fillStyle='rgba(255,255,255,.15)';ctx.fill();
+      ctx.strokeStyle='rgba(255,255,255,.3)';ctx.lineWidth=1;ctx.stroke();
+    }
+  });
+}
+
+function drawLoss(){
+  const lc=document.getElementById('lossCanvas');
+  const lctx=lc.getContext('2d');
+  const w=lc.width,h=lc.height;
+  lctx.fillStyle='rgba(5,5,8,1)';lctx.fillRect(0,0,w,h);
+  if(lossHistory.length<2)return;
+  const maxLoss=Math.max(...lossHistory);
+  lctx.beginPath();
+  lossHistory.forEach((l,i)=>{
+    const x=i/(lossHistory.length-1)*w;
+    const y=h-(l/maxLoss)*h*.9-4;
+    if(i===0)lctx.moveTo(x,y);else lctx.lineTo(x,y);
+  });
+  lctx.strokeStyle='rgba(139,92,246,.7)';lctx.lineWidth=1.5;lctx.stroke();
+  // Fill
+  lctx.lineTo(w,h);lctx.lineTo(0,h);lctx.closePath();
+  lctx.fillStyle='rgba(139,92,246,.08)';lctx.fill();
+}
+
+// Sliders
+document.querySelectorAll('input[type=range]').forEach(s=>{
+  const vEl=document.getElementById(s.id+'V');
+  s.addEventListener('input',()=>{
+    if(s.id==='lr')vEl.textContent=(+s.value/1000).toFixed(3);
+    else vEl.textContent=s.value;
+  });
+});
+document.getElementById('dataset').addEventListener('change',reset);
+
+// Click to add data
+canvas.addEventListener('click',e=>{
+  if(!dataset)return;
+  const rect=canvas.getBoundingClientRect();
+  const x=(e.clientX-rect.left)/rect.width;
+  const y=(e.clientY-rect.top)/rect.height;
+  const outputSize=nn.sizes[nn.sizes.length-1];
+  if(outputSize===1)dataset.push({input:[x,y],target:[e.shiftKey?0:1]});
+  else dataset.push({input:[x,y],target:e.shiftKey?[0,1]:[1,0]});
+  draw();
+});
+
+reset();
+</script>
+</body>
+</html>

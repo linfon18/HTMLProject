@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clockwork Mechanism</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}body{background:#050508;overflow:hidden}canvas{display:block}
+.ui{position:fixed;top:12px;left:12px;z-index:10;display:flex;gap:6px;flex-wrap:wrap}
+.btn{padding:5px 10px;border-radius:6px;font-size:.7rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);color:rgba(255,255,255,.5);cursor:pointer;transition:all .2s;font-family:'Space Grotesk',sans-serif}
+.btn:hover{background:rgba(255,255,255,.1);color:#fff}
+.stats{position:fixed;bottom:12px;left:12px;font-size:.62rem;font-family:'Space Mono',monospace;color:rgba(255,255,255,.2)}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="ui">
+  <button class="btn" onclick="speed*=1.5">Faster</button>
+  <button class="btn" onclick="speed/=1.5">Slower</button>
+  <button class="btn" onclick="showTime=!showTime">Clock</button>
+  <button class="btn" onclick="hueShift+=30">Color</button>
+</div>
+<div class="stats" id="stats"></div>
+
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+let W,H;
+function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight}
+addEventListener('resize',resize);
+
+let speed=1,showTime=true,hueShift=0,gears=[];
+
+function initGears(){
+  gears=[];
+  const cx=W/2,cy=H/2;
+  // Central gear
+  gears.push({x:cx,y:cy,r:80,teeth:24,speed:1,angle:0,hue:30});
+  // Planet gears
+  for(let i=0;i<6;i++){
+    const a=i/6*Math.PI*2;
+    const dist=160;
+    const r=35+Math.random()*20;
+    const teeth=Math.round(r*.3);
+    gears.push({x:cx+Math.cos(a)*dist,y:cy+Math.sin(a)*dist,r,teeth,speed:-80/r,angle:Math.random()*Math.PI*2,hue:i*50+30});
+    // Small gear
+    const dist2=dist+r+20+Math.random()*10;
+    const r2=15+Math.random()*15;
+    gears.push({x:cx+Math.cos(a)*dist2,y:cy+Math.sin(a)*dist2,r:r2,teeth:Math.round(r2*.3),speed:80/r/r2*20,angle:0,hue:i*50+80});
+  }
+}
+
+function drawGear(g,time){
+  ctx.save();
+  ctx.translate(g.x,g.y);
+  ctx.rotate(g.angle);
+
+  const toothDepth=g.r*.15;
+  const toothWidth=Math.PI*2/g.teeth;
+
+  // Gear body
+  ctx.beginPath();
+  for(let i=0;i<g.teeth;i++){
+    const a=i*toothWidth;
+    const innerR=g.r-toothDepth;
+    const outerR=g.r+toothDepth;
+    ctx.lineTo(Math.cos(a)*innerR,Math.sin(a)*innerR);
+    ctx.lineTo(Math.cos(a+toothWidth*.2)*outerR,Math.sin(a+toothWidth*.2)*outerR);
+    ctx.lineTo(Math.cos(a+toothWidth*.5)*outerR,Math.sin(a+toothWidth*.5)*outerR);
+    ctx.lineTo(Math.cos(a+toothWidth*.7)*innerR,Math.sin(a+toothWidth*.7)*innerR);
+  }
+  ctx.closePath();
+  ctx.fillStyle=`hsla(${g.hue+hueShift},30%,25%,.8)`;
+  ctx.fill();
+  ctx.strokeStyle=`hsla(${g.hue+hueShift},40%,40%,.6)`;
+  ctx.lineWidth=1.5;ctx.stroke();
+
+  // Center hole
+  ctx.beginPath();ctx.arc(0,0,g.r*.2,0,Math.PI*2);
+  ctx.fillStyle=`hsla(${g.hue+hueShift},20%,15%,.9)`;ctx.fill();
+  ctx.strokeStyle=`hsla(${g.hue+hueShift},40%,35%,.5)`;
+  ctx.stroke();
+
+  // Spokes
+  for(let i=0;i<4;i++){
+    const a=i/4*Math.PI*2;
+    ctx.beginPath();ctx.moveTo(Math.cos(a)*g.r*.2,Math.sin(a)*g.r*.2);
+    ctx.lineTo(Math.cos(a)*(g.r*.7),Math.sin(a)*(g.r*.7));
+    ctx.strokeStyle=`hsla(${g.hue+hueShift},30%,35%,.3)`;
+    ctx.lineWidth=2;ctx.stroke();
+  }
+
+  // Decorative dots
+  for(let i=0;i<6;i++){
+    const a=i/6*Math.PI*2;
+    const dr=g.r*.5;
+    ctx.beginPath();ctx.arc(Math.cos(a)*dr,Math.sin(a)*dr,2,0,Math.PI*2);
+    ctx.fillStyle=`hsla(${g.hue+hueShift},40%,50%,.4)`;ctx.fill();
+  }
+
+  ctx.restore();
+}
+
+function drawClock(){
+  const now=new Date();
+  const cx=W/2,cy=H/2;
+
+  // Hour hand
+  const hAngle=(now.getHours()%12+now.getMinutes()/60)/12*Math.PI*2-Math.PI/2;
+  ctx.beginPath();ctx.moveTo(cx,cy);
+  ctx.lineTo(cx+Math.cos(hAngle)*60,cy+Math.sin(hAngle)*60);
+  ctx.strokeStyle='rgba(255,255,255,.7)';ctx.lineWidth=4;ctx.lineCap='round';ctx.stroke();
+
+  // Minute hand
+  const mAngle=now.getMinutes()/60*Math.PI*2-Math.PI/2;
+  ctx.beginPath();ctx.moveTo(cx,cy);
+  ctx.lineTo(cx+Math.cos(mAngle)*90,cy+Math.sin(mAngle)*90);
+  ctx.strokeStyle='rgba(255,255,255,.5)';ctx.lineWidth=2;ctx.stroke();
+
+  // Second hand
+  const sAngle=now.getSeconds()/60*Math.PI*2-Math.PI/2;
+  ctx.beginPath();ctx.moveTo(cx,cy);
+  ctx.lineTo(cx+Math.cos(sAngle)*100,cy+Math.sin(sAngle)*100);
+  ctx.strokeStyle='rgba(244,63,94,.6)';ctx.lineWidth=1;ctx.stroke();
+}
+
+initGears();
+resize();addEventListener('resize',()=>{resize();initGears()});
+
+let time=0;
+function loop(){
+  ctx.fillStyle='rgba(5,5,8,.15)';ctx.fillRect(0,0,W,H);
+  time+=.01*speed;
+
+  gears.forEach(g=>{
+    g.angle+=g.speed*.01*speed;
+    drawGear(g,time);
+  });
+
+  // Connection lines between close gears
+  for(let i=0;i<gears.length;i++)for(let j=i+1;j<gears.length;j++){
+    const d=Math.hypot(gears[i].x-gears[j].x,gears[i].y-gears[j].y);
+    if(d<gears[i].r+gears[j].r+30){
+      ctx.beginPath();ctx.moveTo(gears[i].x,gears[i].y);ctx.lineTo(gears[j].x,gears[j].y);
+      ctx.strokeStyle='rgba(139,92,246,.08)';ctx.lineWidth=1;ctx.stroke();
+    }
+  }
+
+  if(showTime)drawClock();
+
+  document.getElementById('stats').textContent=`${gears.length} gears · speed ${speed.toFixed(1)}x`;
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quantum Circuit Simulator</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Space+Mono:wght@400&display=swap');
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#050508;--border:rgba(255,255,255,.06);--t1:#fff;--t2:rgba(255,255,255,.55);--t3:rgba(255,255,255,.25)}
+body{background:var(--bg);color:var(--t2);font-family:'Space Grotesk',sans-serif;min-height:100vh;padding:20px;-webkit-font-smoothing:antialiased}
+.top{display:flex;align-items:center;gap:10px;margin-bottom:20px;flex-wrap:wrap}
+.top h1{font-size:1.1rem;font-weight:700;color:var(--t1);margin-right:auto}
+.btn{padding:6px 12px;border-radius:7px;font-size:.72rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--t2);cursor:pointer;transition:all .2s}
+.btn:hover{background:rgba(255,255,255,.1);color:var(--t1)}
+.btn.primary{background:rgba(139,92,246,.12);border-color:rgba(139,92,246,.25);color:#a78bfa}
+.grid{display:grid;grid-template-columns:1fr 300px;gap:16px}
+.panel{padding:14px;border-radius:10px;background:rgba(255,255,255,.025);border:1px solid var(--border)}
+.panel h3{font-size:.6rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:10px}
+.circuit{overflow-x:auto}
+.wire{display:flex;align-items:center;height:50px;border-bottom:1px solid rgba(255,255,255,.03)}
+.wire-label{width:60px;font-size:.7rem;font-family:'Space Mono',monospace;color:var(--t3);text-align:center;flex-shrink:0}
+.wire-line{flex:1;position:relative;height:100%;cursor:pointer}
+.wire-line::before{content:'';position:absolute;top:50%;left:0;right:0;height:1px;background:rgba(255,255,255,.1)}
+.gate{position:absolute;top:50%;transform:translate(-50%,-50%);width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;cursor:pointer;transition:all .2s;z-index:1}
+.gate:hover{transform:translate(-50%,-50%) scale(1.1)}
+.gate.h{background:rgba(139,92,246,.2);border:1px solid rgba(139,92,246,.3);color:#a78bfa}
+.gate.x{background:rgba(244,63,94,.2);border:1px solid rgba(244,63,94,.3);color:#f87171}
+.gate.z{background:rgba(6,182,212,.2);border:1px solid rgba(6,182,212,.3);color:#22d3ee}
+.gate.cnot{background:rgba(34,197,94,.2);border:1px solid rgba(34,197,94,.3);color:#4ade80;border-radius:50%}
+.gate.measure{background:rgba(234,179,8,.2);border:1px solid rgba(234,179,8,.3);color:#fbbf24}
+.toolbar{display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap}
+.toolbar .btn{font-size:.65rem;padding:4px 8px}
+.probs{margin-top:12px}
+.bar-container{display:flex;align-items:center;gap:6px;margin-bottom:4px;font-size:.68rem}
+.bar-label{font-family:'Space Mono',monospace;min-width:40px;text-align:right;color:var(--t3)}
+.bar{height:16px;border-radius:3px;background:rgba(139,92,246,.3);transition:width .3s}
+.bar-val{font-family:'Space Mono',monospace;font-size:.6rem;color:var(--t3);min-width:35px}
+.state-info{font-size:.72rem;line-height:1.8;font-family:'Space Mono',monospace;max-height:150px;overflow-y:auto;color:var(--t3)}
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>Quantum Circuit Simulator</h1>
+  <label style="font-size:.72rem;color:var(--t3)">Qubits:</label>
+  <button class="btn" onclick="setQubits(2)">2</button>
+  <button class="btn" onclick="setQubits(3)">3</button>
+  <button class="btn" onclick="setQubits(4)">4</button>
+  <button class="btn primary" onclick="runCircuit()">Run</button>
+  <button class="btn" onclick="clearCircuit()">Clear</button>
+</div>
+<div class="grid">
+  <div class="panel">
+    <h3>Circuit</h3>
+    <div class="toolbar">
+      <button class="btn" onclick="selectedGate='H'">H</button>
+      <button class="btn" onclick="selectedGate='X'">X</button>
+      <button class="btn" onclick="selectedGate='Z'">Z</button>
+      <button class="btn" onclick="selectedGate='CNOT'">CNOT</button>
+      <button class="btn" onclick="selectedGate='M'">Measure</button>
+    </div>
+    <div class="circuit" id="circuit"></div>
+  </div>
+  <div class="panel">
+    <h3>Measurement Probabilities</h3>
+    <div class="probs" id="probs"></div>
+    <h3 style="margin-top:16px">State Vector</h3>
+    <div class="state-info" id="stateInfo"></div>
+  </div>
+</div>
+
+<script>
+let numQubits=3,numCols=8;
+let gates=[]; // gates[qubit][col] = gate type
+let selectedGate='H';
+
+function setQubits(n){
+  numQubits=n;
+  clearCircuit();
+}
+
+function clearCircuit(){
+  gates=Array.from({length:numQubits},()=>Array(numCols).fill(null));
+  renderCircuit();
+  document.getElementById('probs').innerHTML='';
+  document.getElementById('stateInfo').textContent='';
+}
+
+function renderCircuit(){
+  const el=document.getElementById('circuit');
+  el.innerHTML='';
+  for(let q=0;q<numQubits;q++){
+    const wire=document.createElement('div');wire.className='wire';
+    const label=document.createElement('div');label.className='wire-label';
+    label.textContent=`|q${q}>`;
+    wire.appendChild(label);
+    const line=document.createElement('div');line.className='wire-line';
+    for(let c=0;c<numCols;c++){
+      const g=gates[q][c];
+      if(g){
+        const gateEl=document.createElement('div');
+        gateEl.className=`gate ${g.toLowerCase()}`;
+        gateEl.textContent=g==='CNOT'?'●':g==='M'?'M':g;
+        gateEl.style.left=(c*50+25)+'px';
+        gateEl.title=`${g} gate at q${q}, step ${c}`;
+        gateEl.addEventListener('contextmenu',e=>{e.preventDefault();gates[q][c]=null;renderCircuit()});
+        line.appendChild(gateEl);
+      }
+    }
+    line.addEventListener('click',e=>{
+      const rect=line.getBoundingClientRect();
+      const col=Math.floor((e.clientX-rect.left)/50);
+      if(col>=0&&col<numCols){
+        gates[q][col]=selectedGate;
+        renderCircuit();
+      }
+    });
+    wire.appendChild(line);
+    el.appendChild(wire);
+  }
+}
+
+// Quantum simulation using complex numbers
+function complex(re,im){return{re,im}}
+function cmul(a,b){return complex(a.re*b.re-a.im*b.im,a.re*b.im+a.im*b.re)}
+function cadd(a,b){return complex(a.re+b.re,a.im+b.im)}
+function cabs2(a){return a.re*a.re+a.im*a.im}
+const INV_SQRT2=1/Math.sqrt(2);
+
+function runCircuit(){
+  const n=numQubits;
+  const dim=1<<n;
+  // Initialize state |0...0>
+  let state=Array.from({length:dim},(_,i)=>i===0?complex(1,0):complex(0,0));
+
+  // Apply gates column by column
+  for(let col=0;col<numCols;col++){
+    for(let q=0;q<numQubits;q++){
+      const g=gates[q][col];
+      if(!g)continue;
+      if(g==='H'){
+        // Hadamard on qubit q
+        const newState=Array.from({length:dim},()=>complex(0,0));
+        for(let i=0;i<dim;i++){
+          const bit=(i>>(n-1-q))&1;
+          const flipped=i^(1<<(n-1-q));
+          if(bit===0){
+            newState[i]=cadd(newState[i],cmul(state[i],complex(INV_SQRT2,0)));
+            newState[flipped]=cadd(newState[flipped],cmul(state[i],complex(INV_SQRT2,0)));
+          }else{
+            newState[i]=cadd(newState[i],cmul(state[i],complex(-INV_SQRT2,0)));
+            newState[flipped]=cadd(newState[flipped],cmul(state[i],complex(INV_SQRT2,0)));
+          }
+        }
+        state=newState;
+      }
+      else if(g==='X'){
+        const newState=state.slice();
+        for(let i=0;i<dim;i++){
+          const flipped=i^(1<<(n-1-q));
+          newState[flipped]=state[i];
+        }
+        state=newState;
+      }
+      else if(g==='Z'){
+        for(let i=0;i<dim;i++){
+          if((i>>(n-1-q))&1){state[i].re*=-1;state[i].im*=-1}
+        }
+      }
+      else if(g==='CNOT'){
+        // Find next qubit as target
+        let target=-1;
+        for(let tq=q+1;tq<numQubits;tq++){
+          if(!gates[tq][col]){target=tq;break}
+        }
+        if(target<0)continue;
+        const newState=state.slice();
+        for(let i=0;i<dim;i++){
+          if((i>>(n-1-q))&1){
+            const flipped=i^(1<<(n-1-target));
+            newState[flipped]=state[i];
+            newState[i]=complex(0,0);
+          }
+        }
+        state=newState;
+        // Mark target as processed
+        gates[target][col]='_';
+      }
+    }
+    // Clean up placeholder gates
+    for(let q=0;q<numQubits;q++)if(gates[q][col]==='_')gates[q][col]=null;
+  }
+
+  // Compute probabilities
+  const probs=state.map(s=>cabs2(s));
+  const maxP=Math.max(...probs);
+
+  // Display probabilities
+  const probsEl=document.getElementById('probs');
+  probsEl.innerHTML='';
+  probs.forEach((p,i)=>{
+    if(p<.001)return;
+    const label=i.toString(2).padStart(numQubits,'0');
+    const bar=document.createElement('div');bar.className='bar-container';
+    bar.innerHTML=`<span class="bar-label">|${label}></span><div class="bar" style="width:${p/maxP*100}%"></div><span class="bar-val">${(p*100).toFixed(1)}%</span>`;
+    probsEl.appendChild(bar);
+  });
+
+  // State vector
+  const stateEl=document.getElementById('stateInfo');
+  let stateStr='ψ = ';
+  state.forEach((s,i)=>{
+    const amp=cabs2(s);
+    if(amp<.001)return;
+    const label=i.toString(2).padStart(numQubits,'0');
+    const sign=s.re>=0?'+':'';
+    stateStr+=`${sign}${s.re.toFixed(3)}${s.im>=0?'+':''}${s.im.toFixed(3)}i |${label}> `;
+  });
+  stateEl.textContent=stateStr;
+}
+
+clearCircuit();
+
+// Demo circuit
+function loadDemo(){
+  clearCircuit();
+  // Bell state
+  gates[0][0]='H';gates[0][1]='CNOT';
+  renderCircuit();runCircuit();
+}
+setTimeout(loadDemo,100);
+</script>
+</body>
+</html>

@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gravitational Lensing</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}body{background:#000;overflow:hidden}canvas{display:block}
+.ui{position:fixed;top:12px;left:12px;z-index:10;display:flex;gap:6px;flex-wrap:wrap}
+.btn{padding:5px 10px;border-radius:6px;font-size:.7rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);color:rgba(255,255,255,.5);cursor:pointer;transition:all .2s;font-family:'Space Grotesk',sans-serif}
+.btn:hover{background:rgba(255,255,255,.1);color:#fff}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="ui">
+  <button class="btn" onclick="addBlackHole()">Add Black Hole</button>
+  <button class="btn" onclick="blackHoles=[]">Clear</button>
+  <button class="btn" onclick="stars=[];initStars()">Regenerate Stars</button>
+  <button class="btn" onclick="animating=!animating">Pause/Play</button>
+</div>
+
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+let W,H;
+function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight}
+addEventListener('resize',resize);
+
+let blackHoles=[],stars=[];
+let animating=true;
+let mouseX=0,mouseY=0;
+canvas.addEventListener('mousemove',e=>{mouseX=e.clientX;mouseY=e.clientY});
+canvas.addEventListener('click',e=>{
+  blackHoles.push({x:e.clientX,y:e.clientY,mass:500+Math.random()*1000,vx:0,vy:0});
+});
+
+function addBlackHole(){
+  blackHoles.push({x:W/2+(Math.random()-.5)*300,y:H/2+(Math.random()-.5)*300,mass:800+Math.random()*1500,vx:(Math.random()-.5)*2,vy:(Math.random()-.5)*2});
+}
+
+function initStars(){
+  for(let i=0;i<3000;i++){
+    stars.push({
+      x:Math.random()*W*2-W/2,
+      y:Math.random()*H*2-H/2,
+      brightness:.3+Math.random()*.7,
+      size:.5+Math.random()*1.5,
+      hue:Math.random()*60+200
+    });
+  }
+}
+
+function draw(){
+  ctx.fillStyle='rgba(0,0,0,.15)';ctx.fillRect(0,0,W,H);
+
+  // Draw lensed stars
+  stars.forEach(s=>{
+    let dx=0,dy=0;
+    blackHoles.forEach(bh=>{
+      const bx=s.x-bh.x,by=s.y-bh.y;
+      const dist=Math.sqrt(bx*bx+by*by)+1;
+      const force=bh.mass/(dist*dist);
+      dx-=bx/dist*force*2;
+      dy-=by/dist*force*2;
+    });
+
+    const sx=s.x+dx,sy=s.y+dy;
+    if(sx<-50||sx>W+50||sy<-50||sy>H+50)return;
+
+    // Einstein ring effect
+    let distToNearest=Infinity;
+    blackHoles.forEach(bh=>{
+      const d=Math.hypot(s.x-bh.x,s.y-bh.y);
+      if(d<distToNearest)distToNearest=d;
+    });
+
+    const lensStrength=Math.min(1,100/(distToNearest+10));
+    const size=s.size*(1+lensStrength*3);
+    const bright=s.brightness*(1+lensStrength*2);
+
+    ctx.beginPath();ctx.arc(sx,sy,Math.max(.5,size),0,Math.PI*2);
+    ctx.fillStyle=`hsla(${s.hue},${60+lensStrength*30}%,${50+bright*30}%,${Math.min(1,bright*.6)})`;
+    ctx.fill();
+  });
+
+  // Draw black holes
+  blackHoles.forEach(bh=>{
+    // Accretion disk
+    for(let r=0;r<5;r++){
+      const radius=bh.mass*.03+r*8;
+      ctx.beginPath();
+      ctx.arc(bh.x,bh.y,radius,0,Math.PI*2);
+      ctx.strokeStyle=`rgba(${200-r*20},${100+r*20},255,${.15-r*.02})`;
+      ctx.lineWidth=2;ctx.stroke();
+    }
+    // Event horizon
+    const g=ctx.createRadialGradient(bh.x,bh.y,0,bh.x,bh.y,bh.mass*.04);
+    g.addColorStop(0,'rgba(0,0,0,1)');g.addColorStop(.7,'rgba(0,0,0,.9)');g.addColorStop(1,'transparent');
+    ctx.fillStyle=g;ctx.beginPath();ctx.arc(bh.x,bh.y,bh.mass*.04,0,Math.PI*2);ctx.fill();
+    // Photon ring
+    ctx.beginPath();ctx.arc(bh.x,bh.y,bh.mass*.04+2,0,Math.PI*2);
+    ctx.strokeStyle='rgba(255,200,100,.3)';ctx.lineWidth=1.5;ctx.stroke();
+  });
+}
+
+function update(){
+  if(!animating)return;
+  blackHoles.forEach(bh=>{
+    bh.x+=bh.vx;bh.y+=bh.vy;
+    // Gravitational attraction between black holes
+    blackHoles.forEach(other=>{
+      if(other===bh)return;
+      const dx=other.x-bh.x,dy=other.y-bh.y;
+      const dist=Math.sqrt(dx*dx+dy*dy)+1;
+      const f=other.mass/(dist*dist)*.1;
+      bh.vx+=dx/dist*f;bh.vy+=dy/dist*f;
+    });
+    // Damping
+    bh.vx*=.999;bh.vy*=.999;
+    if(bh.x<-100||bh.x>W+100)bh.vx*=-1;
+    if(bh.y<-100||bh.y>H+100)bh.vy*=-1;
+  });
+}
+
+addBlackHole();addBlackHole();
+initStars();
+function loop(){update();draw();requestAnimationFrame(loop)}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Delaunay Triangulation</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Space+Mono:wght@400&display=swap');
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#050508;--border:rgba(255,255,255,.06);--t1:#fff;--t2:rgba(255,255,255,.55);--t3:rgba(255,255,255,.25)}
+body{background:var(--bg);color:var(--t2);font-family:'Space Grotesk',sans-serif;min-height:100vh;overflow:hidden;-webkit-font-smoothing:antialiased}
+canvas{display:block;position:fixed;inset:0}
+.ui{position:fixed;top:12px;left:12px;z-index:10;display:flex;gap:6px;flex-wrap:wrap}
+.btn{padding:5px 10px;border-radius:6px;font-size:.7rem;font-weight:600;background:rgba(10,10,15,.8);backdrop-filter:blur(16px);border:1px solid var(--border);color:var(--t2);cursor:pointer;transition:all .2s}
+.btn:hover{background:rgba(255,255,255,.1);color:var(--t1)}
+.fps{position:fixed;bottom:12px;left:12px;font-size:.6rem;font-family:'Space Mono',monospace;color:rgba(255,255,255,.2)}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="ui">
+  <button class="btn" onclick="generatePoints()">Random Points</button>
+  <button class="btn" onclick="animatePoints()">Animate</button>
+  <button class="btn" onclick="showVoronoi=!showVoronoi">Voronoi</button>
+  <button class="btn" onclick="showFill=!showFill">Fill</button>
+</div>
+<div class="fps" id="fps"></div>
+
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+let W,H;
+function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight;generatePoints()}
+addEventListener('resize',resize);
+
+let points=[],triangles=[];
+let showVoronoi=false,showFill=false,animating=false;
+
+canvas.addEventListener('click',e=>{
+  points.push({x:e.clientX,y:e.clientY});
+  triangulate();
+});
+
+function generatePoints(){
+  points=[];
+  const n=50+Math.random()*100|0;
+  for(let i=0;i<n;i++)points.push({x:Math.random()*W,y:Math.random()*H});
+  triangulate();
+}
+
+// Bowyer-Watson Delaunay triangulation
+function triangulate(){
+  triangles=[];
+  if(points.length<3)return;
+
+  // Super triangle
+  const pad=Math.max(W,H)*10;
+  const st=[
+    {x:W/2-pad,y:H+pad,id:-1},
+    {x:W/2+pad,y:H+pad,id:-2},
+    {x:W/2,y-H-pad,id:-3}
+  ];
+  triangles.push([...st]);
+
+  points.forEach((p,i)=>{
+    p.id=i;
+    const badTriangles=[];
+    triangles.forEach(t=>{
+      if(inCircumcircle(p,t))badTriangles.push(t);
+    });
+
+    // Find boundary edges
+    const edges=[];
+    badTriangles.forEach(bt=>{
+      for(let i=0;i<3;i++){
+        const e=[bt[i],bt[(i+1)%3]];
+        let shared=false;
+        badTriangles.forEach(other=>{
+          if(other===bt)return;
+          for(let j=0;j<3;j++){
+            const oe=[other[j],other[(j+1)%3]];
+            if((e[0]===oe[0]&&e[1]===oe[1])||(e[0]===oe[1]&&e[1]===oe[0])){shared=true;break}
+          }
+        });
+        if(!shared)edges.push(e);
+      }
+    });
+
+    // Remove bad triangles
+    badTriangles.forEach(bt=>{
+      const idx=triangles.indexOf(bt);
+      if(idx>=0)triangles.splice(idx,1);
+    });
+
+    // Create new triangles
+    edges.forEach(e=>triangles.push([e[0],e[1],p]));
+  });
+
+  // Remove triangles containing super triangle vertices
+  triangles=triangles.filter(t=>!t.some(v=>v.id<0));
+}
+
+function inCircumcircle(p,tri){
+  const[a,b,c]=tri;
+  const ax=a.x-p.x,ay=a.y-p.y;
+  const bx=b.x-p.x,by=b.y-p.y;
+  const cx=c.x-p.x,cy=c.y-p.y;
+  const det=(ax*ax+ay*ay)*(bx*cy-cx*by)-(bx*bx+by*by)*(ax*cy-cx*ay)+(cx*cx+cy*cy)*(ax*by-bx*ay);
+  return det>0;
+}
+
+function animatePoints(){
+  if(animating)return;animating=true;
+  points.forEach(p=>{p.vx=(Math.random()-.5)*3;p.vy=(Math.random()-.5)*3});
+
+  function step(){
+    if(!animating)return;
+    points.forEach(p=>{
+      p.x+=p.vx;p.y+=p.vy;
+      if(p.x<10||p.x>W-10)p.vx*=-1;
+      if(p.y<10||p.y>H-10)p.vy*=-1;
+    });
+    triangulate();
+    requestAnimationFrame(step);
+  }
+  step();
+}
+
+function draw(){
+  ctx.fillStyle='rgba(5,5,8,.3)';ctx.fillRect(0,0,W,H);
+
+  // Fill triangles
+  if(showFill){
+    triangles.forEach(t=>{
+      ctx.beginPath();
+      ctx.moveTo(t[0].x,t[0].y);ctx.lineTo(t[1].x,t[1].y);ctx.lineTo(t[2].x,t[2].y);ctx.closePath();
+      const hue=(t[0].x+t[1].y+t[2].x)%360;
+      ctx.fillStyle=`hsla(${hue},40%,20%,.3)`;ctx.fill();
+    });
+  }
+
+  // Delaunay edges
+  ctx.strokeStyle='rgba(139,92,246,.2)';ctx.lineWidth=.5;
+  triangles.forEach(t=>{
+    for(let i=0;i<3;i++){
+      ctx.beginPath();ctx.moveTo(t[i].x,t[i].y);ctx.lineTo(t[(i+1)%3].x,t[(i+1)%3].y);ctx.stroke();
+    }
+  });
+
+  // Voronoi dual
+  if(showVoronoi){
+    ctx.strokeStyle='rgba(6,182,212,.15)';ctx.lineWidth=.5;
+    triangles.forEach(t=>{
+      const cc=circumcenter(t);
+      if(!cc)return;
+      triangles.forEach(t2=>{
+        if(t===t2)return;
+        let shared=0;
+        for(let i=0;i<3;i++)for(let j=0;j<3;j++){
+          if(t[i]===t2[j])shared++;
+        }
+        if(shared===2){
+          const cc2=circumcenter(t2);
+          if(cc2){ctx.beginPath();ctx.moveTo(cc.x,cc.y);ctx.lineTo(cc2.x,cc2.y);ctx.stroke()}
+        }
+      });
+    });
+  }
+
+  // Points
+  points.forEach(p=>{
+    ctx.beginPath();ctx.arc(p.x,p.y,2.5,0,Math.PI*2);
+    ctx.fillStyle='rgba(255,255,255,.7)';ctx.fill();
+  });
+
+  document.getElementById('fps').textContent=`${points.length} points · ${triangles.length} triangles`;
+}
+
+function circumcenter(t){
+  const[a,b,c]=t;
+  const D=2*(a.x*(b.y-c.y)+b.x*(c.y-a.y)+c.x*(a.y-b.y));
+  if(Math.abs(D)<.001)return null;
+  const ux=((a.x*a.x+a.y*a.y)*(b.y-c.y)+(b.x*b.x+b.y*b.y)*(c.y-a.y)+(c.x*c.x+c.y*c.y)*(a.y-b.y))/D;
+  const uy=((a.x*a.x+a.y*a.y)*(c.x-b.x)+(b.x*b.x+b.y*b.y)*(a.x-c.x)+(c.x*c.x+c.y*c.y)*(b.x-a.x))/D;
+  return{x:ux,y:uy};
+}
+
+function loop(){draw();requestAnimationFrame(loop)}
+generatePoints();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

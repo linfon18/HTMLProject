@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Double Pendulum</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}body{background:#050508;overflow:hidden}canvas{display:block}
+.ui{position:fixed;top:12px;left:12px;z-index:10;display:flex;gap:6px;flex-wrap:wrap}
+.btn{padding:5px 10px;border-radius:6px;font-size:.7rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);color:rgba(255,255,255,.5);cursor:pointer;transition:all .2s;font-family:'Space Grotesk',sans-serif}
+.btn:hover{background:rgba(255,255,255,.1);color:#fff}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="ui">
+  <button class="btn" onclick="resetPendulum()">Reset</button>
+  <button class="btn" onclick="addPendulum()">Add Pendulum</button>
+  <button class="btn" onclick="pendulums=[];trails=[]">Clear All</button>
+  <button class="btn" onclick="showPhase=!showPhase">Phase Space</button>
+</div>
+
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+let W,H;
+function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight}
+addEventListener('resize',resize);
+
+let pendulums=[],trails=[];
+let showPhase=false;
+
+class DoublePendulum{
+  constructor(theta1,theta2){
+    this.theta1=theta1;this.theta2=theta2;
+    this.omega1=0;this.omega2=0;
+    this.L1=150;this.L2=120;
+    this.m1=10;this.m2=10;
+    this.g=9.81;
+    this.hue=Math.random()*360;
+  }
+  step(dt){
+    const{theta1:t1,theta2:t2,omega1:w1,omega2:w2,L1,L2,m1,m2,g}=this;
+    const d=t2-t1;
+    const den=2*m1+m2-m2*Math.cos(2*d);
+    const a1=(-g*(2*m1+m2)*Math.sin(t1)-m2*g*Math.sin(t1-2*t2)-2*Math.sin(d)*m2*(w2*w2*L2+w1*w1*L1*Math.cos(d)))/(L1*den);
+    const a2=(2*Math.sin(d)*(w1*w1*L1*(m1+m2)+g*(m1+m2)*Math.cos(t1)+w2*w2*L2*m2*Math.cos(d)))/(L2*den);
+    this.omega1+=a1*dt;this.omega2+=a2*dt;
+    this.omega1*=.9999;this.omega2*=.9999;
+    this.theta1+=this.omega1*dt;this.theta2+=this.omega2*dt;
+  }
+  getPos(){
+    const x1=this.L1*Math.sin(this.theta1);
+    const y1=this.L1*Math.cos(this.theta1);
+    const x2=x1+this.L2*Math.sin(this.theta2);
+    const y2=y1+this.L2*Math.cos(this.theta2);
+    return{x1,y1,x2,y2};
+  }
+}
+
+function resetPendulum(){
+  const p=new DoublePendulum(Math.PI*.5+Math.random()*.1,Math.PI*.5+Math.random()*.1);
+  pendulums.push(p);
+  trails.push([]);
+}
+
+function addPendulum(){
+  const p=new DoublePendulum(Math.PI*.5+Math.random()*.2,Math.PI*.5+Math.random()*.2);
+  pendulums.push(p);
+  trails.push([]);
+}
+
+resetPendulum();resetPendulum();resetPendulum();
+
+function update(){
+  const dt=.05;
+  for(let s=0;s<4;s++){
+    pendulums.forEach((p,i)=>{
+      p.step(dt/4);
+      const pos=p.getPos();
+      trails[i].push({x:pos.x2,y:pos.y2});
+      if(trails[i].length>1500)trails[i].shift();
+    });
+  }
+}
+
+function draw(){
+  ctx.fillStyle='rgba(5,5,8,.05)';ctx.fillRect(0,0,W,H);
+
+  const cx=W/2,cy=H*.4;
+
+  // Draw trails
+  pendulums.forEach((p,i)=>{
+    if(trails[i].length<2)return;
+    ctx.beginPath();
+    ctx.moveTo(cx+trails[i][0].x,cy+trails[i][0].y);
+    for(let j=1;j<trails[i].length;j++)ctx.lineTo(cx+trails[i][j].x,cy+trails[i][j].y);
+    ctx.strokeStyle=`hsla(${p.hue},70%,50%,.3)`;ctx.lineWidth=1;ctx.stroke();
+  });
+
+  // Draw pendulums
+  pendulums.forEach(p=>{
+    const pos=p.getPos();
+    // Rods
+    ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+pos.x1,cy+pos.y1);
+    ctx.strokeStyle='rgba(255,255,255,.3)';ctx.lineWidth=2;ctx.stroke();
+    ctx.beginPath();ctx.moveTo(cx+pos.x1,cy+pos.y1);ctx.lineTo(cx+pos.x2,cy+pos.y2);
+    ctx.strokeStyle='rgba(255,255,255,.3)';ctx.lineWidth=2;ctx.stroke();
+    // Pivot
+    ctx.beginPath();ctx.arc(cx,cy,4,0,Math.PI*2);
+    ctx.fillStyle='rgba(255,255,255,.5)';ctx.fill();
+    // Masses
+    ctx.beginPath();ctx.arc(cx+pos.x1,cy+pos.y1,6,0,Math.PI*2);
+    ctx.fillStyle=`hsla(${p.hue},70%,60%,.8)`;ctx.fill();
+    ctx.beginPath();ctx.arc(cx+pos.x2,cy+pos.y2,6,0,Math.PI*2);
+    ctx.fillStyle=`hsla(${p.hue},70%,60%,.8)`;ctx.fill();
+    // Glow
+    const g=ctx.createRadialGradient(cx+pos.x2,cy+pos.y2,0,cx+pos.x2,cy+pos.y2,15);
+    g.addColorStop(0,`hsla(${p.hue},70%,50%,.2)`);g.addColorStop(1,'transparent');
+    ctx.fillStyle=g;ctx.beginPath();ctx.arc(cx+pos.x2,cy+pos.y2,15,0,Math.PI*2);ctx.fill();
+  });
+
+  // Phase space
+  if(showPhase){
+    const ps=W*.35,ph=H*.3,px=W-ps-20,py=H-ph-20;
+    ctx.fillStyle='rgba(0,0,0,.6)';ctx.fillRect(px,py,ps,ph);
+    ctx.strokeStyle='rgba(255,255,255,.1)';ctx.strokeRect(px,py,ps,ph);
+    ctx.fillStyle='rgba(255,255,255,.2)';ctx.font='10px Space Mono';ctx.fillText('Phase Space',px+5,py+12);
+    pendulums.forEach((p,i)=>{
+      const x=px+ps/2+p.theta1*ps/Math.PI/4;
+      const y=py+ph/2+p.omega1*ph/20;
+      ctx.beginPath();ctx.arc(x,y,1,0,Math.PI*2);
+      ctx.fillStyle=`hsla(${p.hue},70%,50%,.5)`;ctx.fill();
+    });
+  }
+}
+
+function loop(){update();draw();requestAnimationFrame(loop)}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

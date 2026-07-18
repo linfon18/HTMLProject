@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Voronoi Art</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}body{background:#050508;overflow:hidden}canvas{display:block}
+.ui{position:fixed;top:12px;left:12px;z-index:10;display:flex;gap:6px;flex-wrap:wrap}
+.btn{padding:5px 10px;border-radius:6px;font-size:.7rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);color:rgba(255,255,255,.5);cursor:pointer;transition:all .2s;font-family:'Space Grotesk',sans-serif}
+.btn:hover{background:rgba(255,255,255,.1);color:#fff}
+.stats{position:fixed;bottom:12px;left:12px;font-size:.62rem;font-family:'Space Mono',monospace;color:rgba(255,255,255,.2)}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="ui">
+  <button class="btn" onclick="randomize()">Randomize</button>
+  <button class="btn" onclick="animating=!animating">Animate</button>
+  <button class="btn" onclick="mode=(mode+1)%4;renderVoronoi()">Color Mode</button>
+  <button class="btn" onclick="showEdges=!showEdges;renderVoronoi()">Edges</button>
+  <button class="btn" onclick="exportPNG()">Export</button>
+</div>
+<div class="stats" id="stats"></div>
+
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+let W,H;
+function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight;renderVoronoi()}
+addEventListener('resize',resize);
+
+let points=[],mode=0,animating=false,showEdges=true;
+
+function randomize(){
+  points=[];
+  const n=30+Math.random()*50|0;
+  for(let i=0;i<n;i++){
+    points.push({
+      x:Math.random()*W,y:Math.random()*H,
+      vx:(Math.random()-.5)*2,vy:(Math.random()-.5)*2,
+      hue:Math.random()*360
+    });
+  }
+  renderVoronoi();
+}
+
+function renderVoronoi(){
+  const scale=3;
+  const cols=Math.ceil(W/scale),rows=Math.ceil(H/scale);
+  const imgData=ctx.createImageData(cols,rows);
+  const d=imgData.data;
+
+  for(let py=0;py<rows;py++)for(let px=0;px<cols;px++){
+    const x=px*scale,y=py*scale;
+    let minD1=Infinity,minD2=Infinity,closest=0;
+
+    points.forEach((p,i)=>{
+      const dist=Math.hypot(p.x-x,p.y-y);
+      if(dist<minD1){minD2=minD1;minD1=dist;closest=i}
+      else if(dist<minD2){minD2=dist}
+    });
+
+    const edge=Math.sqrt(minD2)-Math.sqrt(minD1);
+    const p=points[closest];
+    const idx=(py*cols+px)*4;
+
+    if(mode===0){
+      const t=closest/points.length;
+      d[idx]=Math.sin(t*Math.PI*2)*127+128;
+      d[idx+1]=Math.sin(t*Math.PI*2+2.09)*127+128;
+      d[idx+2]=Math.sin(t*Math.PI*2+4.18)*127+128;
+    }else if(mode===1){
+      const d2=minD1/100;
+      d[idx]=Math.min(255,50+d2*200);d[idx+1]=Math.min(255,30+d2*150);d[idx+2]=Math.min(255,20+d2*100);
+    }else if(mode===2){
+      d[idx]=p.hue/360*200+55;d[idx+1]=(p.hue+120)%360/360*150;d[idx+2]=(p.hue+240)%360/360*100+50;
+    }else{
+      const v=minD1/150;
+      d[idx]=v*200;d[idx+1]=v*180;d[idx+2]=v*255;
+    }
+
+    if(showEdges&&edge<3){
+      d[idx]=d[idx]*.3;d[idx+1]=d[idx+1]*.3;d[idx+2]=d[idx+2]*.3;
+    }
+    d[idx+3]=255;
+  }
+
+  const tmpC=document.createElement('canvas');tmpC.width=cols;tmpC.height=rows;
+  tmpC.getContext('2d').putImageData(imgData,0,0);
+  ctx.imageSmoothingEnabled=false;
+  ctx.drawImage(tmpC,0,0,W,H);
+
+  // Draw points
+  points.forEach(p=>{
+    ctx.beginPath();ctx.arc(p.x,p.y,3,0,Math.PI*2);
+    ctx.fillStyle='rgba(255,255,255,.5)';ctx.fill();
+  });
+
+  document.getElementById('stats').textContent=`${points.length} cells · mode ${mode}`;
+}
+
+canvas.addEventListener('click',e=>{points.push({x:e.clientX,y:e.clientY,vx:0,vy:0,hue:Math.random()*360});renderVoronoi()});
+
+function loop(){
+  if(animating){
+    points.forEach(p=>{
+      p.x+=p.vx;p.y+=p.vy;
+      if(p.x<0||p.x>W)p.vx*=-1;
+      if(p.y<0||p.y>H)p.vy*=-1;
+      p.x=Math.max(0,Math.min(W,p.x));
+      p.y=Math.max(0,Math.min(H,p.y));
+    });
+    renderVoronoi();
+  }
+  requestAnimationFrame(loop);
+}
+
+function exportPNG(){const a=document.createElement('a');a.download='voronoi_art.png';a.href=canvas.toDataURL();a.click()}
+
+randomize();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

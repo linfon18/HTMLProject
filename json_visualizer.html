@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JSON Visualizer</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#050508;--border:rgba(255,255,255,.06);--t1:#e6edf3;--t2:rgba(255,255,255,.55);--t3:rgba(255,255,255,.25);--accent:#8b5cf6;--green:#22c55e;--red:#f43f5e;--amber:#f59e0b;--blue:#3b82f6;--cyan:#06b6d4}
+body{background:var(--bg);color:var(--t2);font-family:'Space Grotesk',sans-serif;height:100vh;display:flex;flex-direction:column;overflow:hidden;-webkit-font-smoothing:antialiased}
+.top{padding:8px 16px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border);flex-shrink:0}
+.top h1{font-size:.85rem;font-weight:700;color:var(--t1);margin-right:auto}
+.btn{padding:5px 10px;border-radius:6px;font-size:.72rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--t2);cursor:pointer;transition:all .2s}
+.btn:hover{background:rgba(255,255,255,.1);color:var(--t1)}
+.main{flex:1;display:flex;overflow:hidden}
+.editor-pane{flex:1;display:flex;flex-direction:column;border-right:1px solid var(--border)}
+.pane-h{padding:5px 12px;font-size:.6rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);border-bottom:1px solid var(--border);background:rgba(255,255,255,.015)}
+textarea{flex:1;resize:none;border:none;outline:none;padding:12px;background:#0a0a10;color:var(--t1);font-family:'JetBrains Mono',monospace;font-size:.82rem;line-height:1.6;tab-size:2}
+.vis-pane{flex:1.2;overflow:auto;padding:16px;background:rgba(8,8,12,.5)}
+.status{padding:4px 16px;font-size:.6rem;font-family:'JetBrains Mono',monospace;color:var(--t3);border-top:1px solid var(--border);display:flex;gap:12px;flex-shrink:0}
+
+/* Tree View */
+.json-tree{font-family:'JetBrains Mono',monospace;font-size:.78rem;line-height:1.8}
+.j-key{color:var(--cyan)}
+.j-string{color:var(--green)}
+.j-number{color:var(--amber)}
+.j-bool{color:var(--accent)}
+.j-null{color:var(--red)}
+.j-bracket{color:var(--t3)}
+.j-toggle{
+  display:inline-block;width:16px;height:16px;text-align:center;cursor:pointer;
+  color:var(--t3);font-size:.7rem;border-radius:3px;transition:all .15s;margin-right:2px;
+  user-select:none;
+}
+.j-toggle:hover{background:rgba(255,255,255,.06);color:var(--t1)}
+.j-collapsed .j-children{display:none}
+.j-collapsed .j-toggle::after{content:'▸'}
+.j-expanded .j-toggle::after{content:'▾'}
+.j-line{padding:1px 0 1px 0;border-left:1px solid rgba(255,255,255,.04);margin-left:4px;padding-left:12px}
+.j-path{font-size:.6rem;color:var(--t3);opacity:0;transition:opacity .15s;margin-left:8px}
+.j-line:hover .j-path{opacity:1}
+.j-count{font-size:.6rem;color:var(--t3);margin-left:4px}
+
+/* Minimap */
+.minimap{position:fixed;right:8px;top:50%;transform:translateY(-50%);width:6px;border-radius:3px;background:rgba(255,255,255,.03);overflow:hidden;z-index:5}
+.minimap .dot{width:100%;background:rgba(139,92,246,.4);border-radius:3px;position:absolute;transition:top .1s}
+
+/* Stats */
+.stats-row{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.stat-chip{
+  padding:4px 10px;border-radius:6px;font-size:.65rem;font-weight:600;
+  background:rgba(255,255,255,.03);border:1px solid var(--border);color:var(--t3);
+}
+
+/* Copy notification */
+.toast{
+  position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
+  padding:8px 20px;border-radius:8px;
+  background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.25);
+  color:#4ade80;font-size:.78rem;font-weight:600;z-index:100;
+  opacity:0;transition:opacity .3s;pointer-events:none;
+}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>JSON Visualizer</h1>
+  <button class="btn" onclick="format()">Format</button>
+  <button class="btn" onclick="minify()">Minify</button>
+  <button class="btn" onclick="copyFormatted()">Copy</button>
+  <button class="btn" onclick="loadSample()">Sample</button>
+</div>
+<div class="main">
+  <div class="editor-pane">
+    <div class="pane-h">Input</div>
+    <textarea id="input" spellcheck="false" placeholder="Paste JSON here..."></textarea>
+  </div>
+  <div class="vis-pane" id="visPane">
+    <div class="pane-h">Tree View</div>
+    <div id="stats" class="stats-row" style="margin-top:8px"></div>
+    <div class="json-tree" id="tree"></div>
+  </div>
+</div>
+<div class="status">
+  <span id="validS">—</span>
+  <span id="sizeS">—</span>
+  <span id="depthS">—</span>
+  <span id="keysS">—</span>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const input=document.getElementById('input');
+const tree=document.getElementById('tree');
+
+input.addEventListener('input',parse);
+
+function parse(){
+  const val=input.value.trim();
+  if(!val){tree.innerHTML='';updateStatus('—','—','—','—');return}
+  try{
+    const data=JSON.parse(val);
+    const stats=analyze(data);
+    tree.innerHTML='';
+    tree.appendChild(renderNode(data,'$',[]));
+    updateStatus('Valid JSON',formatBytes(new Blob([val]).size),stats.depth+' depth',stats.keys+' keys');
+    renderStats(stats);
+  }catch(e){
+    tree.innerHTML=`<div style="color:var(--red);padding:12px;font-size:.82rem">Error: ${e.message}</div>`;
+    updateStatus('Invalid','—','—','—');
+    document.getElementById('stats').innerHTML='';
+  }
+}
+
+function analyze(data,depth=0){
+  let maxDepth=depth,keys=0,strings=0,numbers=0,booleans=0,nulls=0,arrays=0,objects=0;
+  if(Array.isArray(data)){
+    arrays++;
+    data.forEach(v=>{const s=analyze(v,depth+1);maxDepth=Math.max(maxDepth,s.depth);keys+=s.keys;strings+=s.strings;numbers+=s.numbers;booleans+=s.booleans;nulls+=s.nulls;arrays+=s.arrays;objects+=s.objects})
+  }else if(data&&typeof data==='object'){
+    objects++;
+    const entries=Object.entries(data);
+    keys+=entries.length;
+    entries.forEach(([_,v])=>{const s=analyze(v,depth+1);maxDepth=Math.max(maxDepth,s.depth);keys+=s.keys;strings+=s.strings;numbers+=s.numbers;booleans+=s.booleans;nulls+=s.nulls;arrays+=s.arrays;objects+=s.objects})
+  }else if(typeof data==='string')strings++;
+  else if(typeof data==='number')numbers++;
+  else if(typeof data==='boolean')booleans++;
+  else if(data===null)nulls++;
+  return{depth:maxDepth,keys,strings,numbers,booleans,nulls,arrays,objects};
+}
+
+function renderNode(data,path,depth){
+  if(data===null){
+    const span=document.createElement('span');
+    span.innerHTML=`<span class="j-null">null</span>`;
+    return span;
+  }
+  if(typeof data!=='object'){
+    const span=document.createElement('span');
+    if(typeof data==='string')span.innerHTML=`<span class="j-string">"${escapeHtml(data)}"</span>`;
+    else if(typeof data==='number')span.innerHTML=`<span class="j-number">${data}</span>`;
+    else if(typeof data==='boolean')span.innerHTML=`<span class="j-bool">${data}</span>`;
+    return span;
+  }
+
+  const isArray=Array.isArray(data);
+  const entries=isArray?data.map((v,i)=>[i,v]):Object.entries(data);
+  const container=document.createElement('div');
+  container.className='j-expanded';
+
+  const line=document.createElement('div');
+  line.className='j-line';
+  line.style.marginLeft=depth.length*16+'px';
+
+  const toggle=document.createElement('span');
+  toggle.className='j-toggle';
+  toggle.onclick=()=>container.classList.toggle('j-expanded')||container.classList.toggle('j-collapsed');
+  line.appendChild(toggle);
+
+  if(path!=='$'){
+    const keySpan=document.createElement('span');
+    keySpan.className='j-key';
+    keySpan.textContent=isArray?`[${path}]`:`"${path}"`;
+    keySpan.textContent+=': ';
+    line.appendChild(keySpan);
+  }
+
+  const bracket=document.createElement('span');
+  bracket.className='j-bracket';
+  bracket.textContent=isArray?'[':'{';
+  line.appendChild(bracket);
+
+  const count=document.createElement('span');
+  count.className='j-count';
+  count.textContent=`${entries.length} items`;
+  line.appendChild(count);
+
+  const pathSpan=document.createElement('span');
+  pathSpan.className='j-path';
+  pathSpan.textContent=path;
+  line.appendChild(pathSpan);
+
+  container.appendChild(line);
+
+  const childrenDiv=document.createElement('div');
+  childrenDiv.className='j-children';
+  entries.forEach(([k,v])=>{
+    childrenDiv.appendChild(renderNode(v,k,[...depth,k]));
+  });
+  container.appendChild(childrenDiv);
+
+  const closingLine=document.createElement('div');
+  closingLine.className='j-line';
+  closingLine.style.marginLeft=depth.length*16+'px';
+  closingLine.innerHTML=`<span class="j-bracket">${isArray?']':'}'}</span>`;
+  container.appendChild(closingLine);
+
+  return container;
+}
+
+function escapeHtml(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+
+function formatBytes(b){if(b<1024)return b+'B';if(b<1048576)return(b/1024).toFixed(1)+'KB';return(b/1048576).toFixed(1)+'MB'}
+function updateStatus(v,s,d,k){document.getElementById('validS').textContent=v;document.getElementById('sizeS').textContent=s;document.getElementById('depthS').textContent=d;document.getElementById('keysS').textContent=k}
+
+function renderStats(s){
+  document.getElementById('stats').innerHTML=`
+    <span class="stat-chip">Objects: ${s.objects}</span>
+    <span class="stat-chip">Arrays: ${s.arrays}</span>
+    <span class="stat-chip">Strings: ${s.strings}</span>
+    <span class="stat-chip">Numbers: ${s.numbers}</span>
+    <span class="stat-chip">Booleans: ${s.booleans}</span>
+    <span class="stat-chip">Nulls: ${s.nulls}</span>
+  `;
+}
+
+function format(){try{input.value=JSON.stringify(JSON.parse(input.value),null,2);parse()}catch(e){showToast('Invalid JSON')}}
+function minify(){try{input.value=JSON.stringify(JSON.parse(input.value));parse()}catch(e){showToast('Invalid JSON')}}
+function copyFormatted(){navigator.clipboard.writeText(input.value);showToast('Copied!')}
+
+function loadSample(){
+  input.value=JSON.stringify({
+    name:"linfon18",bio:"盘旋，为践行我的誓言",
+    org:"MCZLF Studio",location:"Earth",
+    repos:[
+      {name:"MinecraftConnectTool",lang:"C#",stars:10,type:"original"},
+      {name:"FastShareYourLog",lang:"C#",stars:4,type:"original"},
+      {name:"MCTWeb",lang:"HTML",stars:0,type:"original"},
+    ],
+    stats:{followers:2,stars:14,orgs:3},
+    interests:["Minecraft","P2P Networking","Cross-platform"],
+    active:true,joined:"2023-06-20"
+  },null,2);
+  parse();
+}
+
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),1500);
+}
+
+loadSample();
+</script>
+</body>
+</html>

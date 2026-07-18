@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3D Maze Explorer</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}body{background:#000;overflow:hidden}canvas{display:block}
+.ui{position:fixed;top:12px;left:12px;z-index:10;display:flex;gap:6px;flex-wrap:wrap}
+.btn{padding:5px 10px;border-radius:6px;font-size:.7rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);color:rgba(255,255,255,.5);cursor:pointer;transition:all .2s;font-family:'Space Grotesk',sans-serif}
+.btn:hover{background:rgba(255,255,255,.1);color:#fff}
+.info{position:fixed;bottom:12px;left:12px;font-size:.62rem;font-family:'Space Mono',monospace;color:rgba(255,255,255,.2)}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="ui">
+  <button class="btn" onclick="generateMaze()">New Maze</button>
+  <button class="btn" onclick="toggleMap()">Mini Map</button>
+</div>
+<div class="info">WASD to move · Mouse to look · Click to lock pointer</div>
+
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+let W,H;
+function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight}
+addEventListener('resize',resize);
+
+const MAZE_W=15,MAZE_H=15,CELL=3;
+let maze=[];
+let px=1.5,py=1.5,dirX=1,dirY=0,planeX=0,planeY=.66;
+let showMap=false;
+let keys={};
+
+function generateMaze(){
+  maze=Array.from({length:MAZE_H*2+1},()=>Array(MAZE_W*2+1).fill(1));
+  // DFS maze gen
+  const visited=Array.from({length:MAZE_H},()=>Array(MAZE_W).fill(false));
+  const stack=[[0,0]];visited[0][0]=true;maze[1][1]=0;
+  const dirs=[[0,1],[1,0],[0,-1],[-1,0]];
+  while(stack.length){
+    const[cx,cy]=stack[stack.length-1];
+    const neighbors=[];
+    for(const[dx,dy]of dirs){
+      const nx=cx+dx,ny=cy+dy;
+      if(nx>=0&&nx<MAZE_W&&ny>=0&&ny<MAZE_H&&!visited[ny][nx])neighbors.push([nx,ny,dx,dy]);
+    }
+    if(!neighbors.length){stack.pop();continue}
+    const[nx,ny,dx,dy]=neighbors[Math.random()*neighbors.length|0];
+    maze[cy*2+1+dy][cx*2+1+dx]=0;maze[ny*2+1][nx*2+1]=0;
+    visited[ny][nx]=true;stack.push([nx,ny]);
+  }
+  px=1.5;py=1.5;dirX=1;dirY=0;
+}
+
+function toggleMap(){showMap=!showMap}
+
+document.addEventListener('keydown',e=>{keys[e.key.toLowerCase()]=true});
+document.addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=false});
+canvas.addEventListener('click',()=>canvas.requestPointerLock());
+document.addEventListener('mousemove',e=>{
+  if(document.pointerLockElement!==canvas)return;
+  const rot=e.movementX*.003;
+  const ox=dirX;dirX=dirX*Math.cos(rot)-dirY*Math.sin(rot);dirY=ox*Math.sin(rot)+dirY*Math.cos(rot);
+  const op=planeX;planeX=planeX*Math.cos(rot)-planeY*Math.sin(rot);planeY=op*Math.sin(rot)+planeY*Math.cos(rot);
+});
+
+function update(){
+  const speed=.04;
+  if(keys['w']){const nx=px+dirX*speed,ny=py+dirY*speed;if(!maze[Math.floor(py)][Math.floor(nx)])px=nx;if(!maze[Math.floor(ny)][Math.floor(px)])py=ny}
+  if(keys['s']){const nx=px-dirX*speed,ny=py-dirY*speed;if(!maze[Math.floor(py)][Math.floor(nx)])px=nx;if(!maze[Math.floor(ny)][Math.floor(px)])py=ny}
+  if(keys['a']){const nx=px-dirY*speed,ny=py+dirX*speed;if(!maze[Math.floor(py)][Math.floor(nx)])px=nx;if(!maze[Math.floor(ny)][Math.floor(px)])py=ny}
+  if(keys['d']){const nx=px+dirY*speed,ny=py-dirX*speed;if(!maze[Math.floor(py)][Math.floor(nx)])px=nx;if(!maze[Math.floor(ny)][Math.floor(px)])py=ny}
+}
+
+function drawScene(){
+  const imgData=ctx.createImageData(W,H);
+  const data=imgData.data;
+  for(let y=0;y<H;y++){for(let x=0;x<W;x++){const i=(y*W+x)*4;if(y<H/2){data[i]=10;data[i+1]=10;data[i+2]=20}else{data[i]=30;data[i+1]=25;data[i+2]=20}data[i+3]=255}}
+
+  for(let x=0;x<W;x++){
+    const camX=2*x/W-1;const rx=dirX+planeX*camX;const ry=dirY+planeY*camX;
+    let mx=Math.floor(px),my=Math.floor(py);
+    const dx=Math.abs(1/rx),dy=Math.abs(1/ry);
+    let sx,sy,sdx,sdy;
+    if(rx<0){sx=-1;sdx=(px-mx)*dx}else{sx=1;sdx=(mx+1-px)*dx}
+    if(ry<0){sy=-1;sdy=(py-my)*dy}else{sy=1;sdy=(my+1-py)*dy}
+    let hit=0,side=0;
+    while(!hit){if(sdx<sdy){sdx+=dx;mx+=sx;side=0}else{sdy+=dy;my+=sy;side=1}if(mx<0||my<0||mx>=maze[0].length||my>=maze.length)break;if(maze[my][mx])hit=1}
+    let dist=side===0?(mx-px+(1-sx)/2)/rx:(my-py+(1-sy)/2)/ry;
+    if(dist<.01)dist=.01;
+    const lineH=H/dist;let ds=-lineH/2+H|0,de=lineH/2+H|0;
+    if(ds<0)ds=0;if(de>=H)de=H-1;
+    const shade=Math.max(.1,1-dist/12);
+    const r=side?80*shade:120*shade,g=side?60*shade:90*shade,b=side?40*shade:60*shade;
+    for(let y=ds;y<de;y++){const i=(y*W+x)*4;data[i]=r;data[i+1]=g;data[i+2]=b;data[i+3]=255}
+  }
+  ctx.putImageData(imgData,0,0);
+
+  if(showMap){
+    const s=4,mx=10,my=10;
+    ctx.fillStyle='rgba(0,0,0,.7)';ctx.fillRect(mx-5,my-5,maze[0].length*s+10,maze.length*s+10);
+    for(let y=0;y<maze.length;y++)for(let x=0;x<maze[0].length;x++){
+      ctx.fillStyle=maze[y][x]?'rgba(100,100,120,.6)':'rgba(20,20,30,.6)';
+      ctx.fillRect(mx+x*s,my+y*s,s,s);
+    }
+    ctx.fillStyle='#f00';ctx.beginPath();ctx.arc(mx+px*s,my+py*s,2,0,Math.PI*2);ctx.fill();
+  }
+}
+
+generateMaze();
+function loop(){update();drawScene();requestAnimationFrame(loop)}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

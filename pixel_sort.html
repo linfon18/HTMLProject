@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pixel Sorter</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Space+Mono:wght@400&display=swap');
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#050508;--border:rgba(255,255,255,.06);--t1:#fff;--t2:rgba(255,255,255,.55);--t3:rgba(255,255,255,.25)}
+body{background:var(--bg);color:var(--t2);font-family:'Space Grotesk',sans-serif;height:100vh;display:flex;flex-direction:column;-webkit-font-smoothing:antialiased}
+.top{padding:8px 14px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap}
+.top h1{font-size:.85rem;font-weight:700;color:var(--t1);margin-right:auto}
+.btn{padding:5px 10px;border-radius:6px;font-size:.7rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--t2);cursor:pointer;transition:all .2s}
+.btn:hover{background:rgba(255,255,255,.1);color:var(--t1)}
+label{font-size:.62rem;color:var(--t3)}
+input[type=range]{width:60px;height:3px;-webkit-appearance:none;background:rgba(255,255,255,.1);border-radius:2px;outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;height:10px;border-radius:50%;background:#fff;cursor:pointer}
+.val{font-family:'Space Mono',monospace;font-size:.58rem;color:var(--t3)}
+.main{flex:1;display:flex;overflow:hidden;align-items:center;justify-content:center;gap:16px;padding:16px}
+canvas{max-width:45%;max-height:100%;image-rendering:auto;border:1px solid var(--border);border-radius:8px}
+.drop-hint{font-size:.85rem;color:var(--t3);text-align:center}
+.drop-hint span{font-size:3rem;display:block;margin-bottom:12px;opacity:.2}
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>Pixel Sorter</h1>
+  <button class="btn" onclick="loadSample()">Load Sample</button>
+  <button class="btn" onclick="sortPixels('brightness')">Sort Brightness</button>
+  <button class="btn" onclick="sortPixels('hue')">Sort Hue</button>
+  <button class="btn" onclick="sortPixels('red')">Sort Red</button>
+  <button class="btn" onclick="sortPixels('green')">Sort Green</button>
+  <button class="btn" onclick="sortPixels('saturation')">Sort Saturation</button>
+  <label>Threshold</label><input type="range" id="threshold" min="0" max="255" value="80"><span class="val" id="thresholdV">80</span>
+  <label>Direction</label>
+  <button class="btn" onclick="sortDir='row'">Row</button>
+  <button class="btn" onclick="sortDir='col'">Column</button>
+  <button class="btn" onclick="resetImage()">Reset</button>
+  <button class="btn" onclick="exportPNG()">Export</button>
+</div>
+<div class="main" id="dropZone">
+  <canvas id="original"></canvas>
+  <canvas id="sorted"></canvas>
+  <div class="drop-hint" id="hint"><span>📷</span>Drop an image here or click Load Sample</div>
+</div>
+
+<script>
+const origCanvas=document.getElementById('original');
+const sortCanvas=document.getElementById('sorted');
+const origCtx=origCanvas.getContext('2d');
+const sortCtx=sortCanvas.getContext('2d');
+let originalData=null,sortDir='row';
+
+function loadImage(img){
+  const w=img.width,h=img.height;
+  origCanvas.width=sortCanvas.width=w;
+  origCanvas.height=sortCanvas.height=h;
+  origCtx.drawImage(img,0,0);
+  originalData=origCtx.getImageData(0,0,w,h);
+  sortCtx.putImageData(originalData,0,0);
+  document.getElementById('hint').style.display='none';
+}
+
+function loadSample(){
+  const c=document.createElement('canvas');c.width=300;c.height=200;
+  const ctx=c.getContext('2d');
+  // Gradient landscape
+  const grad=ctx.createLinearGradient(0,0,0,200);
+  grad.addColorStop(0,'#1a0533');grad.addColorStop(.4,'#4a1a6b');grad.addColorStop(.6,'#f97316');grad.addColorStop(.8,'#06b6d4');grad.addColorStop(1,'#050508');
+  ctx.fillStyle=grad;ctx.fillRect(0,0,300,200);
+  // Sun
+  const g2=ctx.createRadialGradient(150,80,0,150,80,60);
+  g2.addColorStop(0,'#ffd700');g2.addColorStop(.5,'#f97316');g2.addColorStop(1,'transparent');
+  ctx.fillStyle=g2;ctx.fillRect(0,0,300,200);
+  // Mountains
+  ctx.fillStyle='#1a0533';ctx.beginPath();ctx.moveTo(0,200);ctx.lineTo(50,100);ctx.lineTo(120,140);ctx.lineTo(180,80);ctx.lineTo(250,120);ctx.lineTo(300,90);ctx.lineTo(300,200);ctx.fill();
+  const img=new Image();img.onload=()=>loadImage(img);img.src=c.toDataURL();
+}
+
+function getColorValue(r,g,b,mode){
+  if(mode==='brightness')return r*.299+g*.587+b*.114;
+  if(mode==='red')return r;
+  if(mode==='green')return g;
+  if(mode==='hue'){
+    const max=Math.max(r,g,b),min=Math.min(r,g,b);
+    if(max===min)return 0;
+    const d=max-min;
+    if(max===r)return 60*((g-b)/d%6);
+    if(max===g)return 60*((b-r)/d+2);
+    return 60*((r-g)/d+4);
+  }
+  if(mode==='saturation'){
+    const max=Math.max(r,g,b),min=Math.min(r,g,b);
+    return max===0?0:(max-min)/max*255;
+  }
+  return r+g+b;
+}
+
+function sortPixels(mode){
+  if(!originalData)return;
+  const threshold=+document.getElementById('threshold').value;
+  const w=originalData.width,h=originalData.height;
+  const data=new Uint8ClampedArray(originalData.data);
+
+  function sortLine(pixels){
+    // Find segments above threshold
+    let segStart=-1;
+    for(let i=0;i<=pixels.length;i++){
+      const above=i<pixels.length&&getColorValue(pixels[i*4],pixels[i*4+1],pixels[i*4+2],mode)>threshold;
+      if(above&&segStart<0)segStart=i;
+      if(!above&&segStart>=0){
+        const seg=[];
+        for(let j=segStart;j<i;j++)seg.push({r:pixels[j*4],g:pixels[j*4+1],b:pixels[j*4+2],a:pixels[j*4+3],v:getColorValue(pixels[j*4],pixels[j*4+1],pixels[j*4+2],mode)});
+        seg.sort((a,b)=>a.v-b.v);
+        for(let j=0;j<seg.length;j++){
+          const idx=(segStart+j)*4;pixels[idx]=seg[j].r;pixels[idx+1]=seg[j].g;pixels[idx+2]=seg[j].b;pixels[idx+3]=seg[j].a;
+        }
+        segStart=-1;
+      }
+    }
+  }
+
+  if(sortDir==='row'){
+    for(let y=0;y<h;y++){
+      const line=new Uint8ClampedArray(w*4);
+      for(let x=0;x<w;x++){const si=(y*w+x)*4;const di=x*4;line[di]=data[si];line[di+1]=data[si+1];line[di+2]=data[si+2];line[di+3]=data[si+3]}
+      sortLine(new Proxy(line,{set(t,p,v){t[p]=v;return true}}));
+      // Actually need to work with pixel array differently
+      const pixelArr=[];
+      for(let x=0;x<w;x++)pixelArr.push({r:data[(y*w+x)*4],g:data[(y*w+x)*4+1],b:data[(y*w+x)*4+2],a:data[(y*w+x)*4+3]});
+      // Sort segments
+      let segStart=-1;
+      for(let i=0;i<=pixelArr.length;i++){
+        const above=i<pixelArr.length&&getColorValue(pixelArr[i].r,pixelArr[i].g,pixelArr[i].b,mode)>threshold;
+        if(above&&segStart<0)segStart=i;
+        if(!above&&segStart>=0){
+          const seg=pixelArr.slice(segStart,i).sort((a,b)=>getColorValue(a.r,a.g,a.b,mode)-getColorValue(b.r,b.g,b.b,mode));
+          for(let j=0;j<seg.length;j++)pixelArr[segStart+j]=seg[j];
+          segStart=-1;
+        }
+      }
+      for(let x=0;x<w;x++){const idx=(y*w+x)*4;data[idx]=pixelArr[x].r;data[idx+1]=pixelArr[x].g;data[idx+2]=pixelArr[x].b;data[idx+3]=pixelArr[x].a}
+    }
+  }else{
+    for(let x=0;x<w;x++){
+      const pixelArr=[];
+      for(let y=0;y<h;y++)pixelArr.push({r:data[(y*w+x)*4],g:data[(y*w+x)*4+1],b:data[(y*w+x)*4+2],a:data[(y*w+x)*4+3]});
+      let segStart=-1;
+      for(let i=0;i<=pixelArr.length;i++){
+        const above=i<pixelArr.length&&getColorValue(pixelArr[i].r,pixelArr[i].g,pixelArr[i].b,mode)>threshold;
+        if(above&&segStart<0)segStart=i;
+        if(!above&&segStart>=0){
+          const seg=pixelArr.slice(segStart,i).sort((a,b)=>getColorValue(a.r,a.g,a.b,mode)-getColorValue(b.r,b.g,b.b,mode));
+          for(let j=0;j<seg.length;j++)pixelArr[segStart+j]=seg[j];
+          segStart=-1;
+        }
+      }
+      for(let y=0;y<h;y++){const idx=(y*w+x)*4;data[idx]=pixelArr[y].r;data[idx+1]=pixelArr[y].g;data[idx+2]=pixelArr[y].b;data[idx+3]=pixelArr[y].a}
+    }
+  }
+
+  sortCtx.putImageData(new ImageData(data,w,h),0,0);
+}
+
+function resetImage(){if(originalData)sortCtx.putImageData(originalData,0,0)}
+function exportPNG(){const a=document.createElement('a');a.download='pixel_sorted.png';a.href=sortCanvas.toDataURL();a.click()}
+
+document.getElementById('threshold').addEventListener('input',e=>document.getElementById('thresholdV').textContent=e.target.value);
+
+// Drag and drop
+const zone=document.getElementById('dropZone');
+zone.addEventListener('dragover',e=>{e.preventDefault();zone.style.background='rgba(139,92,246,.05)'});
+zone.addEventListener('dragleave',()=>zone.style.background='');
+zone.addEventListener('drop',e=>{
+  e.preventDefault();zone.style.background='';
+  const file=e.dataTransfer.files[0];
+  if(!file||!file.type.startsWith('image/'))return;
+  const img=new Image();img.onload=()=>loadImage(img);img.src=URL.createObjectURL(file);
+});
+</script>
+</body>
+</html>

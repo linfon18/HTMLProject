@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dungeon Generator</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Space+Mono:wght@400&display=swap');
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#050508;--border:rgba(255,255,255,.06);--t1:#fff;--t2:rgba(255,255,255,.55);--t3:rgba(255,255,255,.25)}
+body{background:var(--bg);color:var(--t2);font-family:'Space Grotesk',sans-serif;height:100vh;display:flex;flex-direction:column;-webkit-font-smoothing:antialiased}
+.top{padding:8px 14px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border);flex-shrink:0}
+.top h1{font-size:.85rem;font-weight:700;color:var(--t1);margin-right:auto}
+.btn{padding:5px 10px;border-radius:6px;font-size:.7rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--t2);cursor:pointer;transition:all .2s}
+.btn:hover{background:rgba(255,255,255,.1);color:var(--t1)}
+label{font-size:.62rem;color:var(--t3)}
+input[type=range]{width:60px;height:3px;-webkit-appearance:none;background:rgba(255,255,255,.1);border-radius:2px;outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;height:10px;border-radius:50%;background:#fff;cursor:pointer}
+.val{font-family:'Space Mono',monospace;font-size:.58rem;color:var(--t3)}
+canvas{flex:1;display:block;image-rendering:pixelated}
+.stats{position:fixed;bottom:12px;left:12px;font-size:.62rem;font-family:'Space Mono',monospace;color:rgba(255,255,255,.2)}
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>Procedural Dungeon</h1>
+  <label>Rooms</label><input type="range" id="rooms" min="5" max="30" value="12"><span class="val" id="roomsV">12</span>
+  <label>Size</label><input type="range" id="size" min="40" max="100" value="60"><span class="val" id="sizeV">60</span>
+  <button class="btn" onclick="generate()">Generate</button>
+  <button class="btn" onclick="animateGen()">Animate</button>
+</div>
+<canvas id="c"></canvas>
+<div class="stats" id="stats"></div>
+
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+let W,H,CELL=6;
+let grid=[];
+let rooms=[];
+let corridors=[];
+const TILE={VOID:0,FLOOR:1,WALL:2,DOOR:3,CHEST:4,ENEMY:5,STAIRS:6,PLAYER:7};
+
+function resize(){W=canvas.width=Math.floor(innerWidth/CELL)*CELL;H=canvas.height=Math.floor(innerHeight/CELL)*CELL;generate()}
+addEventListener('resize',resize);
+
+const COLORS={
+  0:'#080810',1:'#2a2a35',2:'#151520',3:'#8b5cf6',4:'#ffd700',5:'#f43f5e',6:'#22c55e',7:'#06b6d4'
+};
+
+function generate(){
+  const mapW=Math.floor(W/CELL),mapH=Math.floor(H/CELL);
+  const numRooms=+document.getElementById('rooms').value;
+  const roomSize=+document.getElementById('size').value;
+  grid=Array.from({length:mapH},()=>Array(mapW).fill(TILE.VOID));
+  rooms=[];corridors=[];
+
+  // Place rooms
+  for(let i=0;i<numRooms*5;i++){
+    if(rooms.length>=numRooms)break;
+    const w=Math.floor(roomSize*.3+Math.random()*roomSize*.5);
+    const h=Math.floor(roomSize*.3+Math.random()*roomSize*.4);
+    const x=Math.floor(Math.random()*(mapW-w-4))+2;
+    const y=Math.floor(Math.random()*(mapH-h-4))+2;
+
+    // Check overlap
+    let overlap=false;
+    for(const r of rooms){
+      if(x<r.x+r.w+2&&x+w+2>r.x&&y<r.y+r.h+2&&y+h+2>r.y){overlap=true;break}
+    }
+    if(overlap)continue;
+
+    rooms.push({x,y,w,h,cx:Math.floor(x+w/2),cy:Math.floor(y+h/2)});
+
+    // Carve room
+    for(let ry=y;ry<y+h;ry++)for(let rx=x;rx<x+w;rx++){
+      grid[ry][rx]=TILE.FLOOR;
+    }
+    // Walls
+    for(let ry=y-1;ry<=y+h;ry++)for(let rx=x-1;rx<=x+w;rx++){
+      if(ry<0||rx<0||ry>=mapH||rx>=mapW)continue;
+      if(grid[ry][rx]===TILE.VOID)grid[ry][rx]=TILE.WALL;
+    }
+  }
+
+  // Connect rooms with corridors (MST-like)
+  for(let i=1;i<rooms.length;i++){
+    const a=rooms[i-1],b=rooms[i];
+    let cx=a.cx,cy=a.cy;
+    while(cx!==b.cx||cy!==b.cy){
+      if(cx!==b.cx)cx+=cx<b.cx?1:-1;
+      else cy+=cy<b.cy?1:-1;
+      if(cy>=0&&cx>=0&&cy<mapH&&cx<mapW){
+        if(grid[cy][cx]===TILE.VOID||grid[cy][cx]===TILE.WALL){
+          grid[cy][cx]=TILE.FLOOR;
+          // Walls around corridor
+          for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
+            const ny=cy+dy,nx=cx+dx;
+            if(ny>=0&&nx>=0&&ny<mapH&&nx<mapW&&grid[ny][nx]===TILE.VOID)
+              grid[ny][nx]=TILE.WALL;
+          }
+        }
+      }
+    }
+    corridors.push({from:i-1,to:i});
+  }
+
+  // Place doors at corridor entrances
+  rooms.forEach(r=>{
+    if(grid[r.y-1]?.[r.cx]===TILE.FLOOR)grid[r.y-1][r.cx]=TILE.DOOR;
+    if(grid[r.y+r.h]?.[r.cx]===TILE.FLOOR)grid[r.y+r.h][r.cx]=TILE.DOOR;
+    if(grid[r.cy]?.[r.x-1]===TILE.FLOOR)grid[r.cy][r.x-1]=TILE.DOOR;
+    if(grid[r.cy]?.[r.x+r.w]===TILE.FLOOR)grid[r.cy][r.x+r.w]=TILE.DOOR;
+  });
+
+  // Place items and enemies
+  rooms.forEach((r,i)=>{
+    if(i===0){grid[r.cy][r.cx]=TILE.PLAYER;return}
+    if(i===rooms.length-1){grid[r.cy][r.cx]=TILE.STAIRS}
+    // Random enemies
+    for(let e=0;e<Math.floor(Math.random()*3);e++){
+      const ex=r.x+1+Math.floor(Math.random()*(r.w-2));
+      const ey=r.y+1+Math.floor(Math.random()*(r.h-2));
+      if(grid[ey][ex]===TILE.FLOOR)grid[ey][ex]=TILE.ENEMY;
+    }
+    // Chests
+    if(Math.random()>.4){
+      const cx=r.x+1+Math.floor(Math.random()*(r.w-2));
+      const cy=r.y+1+Math.floor(Math.random()*(r.h-2));
+      if(grid[cy][cx]===TILE.FLOOR)grid[cy][cx]=TILE.CHEST;
+    }
+  });
+
+  render();
+  document.getElementById('stats').textContent=`${rooms.length} rooms · ${corridors.length} corridors`;
+}
+
+let animRunning=false;
+function animateGen(){
+  if(animRunning)return;animRunning=true;
+  // Redraw with animation
+  const imgData=ctx.createImageData(W,H);
+  const data=imgData.data;
+  let row=0;
+  function drawRow(){
+    for(let x=0;x<grid[0]?.length||0;x++){
+      for(let dy=0;dy<CELL;dy++)for(let dx=0;dx<CELL;dx++){
+        const idx=((row*CELL+dy)*W+x*CELL+dx)*4;
+        const tile=grid[row]?.[x]||0;
+        const col=COLORS[tile]||'#000';
+        const r=parseInt(col.substr(1,2),16),g=parseInt(col.substr(3,2),16),b=parseInt(col.substr(5,2),16);
+        data[idx]=r;data[idx+1]=g;data[idx+2]=b;data[idx+3]=255;
+      }
+    }
+    ctx.putImageData(imgData,0,0);
+    row++;
+    if(row<grid.length)setTimeout(drawRow,10);
+    else animRunning=false;
+  }
+  generate();
+  imgData.data.fill(0);
+  drawRow();
+}
+
+function render(){
+  const imgData=ctx.createImageData(W,H);
+  const data=imgData.data;
+  for(let y=0;y<grid.length;y++)for(let x=0;x<grid[0].length;x++){
+    const tile=grid[y][x];
+    const col=COLORS[tile]||'#000';
+    const r=parseInt(col.substr(1,2),16),g=parseInt(col.substr(3,2),16),b=parseInt(col.substr(5,2),16);
+    for(let dy=0;dy<CELL;dy++)for(let dx=0;dx<CELL;dx++){
+      const idx=((y*CELL+dy)*W+x*CELL+dx)*4;
+      if(idx+3<data.length){data[idx]=r;data[idx+1]=g;data[idx+2]=b;data[idx+3]=255}
+    }
+  }
+  // Glow effects
+  for(let y=0;y<grid.length;y++)for(let x=0;x<grid[0].length;x++){
+    const tile=grid[y][x];
+    if(tile===TILE.CHEST||tile===TILE.STAIRS||tile===TILE.DOOR||tile===TILE.PLAYER){
+      const cx=x*CELL+CELL/2,cy=y*CELL+CELL/2;
+      const g=ctx.createRadialGradient(cx,cy,0,cx,cy,CELL*3);
+      const glowCol=COLORS[tile];
+      g.addColorStop(0,glowCol+'40');g.addColorStop(1,'transparent');
+      ctx.putImageData(imgData,0,0);
+      ctx.fillStyle=g;ctx.fillRect(cx-CELL*3,cy-CELL*3,CELL*6,CELL*6);
+      return;
+    }
+  }
+  ctx.putImageData(imgData,0,0);
+}
+
+document.querySelectorAll('input[type=range]').forEach(s=>{
+  const vEl=document.getElementById(s.id+'V');
+  s.addEventListener('input',()=>vEl.textContent=s.value);
+});
+
+generate();
+</script>
+</body>
+</html>

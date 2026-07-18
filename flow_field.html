@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Perlin Noise Flow Field</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}body{background:#050508;overflow:hidden}canvas{display:block}
+.ui{position:fixed;top:12px;left:12px;z-index:10;display:flex;gap:6px;flex-wrap:wrap}
+.btn{padding:5px 10px;border-radius:6px;font-size:.7rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);color:rgba(255,255,255,.5);cursor:pointer;transition:all .2s;font-family:'Space Grotesk',sans-serif}
+.btn:hover{background:rgba(255,255,255,.1);color:#fff}
+.stats{position:fixed;bottom:12px;left:12px;font-size:.62rem;font-family:'Space Mono',monospace;color:rgba(255,255,255,.2)}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="ui">
+  <button class="btn" onclick="initParticles()">Reset</button>
+  <button class="btn" onclick="addParticles(1000)">+1000</button>
+  <button class="btn" onclick="noiseScale*=1.5">Scale Up</button>
+  <button class="btn" onclick="noiseScale/=1.5">Scale Down</button>
+  <button class="btn" onclick="colorMode=(colorMode+1)%4">Color Mode</button>
+  <button class="btn" onclick="showField=!showField">Show Field</button>
+</div>
+<div class="stats" id="stats"></div>
+
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+let W,H;
+function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight}
+addEventListener('resize',resize);
+
+let particles=[];
+let noiseScale=.005,colorMode=0,showField=false;
+let time=0;
+
+// Simplex-like noise
+const PERM=new Uint8Array(512);
+function initPerm(){
+  const p=new Uint8Array(256);for(let i=0;i<256;i++)p[i]=i;
+  for(let i=255;i>0;i--){const j=Math.random()*(i+1)|0;[p[i],p[j]]=[p[j],p[i]]}
+  for(let i=0;i<512;i++)PERM[i]=p[i&255];
+}
+initPerm();
+
+function noise2d(x,y){
+  const X=Math.floor(x)&255,Y=Math.floor(y)&255;
+  x-=Math.floor(x);y-=Math.floor(y);
+  const u=x*x*(3-2*x),v=y*y*(3-2*y);
+  const a=PERM[X]+Y,b=PERM[X+1]+Y;
+  function grad(h,x,y){return((h&1)?-x:x)+((h&2)?-y:y)}
+  const lerp=(a,b,t)=>a+t*(b-a);
+  return lerp(lerp(grad(PERM[a],x,y),grad(PERM[b],x-1,y),u),lerp(grad(PERM[a+1],x,y-1),grad(PERM[b+1],x-1,y-1),u),v);
+}
+
+function fbm(x,y,oct=4){
+  let val=0,amp=1,freq=1,max=0;
+  for(let i=0;i<oct;i++){val+=noise2d(x*freq,y*freq)*amp;max+=amp;amp*=.5;freq*=2}
+  return val/max;
+}
+
+class Particle{
+  constructor(){
+    this.x=Math.random()*W;this.y=Math.random()*H;
+    this.vx=0;this.vy=0;
+    this.hue=Math.random()*60+200;
+    this.life=100+Math.random()*200;
+    this.age=0;
+  }
+  update(){
+    const angle=fbm(this.x*noiseScale,this.y*noiseScale+time,3)*Math.PI*4;
+    const speed=1+fbm(this.x*noiseScale+100,this.y*noiseScale+100,2)*2;
+    this.vx=Math.cos(angle)*speed;this.vy=Math.sin(angle)*speed;
+    this.x+=this.vx;this.y+=this.vy;
+    this.age++;
+    if(this.x<0||this.x>W||this.y<0||this.y>H||this.age>this.life){
+      this.x=Math.random()*W;this.y=Math.random()*H;this.age=0;
+      this.life=100+Math.random()*200;
+    }
+  }
+}
+
+function initParticles(){
+  particles=[];
+  for(let i=0;i<3000;i++)particles.push(new Particle());
+}
+
+function addParticles(n){for(let i=0;i<n;i++)particles.push(new Particle())}
+
+function draw(){
+  ctx.fillStyle='rgba(5,5,8,.03)';ctx.fillRect(0,0,W,H);
+
+  // Flow field visualization
+  if(showField){
+    const step=30;
+    for(let y=0;y<H;y+=step)for(let x=0;x<W;x+=step){
+      const angle=fbm(x*noiseScale,y*noiseScale+time,3)*Math.PI*4;
+      ctx.beginPath();
+      ctx.moveTo(x,y);
+      ctx.lineTo(x+Math.cos(angle)*step*.4,y+Math.sin(angle)*step*.4);
+      ctx.strokeStyle='rgba(255,255,255,.08)';ctx.lineWidth=.5;ctx.stroke();
+    }
+  }
+
+  particles.forEach(p=>{
+    p.update();
+    const speed=Math.sqrt(p.vx*p.vx+p.vy*p.vy);
+    const alpha=Math.min(1,(1-p.age/p.life)*.6);
+    let hue,sat,light;
+    if(colorMode===0){
+      hue=p.hue+speed*20;sat=60;light=50+speed*10;
+    }else if(colorMode===1){
+      hue=(p.x/W)*360;sat=70;light=50;
+    }else if(colorMode===2){
+      hue=p.age/p.life*360;sat=60;light=50;
+    }else{
+      hue=0;sat=0;light=50+speed*20;
+    }
+    ctx.beginPath();ctx.arc(p.x,p.y,1+speed*.3,0,Math.PI*2);
+    ctx.fillStyle=`hsla(${hue},${sat}%,${light}%,${alpha})`;ctx.fill();
+  });
+
+  time+=.003;
+  document.getElementById('stats').textContent=`${particles.length} particles · scale: ${(noiseScale*1000).toFixed(1)}`;
+}
+
+initParticles();
+function loop(){draw();requestAnimationFrame(loop)}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

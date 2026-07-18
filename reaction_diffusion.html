@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reaction-Diffusion</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Space+Mono:wght@400&display=swap');
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+body{background:#050508;overflow:hidden;font-family:'Space Grotesk',sans-serif}
+canvas{display:block}
+.ui{position:fixed;top:12px;left:12px;z-index:10;display:flex;flex-direction:column;gap:6px}
+.panel{padding:10px;border-radius:10px;background:rgba(10,10,15,.85);backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.06);min-width:180px}
+.panel h3{font-size:.6rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.25);margin-bottom:6px}
+.row{display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;font-size:.68rem}
+.row label{color:rgba(255,255,255,.35);font-size:.62rem}
+input[type=range]{width:70px;height:3px;-webkit-appearance:none;background:rgba(255,255,255,.1);border-radius:2px;outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;height:10px;border-radius:50%;background:#fff;cursor:pointer}
+.val{font-family:'Space Mono',monospace;font-size:.58rem;color:rgba(255,255,255,.25);min-width:30px;text-align:right}
+.btn{padding:5px 10px;border-radius:6px;font-size:.68rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.06);color:rgba(255,255,255,.4);cursor:pointer;transition:all .2s;text-align:center;margin-top:3px;width:100%}
+.btn:hover{color:#fff;background:rgba(255,255,255,.1)}
+.fps{position:fixed;bottom:12px;left:12px;font-size:.6rem;font-family:'Space Mono',monospace;color:rgba(255,255,255,.2)}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="ui">
+  <div class="panel">
+    <h3>Gray-Scott Model</h3>
+    <div class="row"><label>Feed</label><input type="range" id="feed" min="1" max="100" value="55"><span class="val" id="feedV">0.055</span></div>
+    <div class="row"><label>Kill</label><input type="range" id="kill" min="1" max="100" value="62"><span class="val" id="killV">0.062</span></div>
+    <div class="row"><label>Da</label><input type="range" id="da" min="50" max="120" value="100"><span class="val" id="daV">1.0</span></div>
+    <div class="row"><label>Db</label><input type="range" id="db" min="20" max="80" value="50"><span class="val" id="dbV">0.5</span></div>
+    <div class="row"><label>Steps</label><input type="range" id="steps" min="1" max="20" value="8"><span class="val" id="stepsV">8</span></div>
+    <button class="btn" onclick="resetGrid()">Reset</button>
+    <button class="btn" onclick="addSeeds()">Add Seeds</button>
+    <button class="btn" onclick="loadPreset('coral')">Coral</button>
+    <button class="btn" onclick="loadPreset('mitosis')">Mitosis</button>
+    <button class="btn" onclick="loadPreset('spirals')">Spirals</button>
+  </div>
+</div>
+<div class="fps" id="fps"></div>
+
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+const SCALE=2;
+let W,H,cols,rows;
+
+function resize(){
+  W=canvas.width=Math.floor(innerWidth/SCALE);
+  H=canvas.height=Math.floor(innerHeight/SCALE);
+  cols=W;rows=H;
+  resetGrid();
+}
+addEventListener('resize',resize);
+
+// Grid: A and B concentrations
+let gridA,gridB,nextA,nextB;
+
+function resetGrid(){
+  gridA=new Float32Array(cols*rows).fill(1);
+  gridB=new Float32Array(cols*rows).fill(0);
+  nextA=new Float32Array(cols*rows);
+  nextB=new Float32Array(cols*rows);
+  // Seed center
+  const cx=Math.floor(cols/2),cy=Math.floor(rows/2);
+  for(let dy=-10;dy<=10;dy++)for(let dx=-10;dx<=10;dx++){
+    if(dx*dx+dy*dy<100){
+      const i=(cy+dy)*cols+(cx+dx);
+      if(i>=0&&i<cols*rows){gridB[i]=1;gridA[i]=.5}
+    }
+  }
+}
+
+function addSeeds(){
+  for(let n=0;n<5;n++){
+    const cx=Math.floor(Math.random()*cols),cy=Math.floor(Math.random()*rows);
+    for(let dy=-5;dy<=5;dy++)for(let dx=-5;dx<=5;dx++){
+      if(dx*dx+dy*dy<25){
+        const i=(cy+dy)*cols+(cx+dx);
+        if(i>=0&&i<cols*rows){gridB[i]=1;gridA[i]=.5}
+      }
+    }
+  }
+}
+
+function loadPreset(name){
+  const presets={
+    coral:{feed:.0545,kill:.062},
+    mitosis:{feed:.036,kill:.06},
+    spirals:{feed:.014,kill:.054}
+  };
+  const p=presets[name];
+  document.getElementById('feed').value=Math.round(p.feed*1000);
+  document.getElementById('kill').value=Math.round(p.kill*1000);
+  document.getElementById('feedV').textContent=p.feed.toFixed(4);
+  document.getElementById('killV').textContent=p.kill.toFixed(4);
+  resetGrid();
+}
+
+function step(){
+  const f=+document.getElementById('feed').value/1000;
+  const k=+document.getElementById('kill').value/1000;
+  const Da=+document.getElementById('da').value/100;
+  const Db=+document.getElementById('db').value/100;
+  const dt=1;
+
+  for(let y=1;y<rows-1;y++)for(let x=1;x<cols-1;x++){
+    const i=y*cols+x;
+    const a=gridA[i],b=gridB[i];
+    // Laplacian
+    const la=gridA[i-1]+gridA[i+1]+gridA[i-cols]+gridA[i+cols]-4*a;
+    const lb=gridB[i-1]+gridB[i+1]+gridB[i-cols]+gridB[i+cols]-4*b;
+    const abb=a*b*b;
+    nextA[i]=a+(Da*la-abb+f*(1-a))*dt;
+    nextB[i]=b+(Db*lb+abb-(k+f)*b)*dt;
+    nextA[i]=Math.max(0,Math.min(1,nextA[i]));
+    nextB[i]=Math.max(0,Math.min(1,nextB[i]));
+  }
+  [gridA,nextA]=[nextA,gridA];
+  [gridB,nextB]=[nextB,gridB];
+}
+
+const imageData=ctx.createImageData(1,1);
+
+function draw(){
+  const imgData=ctx.createImageData(cols,rows);
+  const data=imgData.data;
+  for(let i=0;i<cols*rows;i++){
+    const a=gridA[i],b=gridB[i];
+    const val=Math.floor((a-b)*255);
+    const idx=i*4;
+    data[idx]=Math.max(0,val*.3);
+    data[idx+1]=Math.max(0,val*.6);
+    data[idx+2]=Math.max(0,Math.min(255,val+50));
+    data[idx+3]=255;
+  }
+  ctx.putImageData(imgData,0,0);
+}
+
+// Mouse interaction
+canvas.addEventListener('mousemove',e=>{
+  if(!e.buttons)return;
+  const x=Math.floor(e.clientX/SCALE),y=Math.floor(e.clientY/SCALE);
+  for(let dy=-5;dy<=5;dy++)for(let dx=-5;dx<=5;dx++){
+    if(dx*dx+dy*dy<25){
+      const i=(y+dy)*cols+(x+dx);
+      if(i>=0&&i<cols*rows){gridB[i]=1;gridA[i]=.5}
+    }
+  }
+});
+
+let frames=0,fpsT=performance.now();
+function loop(t){
+  const steps=+document.getElementById('steps').value;
+  for(let i=0;i<steps;i++)step();
+  draw();
+  frames++;
+  if(t-fpsT>500){document.getElementById('fps').textContent=`${Math.round(frames*1000/(t-fpsT))} FPS`;frames=0;fpsT=t}
+  requestAnimationFrame(loop);
+}
+
+document.querySelectorAll('input[type=range]').forEach(s=>{
+  const vEl=document.getElementById(s.id+'V');
+  s.addEventListener('input',()=>{
+    if(s.id==='feed'||s.id==='kill')vEl.textContent=(+s.value/1000).toFixed(4);
+    else if(s.id==='da'||s.id==='db')vEl.textContent=(+s.value/100).toFixed(1);
+    else vEl.textContent=s.value;
+  });
+});
+
+resize();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

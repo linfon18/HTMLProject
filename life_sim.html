@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Life Path Simulator</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Space+Mono:wght@400&display=swap');
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#050508;--border:rgba(255,255,255,.06);--t1:#fff;--t2:rgba(255,255,255,.55);--t3:rgba(255,255,255,.25)}
+body{background:var(--bg);color:var(--t2);font-family:'Space Grotesk',sans-serif;height:100vh;display:flex;flex-direction:column;-webkit-font-smoothing:antialiased;padding:16px}
+.top{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.top h1{font-size:.9rem;font-weight:700;color:var(--t1);margin-right:auto}
+.btn{padding:5px 10px;border-radius:6px;font-size:.7rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--t2);cursor:pointer;transition:all .2s}
+.btn:hover{background:rgba(255,255,255,.1);color:var(--t1)}
+.btn.primary{background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.25);color:#4ade80}
+.main{flex:1;display:flex;gap:16px;overflow:hidden}
+canvas{flex:1;border:1px solid var(--border);border-radius:8px}
+.side{width:220px;display:flex;flex-direction:column;gap:8px;overflow-y:auto;flex-shrink:0}
+.panel{padding:10px;border-radius:8px;background:rgba(255,255,255,.025);border:1px solid var(--border)}
+.panel h3{font-size:.55rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:6px}
+.log{font-size:.62rem;line-height:1.7;color:var(--t3);max-height:300px;overflow-y:auto}
+.log .event{margin-bottom:2px;padding:2px 4px;border-radius:3px;background:rgba(255,255,255,.02)}
+.log .good{border-left:2px solid #22c55e}.log .bad{border-left:2px solid #f43f5e}.log .neutral{border-left:2px solid #8b5cf6}
+.stat-bar{display:flex;gap:4px;margin-bottom:4px;align-items:center;font-size:.6rem}
+.stat-bar label{width:40px;color:var(--t3)}
+.stat-bar .bar{flex:1;height:6px;border-radius:3px;background:rgba(255,255,255,.06);overflow:hidden}
+.stat-bar .bar-fill{height:100%;border-radius:3px;transition:width .5s}
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>Life Path Simulator</h1>
+  <button class="btn primary" id="nextBtn" onclick="nextYear()">Next Year</button>
+  <button class="btn" onclick="autoPlay=!autoPlay">Auto Play</button>
+  <button class="btn" onclick="resetLife()">New Life</button>
+</div>
+<div class="main">
+  <canvas id="c"></canvas>
+  <div class="side">
+    <div class="panel" id="stats"></div>
+    <div class="panel">
+      <h3>Event Log</h3>
+      <div class="log" id="log"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+let W,H;
+function resize(){W=canvas.width=canvas.offsetWidth*2;H=canvas.height=canvas.offsetHeight*2}
+addEventListener('resize',resize);
+
+let age,stats,alive,events,history,autoPlay=false;
+
+const NAMES=['Alex','Sam','Jordan','Chris','Pat','Morgan','Taylor','Quinn','Riley','Casey'];
+const EVENTS=[
+  {cond:s=>s.age<5,events:[{text:'学走路了',stat:{health:1},type:'good'},{text:'学会说话了',stat:{intelligence:1},type:'good'},{text:'生了一场大病',stat:{health:-2},type:'bad'}]},
+  {cond:s=>s.age<12,events:[{text:'交到了新朋友',stat:{happiness:2},type:'good'},{text:'考试得了满分',stat:{intelligence:2,confidence:1},type:'good'},{text:'被同学欺负了',stat:{happiness:-2,confidence:-1},type:'bad'},{text:'学会了骑自行车',stat:{health:1,confidence:1},type:'good'},{text:'养了一只宠物',stat:{happiness:2},type:'good'}]},
+  {cond:s=>s.age<18,events:[{text:'获得了奖学金',stat:{intelligence:2,confidence:2},type:'good'},{text:'经历了初恋',stat:{happiness:3},type:'neutral'},{text:'参加了体育比赛获奖',stat:{health:2,confidence:2},type:'good'},{text:'和好友闹翻了',stat:{happiness:-2},type:'bad'},{text:'发现了热爱的爱好',stat:{happiness:2,intelligence:1},type:'good'}]},
+  {cond:s=>s.age<30,events:[{text:'找到了第一份工作',stat:{money:3,confidence:2},type:'good'},{text:'升职加薪了',stat:{money:2,confidence:1},type:'good'},{text:'工作压力大，身体变差',stat:{health:-2,happiness:-1},type:'bad'},{text:'遇到了人生伴侣',stat:{happiness:4},type:'good'},{text:'创业失败了',stat:{money:-3,confidence:-2},type:'bad'},{text:'去了远方旅行',stat:{happiness:2,intelligence:1},type:'good'}]},
+  {cond:s=>s.age<50,events:[{text:'买了房子',stat:{money:-2,happiness:2},type:'good'},{text:'孩子出生了',stat:{happiness:4,money:-1},type:'good'},{text:'获得了行业大奖',stat:{money:3,confidence:3},type:'good'},{text:'身体检查发现了问题',stat:{health:-3},type:'bad'},{text:'投资赚了大钱',stat:{money:4},type:'good'},{text:'和伴侣大吵了一架',stat:{happiness:-2},type:'bad'}]},
+  {cond:s=>s.age<70,events:[{text:'退休了',stat:{happiness:1},type:'neutral'},{text:'开始养生',stat:{health:2},type:'good'},{text:'孙子出生了',stat:{happiness:3},type:'good'},{text:'老友离世了',stat:{happiness:-3},type:'bad'},{text:'学会了书法',stat:{intelligence:1,happiness:1},type:'good'}]},
+  {cond:s=>true,events:[{text:'享受天伦之乐',stat:{happiness:2},type:'good'},{text:'身体越来越差了',stat:{health:-2},type:'bad'},{text:'写了一本回忆录',stat:{intelligence:1},type:'good'},{text:'被家人悉心照顾',stat:{happiness:2,health:1},type:'good'}]}
+];
+
+function resetLife(){
+  age=0;
+  stats={health:5+Math.random()*3|0,happiness:5+Math.random()*3|0,intelligence:4+Math.random()*4|0,confidence:4+Math.random()*3|0,money:3+Math.random()*3|0};
+  alive=true;events=[];history=[{age:0,...stats}];
+  resize();render();document.getElementById('log').innerHTML='';
+}
+
+function nextYear(){
+  if(!alive)return;
+  age++;
+  // Natural changes
+  stats.happiness+=((Math.random()-.5)*2)|0;
+  stats.money+=((Math.random()-.3)*.5)|0;
+  if(age>60)stats.health-=(Math.random()*.5+.2)|0;
+
+  // Random event
+  for(const group of EVENTS){
+    if(!group.cond({age}))continue;
+    const event=group.events[Math.random()*group.events.length|0];
+    for(const k in event.stat)stats[k]=Math.max(0,Math.min(10,(stats[k]||0)+event.stat[k]));
+    events.push({age,text:event.text,type:event.type});
+    const el=document.getElementById('log');
+    el.innerHTML=`<div class="event ${event.type}">Age ${age}: ${event.text}</div>`+el.innerHTML;
+    break;
+  }
+
+  // Clamp stats
+  for(const k in stats)stats[k]=Math.max(0,Math.min(10,stats[k]));
+  history.push({age,...stats});
+
+  // Death check
+  if(stats.health<=0||(age>80&&Math.random()<.1*(age-80))){alive=false;events.push({age,text:'安详地离开了这个世界',type:'neutral'})}
+
+  render();
+}
+
+function render(){
+  // Draw life path graph
+  ctx.fillStyle='rgba(5,5,8,.3)';ctx.fillRect(0,0,W,H);
+  const margin=40;
+  const gW=W-margin*2,gH=H-margin*2;
+  const maxAge=Math.max(age+5,80);
+
+  // Grid
+  ctx.strokeStyle='rgba(255,255,255,.05)';ctx.lineWidth=1;
+  for(let a=0;a<=maxAge;a+=10){
+    const x=margin+a/maxAge*gW;
+    ctx.beginPath();ctx.moveTo(x,margin);ctx.lineTo(x,margin+gH);ctx.stroke();
+    ctx.fillStyle='rgba(255,255,255,.2)';ctx.font='16px Space Mono';ctx.textAlign='center';
+    ctx.fillText(a,x,H-margin/2+10);
+  }
+  for(let v=0;v<=10;v+=2){
+    const y=margin+gH-v/10*gH;
+    ctx.beginPath();ctx.moveTo(margin,y);ctx.lineTo(margin+gW,y);ctx.stroke();
+    ctx.fillStyle='rgba(255,255,255,.15)';ctx.textAlign='right';
+    ctx.fillText(v,margin-8,y+5);
+  }
+
+  // Draw stats lines
+  const colors={health:'#22c55e',happiness:'#eab308',intelligence:'#3b82f6',confidence:'#a78bfa',money:'#f97316'};
+  for(const stat of Object.keys(colors)){
+    ctx.beginPath();
+    history.forEach((h,i)=>{
+      const x=margin+h.age/maxAge*gW;
+      const y=margin+gH-h[stat]/10*gH;
+      if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
+    });
+    ctx.strokeStyle=colors[stat];ctx.lineWidth=2.5;ctx.stroke();
+    // Label
+    if(history.length>0){
+      const last=history[history.length-1];
+      const x=margin+last.age/maxAge*gW+10;
+      const y=margin+gH-last[stat]/10*gH;
+      ctx.fillStyle=colors[stat];ctx.font='14px Space Grotesk';ctx.textAlign='left';
+      ctx.fillText(stat,x,y+4);
+    }
+  }
+
+  // Current stats
+  const el=document.getElementById('stats');
+  let html=`<h3>Age: ${age}</h3>`;
+  const statNames={health:'Health',happiness:'Happy',intelligence:'IQ',confidence:'Conf',money:'Money'};
+  const statColors={health:'#22c55e',happiness:'#eab308',intelligence:'#3b82f6',confidence:'#a78bfa',money:'#f97316'};
+  for(const k in stats){
+    html+=`<div class="stat-bar"><label>${statNames[k]}</label><div class="bar"><div class="bar-fill" style="width:${stats[k]*10}%;background:${statColors[k]}"></div></div><span style="font-size:.55rem;color:var(--t3)">${stats[k]}</span></div>`;
+  }
+  if(!alive)html+=`<div style="color:#f43f5e;font-size:.72rem;margin-top:8px">Game Over (Age ${age})</div>`;
+  el.innerHTML=html;
+}
+
+resetLife();resize();
+setInterval(()=>{if(autoPlay&&alive)nextYear()},500);
+</script>
+</body>
+</html>

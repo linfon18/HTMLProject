@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Color Mixing Simulator</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Space+Mono:wght@400&display=swap');
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#050508;--border:rgba(255,255,255,.06);--t1:#fff;--t2:rgba(255,255,255,.55);--t3:rgba(255,255,255,.25)}
+body{background:var(--bg);color:var(--t2);font-family:'Space Grotesk',sans-serif;height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;-webkit-font-smoothing:antialiased;padding:20px}
+h1{font-size:1.2rem;font-weight:700;color:var(--t1);margin-bottom:24px}
+.mode-tabs{display:flex;gap:6px;margin-bottom:24px}
+.btn{padding:6px 12px;border-radius:7px;font-size:.72rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--t2);cursor:pointer;transition:all .2s}
+.btn:hover{background:rgba(255,255,255,.1);color:var(--t1)}
+.btn.active{background:rgba(139,92,246,.12);border-color:rgba(139,92,246,.25);color:#a78bfa}
+.canvas-wrap{position:relative;margin-bottom:24px}
+canvas{border-radius:12px;border:1px solid var(--border)}
+.result{display:flex;gap:20px;align-items:center;margin-bottom:20px}
+.swatch{width:80px;height:80px;border-radius:12px;border:1px solid var(--border)}
+.swatch-info{font-family:'Space Mono',monospace;font-size:.75rem;line-height:1.8}
+.sliders{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;width:100%;max-width:600px}
+.slider-group{text-align:center}
+.slider-group label{display:block;font-size:.6rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:6px}
+input[type=range]{width:100%;height:6px;-webkit-appearance:none;border-radius:3px;outline:none;cursor:pointer}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:#fff;cursor:pointer;box-shadow:0 0 6px rgba(255,255,255,.2)}
+.val{font-family:'Space Mono',monospace;font-size:.65rem;color:var(--t3);margin-top:4px}
+.color-display{display:flex;gap:8px;margin-bottom:16px}
+.cmix{font-size:.6rem;font-family:'Space Mono',monospace;color:var(--t3)}
+</style>
+</head>
+<body>
+<h1>Color Mixing Lab</h1>
+<div class="mode-tabs">
+  <button class="btn active" onclick="setMode('rgb')" id="mRGB">RGB</button>
+  <button class="btn" onclick="setMode('cmyk')" id="mCMYK">CMYK</button>
+  <button class="btn" onclick="setMode('ryb')" id="mRYB">RYB</button>
+</div>
+<canvas id="c" width="500" height="300"></canvas>
+<div class="result">
+  <div class="swatch" id="swatch"></div>
+  <div class="swatch-info" id="info"></div>
+</div>
+<div class="sliders" id="sliders"></div>
+
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+let mode='rgb';
+let colors={c1:{r:255,g:0,b:0},c2:{r:0,g:0,b:255},ratio:.5};
+
+function setMode(m){
+  mode=m;
+  document.querySelectorAll('.btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('m'+m.toUpperCase()).classList.add('active');
+  if(m==='rgb'){colors={c1:{r:255,g:0,b:0},c2:{r:0,g:0,b:255},ratio:.5}}
+  else if(m==='cmyk'){colors={c1:{r:0,g:174,b:239},c2:{r:236,g:0,b:140},ratio:.5}}
+  else{colors={c1:{r:255,g:255,b:0},c2:{r:0,g:0,b:255},ratio:.5}}
+  renderSliders();render();
+}
+
+function mixColors(c1,c2,t,mode){
+  if(mode==='rgb'){
+    return{r:c1.r+(c2.r-c1.r)*t,g:c1.g+(c2.g-c1.g)*t,b:c1.b+(c2.b-c1.b)*t};
+  }else if(mode==='cmyk'){
+    // Subtractive mix (approximate)
+    const k1=Math.min(1-c1.r/255,1-c1.g/255,1-c1.b/255);
+    const k2=Math.min(1-c2.r/255,1-c2.g/255,1-c2.b/255);
+    const k=k1+(k2-k1)*t;
+    const r=Math.round((1-Math.min(1,(1-c1.r/255)*(1-t)+(1-c2.r/255)*t))*255);
+    const g=Math.round((1-Math.min(1,(1-c1.g/255)*(1-t)+(1-c2.g/255)*t))*255);
+    const b=Math.round((1-Math.min(1,(1-c1.b/255)*(1-t)+(1-c2.b/255)*t))*255);
+    return{r,g,b};
+  }else{
+    // RYB - convert to RYB, mix, convert back
+    return{r:c1.r+(c2.r-c1.r)*t,g:c1.g+(c2.g-c1.g)*t,b:c1.b+(c2.b-c1.b)*t};
+  }
+}
+
+function renderSliders(){
+  const el=document.getElementById('sliders');
+  el.innerHTML=`<div class="slider-group"><label>Color 1 R</label><input type="range" min="0" max="255" value="${colors.c1.r}" oninput="colors.c1.r=+this.value;this.nextElementSibling.textContent=this.value;render()"><div class="val">${colors.c1.r}</div></div>`+
+    `<div class="slider-group"><label>Color 1 G</label><input type="range" min="0" max="255" value="${colors.c1.g}" oninput="colors.c1.g=+this.value;this.nextElementSibling.textContent=this.value;render()"><div class="val">${colors.c1.g}</div></div>`+
+    `<div class="slider-group"><label>Color 1 B</label><input type="range" min="0" max="255" value="${colors.c1.b}" oninput="colors.c1.b=+this.value;this.nextElementSibling.textContent=this.value;render()"><div class="val">${colors.c1.b}</div></div>`+
+    `<div class="slider-group"><label>Color 2 R</label><input type="range" min="0" max="255" value="${colors.c2.r}" oninput="colors.c2.r=+this.value;this.nextElementSibling.textContent=this.value;render()"><div class="val">${colors.c2.r}</div></div>`+
+    `<div class="slider-group"><label>Color 2 G</label><input type="range" min="0" max="255" value="${colors.c2.g}" oninput="colors.c2.g=+this.value;this.nextElementSibling.textContent=this.value;render()"><div class="val">${colors.c2.g}</div></div>`+
+    `<div class="slider-group"><label>Color 2 B</label><input type="range" min="0" max="255" value="${colors.c2.b}" oninput="colors.c2.b=+this.value;this.nextElementSibling.textContent=this.value;render()"><div class="val">${colors.c2.b}</div></div>`;
+}
+
+function render(){
+  const W=500,H=300;
+  // Draw color mixing gradient
+  for(let x=0;x<W;x++){
+    const t=x/W;
+    const c=mixColors(colors.c1,colors.c2,t,mode);
+    ctx.fillStyle=`rgb(${c.r|0},${c.g|0},${c.b|0})`;
+    ctx.fillRect(x,0,1,H);
+  }
+  // Draw ratio indicator
+  const rx=colors.ratio*W;
+  ctx.strokeStyle='rgba(255,255,255,.8)';ctx.lineWidth=2;
+  ctx.beginPath();ctx.moveTo(rx,0);ctx.lineTo(rx,H);ctx.stroke();
+  ctx.fillStyle='rgba(255,255,255,.6)';ctx.font='11px Space Mono';ctx.textAlign='center';
+  ctx.fillText(`${(colors.ratio*100)|0}%`,rx,15);
+
+  // Result
+  const result=mixColors(colors.c1,colors.c2,colors.ratio,mode);
+  document.getElementById('swatch').style.background=`rgb(${result.r|0},${result.g|0},${result.b|0})`;
+  const hex='#'+[result.r,result.g,result.b].map(v=>(v|0).toString(16).padStart(2,'0')).join('');
+  document.getElementById('info').innerHTML=`HEX: ${hex}<br>RGB: ${result.r|0}, ${result.g|0}, ${result.b|0}<br>HSL: ${rgbToHsl(result.r,result.g,result.b)}`;
+}
+
+function rgbToHsl(r,g,b){
+  r/=255;g/=255;b/=255;
+  const max=Math.max(r,g,b),min=Math.min(r,g,b);
+  let h,s,l=(max+min)/2;
+  if(max===min)h=s=0;
+  else{
+    const d=max-min;s=l>.5?d/(2-max-min):d/(max+min);
+    if(max===r)h=((g-b)/d+(g<b?6:0))/6;
+    else if(max===g)h=((b-r)/d+2)/6;
+    else h=((r-g)/d+4)/6;
+  }
+  return`${(h*360)|0}° ${(s*100)|0}% ${(l*100)|0}%`;
+}
+
+canvas.addEventListener('mousemove',e=>{
+  const rect=canvas.getBoundingClientRect();
+  colors.ratio=Math.max(0,Math.min(1,(e.clientX-rect.left)/rect.width));
+  render();
+});
+canvas.addEventListener('click',e=>{
+  const rect=canvas.getBoundingClientRect();
+  colors.ratio=Math.max(0,Math.min(1,(e.clientX-rect.left)/rect.width));
+  render();
+});
+
+render();
+</script>
+</body>
+</html>

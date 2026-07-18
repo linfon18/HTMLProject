@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lissajous Curves</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}body{background:#050508;overflow:hidden}canvas{display:block}
+.ui{position:fixed;top:12px;left:12px;z-index:10;display:flex;gap:6px;flex-wrap:wrap}
+.btn{padding:5px 10px;border-radius:6px;font-size:.7rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);color:rgba(255,255,255,.5);cursor:pointer;transition:all .2s;font-family:'Space Grotesk',sans-serif}
+.btn:hover{background:rgba(255,255,255,.1);color:#fff}
+.stats{position:fixed;bottom:12px;left:12px;font-size:.62rem;font-family:'Space Mono',monospace;color:rgba(255,255,255,.2)}
+input[type=range]{width:60px;height:3px;-webkit-appearance:none;background:rgba(255,255,255,.1);border-radius:2px;outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;background:#fff;cursor:pointer}
+.val{font-family:'Space Mono',monospace;font-size:.55rem;color:rgba(255,255,255,.3)}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="ui">
+  <button class="btn" onclick="clearCurve()">Clear</button>
+  <button class="btn" onclick="aRatio=1+Math.random()*9|0;bRatio=1+Math.random()*9|0;delta=Math.random()*Math.PI*2;clearCurve()">Random</button>
+  <button class="btn" onclick="hueSpeed*=2">Fast Hue</button>
+  <button class="btn" onclick="hueSpeed/=2">Slow Hue</button>
+  <button class="btn" onclick="animSpeed*=1.5">Speed+</button>
+  <button class="btn" onclick="animSpeed/=1.5">Speed-</button>
+  <button class="btn" onclick="trails=!trails">Trails</button>
+  <button class="btn" onclick="exportPNG()">Export</button>
+  <label style="font-size:.6rem;color:rgba(255,255,255,.3)">a</label><input type="range" id="aSlider" min="1" max="12" value="3" oninput="aRatio=+this.value;document.getElementById('aV').textContent=this.value;clearCurve()"><span class="val" id="aV">3</span>
+  <label style="font-size:.6rem;color:rgba(255,255,255,.3)">b</label><input type="range" id="bSlider" min="1" max="12" value="4" oninput="bRatio=+this.value;document.getElementById('bV').textContent=this.value;clearCurve()"><span class="val" id="bV">4</span>
+</div>
+<div class="stats" id="stats"></div>
+
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+let W,H;
+function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight;clearCurve()}
+addEventListener('resize',resize);
+
+let aRatio=3,bRatio=4,delta=Math.PI/4,t=0;
+let hueSpeed=1,animSpeed=1,trails=true;
+let points=[],completed=false;
+
+function clearCurve(){
+  ctx.fillStyle='#050508';ctx.fillRect(0,0,W,H);
+  points=[];t=0;completed=false;
+}
+
+function exportPNG(){const a=document.createElement('a');a.download='lissajous.png';a.href=canvas.toDataURL();a.click()}
+
+resize();
+
+function loop(){
+  if(!trails)ctx.fillStyle='rgba(5,5,8,.08)';else ctx.fillStyle='rgba(5,5,8,.005)';
+  ctx.fillRect(0,0,W,H);
+
+  const steps=5;
+  for(let s=0;s<steps;s++){
+    t+=.002*animSpeed;
+    if(t>Math.PI*2){t-=Math.PI*2;completed=true}
+
+    const amplitude=Math.min(W,H)*.38;
+    const x=W/2+Math.sin(aRatio*t+delta)*amplitude;
+    const y=H/2+Math.sin(bRatio*t)*amplitude;
+    points.push({x,y,t});
+
+    if(points.length>2){
+      const p=points[points.length-2];
+      const q=points[points.length-1];
+      const hue=(t*hueSpeed*20+points.length*.5)%360;
+      ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(q.x,q.y);
+      ctx.strokeStyle=`hsla(${hue},70%,55%,${trails?.8:.4})`;
+      ctx.lineWidth=2;ctx.stroke();
+      // Glow
+      ctx.strokeStyle=`hsla(${hue},70%,55%,${trails?.15:.05})`;
+      ctx.lineWidth=6;ctx.stroke();
+    }
+
+    // Current point
+    ctx.beginPath();ctx.arc(x,y,3,0,Math.PI*2);
+    ctx.fillStyle='rgba(255,255,255,.8)';ctx.fill();
+  }
+
+  // Axes labels
+  ctx.fillStyle='rgba(255,255,255,.1)';ctx.font='12px Space Mono';ctx.textAlign='center';
+  ctx.fillText(`a:b = ${aRatio}:${bRatio}`,W/2,H-15);
+
+  document.getElementById('stats').textContent=`ratio ${aRatio}:${bRatio} · δ=${delta.toFixed(2)} · ${points.length} points`;
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fractal Tree</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}body{background:#050508;overflow:hidden}canvas{display:block}
+.ui{position:fixed;top:12px;left:12px;z-index:10;display:flex;gap:6px;flex-wrap:wrap}
+.btn{padding:5px 10px;border-radius:6px;font-size:.7rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);color:rgba(255,255,255,.5);cursor:pointer;transition:all .2s;font-family:'Space Grotesk',sans-serif}
+.btn:hover{background:rgba(255,255,255,.1);color:#fff}
+.stats{position:fixed;bottom:12px;left:12px;font-size:.62rem;font-family:'Space Mono',monospace;color:rgba(255,255,255,.2)}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="ui">
+  <button class="btn" onclick="regrow()">Regrow</button>
+  <button class="btn" onclick="angleSpread+=5;regrow()">Wider</button>
+  <button class="btn" onclick="angleSpread-=5;regrow()">Narrower</button>
+  <button class="btn" onclick="maxDepth=Math.min(14,maxDepth+1);regrow()">+ Depth</button>
+  <button class="btn" onclick="maxDepth=Math.max(3,maxDepth-1);regrow()">- Depth</button>
+  <button class="btn" onclick="mode=(mode+1)%3;regrow()">Style</button>
+  <button class="btn" onclick="windEnabled=!windEnabled">Wind</button>
+</div>
+<div class="stats" id="stats"></div>
+
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+let W,H;
+function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight;drawTree()}
+addEventListener('resize',resize);
+
+let maxDepth=10,angleSpread=25,mode=0,windEnabled=false,windAngle=0,growthProgress=0;
+let branches=[];
+let animating=false;
+
+function regrow(){
+  branches=[];
+  growthProgress=0;
+  generateBranch(W/2,H-20,-Math.PI/2,120,maxDepth);
+  animating=true;
+  growthProgress=0;
+}
+
+function generateBranch(x,y,angle,len,depth){
+  if(depth<=0)return;
+  const endX=x+Math.cos(angle)*len;
+  const endY=y+Math.sin(angle)*len;
+  branches.push({x,y,endX,endY,depth,len,angle});
+  const spread=angleSpread*Math.PI/180;
+  const decay=.7+Math.random()*.1;
+  const jitter=(Math.random()-.5)*.2;
+  generateBranch(endX,endY,angle-spread+jitter,len*decay,depth-1);
+  generateBranch(endX,endY,angle+spread+jitter,len*decay,depth-1);
+  if(Math.random()<.3&&depth>3)generateBranch(endX,endY,angle+jitter*2,len*decay*.8,depth-2);
+}
+
+function drawTree(){
+  ctx.fillStyle='rgba(5,5,8,.05)';ctx.fillRect(0,0,W,H);
+  if(animating){
+    growthProgress=Math.min(1,growthProgress+.02);
+    if(growthProgress>=1)animating=false;
+  }
+  if(windEnabled)windAngle=Math.sin(Date.now()*.001)*.15;
+
+  const visibleCount=Math.floor(branches.length*(animating?easeOut(growthProgress):1));
+  for(let i=0;i<visibleCount;i++){
+    const b=branches[i];
+    const t=b.depth/maxDepth;
+    const thickness=Math.max(.5,b.depth*1.5);
+    let hue,len;
+
+    if(mode===0){
+      hue=20+t*100;
+      const g=ctx.createLinearGradient(b.x,b.y,b.endX,b.endY);
+      g.addColorStop(0,`hsla(${hue},40%,${20+t*30}%,${.6+t*.3})`);
+      g.addColorStop(1,`hsla(${hue+20},50%,${25+t*35}%,${.5+t*.3})`);
+      ctx.strokeStyle=g;
+    }else if(mode===1){
+      hue=(Date.now()*.05+i*2)%360;
+      ctx.strokeStyle=`hsla(${hue},60%,55%,${.3+t*.5})`;
+    }else{
+      const v=40+t*60;
+      ctx.strokeStyle=`rgba(${v},${v*.8},${v*.6},${.3+t*.5})`;
+    }
+
+    ctx.lineWidth=thickness;ctx.lineCap='round';
+    ctx.beginPath();
+    let sx=b.x,sy=b.y,ex=b.endX,ey=b.endY;
+    if(windEnabled){
+      const w=(1-t)*windAngle*b.len*.3;
+      ex+=w;ey+=w*.3;
+    }
+    ctx.moveTo(sx,sy);ctx.lineTo(ex,ey);ctx.stroke();
+
+    // Leaves
+    if(b.depth<=2&&growthProgress>.8){
+      ctx.beginPath();ctx.arc(ex,ey,2+Math.random()*3,0,Math.PI*2);
+      const leafHue=mode===1?(Date.now()*.1)%360:120+Math.random()*40;
+      ctx.fillStyle=`hsla(${leafHue},60%,50%,${.2+Math.random()*.4})`;ctx.fill();
+    }
+  }
+
+  document.getElementById('stats').textContent=`${visibleCount} branches · depth ${maxDepth} · spread ${angleSpread}°`;
+  requestAnimationFrame(drawTree);
+}
+
+function easeOut(t){return 1-Math.pow(1-t,3)}
+
+regrow();
+requestAnimationFrame(drawTree);
+</script>
+</body>
+</html>

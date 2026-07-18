@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plasma Globe</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}body{background:#050508;overflow:hidden}canvas{display:block}
+.ui{position:fixed;top:12px;left:12px;z-index:10;display:flex;gap:6px;flex-wrap:wrap}
+.btn{padding:5px 10px;border-radius:6px;font-size:.7rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);color:rgba(255,255,255,.5);cursor:pointer;transition:all .2s;font-family:'Space Grotesk',sans-serif}
+.btn:hover{background:rgba(255,255,255,.1);color:#fff}
+.stats{position:fixed;bottom:12px;left:12px;font-size:.62rem;font-family:'Space Mono',monospace;color:rgba(255,255,255,.2)}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="ui">
+  <button class="btn" onclick="boltCount=Math.min(30,boltCount+3)">More Bolts</button>
+  <button class="btn" onclick="boltCount=Math.max(3,boltCount-3)">Fewer Bolts</button>
+  <button class="btn" onclick="intensity=Math.min(2,intensity+.2)">Brighter</button>
+  <button class="btn" onclick="intensity=Math.max(.3,intensity-.2)">Dimmer</button>
+  <button class="btn" onclick="hue=(hue+60)%360">Color Shift</button>
+  <button class="btn" onclick="touchMode=!touchMode">Touch Mode</button>
+</div>
+<div class="stats" id="stats"></div>
+
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+let W,H;
+function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight}
+addEventListener('resize',resize);
+
+let boltCount=12,intensity=1,hue=260,touchMode=false,mouseX=-1,mouseY=-1;
+let bolts=[];
+
+canvas.addEventListener('mousemove',e=>{mouseX=e.clientX;mouseY=e.clientY});
+canvas.addEventListener('mouseleave',()=>{mouseX=-1;mouseY=-1});
+canvas.addEventListener('touchmove',e=>{mouseX=e.touches[0].clientX;mouseY=e.touches[0].clientY});
+canvas.addEventListener('touchend',()=>{mouseX=-1;mouseY=-1});
+
+function generateBolt(cx,cy,r,angle){
+  const points=[{x:cx,y:cy}];
+  let x=cx,y=cy;
+  const segments=20+Math.random()*15|0;
+  for(let i=0;i<segments;i++){
+    const t=i/segments;
+    const rad=r*t;
+    const a=angle+Math.sin(t*8+Date.now()*.003)*.8;
+    x=cx+Math.cos(a)*rad;
+    y=cy+Math.sin(a)*rad;
+    // Add jitter
+    x+=(Math.random()-.5)*15;
+    y+=(Math.random()-.5)*15;
+    points.push({x,y});
+  }
+  return points;
+}
+
+function drawBolt(points,hue,alpha){
+  if(points.length<2)return;
+  // Main bolt
+  ctx.beginPath();ctx.moveTo(points[0].x,points[0].y);
+  for(let i=1;i<points.length;i++)ctx.lineTo(points[i].x,points[i].y);
+  ctx.strokeStyle=`hsla(${hue},80%,65%,${alpha*.8})`;ctx.lineWidth=2;ctx.stroke();
+  // Glow
+  ctx.strokeStyle=`hsla(${hue},80%,70%,${alpha*.3})`;ctx.lineWidth=6;ctx.stroke();
+  ctx.strokeStyle=`hsla(${hue},80%,80%,${alpha*.1})`;ctx.lineWidth=15;ctx.stroke();
+  // Branches
+  for(let i=3;i<points.length;i+=3+Math.random()*4|0){
+    if(Math.random()>.4)continue;
+    const p=points[i];
+    const ba=Math.random()*Math.PI*2;
+    const bl=20+Math.random()*30;
+    ctx.beginPath();ctx.moveTo(p.x,p.y);
+    ctx.lineTo(p.x+Math.cos(ba)*bl,p.y+Math.sin(ba)*bl);
+    ctx.strokeStyle=`hsla(${hue},70%,70%,${alpha*.4})`;ctx.lineWidth=1;ctx.stroke();
+  }
+}
+
+resize();
+
+function loop(){
+  ctx.fillStyle='rgba(5,5,8,.15)';ctx.fillRect(0,0,W,H);
+
+  const cx=W/2,cy=H/2;
+  const r=Math.min(W,H)*.35;
+
+  // Globe
+  const g=ctx.createRadialGradient(cx,cy,0,cx,cy,r+10);
+  g.addColorStop(0,`hsla(${hue},40%,8%,1)`);
+  g.addColorStop(.7,`hsla(${hue},30%,5%,.5)`);
+  g.addColorStop(.85,`hsla(${hue},50%,15%,.3)`);
+  g.addColorStop(1,`hsla(${hue},50%,5%,0)`);
+  ctx.fillStyle=g;ctx.beginPath();ctx.arc(cx,cy,r+10,0,Math.PI*2);ctx.fill();
+
+  // Inner glow
+  const ig=ctx.createRadialGradient(cx,cy,0,cx,cy,r*.3);
+  ig.addColorStop(0,`hsla(${hue},60%,30%,${.15*intensity})`);ig.addColorStop(1,'transparent');
+  ctx.fillStyle=ig;ctx.beginPath();ctx.arc(cx,cy,r*.3,0,Math.PI*2);ctx.fill();
+
+  // Determine attractor point
+  let ax=cx,ay=cy;
+  if(mouseX>0&&touchMode){ax=mouseX;ay=mouseY;
+    // Attractor glow
+    const ag=ctx.createRadialGradient(ax,ay,0,ax,ay,30);
+    ag.addColorStop(0,`hsla(${hue},80%,60%,${.3*intensity})`);ag.addColorStop(1,'transparent');
+    ctx.fillStyle=ag;ctx.beginPath();ctx.arc(ax,ay,30,0,Math.PI*2);ctx.fill();
+  }
+
+  // Generate and draw bolts
+  for(let i=0;i<boltCount;i++){
+    const angle=i/boltCount*Math.PI*2+Math.sin(Date.now()*.002+i)*.3;
+    const bolt=cx+(Math.random()-.5)*20;
+    // Bolts go from center to edge
+    const targetAngle=touchMode?Math.atan2(ay-cy,ax-cx):angle;
+    const points=[];
+    const segments=15+Math.random()*10|0;
+    let x=cx,y=cy;
+    for(let s=0;s<segments;s++){
+      const t=s/segments;
+      const dist=t*r*(.6+Math.random()*.4);
+      const a=targetAngle+Math.sin(t*6+Date.now()*.005+i*2)*.6+(Math.random()-.5)*.3;
+      x=cx+Math.cos(a)*dist+(Math.random()-.5)*12*(1-t);
+      y=cy+Math.sin(a)*dist+(Math.random()-.5)*12*(1-t);
+      points.push({x,y});
+    }
+    drawBolt(points,(hue+i*15)%360,intensity*(.5+Math.random()*.5));
+  }
+
+  // Center sphere
+  ctx.beginPath();ctx.arc(cx,cy,8,0,Math.PI*2);
+  ctx.fillStyle=`hsla(${hue},60%,70%,${.6*intensity})`;ctx.fill();
+  const cg=ctx.createRadialGradient(cx,cy,0,cx,cy,15);
+  cg.addColorStop(0,`hsla(${hue},80%,80%,${.4*intensity})`);cg.addColorStop(1,'transparent');
+  ctx.fillStyle=cg;ctx.beginPath();ctx.arc(cx,cy,15,0,Math.PI*2);ctx.fill();
+
+  document.getElementById('stats').textContent=`${boltCount} bolts · intensity ${intensity.toFixed(1)}`;
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

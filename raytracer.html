@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WebGL Raytracer</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600&family=Space+Mono:wght@400&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#050508;overflow:hidden;font-family:'Space Grotesk',sans-serif}
+canvas{display:block;width:100vw;height:100vh}
+.ui{position:fixed;top:16px;left:16px;z-index:10;background:rgba(10,10,15,.8);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:16px;color:rgba(255,255,255,.7);font-size:.78rem;min-width:200px}
+.ui h3{font-size:.65rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.3);margin-bottom:8px}
+.row{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.row label{color:rgba(255,255,255,.35);font-size:.68rem}
+input[type=range]{width:90px;height:3px;-webkit-appearance:none;background:rgba(255,255,255,.1);border-radius:2px;outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;background:#fff;cursor:pointer}
+.val{font-family:'Space Mono',monospace;font-size:.65rem;color:rgba(255,255,255,.5);min-width:28px;text-align:right}
+.fps{position:fixed;bottom:16px;left:16px;font-size:.65rem;font-family:'Space Mono',monospace;color:rgba(255,255,255,.25)}
+select{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.06);border-radius:6px;color:rgba(255,255,255,.6);font-size:.72rem;padding:4px 8px;font-family:inherit;outline:none}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="ui">
+  <h3>Raytracer</h3>
+  <div class="row"><label>Spheres</label><input type="range" id="spheres" min="3" max="30" value="12"><span class="val" id="spheresV">12</span></div>
+  <div class="row"><label>Bounces</label><input type="range" id="bounces" min="1" max="8" value="4"><span class="val" id="bouncesV">4</span></div>
+  <div class="row"><label>Quality</label><input type="range" id="quality" min="1" max="4" value="2"><span class="val" id="qualityV">2</span></div>
+  <div class="row"><label>Fov</label><input type="range" id="fov" min="30" max="120" value="60"><span class="val" id="fovV">60</span></div>
+  <div class="row"><label>Scene</label><select id="scene"><option value="random">Random</option><option value="cornell">Cornell Box</option><option value="mirror">Mirror Hall</option></select></div>
+</div>
+<div class="fps" id="fps"></div>
+
+<script>
+const canvas=document.getElementById('c');
+const gl=canvas.getContext('webgl2')||canvas.getContext('webgl');
+if(!gl){document.body.innerHTML='<h2 style="color:#fff;padding:40px">WebGL not supported</h2>';throw'no gl'}
+
+function resize(){canvas.width=innerWidth;canvas.height=innerHeight;gl.viewport(0,0,canvas.width,canvas.height)}
+resize();addEventListener('resize',resize);
+
+const vs=`
+attribute vec2 p;void main(){gl_Position=vec4(p,0,1);}
+`;
+
+const fs=`
+precision highp float;
+uniform vec2 uRes;
+uniform float uTime;
+uniform float uBounces;
+uniform float uFov;
+uniform float uSpheres;
+uniform int uScene;
+uniform vec3 uCamPos;
+uniform vec3 uCamTarget;
+
+#define PI 3.14159265
+#define MAX_SPHERES 32
+#define MAX_BOUNCES 8
+
+struct Sphere{vec3 c;float r;vec3 col;float mat;}; // mat: 0=diffuse, 1=metal, 2=glass
+struct Hit{float t;vec3 n;vec3 col;float mat;bool hit;};
+
+Sphere spheres[MAX_SPHERES];
+
+float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
+vec3 hash3(vec2 p){return fract(sin(vec3(dot(p,vec2(127.1,311.7)),dot(p,vec2(269.5,183.3)),dot(p,vec2(419.2,371.9))))*43758.5453);}
+
+vec3 rd(vec3 n,vec2 uv){
+  float a=6.2831*uv.x;
+  float z=sqrt(uv.y);
+  float x=cos(a)*sqrt(1.-uv.y);
+  float y=sin(a)*sqrt(1.-uv.y);
+  vec3 t=abs(n.y)<.99?cross(n,vec3(0,1,0)):cross(n,vec3(1,0,0));
+  return normalize(x*normalize(t)+y*normalize(cross(n,t))+z*n);
+}
+
+Hit traceSphere(vec3 ro,vec3 rd,Sphere s){
+  Hit h;h.hit=false;h.t=1e9;
+  vec3 oc=ro-s.c;
+  float b=dot(oc,rd);
+  float c=dot(oc,oc)-s.r*s.r;
+  float disc=b*b-c;
+  if(disc<0.)return h;
+  float t=-b-sqrt(disc);
+  if(t<.001){t=-b+sqrt(disc);if(t<.001)return h;}
+  h.hit=true;h.t=t;
+  h.n=normalize(ro+rd*t-s.c);
+  h.col=s.col;h.mat=s.mat;
+  return h;
+}
+
+Hit scene(vec3 ro,vec3 rd){
+  Hit best;best.hit=false;best.t=1e9;
+  for(int i=0;i<MAX_SPHERES;i++){
+    if(i>=int(uSpheres))break;
+    Hit h=traceSphere(ro,rd,spheres[i]);
+    if(h.hit&&h.t<best.t)best=h;
+  }
+  // Floor
+  if(rd.y<0.){
+    float t=(-1.-ro.y)/rd.y;
+    if(t>0.001&&t<best.t){
+      best.hit=true;best.t=t;best.n=vec3(0,1,0);
+      vec2 fp=ro.xz+rd.xz*t;
+      float ck=mod(floor(fp.x)+floor(fp.z),2.);
+      best.col=mix(vec3(.3),vec3(.5),ck);best.mat=0.;
+    }
+  }
+  return best;
+}
+
+vec3 sky(vec3 d){
+  float t=max(d.y,0.);
+  return mix(vec3(.02,.02,.04),vec3(.05,.08,.2),t)+pow(max(dot(d,normalize(vec3(1,.5,-.5))),0.),32.)*vec3(.6,.5,.4)*2.;
+}
+
+void initSpheres(vec2 seed){
+  float n=uSpheres;
+  for(int i=0;i<MAX_SPHERES;i++){
+    if(i>=int(n))break;
+    vec3 h=hash3(seed+float(i)*7.3);
+    vec3 h2=hash3(seed+float(i)*13.1);
+    if(uScene==0){ // random
+      spheres[i]=Sphere(mix(vec3(-4,0,-4),vec3(4,4,4),h),.3+h2.x*.8,mix(vec3(.2),vec3(1.),h2),h2.z<.3?2.:h2.z<.6?1.:0.);
+    }else if(uScene==1){ // cornell
+      float fi=float(i);
+      vec3 p=vec3(mod(fi,4.)*2.-3.,fract(fi/4.)*3.,mod(fi,2.)*2.-1.);
+      spheres[i]=Sphere(p+vec3(0,.5,0),.4+hash(seed+fi)*.3,vec3(h.x,h.y*.5+.2,h.z*.3+.5),h.z<.3?0.:1.);
+    }else{ // mirror
+      float fi=float(i);
+      float a=fi/n*6.2831;
+      float r=2.5+hash(seed+fi)*2.;
+      spheres[i]=Sphere(vec3(cos(a)*r,.3+hash(seed+fi*2.)*2.,sin(a)*r),.3+hash(seed+fi*3.)*.7,vec3(.8+.2*h.x,.8+.2*h.y,.8+.2*h.z),1.);
+    }
+  }
+}
+
+vec3 render(vec3 ro,vec3 rd){
+  vec3 col=vec3(1);
+  for(int b=0;b<MAX_BOUNCES;b++){
+    if(b>=int(uBounces))break;
+    Hit h=scene(ro,rd);
+    if(!h.hit){col*=sky(rd);break;}
+    vec3 p=ro+rd*h.t;
+    if(h.mat<.5){ // diffuse
+      col*=h.col;
+      rd=rd(h.n,vec2(hash(p.xz+uTime),hash(p.zx+uTime+7.)));
+      ro=p+h.n*.002;
+    }else if(h.mat<1.5){ // metal
+      col*=h.col*.9;
+      rd=reflect(rd,h.n);
+      ro=p+h.n*.002;
+    }else{ // glass
+      float ri=1.5;
+      vec3 n=h.n;
+      float cosi=dot(rd,n);
+      if(cosi>0.){n=-n;ri=1./ri;cosi=-cosi;}
+      float cost=1.-ri*ri*(1.-cosi*cosi);
+      if(cost>0.){rd=refract(rd,n,ri);}
+      else{rd=reflect(rd,n);}
+      col*=h.col;
+      ro=p-n*.002;
+    }
+  }
+  return col;
+}
+
+void main(){
+  vec2 uv=(gl_FragCoord.xy-.5*uRes)/uRes.y;
+  vec2 seed=gl_FragCoord.xy/uRes;
+
+  vec3 fwd=normalize(uCamTarget-uCamPos);
+  vec3 right=normalize(cross(fwd,vec3(0,1,0)));
+  vec3 up=cross(right,fwd);
+  float fov=uFov*PI/180.;
+  vec3 rd=normalize(fwd*cos(fov*.5)+(uv.x*right+uv.y*up)*sin(fov*.5));
+
+  initSpheres(seed);
+
+  vec3 col=vec3(0);
+  float samples=uBounces<3.?4.:2.;
+  for(float s=0.;s<4.;s++){
+    vec2 jitter=vec2(hash(uv+s*13.7+uTime),hash(uv.yx+s*7.3+uTime))-.5;
+    vec2 suv=uv+jitter/uRes.y;
+    vec3 srd=normalize(fwd*cos(fov*.5)+(suv.x*right+suv.y*up)*sin(fov*.5));
+    col+=render(uCamPos,srd);
+  }
+  col/=samples;
+
+  // Tone mapping
+  col=col/(1.+col);
+  col=pow(col,vec3(1./2.2));
+
+  gl_FragColor=vec4(col,1);
+}
+`;
+
+function compileShader(src,type){
+  const s=gl.createShader(type);
+  gl.shaderSource(s,src);gl.compileShader(s);
+  if(!gl.getShaderParameter(s,gl.COMPILE_STATUS)){console.error(gl.getShaderInfoLog(s));return null}
+  return s;
+}
+
+const prog=gl.createProgram();
+gl.attachShader(prog,compileShader(vs,gl.VERTEX_SHADER));
+gl.attachShader(prog,compileShader(fs,gl.FRAGMENT_SHADER));
+gl.linkProgram(prog);gl.useProgram(prog);
+
+const buf=gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER,buf);
+gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),gl.STATIC_DRAW);
+const pLoc=gl.getAttribLocation(prog,'p');
+gl.enableVertexAttribArray(pLoc);gl.vertexAttribPointer(pLoc,2,gl.FLOAT,false,0,0);
+
+const u={
+  res:gl.getUniformLocation(prog,'uRes'),
+  time:gl.getUniformLocation(prog,'uTime'),
+  bounces:gl.getUniformLocation(prog,'uBounces'),
+  fov:gl.getUniformLocation(prog,'uFov'),
+  spheres:gl.getUniformLocation(prog,'uSpheres'),
+  scene:gl.getUniformLocation(prog,'uScene'),
+  camPos:gl.getUniformLocation(prog,'uCamPos'),
+  camTarget:gl.getUniformLocation(prog,'uCamTarget'),
+};
+
+const state={bounces:4,fov:60,spheres:12,scene:0};
+let angle=0;
+
+document.querySelectorAll('input[type=range]').forEach(s=>{
+  const vEl=document.getElementById(s.id+'V');
+  s.addEventListener('input',()=>{
+    vEl.textContent=s.value;
+    state.bounces=+document.getElementById('bounces').value;
+    state.fov=+document.getElementById('fov').value;
+    state.spheres=+document.getElementById('spheres').value;
+    document.getElementById('quality').value;
+  });
+});
+document.getElementById('scene').addEventListener('change',e=>{state.scene=['random','cornell','mirror'].indexOf(e.target.value)});
+
+let frames=0,fpsTime=performance.now();
+function loop(t){
+  angle=t*.0002;
+  const camR=8;
+  const camPos=[Math.sin(angle)*camR,4+Math.sin(t*.001),Math.cos(angle)*camR];
+
+  gl.uniform2f(u.res,canvas.width,canvas.height);
+  gl.uniform1f(u.time,t*.001);
+  gl.uniform1f(u.bounces,state.bounces);
+  gl.uniform1f(u.fov,state.fov);
+  gl.uniform1f(u.spheres,state.spheres);
+  gl.uniform1i(u.scene,state.scene);
+  gl.uniform3fv(u.camPos,camPos);
+  gl.uniform3fv(u.camTarget,[0,.5,0]);
+
+  gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
+
+  frames++;
+  if(t-fpsTime>500){
+    document.getElementById('fps').textContent=Math.round(frames*1000/(t-fpsTime))+' FPS';
+    frames=0;fpsTime=t;
+  }
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Force Graph</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Space+Mono:wght@400&display=swap');
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#050508;--border:rgba(255,255,255,.06);--t1:#fff;--t2:rgba(255,255,255,.55);--t3:rgba(255,255,255,.25)}
+body{background:var(--bg);color:var(--t2);font-family:'Space Grotesk',sans-serif;min-height:100vh;overflow:hidden;-webkit-font-smoothing:antialiased}
+canvas{display:block;position:fixed;inset:0}
+.ui{position:fixed;top:12px;left:12px;z-index:10}
+.panel{padding:12px;border-radius:10px;background:rgba(10,10,15,.8);backdrop-filter:blur(16px);border:1px solid var(--border);min-width:180px}
+.panel h3{font-size:.6rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:6px}
+.row{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;font-size:.68rem}
+.row label{color:var(--t3);font-size:.62rem}
+input[type=range]{width:80px;height:3px;-webkit-appearance:none;background:rgba(255,255,255,.1);border-radius:2px;outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;height:10px;border-radius:50%;background:#fff;cursor:pointer}
+.val{font-family:'Space Mono',monospace;font-size:.58rem;color:var(--t3);min-width:22px;text-align:right}
+.btn{padding:5px 10px;border-radius:6px;font-size:.68rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--t3);cursor:pointer;transition:all .2s;text-align:center;margin-top:4px;width:100%}
+.btn:hover{color:var(--t1);background:rgba(255,255,255,.1)}
+.fps{position:fixed;bottom:12px;left:12px;font-size:.6rem;font-family:'Space Mono',monospace;color:rgba(255,255,255,.2)}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="ui">
+  <div class="panel">
+    <h3>Force-Directed Graph</h3>
+    <div class="row"><label>Nodes</label><input type="range" id="nodes" min="10" max="200" value="60"><span class="val" id="nodesV">60</span></div>
+    <div class="row"><label>Repulsion</label><input type="range" id="repulse" min="100" max="5000" value="1000"><span class="val" id="repulseV">1000</span></div>
+    <div class="row"><label>Attraction</label><input type="range" id="attract" min="1" max="100" value="20"><span class="val" id="attractV">20</span></div>
+    <div class="row"><label>Damping</label><input type="range" id="damp" min="80" max="99" value="92"><span class="val" id="dampV">.92</span></div>
+    <button class="btn" onclick="generate()">Generate</button>
+    <button class="btn" onclick="addCluster()">Add Cluster</button>
+  </div>
+</div>
+<div class="fps" id="fps"></div>
+
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+let W,H;
+function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight}
+resize();addEventListener('resize',resize);
+
+let nodes=[],edges=[];
+let dragNode=null,mouseX=0,mouseY=0;
+
+canvas.addEventListener('mousedown',e=>{
+  mouseX=e.clientX;mouseY=e.clientY;
+  for(const n of nodes){
+    if(Math.hypot(n.x-mouseX,n.y-mouseY)<15){dragNode=n;break}
+  }
+});
+canvas.addEventListener('mousemove',e=>{mouseX=e.clientX;mouseY=e.clientY;if(dragNode){dragNode.x=mouseX;dragNode.y=mouseY;dragNode.vx=0;dragNode.vy=0}});
+canvas.addEventListener('mouseup',()=>dragNode=null);
+
+function generate(){
+  const n=+document.getElementById('nodes').value;
+  nodes=[];edges=[];
+  for(let i=0;i<n;i++){
+    nodes.push({x:W/2+(Math.random()-.5)*300,y:H/2+(Math.random()-.5)*300,vx:0,vy:0,group:Math.floor(Math.random()*5),r:3+Math.random()*3});
+  }
+  // Random edges (prefer same group)
+  for(let i=0;i<n;i++){
+    const connections=2+Math.floor(Math.random()*3);
+    for(let j=0;j<connections;j++){
+      let target;
+      if(Math.random()<.6){
+        const same=nodes.filter((_,k)=>k!==i&&nodes[k].group===nodes[i].group);
+        if(same.length)target=nodes.indexOf(same[Math.floor(Math.random()*same.length)]);
+        else target=Math.floor(Math.random()*n);
+      }else target=Math.floor(Math.random()*n);
+      if(target!==i&&!edges.some(e=>(e[0]===i&&e[1]===target)||(e[0]===target&&e[1]===i)))
+        edges.push([i,target]);
+    }
+  }
+}
+
+function addCluster(){
+  const base=nodes.length;
+  const cx=W/2+(Math.random()-.5)*200,cy=H/2+(Math.random()-.5)*200;
+  const group=nodes.length>0?Math.max(...nodes.map(n=>n.group))+1:0;
+  const count=10+Math.floor(Math.random()*15);
+  for(let i=0;i<count;i++){
+    nodes.push({x:cx+(Math.random()-.5)*100,y:cy+(Math.random()-.5)*100,vx:0,vy:0,group,r:3+Math.random()*3});
+  }
+  for(let i=0;i<count;i++){
+    const connections=2+Math.floor(Math.random()*2);
+    for(let j=0;j<connections;j++){
+      const t=base+Math.floor(Math.random()*count);
+      if(t!==base+i&&!edges.some(e=>(e[0]===base+i&&e[1]===t)||(e[0]===t&&e[1]===base+i)))
+        edges.push([base+i,t]);
+    }
+  }
+  // Connect to main graph
+  if(base>0){
+    edges.push([base,Math.floor(Math.random()*base)]);
+    edges.push([base+Math.floor(Math.random()*count),Math.floor(Math.random()*base)]);
+  }
+}
+
+const GROUP_COLORS=['hsla(270,60%,60%,.7)','hsla(190,60%,55%,.7)','hsla(0,60%,60%,.7)','hsla(120,60%,50%,.7)','hsla(45,60%,55%,.7)'];
+
+function update(){
+  const repulsion=+document.getElementById('repulse').value;
+  const attraction=+document.getElementById('attract').value/1000;
+  const damping=+document.getElementById('damp').value/100;
+
+  // Repulsion (all pairs - spatial optimization for large graphs)
+  for(let i=0;i<nodes.length;i++){
+    for(let j=i+1;j<nodes.length;j++){
+      const a=nodes[i],b=nodes[j];
+      const dx=a.x-b.x,dy=a.y-b.y;
+      const dist=Math.sqrt(dx*dx+dy*dy)+1;
+      const f=repulsion/(dist*dist);
+      const fx=dx/dist*f,fy=dy/dist*f;
+      if(dragNode!==a){a.vx+=fx;a.vy+=fy}
+      if(dragNode!==b){b.vx-=fx;b.vy-=fy}
+    }
+  }
+
+  // Attraction (edges)
+  edges.forEach(([i,j])=>{
+    const a=nodes[i],b=nodes[j];
+    const dx=b.x-a.x,dy=b.y-a.y;
+    const dist=Math.sqrt(dx*dx+dy*dy);
+    const f=dist*attraction;
+    const fx=dx/dist*f,fy=dy/dist*f;
+    if(dragNode!==a){a.vx+=fx;a.vy+=fy}
+    if(dragNode!==b){b.vx-=fx;b.vy-=fy}
+  });
+
+  // Center gravity
+  nodes.forEach(n=>{
+    if(dragNode===n)return;
+    n.vx+=(W/2-n.x)*.0005;n.vy+=(H/2-n.y)*.0005;
+    n.vx*=damping;n.vy*=damping;
+    n.x+=n.vx;n.y+=n.vy;
+    n.x=Math.max(20,Math.min(W-20,n.x));
+    n.y=Math.max(20,Math.min(H-20,n.y));
+  });
+}
+
+function draw(){
+  ctx.fillStyle='rgba(5,5,8,.2)';ctx.fillRect(0,0,W,H);
+
+  // Edges
+  edges.forEach(([i,j])=>{
+    const a=nodes[i],b=nodes[j];
+    ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);
+    ctx.strokeStyle=a.group===b.group?GROUP_COLORS[a.group].replace('.7','.15'):'rgba(255,255,255,.03)';
+    ctx.lineWidth=.5;ctx.stroke();
+  });
+
+  // Nodes
+  nodes.forEach(n=>{
+    ctx.beginPath();ctx.arc(n.x,n.y,n.r,0,Math.PI*2);
+    ctx.fillStyle=GROUP_COLORS[n.group];ctx.fill();
+    // Glow
+    const g=ctx.createRadialGradient(n.x,n.y,0,n.x,n.y,n.r*3);
+    g.addColorStop(0,GROUP_COLORS[n.group].replace('.7','.15'));
+    g.addColorStop(1,'transparent');
+    ctx.fillStyle=g;ctx.beginPath();ctx.arc(n.x,n.y,n.r*3,0,Math.PI*2);ctx.fill();
+  });
+}
+
+let frames=0,fpsT=performance.now();
+function loop(t){
+  update();draw();
+  frames++;
+  if(t-fpsT>500){document.getElementById('fps').textContent=`${nodes.length} nodes · ${edges.length} edges · ${Math.round(frames*1000/(t-fpsT))} FPS`;frames=0;fpsT=t}
+  requestAnimationFrame(loop);
+}
+
+document.querySelectorAll('input[type=range]').forEach(s=>{
+  const vEl=document.getElementById(s.id+'V');
+  s.addEventListener('input',()=>vEl.textContent=s.id==='damp'?(+s.value/100).toFixed(2):s.value);
+});
+
+generate();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

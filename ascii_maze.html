@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ASCII Roguelike</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+body{background:#050508;color:#e6edf3;font-family:'JetBrains Mono',monospace;height:100vh;display:flex;flex-direction:column;-webkit-font-smoothing:antialiased;overflow:hidden;padding:16px}
+.top{display:flex;gap:10px;align-items:center;margin-bottom:10px;flex-shrink:0}
+.top h1{font-size:.85rem;font-weight:700;color:#fff;margin-right:auto}
+.btn{padding:4px 10px;border-radius:6px;font-size:.68rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.06);color:rgba(255,255,255,.5);cursor:pointer;transition:all .2s}
+.btn:hover{background:rgba(255,255,255,.1);color:#fff}
+.game{display:flex;gap:12px;flex:1;overflow:hidden}
+.map-wrap{flex:1;overflow:auto;font-size:clamp(8px,1.4vw,16px);line-height:1.15;border:1px solid rgba(255,255,255,.06);border-radius:8px;padding:10px;background:rgba(255,255,255,.015)}
+.map{white-space:pre;user-select:none}
+.sidebar{width:200px;display:flex;flex-direction:column;gap:8px;flex-shrink:0}
+.panel{padding:10px;border-radius:8px;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.06);font-size:.7rem;line-height:1.7}
+.panel h3{font-size:.55rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.25);margin-bottom:6px}
+.log{max-height:200px;overflow-y:auto;font-size:.6rem;color:rgba(255,255,255,.3)}
+.log div{padding:1px 0}
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>ASCII Roguelike</h1>
+  <button class="btn" onclick="newGame()">New Game</button>
+  <span style="font-size:.6rem;color:rgba(255,255,255,.2)">WASD or Arrow Keys to move</span>
+</div>
+<div class="game">
+  <div class="map-wrap"><div class="map" id="map"></div></div>
+  <div class="sidebar">
+    <div class="panel" id="stats"></div>
+    <div class="panel" id="inventory"></div>
+    <div class="panel log" id="log"></div>
+  </div>
+</div>
+
+<script>
+const W=50,H=25;
+let grid,player,enemies,items,fov,turns,gameOver;
+const TILE={wall:'#',floor:'.',door:'+'};
+const COLORS={wall:'rgba(100,100,140,.6)',floor:'rgba(80,80,100,.3)',player:'#22c55e',enemy:'#f43f5e',item:'#eab308',door:'#a78bfa',gold:'#fbbf24'};
+const logs=[];
+
+function newGame(){
+  grid=Array.from({length:H},()=>Array(W).fill(TILE.wall));
+  // Generate rooms
+  const rooms=[];
+  for(let attempt=0;attempt<50;attempt++){
+    const rw=4+Math.random()*8|0,rh=3+Math.random()*6|0;
+    const rx=1+Math.random()*(W-rw-2)|0,ry=1+Math.random()*(H-rh-2)|0;
+    // Check overlap
+    let overlap=false;
+    rooms.forEach(r=>{if(rx<r.x+r.w+1&&rx+rw+1>r.x&&ry<r.y+r.h+1&&ry+rh+1>r.y)overlap=true});
+    if(overlap)continue;
+    rooms.push({x:rx,y:ry,w:rw,h:rh});
+    for(let y=ry;y<ry+rh;y++)for(let x=rx;x<rx+rw;x++)grid[y][x]=TILE.floor;
+  }
+  // Connect rooms with corridors
+  for(let i=1;i<rooms.length;i++){
+    const a=rooms[i-1],b=rooms[i];
+    let cx=a.x+(a.w/2)|0,cy=a.y+(a.h/2)|0;
+    const tx=b.x+(b.w/2)|0,ty=b.y+(b.h/2)|0;
+    while(cx!==tx){grid[cy][cx]=TILE.floor;cx+=cx<tx?1:-1}
+    while(cy!==ty){grid[cy][cx]=TILE.floor;cy+=cy<ty?1:-1}
+  }
+
+  // Player
+  const startRoom=rooms[0];
+  player={x:startRoom.x+(startRoom.w/2)|0,y:startRoom.y+(startRoom.h/2)|0,hp:20,maxHp:20,atk:3,def:1,gold:0,level:1,xp:0};
+
+  // Enemies
+  enemies=[];
+  for(let i=1;i<rooms.length;i++){
+    const r=rooms[i];
+    const count=1+Math.random()*2|0;
+    for(let j=0;j<count;j++){
+      enemies.push({
+        x:r.x+Math.random()*r.w|0,y:r.y+Math.random()*r.h|0,
+        hp:3+Math.random()*5|0,atk:1+Math.random()*2|0,name:['Rat','Slime','Bat','Goblin'][Math.random()*4|0],
+        char:['r','s','b','g'][Math.random()*4|0],xp:5+Math.random()*10|0
+      });
+    }
+  }
+
+  // Items
+  items=[];
+  for(let i=1;i<rooms.length;i++){
+    const r=rooms[i];
+    if(Math.random()<.6){
+      items.push({x:r.x+Math.random()*r.w|0,y:r.y+Math.random()*r.h|0,type:'gold',amount:5+Math.random()*20|0});
+    }
+    if(Math.random()<.3){
+      items.push({x:r.x+Math.random()*r.w|0,y:r.y+Math.random()*r.h|0,type:'potion',amount:5});
+    }
+  }
+
+  fov=Array.from({length:H},()=>Array(W).fill(false));
+  turns=0;gameOver=false;logs.length=0;
+  computeFOV();render();
+  addLog('You enter the dungeon...');
+}
+
+function computeFOV(){
+  fov.forEach(r=>r.fill(false));
+  const r=7;
+  for(let a=0;a<360;a+=2){
+    const rad=a*Math.PI/180;
+    for(let d=0;d<r;d++){
+      const x=player.x+(Math.cos(rad)*d)|0,y=player.y+(Math.sin(rad)*d)|0;
+      if(x<0||x>=W||y<0||y>=H)break;
+      fov[y][x]=true;
+      if(grid[y][x]===TILE.wall)break;
+    }
+  }
+}
+
+function movePlayer(dx,dy){
+  if(gameOver)return;
+  const nx=player.x+dx,ny=player.y+dy;
+  if(nx<0||nx>=W||ny<0||ny>=H||grid[ny][nx]===TILE.wall)return;
+
+  // Check enemy
+  const enemy=enemies.find(e=>e.x===nx&&e.y===ny);
+  if(enemy){
+    const dmg=Math.max(1,player.atk+Math.random()*2|0-enemy.hp*.2);
+    enemy.hp-=dmg;
+    addLog(`You hit ${enemy.name} for ${dmg} damage!`);
+    if(enemy.hp<=0){
+      addLog(`${enemy.name} defeated! +${enemy.xp} XP`);
+      player.xp+=enemy.xp;
+      enemies=enemies.filter(e=>e!==enemy);
+      if(player.xp>=player.level*20){player.level++;player.maxHp+=3;player.atk+=1;player.xp=0;addLog(`Level up! Now level ${player.level}!`)}
+    }
+  }else{
+    player.x=nx;player.y=ny;
+    // Pick up items
+    items=items.filter(item=>{
+      if(item.x===nx&&item.y===ny){
+        if(item.type==='gold'){player.gold+=item.amount;addLog(`Picked up ${item.amount} gold!`)}
+        else if(item.type==='potion'){player.hp=Math.min(player.maxHp,player.hp+item.amount);addLog(`Healed ${item.amount} HP!`)}
+        return false;
+      }
+      return true;
+    });
+  }
+
+  // Enemy turns
+  enemies.forEach(e=>{
+    const dx=player.x-e.x,dy=player.y-e.y;
+    if(Math.abs(dx)+Math.abs(dy)<=1){
+      const dmg=Math.max(1,e.atk+Math.random()*2|0-player.def);
+      player.hp-=dmg;addLog(`${e.name} hits you for ${dmg}!`);
+      if(player.hp<=0){gameOver=true;addLog('You died! Press New Game to restart.')}
+    }else if(Math.abs(dx)+Math.abs(dy)<6){
+      // Move towards player
+      if(Math.abs(dx)>Math.abs(dy))e.x+=dx>0?1:-1;
+      else e.y+=dy>0?1:-1;
+    }
+  });
+
+  turns++;computeFOV();render();
+}
+
+function addLog(msg){logs.unshift(msg);if(logs.length>50)logs.length=50}
+
+function render(){
+  // Map
+  let html='';
+  for(let y=0;y<H;y++){
+    for(let x=0;x<W;x++){
+      if(!fov[y][x]){html+='<span style="color:rgba(255,255,255,.03)"> </span>';continue}
+      const tile=grid[y][x];
+      let ch=tile,color=COLORS[tile]||'rgba(255,255,255,.2)';
+      const enemy=enemies.find(e=>e.x===x&&e.y===y);
+      const item=items.find(i=>i.x===x&&i.y===y);
+      if(x===player.x&&y===player.y){ch='@';color=COLORS.player}
+      else if(enemy){ch=enemy.char;color=COLORS.enemy}
+      else if(item){ch=item.type==='gold'?'$':'!';color=item.type==='gold'?COLORS.gold:COLORS.item}
+      html+=`<span style="color:${color}">${ch}</span>`;
+    }
+    html+='\n';
+  }
+  document.getElementById('map').innerHTML=html;
+
+  // Stats
+  document.getElementById('stats').innerHTML=`<h3>Player</h3>
+    HP: ${player.hp}/${player.maxHp}<br>
+    ATK: ${player.atk} · DEF: ${player.def}<br>
+    Level: ${player.level} · XP: ${player.xp}/${player.level*20}<br>
+    Gold: ${player.gold}<br>
+    Turns: ${turns}`;
+
+  // Inventory
+  document.getElementById('inventory').innerHTML=`<h3>Enemies</h3>${enemies.length} remaining`;
+
+  // Log
+  document.getElementById('log').innerHTML=logs.slice(0,15).map(l=>`<div>${l}</div>`).join('');
+}
+
+document.addEventListener('keydown',e=>{
+  if(e.key==='ArrowUp'||e.key==='w')movePlayer(0,-1);
+  if(e.key==='ArrowDown'||e.key==='s')movePlayer(0,1);
+  if(e.key==='ArrowLeft'||e.key==='a')movePlayer(-1,0);
+  if(e.key==='ArrowRight'||e.key==='d')movePlayer(1,0);
+  e.preventDefault();
+});
+
+newGame();
+</script>
+</body>
+</html>

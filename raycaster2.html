@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Raycasting Engine 2.0</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}body{background:#000;overflow:hidden}canvas{display:block}
+.ui{position:fixed;top:12px;left:12px;z-index:10;display:flex;gap:6px;flex-wrap:wrap}
+.btn{padding:5px 10px;border-radius:6px;font-size:.7rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);color:rgba(255,255,255,.5);cursor:pointer;transition:all .2s;font-family:'Space Grotesk',sans-serif}
+.btn:hover{background:rgba(255,255,255,.1);color:#fff}
+.info{position:fixed;bottom:12px;left:12px;font-size:.55rem;font-family:'Space Mono',monospace;color:rgba(255,255,255,.15)}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="ui">
+  <button class="btn" onclick="generateMap()">New Map</button>
+  <button class="btn" onclick="toggleMinimap()">Minimap</button>
+  <button class="btn" onclick="texMode=!texMode">Textures</button>
+</div>
+<div class="info">WASD move · Mouse look · Click to lock pointer</div>
+
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+let W,H;
+function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight}
+addEventListener('resize',resize);
+
+const MAP_W=24,MAP_H=24;
+let map=[],px=2,py=2,dirX=1,dirY=0,planeX=0,planeY=.66;
+let keys={},showMinimap=false,texMode=true;
+let moveSpeed=.04,rotSpeed=.03;
+
+function generateMap(){
+  map=Array.from({length:MAP_H},()=>Array(MAP_W).fill(0));
+  // Random rooms
+  for(let y=0;y<MAP_H;y++)for(let x=0;x<MAP_W;x++){
+    if(x===0||y===0||x===MAP_W-1||y===MAP_H-1)map[y][x]=1;
+    else if(Math.random()<.2)map[y][x]=1+Math.random()*4|0;
+  }
+  // Clear spawn area
+  for(let y=1;y<4;y++)for(let x=1;x<4;x++)map[y][x]=0;
+  px=2;py=2;dirX=1;dirY=0;
+}
+
+function toggleMinimap(){showMinimap=!showMinimap}
+
+document.addEventListener('keydown',e=>{keys[e.key.toLowerCase()]=true});
+document.addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=false});
+canvas.addEventListener('click',()=>canvas.requestPointerLock());
+document.addEventListener('mousemove',e=>{
+  if(document.pointerLockElement!==canvas)return;
+  const rot=e.movementX*.003;
+  const ox=dirX;dirX=dirX*Math.cos(rot)-dirY*Math.sin(rot);dirY=ox*Math.sin(rot)+dirY*Math.cos(rot);
+  const op=planeX;planeX=planeX*Math.cos(rot)-planeY*Math.sin(rot);planeY=op*Math.sin(rot)+planeY*Math.cos(rot);
+});
+
+generateMap();
+
+function update(){
+  if(keys['w']){const nx=px+dirX*moveSpeed,ny=py+dirY*moveSpeed;if(!map[Math.floor(py)][Math.floor(nx)])px=nx;if(!map[Math.floor(ny)][Math.floor(px)])py=ny}
+  if(keys['s']){const nx=px-dirX*moveSpeed,ny=py-dirY*moveSpeed;if(!map[Math.floor(py)][Math.floor(nx)])px=nx;if(!map[Math.floor(ny)][Math.floor(px)])py=ny}
+  if(keys['a']){const nx=px-dirY*moveSpeed,ny=py+dirX*moveSpeed;if(!map[Math.floor(py)][Math.floor(nx)])px=nx;if(!map[Math.floor(ny)][Math.floor(px)])py=ny}
+  if(keys['d']){const nx=px+dirY*moveSpeed,ny=py-dirX*moveSpeed;if(!map[Math.floor(py)][Math.floor(nx)])px=nx;if(!map[Math.floor(ny)][Math.floor(px)])py=ny}
+  if(keys['q']){const ox=dirX;dirX=dirX*Math.cos(-rotSpeed)-dirY*Math.sin(-rotSpeed);dirY=ox*Math.sin(-rotSpeed)+dirY*Math.cos(-rotSpeed);const op=planeX;planeX=planeX*Math.cos(-rotSpeed)-planeY*Math.sin(-rotSpeed);planeY=op*Math.sin(-rotSpeed)+planeY*Math.cos(-rotSpeed)}
+  if(keys['e']){const ox=dirX;dirX=dirX*Math.cos(rotSpeed)-dirY*Math.sin(rotSpeed);dirY=ox*Math.sin(rotSpeed)+dirY*Math.cos(rotSpeed);const op=planeX;planeX=planeX*Math.cos(rotSpeed)-planeY*Math.sin(rotSpeed);planeY=op*Math.sin(rotSpeed)+planeY*Math.cos(rotSpeed)}
+}
+
+function drawScene(){
+  const imgData=ctx.createImageData(W,H);
+  const d=imgData.data;
+
+  for(let x=0;x<W;x++){
+    const camX=2*x/W-1;
+    const rayX=dirX+planeX*camX;
+    const rayY=dirY+planeY*camX;
+    let mapX=Math.floor(px),mapY=Math.floor(py);
+    const deltaDX=Math.abs(1/rayX),deltaDY=Math.abs(1/rayY);
+    let stepX,stepY,sideDistX,sideDistY;
+    if(rayX<0){stepX=-1;sideDistX=(px-mapX)*deltaDX}else{stepX=1;sideDistX=(mapX+1-px)*deltaDX}
+    if(rayY<0){stepY=-1;sideDistY=(py-mapY)*deltaDY}else{stepY=1;sideDistY=(mapY+1-py)*deltaDY}
+
+    let hit=0,side=0,wallType=1;
+    while(!hit){
+      if(sideDistX<sideDistY){sideDistX+=deltaDX;mapX+=stepX;side=0}else{sideDistY+=deltaDY;mapY+=stepY;side=1}
+      if(mapX<0||mapY<0||mapX>=MAP_W||mapY>=MAP_H)break;
+      if(map[mapY][mapX]>0){hit=1;wallType=map[mapY][mapX]}
+    }
+
+    let perpWallDist=side===0?(mapX-px+(1-stepX)/2)/rayX:(mapY-py+(1-stepY)/2)/rayY;
+    if(perpWallDist<.01)perpWallDist=.01;
+    const lineHeight=H/perpWallDist;
+    let drawStart=-lineHeight/2+H/2|0,drawEnd=lineHeight/2+H/2|0;
+    if(drawStart<0)drawStart=0;if(drawEnd>=H)drawEnd=H-1;
+
+    // Wall colors by type
+    const colors=[
+      [120,80,60],[80,120,160],[160,80,120],[120,160,80],[160,160,80]
+    ];
+    const base=colors[(wallType-1)%colors.length];
+    const shade=side?.7:1;
+    const distShade=Math.max(.15,1-perpWallDist/15);
+
+    // Textured wall
+    if(texMode){
+      let wallX=side===0?py+perpWallDist*rayY:px+perpWallDist*rayX;
+      wallX-=Math.floor(wallX);
+      for(let y=drawStart;y<=drawEnd;y++){
+        const texY=((y-(-lineHeight/2+H/2))/lineHeight*64)|0;
+        const checker=(wallX*8|0)^(texY*8|0);
+        const texShade=checker%2?.8:1;
+        const i=(y*W+x)*4;
+        d[i]=base[0]*shade*distShade*texShade;
+        d[i+1]=base[1]*shade*distShade*texShade;
+        d[i+2]=base[2]*shade*distShade*texShade;
+        d[i+3]=255;
+      }
+    }else{
+      for(let y=drawStart;y<=drawEnd;y++){
+        const i=(y*W+x)*4;
+        d[i]=base[0]*shade*distShade;d[i+1]=base[1]*shade*distShade;d[i+2]=base[2]*shade*distShade;d[i+3]=255;
+      }
+    }
+
+    // Floor/ceiling gradient
+    for(let y=0;y<drawStart;y++){
+      const i=(y*W+x)*4;const t=y/H;
+      d[i]=10+t*15;d[i+1]=10+t*10;d[i+2]=20+t*20;d[i+3]=255;
+    }
+    for(let y=drawEnd;y<H;y++){
+      const i=(y*W+x)*4;const t=(H-y)/H;
+      d[i]=25+t*15;d[i+1]=20+t*10;d[i+2]=15+t*10;d[i+3]=255;
+    }
+  }
+  ctx.putImageData(imgData,0,0);
+
+  if(showMinimap){
+    const s=4;
+    ctx.fillStyle='rgba(0,0,0,.7)';ctx.fillRect(5,5,MAP_W*s+10,MAP_H*s+10);
+    for(let y=0;y<MAP_H;y++)for(let x=0;x<MAP_W;x++){
+      ctx.fillStyle=map[y][x]?'rgba(139,92,246,.4)':'rgba(20,20,30,.4)';
+      ctx.fillRect(10+x*s,10+y*s,s,s);
+    }
+    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(10+px*s,10+py*s,2,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle='rgba(255,255,255,.3)';ctx.beginPath();
+    ctx.moveTo(10+px*s,10+py*s);ctx.lineTo(10+(px+dirX*2)*s,10+(py+dirY*2)*s);ctx.stroke();
+  }
+}
+
+function loop(){update();drawScene();requestAnimationFrame(loop)}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

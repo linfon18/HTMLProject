@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Markdown Table Editor</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#050508;--border:rgba(255,255,255,.06);--t1:#fff;--t2:rgba(255,255,255,.55);--t3:rgba(255,255,255,.25)}
+body{background:var(--bg);color:var(--t2);font-family:'Space Grotesk',sans-serif;height:100vh;display:flex;flex-direction:column;-webkit-font-smoothing:antialiased}
+.top{padding:8px 14px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap}
+.top h1{font-size:.85rem;font-weight:700;color:var(--t1);margin-right:auto}
+.btn{padding:5px 10px;border-radius:6px;font-size:.7rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--t2);cursor:pointer;transition:all .2s}
+.btn:hover{background:rgba(255,255,255,.1);color:var(--t1)}
+.main{flex:1;display:flex;overflow:hidden}
+.table-area{flex:1;padding:16px;overflow:auto}
+table{border-collapse:collapse;width:100%;font-size:.78rem}
+th{background:rgba(139,92,246,.08);border:1px solid var(--border);padding:0}
+th input{width:100%;padding:8px;background:transparent;border:none;color:#a78bfa;font-weight:700;font-size:.72rem;font-family:inherit;outline:none;text-align:center}
+td{border:1px solid var(--border);padding:0}
+td input{width:100%;padding:6px 8px;background:transparent;border:none;color:var(--t2);font-size:.75rem;font-family:'JetBrains Mono',monospace;outline:none}
+td input:focus{background:rgba(139,92,246,.05)}
+.output{width:400px;border-left:1px solid var(--border);display:flex;flex-direction:column}
+.pane-h{padding:4px 12px;font-size:.58rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);border-bottom:1px solid var(--border);background:rgba(255,255,255,.015);display:flex;align-items:center;gap:6px}
+.pane-h .dot{width:5px;height:5px;border-radius:50%}
+textarea{flex:1;resize:none;border:none;outline:none;padding:14px;background:#0a0a10;color:#e6edf3;font-family:'JetBrains Mono',monospace;font-size:.72rem;line-height:1.6}
+.preview{padding:14px;font-size:.78rem;line-height:1.8;overflow-y:auto;flex:1}
+.preview table{border-collapse:collapse;width:100%;margin-bottom:12px}
+.preview th,.preview td{border:1px solid var(--border);padding:6px 10px;text-align:left}
+.preview th{background:rgba(139,92,246,.06);color:#a78bfa;font-weight:700}
+.preview tr:nth-child(even){background:rgba(255,255,255,.015)}
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>Markdown Table Editor</h1>
+  <button class="btn" onclick="addRow()">+ Row</button>
+  <button class="btn" onclick="addCol()">+ Column</button>
+  <button class="btn" onclick="removeRow()">- Row</button>
+  <button class="btn" onclick="removeCol()">- Column</button>
+  <button class="btn" onclick="loadSample()">Sample</button>
+  <button class="btn" onclick="copyMd()">Copy MD</button>
+</div>
+<div class="main">
+  <div class="table-area">
+    <table id="grid"></table>
+    <div style="margin-top:10px">
+      <button class="btn" onclick="addRow()">+ Add Row</button>
+      <button class="btn" onclick="addCol()">+ Add Column</button>
+    </div>
+  </div>
+  <div class="output">
+    <div class="pane-h"><span class="dot" style="background:#8b5cf6"></span>Markdown</div>
+    <textarea id="md" readonly></textarea>
+    <div class="pane-h"><span class="dot" style="background:#22c55e"></span>Preview</div>
+    <div class="preview" id="preview"></div>
+  </div>
+</div>
+
+<script>
+let headers=['Name','Age','City','Role'];
+let rows=[
+  ['Alice','28','Beijing','Engineer'],
+  ['Bob','32','Shanghai','Designer'],
+  ['Charlie','25','Shenzhen','PM']
+];
+
+function render(){
+  const table=document.getElementById('grid');
+  let html='<thead><tr>';
+  headers.forEach((h,i)=>{
+    html+=`<th><input value="${h}" oninput="headers[${i}]=this.value;generate()"></th>`;
+  });
+  html+='</tr></thead><tbody>';
+  rows.forEach((row,ri)=>{
+    html+='<tr>';
+    row.forEach((cell,ci)=>{
+      html+=`<td><input value="${cell}" oninput="rows[${ri}][${ci}]=this.value;generate()"></td>`;
+    });
+    html+='</tr>';
+  });
+  html+='</tbody>';
+  table.innerHTML=html;
+  generate();
+}
+
+function generate(){
+  // Markdown
+  const widths=headers.map((h,i)=>{
+    let max=h.length;
+    rows.forEach(r=>{max=Math.max(max,(r[i]||'').length)});
+    return max;
+  });
+  let md='| '+headers.map((h,i)=>h.padEnd(widths[i])).join(' | ')+' |\n';
+  md+='| '+widths.map(w=>'-'.repeat(w)).join(' | ')+' |\n';
+  rows.forEach(row=>{
+    md+='| '+row.map((c,i)=>(c||'').padEnd(widths[i])).join(' | ')+' |\n';
+  });
+  document.getElementById('md').value=md;
+
+  // Preview
+  let preview='<table><thead><tr>';
+  headers.forEach(h=>preview+=`<th>${h}</th>`);
+  preview+='</tr></thead><tbody>';
+  rows.forEach(row=>{
+    preview+='<tr>';
+    row.forEach(cell=>preview+=`<td>${cell||''}</td>`);
+    preview+='</tr>';
+  });
+  preview+='</tbody></table>';
+  document.getElementById('preview').innerHTML=preview;
+}
+
+function addRow(){
+  rows.push(headers.map(()=>''));
+  render();
+}
+function addCol(){
+  headers.push('Column '+(headers.length+1));
+  rows.forEach(r=>r.push(''));
+  render();
+}
+function removeRow(){
+  if(rows.length>1){rows.pop();render()}
+}
+function removeCol(){
+  if(headers.length>1){headers.pop();rows.forEach(r=>r.pop());render()}
+}
+
+function loadSample(){
+  headers=['Feature','Status','Priority','Assignee','Due Date'];
+  rows=[
+    ['Auth System','Done','P0','Alice','2024-01-15'],
+    ['Dashboard','In Progress','P0','Bob','2024-02-01'],
+    ['API v2','Review','P1','Charlie','2024-02-15'],
+    ['Docs Update','Todo','P2','Dave','2024-03-01'],
+    ['Mobile App','Planning','P1','Eve','2024-04-01']
+  ];
+  render();
+}
+
+function copyMd(){navigator.clipboard.writeText(document.getElementById('md').value)}
+
+render();
+</script>
+</body>
+</html>

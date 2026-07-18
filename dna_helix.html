@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DNA Helix</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}body{background:#050508;overflow:hidden}canvas{display:block}
+.ui{position:fixed;top:12px;left:12px;z-index:10;display:flex;gap:6px;flex-wrap:wrap}
+.btn{padding:5px 10px;border-radius:6px;font-size:.7rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);color:rgba(255,255,255,.5);cursor:pointer;transition:all .2s;font-family:'Space Grotesk',sans-serif}
+.btn:hover{background:rgba(255,255,255,.1);color:#fff}
+.stats{position:fixed;bottom:12px;left:12px;font-size:.62rem;font-family:'Space Mono',monospace;color:rgba(255,255,255,.2)}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="ui">
+  <button class="btn" onclick="speed*=1.5">Faster</button>
+  <button class="btn" onclick="speed/=1.5">Slower</button>
+  <button class="btn" onclick="pairs=Math.min(60,pairs+5)">More Pairs</button>
+  <button class="btn" onclick="pairs=Math.max(10,pairs-5)">Fewer Pairs</button>
+  <button class="btn" onclick="colorMode=(colorMode+1)%3">Color</button>
+</div>
+<div class="stats" id="stats"></div>
+
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+let W,H;
+function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight}
+addEventListener('resize',resize);
+
+let speed=1,pairs=30,colorMode=0,time=0;
+
+const BASE_PAIRS=['AT','CG','TA','GC'];
+const BASE_COLORS={A:'#22c55e',T:'#f43f5e',C:'#3b82f6',G:'#eab308'};
+
+function loop(){
+  ctx.fillStyle='rgba(5,5,8,.12)';ctx.fillRect(0,0,W,H);
+  time+=.02*speed;
+
+  const cx=W/2,cy=H/2;
+  const helixRadius=Math.min(W,H)*.15;
+  const spacing=Math.min(W,H)*1.2/pairs;
+
+  const points=[];
+  for(let i=0;i<pairs;i++){
+    const y=cy-pairs*spacing/2+i*spacing;
+    const angle=i*.3+time;
+    const x1=cx+Math.cos(angle)*helixRadius;
+    const x2=cx+Math.cos(angle+Math.PI)*helixRadius;
+    const z1=Math.sin(angle);
+    const z2=Math.sin(angle+Math.PI);
+    points.push({x1,y,x2,z1,z2,i});
+  }
+
+  // Sort by depth for proper overlap
+  points.forEach(p=>{
+    const depth=(p.z1+p.z2)/2;
+
+    // Connecting bar
+    ctx.beginPath();ctx.moveTo(p.x1,p.y);ctx.lineTo(p.x2,p.y);
+    const bp=BASE_PAIRS[p.i%4];
+    const alpha=.3+Math.abs(depth)*.4;
+    if(colorMode===0){
+      ctx.strokeStyle=`rgba(${BASE_COLORS[bp[0]]==='#22c55e'?'34,197,94':BASE_COLORS[bp[0]]==='#f43f5e'?'244,63,94':BASE_COLORS[bp[0]]==='#3b82f6'?'59,130,246':'234,179,8'},${alpha})`;
+    }else if(colorMode===1){
+      ctx.strokeStyle=`hsla(${p.i/pairs*360},70%,55%,${alpha})`;
+    }else{
+      ctx.strokeStyle=`rgba(255,255,255,${alpha*.4})`;
+    }
+    ctx.lineWidth=3;ctx.stroke();
+
+    // Base pair text
+    ctx.fillStyle=`rgba(255,255,255,${alpha*.3})`;
+    ctx.font='10px Space Mono';ctx.textAlign='center';
+    ctx.fillText(bp[0],p.x1+(p.x2-p.x1)*.3,p.y+3);
+    ctx.fillText(bp[1],p.x1+(p.x2-p.x1)*.7,p.y+3);
+  });
+
+  // Draw strands (back first, then front)
+  for(let pass=0;pass<2;pass++){
+    for(let i=0;i<points.length-1;i++){
+      const curr=points[i],next=points[i+1];
+      // Strand 1
+      if((pass===0&&curr.z1<0)||(pass===1&&curr.z1>=0)){
+        const alpha=.5+Math.abs(curr.z1)*.5;
+        ctx.beginPath();ctx.moveTo(curr.x1,curr.y);ctx.lineTo(next.x1,next.y);
+        const hue=colorMode===2?curr.z1*180+180:200;
+        ctx.strokeStyle=`hsla(${hue},70%,55%,${alpha})`;ctx.lineWidth=2.5;ctx.stroke();
+      }
+      // Strand 2
+      if((pass===0&&curr.z2<0)||(pass===1&&curr.z2>=0)){
+        const alpha=.5+Math.abs(curr.z2)*.5;
+        ctx.beginPath();ctx.moveTo(curr.x2,curr.y);ctx.lineTo(next.x2,next.y);
+        const hue=colorMode===2?curr.z2*180+360:340;
+        ctx.strokeStyle=`hsla(${hue},70%,55%,${alpha})`;ctx.lineWidth=2.5;ctx.stroke();
+      }
+    }
+
+    // Draw nodes
+    points.forEach(p=>{
+      const r=5;
+      [{x:p.x1,z:p.z1,hue:200},{x:p.x2,z:p.z2,hue:340}].forEach(n=>{
+        if((pass===0&&n.z<0)||(pass===1&&n.z>=0)){
+          const alpha=.4+Math.abs(n.z)*.6;
+          const h=colorMode===2?n.z*180+180:n.hue;
+          ctx.beginPath();ctx.arc(n.x,p.y,r,0,Math.PI*2);
+          ctx.fillStyle=`hsla(${h},70%,55%,${alpha})`;ctx.fill();
+          const g=ctx.createRadialGradient(n.x,p.y,0,n.x,p.y,r*2);
+          g.addColorStop(0,`hsla(${h},70%,55%,${alpha*.2})`);g.addColorStop(1,'transparent');
+          ctx.fillStyle=g;ctx.beginPath();ctx.arc(n.x,p.y,r*2,0,Math.PI*2);ctx.fill();
+        }
+      });
+    });
+  }
+
+  document.getElementById('stats').textContent=`${pairs} base pairs · speed ${speed.toFixed(1)}x`;
+  requestAnimationFrame(loop);
+}
+resize();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

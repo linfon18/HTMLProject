@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Diffie-Hellman Visualizer</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#050508;--border:rgba(255,255,255,.06);--t1:#fff;--t2:rgba(255,255,255,.55);--t3:rgba(255,255,255,.25)}
+body{background:var(--bg);color:var(--t2);font-family:'Space Grotesk',sans-serif;min-height:100vh;padding:20px;-webkit-font-smoothing:antialiased}
+.top{display:flex;align-items:center;gap:10px;margin-bottom:20px}
+.top h1{font-size:1.1rem;font-weight:700;color:var(--t1);margin-right:auto}
+.btn{padding:6px 12px;border-radius:7px;font-size:.72rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--t2);cursor:pointer;transition:all .2s}
+.btn:hover{background:rgba(255,255,255,.1);color:var(--t1)}
+.btn.primary{background:rgba(139,92,246,.12);border-color:rgba(139,92,246,.25);color:#a78bfa}
+.grid{display:grid;grid-template-columns:1fr 80px 1fr;gap:16px;align-items:start}
+.card{padding:16px;border-radius:12px;background:rgba(255,255,255,.025);border:1px solid var(--border)}
+.card h2{font-size:.75rem;font-weight:700;color:var(--t1);margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.card h2 .dot{width:8px;height:8px;border-radius:50%}
+.field{margin-bottom:10px}
+.field label{display:block;font-size:.58rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t3);margin-bottom:4px}
+.field input{width:100%;padding:8px 10px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:6px;color:var(--t1);font-family:'JetBrains Mono',monospace;font-size:.8rem;outline:none}
+.field input:focus{border-color:rgba(139,92,246,.3)}
+.arrow{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:200px;font-size:1.5rem;color:var(--t3)}
+.arrow .label{font-size:.6rem;font-family:'JetBrains Mono',monospace}
+.flow{margin-top:16px;padding:14px;border-radius:10px;background:rgba(0,0,0,.2);border:1px solid var(--border)}
+.flow h3{font-size:.6rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:10px}
+.step{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.02);font-size:.72rem}
+.step .num{width:20px;height:20px;border-radius:50%;background:rgba(139,92,246,.1);color:#a78bfa;font-size:.6rem;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.step .desc{color:var(--t3)}.step .val{color:var(--t1);font-family:'JetBrains Mono',monospace;margin-left:auto}
+.canvas-wrap{margin-top:16px}
+canvas{width:100%;height:200px;border-radius:8px;background:rgba(0,0,0,.2);border:1px solid var(--border)}
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>Diffie-Hellman Key Exchange</h1>
+  <button class="btn primary" onclick="runDH()">Run Exchange</button>
+  <button class="btn" onclick="animateDH()">Animate</button>
+  <button class="btn" onclick="newParams()">New Parameters</button>
+</div>
+<div class="grid">
+  <div class="card">
+    <h2><span class="dot" style="background:#3b82f6"></span> Alice</h2>
+    <div class="field"><label>Private Key (a)</label><input id="aPriv" value="7" readonly></div>
+    <div class="field"><label>Public Key (A)</label><input id="aPub" readonly></div>
+    <div class="field"><label>Shared Secret</label><input id="aSecret" readonly></div>
+  </div>
+  <div class="arrow">
+    <div>A → B</div><div class="label" id="arrowLabel">A</div>
+    <div>←</div><div class="label" id="arrowLabel2">B</div>
+    <div>B → A</div>
+  </div>
+  <div class="card">
+    <h2><span class="dot" style="background:#ef4444"></span> Bob</h2>
+    <div class="field"><label>Private Key (b)</label><input id="bPriv" value="11" readonly></div>
+    <div class="field"><label>Public Key (B)</label><input id="bPub" readonly></div>
+    <div class="field"><label>Shared Secret</label><input id="bSecret" readonly></div>
+  </div>
+</div>
+<div class="grid" style="grid-template-columns:1fr 1fr;margin-top:16px">
+  <div class="card">
+    <h2>Public Parameters</h2>
+    <div class="field"><label>Prime (p)</label><input id="prime" value="23"></div>
+    <div class="field"><label>Generator (g)</label><input id="gen" value="5"></div>
+  </div>
+  <div class="flow" id="flow">
+    <h3>Exchange Flow</h3>
+    <div style="color:var(--t3);font-size:.72rem">Click "Run Exchange" to begin</div>
+  </div>
+</div>
+<div class="canvas-wrap">
+  <canvas id="c"></canvas>
+</div>
+
+<script>
+function modPow(base,exp,mod){
+  let result=1n;base=BigInt(base)%BigInt(mod);exp=BigInt(exp);mod=BigInt(mod);
+  while(exp>0n){if(exp&1n)result=result*base%mod;base=base*base%mod;exp>>=1n}
+  return Number(result);
+}
+
+function newParams(){
+  const primes=[[23,5],[29,2],[37,2],[41,6],[53,2],[67,2],[79,3],[97,5],[101,2],[113,3]];
+  const[p,g]=primes[Math.random()*primes.length|0];
+  document.getElementById('prime').value=p;
+  document.getElementById('gen').value=g;
+  document.getElementById('aPriv').value=2+Math.floor(Math.random()*10);
+  document.getElementById('bPriv').value=2+Math.floor(Math.random()*10);
+}
+
+function runDH(){
+  const p=+document.getElementById('prime').value;
+  const g=+document.getElementById('gen').value;
+  const a=+document.getElementById('aPriv').value;
+  const b=+document.getElementById('bPriv').value;
+  const A=modPow(g,a,p);
+  const B=modPow(g,b,p);
+  const secretA=modPow(B,a,p);
+  const secretB=modPow(A,b,p);
+  document.getElementById('aPub').value=A;
+  document.getElementById('bPub').value=B;
+  document.getElementById('aSecret').value=secretA;
+  document.getElementById('bSecret').value=secretB;
+
+  const flowEl=document.getElementById('flow');
+  flowEl.innerHTML=`<h3>Exchange Flow</h3>
+    <div class="step"><span class="num">1</span><span class="desc">Public params</span><span class="val">p=${p}, g=${g}</span></div>
+    <div class="step"><span class="num">2</span><span class="desc">Alice computes A = g^a mod p</span><span class="val">${g}^${a} mod ${p} = ${A}</span></div>
+    <div class="step"><span class="num">3</span><span class="desc">Bob computes B = g^b mod p</span><span class="val">${g}^${b} mod ${p} = ${B}</span></div>
+    <div class="step"><span class="num">4</span><span class="desc">Alice sends A to Bob</span><span class="val">${A}</span></div>
+    <div class="step"><span class="num">5</span><span class="desc">Bob sends B to Alice</span><span class="val">${B}</span></div>
+    <div class="step"><span class="num">6</span><span class="desc">Alice computes s = B^a mod p</span><span class="val">${B}^${a} mod ${p} = ${secretA}</span></div>
+    <div class="step"><span class="num">7</span><span class="desc">Bob computes s = A^b mod p</span><span class="val">${A}^${b} mod ${p} = ${secretB}</span></div>
+    <div class="step"><span class="num">✓</span><span class="desc" style="color:#22c55e">Shared secret</span><span class="val" style="color:#22c55e">${secretA===secretB?'MATCH! '+secretA:'MISMATCH!'}</span></div>`;
+
+  drawVisualization();
+}
+
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+
+function drawVisualization(){
+  const c=canvas;c.width=c.offsetWidth*2;c.height=c.offsetHeight*2;
+  const W=c.width,H=c.height;
+  ctx.fillStyle='#050508';ctx.fillRect(0,0,W,H);
+
+  const p=+document.getElementById('prime').value;
+  const g=+document.getElementById('gen').value;
+
+  // Draw modular exponentiation curve
+  ctx.beginPath();
+  for(let x=0;x<p;x++){
+    const val=modPow(g,x,p);
+    const px=x/p*W*.9+W*.05;
+    const py=H-val/p*H*.8-H*.1;
+    if(x===0)ctx.moveTo(px,py);else ctx.lineTo(px,py);
+  }
+  ctx.strokeStyle='rgba(139,92,246,.5)';ctx.lineWidth=2;ctx.stroke();
+
+  // Mark Alice and Bob's points
+  const a=+document.getElementById('aPriv').value;
+  const b=+document.getElementById('bPriv').value;
+  const A=modPow(g,a,p);
+  const B=modPow(g,b,p);
+
+  [{x:a,y:A,color:'#3b82f6',label:'Alice (a='+a+', A='+A+')'},
+   {x:b,y:B,color:'#ef4444',label:'Bob (b='+b+', B='+B+')'}].forEach(pt=>{
+    const px=pt.x/p*W*.9+W*.05;
+    const py=H-pt.y/p*H*.8-H*.1;
+    ctx.beginPath();ctx.arc(px,py,8,0,Math.PI*2);
+    ctx.fillStyle=pt.color;ctx.fill();
+    const g2=ctx.createRadialGradient(px,py,0,px,py,20);
+    g2.addColorStop(0,pt.color+'40');g2.addColorStop(1,'transparent');
+    ctx.fillStyle=g2;ctx.beginPath();ctx.arc(px,py,20,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,.4)';ctx.font='16px Space Grotesk';ctx.textAlign='center';
+    ctx.fillText(pt.label,px,py-15);
+  });
+
+  // Labels
+  ctx.fillStyle='rgba(255,255,255,.2)';ctx.font='14px Space Grotesk';ctx.textAlign='center';
+  ctx.fillText('g^x mod p',W/2,H-10);
+}
+
+async function animateDH(){
+  document.getElementById('aPub').value='...';
+  document.getElementById('bPub').value='...';
+  document.getElementById('aSecret').value='';
+  document.getElementById('bSecret').value='';
+  await delay(500);runDH();
+}
+
+function delay(ms){return new Promise(r=>setTimeout(r,ms))}
+
+runDH();
+</script>
+</body>
+</html>

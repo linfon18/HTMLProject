@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quadtree Particles</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Space+Mono:wght@400&display=swap');
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+body{background:#050508;overflow:hidden;font-family:'Space Grotesk',sans-serif}
+canvas{display:block}
+.ui{position:fixed;top:12px;left:12px;z-index:10;display:flex;gap:6px;flex-wrap:wrap}
+.btn{padding:5px 10px;border-radius:6px;font-size:.7rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);color:rgba(255,255,255,.5);cursor:pointer;transition:all .2s}
+.btn:hover{background:rgba(255,255,255,.1);color:#fff}
+.btn.active{background:rgba(139,92,246,.12);border-color:rgba(139,92,246,.25);color:#a78bfa}
+.stats{position:fixed;bottom:12px;left:12px;font-size:.62rem;font-family:'Space Mono',monospace;color:rgba(255,255,255,.2)}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="ui">
+  <button class="btn" onclick="addParticles(500)">+500</button>
+  <button class="btn" onclick="addParticles(2000)">+2000</button>
+  <button class="btn" onclick="particles=[]">Clear</button>
+  <button class="btn" id="qtBtn" onclick="showQT=!showQT;qtBtn.classList.toggle('active')">Quadtree</button>
+  <button class="btn" onclick="gravMode=gravMode===0?1:0">Gravity Mode</button>
+</div>
+<div class="stats" id="stats"></div>
+
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+let W,H;
+function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight}
+addEventListener('resize',resize);
+
+let particles=[];
+let showQT=false,gravMode=0;
+let mouseX=-999,mouseY=-999,mouseDown=false;
+canvas.addEventListener('mousemove',e=>{mouseX=e.clientX;mouseY=e.clientY});
+canvas.addEventListener('mousedown',()=>mouseDown=true);
+canvas.addEventListener('mouseup',()=>mouseDown=false);
+
+// Quadtree
+class Quad{
+  constructor(x,y,w,h,capacity=8){
+    this.x=x;this.y=y;this.w=w;this.h=h;this.capacity=capacity;
+    this.points=[];this.divided=false;this.nw=null;this.ne=null;this.sw=null;this.se=null;
+  }
+  contains(p){return p.x>=this.x&&p.x<this.x+this.w&&p.y>=this.y&&p.y<this.y+this.h}
+  subdivide(){
+    const{ x,y,w,h,capacity}=this;
+    const hw=w/2,hh=h/2;
+    this.nw=new Quad(x,y,hw,hh,capacity);
+    this.ne=new Quad(x+hw,y,hw,hh,capacity);
+    this.sw=new Quad(x,y+hh,hw,hh,capacity);
+    this.se=new Quad(x+hw,y+hh,hw,hh,capacity);
+    this.divided=true;
+    this.points.forEach(p=>{
+      if(this.nw.contains(p))this.nw.insert(p);
+      else if(this.ne.contains(p))this.ne.insert(p);
+      else if(this.sw.contains(p))this.sw.insert(p);
+      else if(this.se.contains(p))this.se.insert(p);
+    });
+    this.points=[];
+  }
+  insert(p){
+    if(!this.contains(p))return false;
+    if(!this.divided){
+      if(this.points.length<this.capacity){this.points.push(p);return true}
+      this.subdivide();
+    }
+    return this.nw.insert(p)||this.ne.insert(p)||this.sw.insert(p)||this.se.insert(p);
+  }
+  queryRange(rx,ry,rw,rh,found=[]){
+    if(this.x+this.w<rx||this.x>rx+rw||this.y+this.h<ry||this.y>ry+rh)return found;
+    if(!this.divided)this.points.forEach(p=>{if(p.x>=rx&&p.x<=rx+rw&&p.y>=ry&&p.y<=ry+rh)found.push(p)});
+    else{this.nw.queryRange(rx,ry,rw,rh,found);this.ne.queryRange(rx,ry,rw,rh,found);this.sw.queryRange(rx,ry,rw,rh,found);this.se.queryRange(rx,ry,rw,rh,found)}
+    return found;
+  }
+  draw(){
+    ctx.strokeStyle='rgba(139,92,246,.1)';ctx.lineWidth=.5;
+    ctx.strokeRect(this.x,this.y,this.w,this.h);
+    if(this.divided){this.nw.draw();this.ne.draw();this.sw.draw();this.se.draw()}
+  }
+}
+
+function addParticles(n){
+  for(let i=0;i<n;i++){
+    particles.push({
+      x:Math.random()*W,y:Math.random()*H,
+      vx:(Math.random()-.5)*4,vy:(Math.random()-.5)*4,
+      r:1+Math.random()*2,
+      hue:Math.random()*60+220
+    });
+  }
+}
+
+addParticles(1000);
+
+let frames=0,fpsT=performance.now();
+function loop(t){
+  ctx.fillStyle='rgba(5,5,8,.15)';ctx.fillRect(0,0,W,H);
+
+  // Build quadtree
+  const qt=new Quad(0,0,W,H);
+  particles.forEach(p=>qt.insert(p));
+
+  // Physics
+  particles.forEach(p=>{
+    // Mouse interaction
+    if(mouseDown){
+      const dx=mouseX-p.x,dy=mouseY-p.y;
+      const dist=Math.sqrt(dx*dx+dy*dy)+1;
+      if(dist<150){
+        const f=500/(dist+10);
+        p.vx+=dx/dist*f;p.vy+=dy/dist*f;
+      }
+    }
+
+    // Gravity mode
+    if(gravMode)p.vy+=.1;
+
+    // Nearby particle interaction via quadtree
+    const nearby=qt.queryRange(p.x-50,p.y-50,100,100);
+    nearby.forEach(other=>{
+      if(other===p)return;
+      const dx=other.x-p.x,dy=other.y-p.y;
+      const dist2=dx*dx+dy*dy;
+      if(dist2<100&&dist2>1){
+        const dist=Math.sqrt(dist2);
+        const f=.3/dist;
+        p.vx-=dx/dist*f;p.vy-=dy/dist*f;
+      }
+    });
+
+    // Damping
+    p.vx*=.99;p.vy*=.99;
+    p.x+=p.vx;p.y+=p.vy;
+
+    // Bounce
+    if(p.x<0){p.x=0;p.vx=Math.abs(p.vx)}
+    if(p.x>W){p.x=W;p.vx=-Math.abs(p.vx)}
+    if(p.y<0){p.y=0;p.vy=Math.abs(p.vy)}
+    if(p.y>H){p.y=H;p.vy=-Math.abs(p.vy)}
+
+    // Draw
+    ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+    ctx.fillStyle=`hsla(${p.hue},60%,55%,.6)`;ctx.fill();
+  });
+
+  if(showQT)qt.draw();
+
+  frames++;
+  if(t-fpsT>500){
+    document.getElementById('stats').textContent=`${particles.length} particles · ${Math.round(frames*1000/(t-fpsT))} FPS`;
+    frames=0;fpsT=t;
+  }
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

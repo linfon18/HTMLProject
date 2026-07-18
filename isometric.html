@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Isometric Engine</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Space+Mono:wght@400&display=swap');
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#050508;--border:rgba(255,255,255,.06);--t1:#fff;--t2:rgba(255,255,255,.55);--t3:rgba(255,255,255,.25)}
+body{background:var(--bg);color:var(--t2);font-family:'Space Grotesk',sans-serif;height:100vh;display:flex;flex-direction:column;-webkit-font-smoothing:antialiased}
+.top{padding:8px 14px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap}
+.top h1{font-size:.85rem;font-weight:700;color:var(--t1);margin-right:auto}
+.btn{padding:5px 10px;border-radius:6px;font-size:.7rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--t2);cursor:pointer;transition:all .2s}
+.btn:hover{background:rgba(255,255,255,.1);color:var(--t1)}
+.btn.active{background:rgba(139,92,246,.12);border-color:rgba(139,92,246,.25);color:#a78bfa}
+canvas{flex:1;display:block}
+.tool-palette{position:fixed;right:12px;top:60px;display:flex;flex-direction:column;gap:4px;z-index:10}
+.tool{width:40px;height:40px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;cursor:pointer;background:rgba(10,10,15,.8);backdrop-filter:blur(16px);border:1px solid var(--border);transition:all .2s}
+.tool:hover{background:rgba(255,255,255,.1)}
+.tool.active{border-color:rgba(139,92,246,.3);background:rgba(139,92,246,.1)}
+.info{position:fixed;bottom:12px;left:12px;font-size:.62rem;font-family:'Space Mono',monospace;color:rgba(255,255,255,.2)}
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>Isometric Engine</h1>
+  <button class="btn" onclick="clearMap()">Clear</button>
+  <button class="btn" onclick="randomCity()">Random City</button>
+  <button class="btn" onclick="exportPNG()">Export PNG</button>
+</div>
+<canvas id="c"></canvas>
+<div class="tool-palette" id="palette"></div>
+<div class="info">Click to place · Right-click to erase · Scroll to zoom</div>
+
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+let W,H;
+function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight;render()}
+addEventListener('resize',resize);
+
+const TILE_W=40,TILE_H=20;
+const MAP_SIZE=20;
+let grid=Array.from({length:MAP_SIZE},()=>Array(MAP_SIZE).fill(0));
+let viewX=0,viewY=-200,zoom=1;
+let selectedTool=1;
+let hovering={x:-1,y:-1};
+
+const BLOCKS=[
+  {name:'Eraser',color:null},
+  {name:'Grass',top:'#4a7c3f',left:'#3a6230',right:'#2d4d25'},
+  {name:'Stone',top:'#8a8a8a',left:'#6a6a6a',right:'#555'},
+  {name:'Water',top:'#2980b9',left:'#1a6090',right:'#154d73',height:.3},
+  {name:'Sand',top:'#d4a745',left:'#b88f3a',right:'#9a7830'},
+  {name:'Wood',top:'#8b5e3c',left:'#6b4226',right:'#543319'},
+  {name:'Brick',top:'#c0392b',left:'#962d22',right:'#78241c'},
+  {name:'Glass',top:'rgba(200,230,255,.4)',left:'rgba(180,210,240,.3)',right:'rgba(160,190,220,.3)'},
+  {name:'Gold',top:'#ffd700',left:'#daa520',right:'#b8860b'},
+  {name:'Ice',top:'#a8d8ea',left:'#7ec8d8',right:'#5ab8c8'},
+];
+
+// Build palette
+const paletteEl=document.getElementById('palette');
+BLOCKS.forEach((b,i)=>{
+  const el=document.createElement('div');
+  el.className='tool'+(i===selectedTool?' active':'');
+  el.title=b.name;
+  el.style.background=b.color?'transparent':b.top||'rgba(255,255,255,.06)';
+  if(b.top){el.style.background=b.top}
+  el.textContent=i===0?'🗑':'';
+  el.addEventListener('click',()=>{
+    selectedTool=i;
+    paletteEl.querySelectorAll('.tool').forEach(t=>t.classList.remove('active'));
+    el.classList.add('active');
+  });
+  paletteEl.appendChild(el);
+});
+
+function isoToScreen(gx,gy){
+  const tx=(gx-gy)*TILE_W/2*zoom;
+  const ty=(gx+gy)*TILE_H/2*zoom;
+  return{x:W/2+tx+viewX,y:150+ty+viewY};
+}
+
+function screenToIso(sx,sy){
+  const rx=(sx-W/2-viewX)/zoom;
+  const ry=(sy-150-viewY)/zoom;
+  const gx=(rx/(TILE_W/2)+ry/(TILE_H/2))/2;
+  const gy=(ry/(TILE_H/2)-rx/(TILE_W/2))/2;
+  return{x:Math.floor(gx),y:Math.floor(gy)};
+}
+
+function drawBlock(gx,gy,blockIdx,height=1){
+  const b=BLOCKS[blockIdx];
+  if(!b)return;
+  const p=isoToScreen(gx,gy);
+  const tw=TILE_W/2*zoom,th=TILE_H/2*zoom;
+  const h=height*20*zoom;
+
+  // Top face
+  ctx.beginPath();
+  ctx.moveTo(p.x,p.y-h);ctx.lineTo(p.x+tw,p.y+th-h);
+  ctx.lineTo(p.x,p.y+th*2-h);ctx.lineTo(p.x-tw,p.y+th-h);
+  ctx.closePath();ctx.fillStyle=b.top;ctx.fill();
+
+  // Left face
+  ctx.beginPath();
+  ctx.moveTo(p.x-tw,p.y+th-h);ctx.lineTo(p.x,p.y+th*2-h);
+  ctx.lineTo(p.x,p.y+th*2);ctx.lineTo(p.x-tw,p.y+th);
+  ctx.closePath();ctx.fillStyle=b.left;ctx.fill();
+
+  // Right face
+  ctx.beginPath();
+  ctx.moveTo(p.x+tw,p.y+th-h);ctx.lineTo(p.x,p.y+th*2-h);
+  ctx.lineTo(p.x,p.y+th*2);ctx.lineTo(p.x+tw,p.y+th);
+  ctx.closePath();ctx.fillStyle=b.right;ctx.fill();
+
+  // Outline
+  ctx.strokeStyle='rgba(0,0,0,.15)';ctx.lineWidth=.5;
+  ctx.beginPath();
+  ctx.moveTo(p.x,p.y-h);ctx.lineTo(p.x+tw,p.y+th-h);ctx.lineTo(p.x,p.y+th*2-h);ctx.lineTo(p.x-tw,p.y+th-h);ctx.closePath();ctx.stroke();
+}
+
+function render(){
+  ctx.fillStyle='#050508';ctx.fillRect(0,0,W,H);
+
+  // Draw grid (back to front)
+  for(let sum=0;sum<MAP_SIZE*2;sum++){
+    for(let gx=Math.max(0,sum-MAP_SIZE+1);gx<=Math.min(MAP_SIZE-1,sum);gx++){
+      const gy=sum-gx;
+      if(gy<0||gy>=MAP_SIZE)continue;
+      const val=grid[gx][gy];
+      if(val>0)drawBlock(gx,gy,val,1+val*.15);
+      // Hover highlight
+      if(hovering.x===gx&&hovering.y===gy){
+        const p=isoToScreen(gx,gy);
+        const tw=TILE_W/2*zoom,th=TILE_H/2*zoom;
+        ctx.beginPath();
+        ctx.moveTo(p.x,p.y);ctx.lineTo(p.x+tw,p.y+th);
+        ctx.lineTo(p.x,p.y+th*2);ctx.lineTo(p.x-tw,p.y+th);
+        ctx.closePath();ctx.fillStyle='rgba(255,255,255,.08)';ctx.fill();
+        ctx.strokeStyle='rgba(139,92,246,.3)';ctx.lineWidth=1;ctx.stroke();
+      }
+    }
+  }
+}
+
+canvas.addEventListener('mousemove',e=>{
+  hovering=screenToIso(e.clientX,e.clientY);
+  render();
+});
+canvas.addEventListener('mousedown',e=>{
+  e.preventDefault();
+  if(e.button===0&&hovering.x>=0&&hovering.x<MAP_SIZE&&hovering.y>=0&&hovering.y<MAP_SIZE){
+    grid[hovering.x][hovering.y]=selectedTool;
+    render();
+  }
+});
+canvas.addEventListener('contextmenu',e=>{
+  e.preventDefault();
+  if(hovering.x>=0&&hovering.x<MAP_SIZE&&hovering.y>=0&&hovering.y<MAP_SIZE){
+    grid[hovering.x][hovering.y]=0;render();
+  }
+});
+canvas.addEventListener('wheel',e=>{zoom=Math.max(.3,Math.min(3,zoom+e.deltaY*.002));render()});
+
+let dragView=false,dragSX,dragSY;
+canvas.addEventListener('mousedown',e=>{if(e.button===1){dragView=true;dragSX=e.clientX-viewX;dragSY=e.clientY-viewY}});
+canvas.addEventListener('mousemove',e=>{if(dragView){viewX=e.clientX-dragSX;viewY=e.clientY-dragSY;render()}});
+canvas.addEventListener('mouseup',()=>dragView=false);
+
+function clearMap(){grid=Array.from({length:MAP_SIZE},()=>Array(MAP_SIZE).fill(0));render()}
+
+function randomCity(){
+  clearMap();
+  for(let x=0;x<MAP_SIZE;x++)for(let y=0;y<MAP_SIZE;y++){
+    if(Math.random()>.3){
+      grid[x][y]=Math.random()>.7?Math.floor(Math.random()*9)+1:Math.random()>.5?2:1;
+    }
+  }
+  render();
+}
+
+function exportPNG(){
+  const a=document.createElement('a');a.download='isometric.png';a.href=canvas.toDataURL();a.click();
+}
+
+render();
+</script>
+</body>
+</html>

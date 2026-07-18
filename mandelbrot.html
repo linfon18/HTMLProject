@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mandelbrot Explorer</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}body{background:#050508;overflow:hidden}canvas{display:block}
+.ui{position:fixed;top:12px;left:12px;z-index:10;display:flex;gap:6px;flex-wrap:wrap}
+.btn{padding:5px 10px;border-radius:6px;font-size:.7rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);color:rgba(255,255,255,.5);cursor:pointer;transition:all .2s;font-family:'Space Grotesk',sans-serif}
+.btn:hover{background:rgba(255,255,255,.1);color:#fff}
+.info{position:fixed;bottom:12px;left:12px;font-size:.55rem;font-family:'Space Mono',monospace;color:rgba(255,255,255,.2)}
+.info .val{color:rgba(255,255,255,.4)}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="ui">
+  <button class="btn" onclick="resetView()">Reset View</button>
+  <button class="btn" onclick="maxIter=Math.min(500,maxIter+20);renderFractal()">+ Detail</button>
+  <button class="btn" onclick="maxIter=Math.max(20,maxIter-20);renderFractal()">- Detail</button>
+  <button class="btn" onclick="colorScheme=(colorScheme+1)%4;renderFractal()">Color</button>
+  <button class="btn" onclick="juliaMode=!juliaMode;renderFractal()">Julia Set</button>
+  <button class="btn" onclick="exportPNG()">Export</button>
+</div>
+<div class="info">
+  <span class="val" id="coords"></span> · <span class="val" id="zoomInfo"></span> · <span class="val" id="iterInfo"></span>
+  <br>Scroll to zoom · Click+drag to pan
+</div>
+
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+let W,H;
+function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight;renderFractal()}
+addEventListener('resize',resize);
+
+let centerX=-0.5,centerY=0,zoom=1,maxIter=100,colorScheme=0,juliaMode=false;
+let juliaR=-0.7,juliaI=0.27015;
+let dragging=false,lastX,lastY;
+
+function renderFractal(){
+  const imgData=ctx.createImageData(W,H);
+  const d=imgData.data;
+  const aspect=W/H;
+  const rangeY=2.5/zoom;
+  const rangeX=rangeY*aspect;
+
+  for(let py=0;py<H;py++)for(let px=0;px<W;px++){
+    const x0=centerX-rangeX/2+px/W*rangeX;
+    const y0=centerY-rangeY/2+py/H*rangeY;
+
+    let x,y,iter=0;
+    if(juliaMode){
+      x=x0;y=y0;
+      while(x*x+y*y<4&&iter<maxIter){const x2=x*x-y*y+juliaR;y=2*x*y+juliaI;x=x2;iter++}
+    }else{
+      let cx=x0,cy=y0;x=0;y=0;
+      while(x*x+y*y<4&&iter<maxIter){const x2=x*x-y*y+cx;y=2*x*y+cy;x=x2;iter++}
+    }
+
+    const idx=(py*W+px)*4;
+    if(iter===maxIter){d[idx]=d[idx+1]=d[idx+2]=0;d[idx+3]=255;continue}
+
+    // Smooth coloring
+    const mu=iter-Math.log2(Math.log2(x*x+y*y));
+    const t=mu/maxIter;
+    let r,g,b;
+    if(colorScheme===0){
+      r=Math.sin(t*3.14*2)*127+128;g=Math.sin(t*3.14*2+2.09)*127+128;b=Math.sin(t*3.14*2+4.18)*127+128;
+    }else if(colorScheme===1){
+      r=t*255;g=t*t*255;b=Math.sqrt(t)*255;
+    }else if(colorScheme===2){
+      const v=t*360|0;[r,g,b]=hsl2rgb(v/360,.7,.5);
+    }else{
+      r=t<.5?0:(t-.5)*2*255;g=t<.25?t*4*255:t>.75?(1-t)*4*255:255;b=t<.5?255:(1-t)*2*255;
+    }
+    d[idx]=r;d[idx+1]=g;d[idx+2]=b;d[idx+3]=255;
+  }
+  ctx.putImageData(imgData,0,0);
+  updateInfo();
+}
+
+function hsl2rgb(h,s,l){
+  let r,g,b;if(s===0){r=g=b=l}else{const q=l<.5?l*(1+s):l+s-l*s,p=2*l-q;
+    function h2r(p,q,t){if(t<0)t+=1;if(t>1)t-=1;if(t<1/6)return p+(q-p)*6*t;if(t<1/2)return q;if(t<2/3)return p+(q-p)*(2/3-t)*6;return p}
+    r=h2r(p,q,h+1/3);g=h2r(p,q,h);b=h2r(p,q,h-1/3)}return[r*255,g*255,b*255]
+}
+
+function updateInfo(){
+  document.getElementById('coords').textContent=`(${centerX.toFixed(10)}, ${centerY.toFixed(10)})`;
+  document.getElementById('zoomInfo').textContent=`zoom: ${zoom.toFixed(1)}x`;
+  document.getElementById('iterInfo').textContent=`iter: ${maxIter}`;
+}
+
+function resetView(){centerX=-0.5;centerY=0;zoom=1;maxIter=100;renderFractal()}
+function exportPNG(){const a=document.createElement('a');a.download='mandelbrot.png';a.href=canvas.toDataURL();a.click()}
+
+canvas.addEventListener('wheel',e=>{
+  e.preventDefault();
+  const factor=e.deltaY<0?1.3:1/1.3;
+  const rect=canvas.getBoundingClientRect();
+  const mx=(e.clientX-rect.left)/W*2-1;
+  const my=(e.clientY-rect.top)/H*2-1;
+  const aspect=W/H;
+  const rangeY=2.5/zoom;
+  const rangeX=rangeY*aspect;
+  centerX+=mx*rangeX/2*(1-1/factor);
+  centerY+=my*rangeY/2*(1-1/factor);
+  zoom*=factor;
+  renderFractal();
+},{passive:false});
+
+canvas.addEventListener('mousedown',e=>{dragging=true;lastX=e.clientX;lastY=e.clientY});
+canvas.addEventListener('mousemove',e=>{
+  if(!dragging)return;
+  const dx=e.clientX-lastX,dy=e.clientY-lastY;
+  const rangeY=2.5/zoom;const rangeX=rangeY*W/H;
+  centerX-=dx/W*rangeX;centerY-=dy/H*rangeY;
+  lastX=e.clientX;lastY=e.clientY;
+  renderFractal();
+});
+canvas.addEventListener('mouseup',()=>dragging=false);
+
+resize();
+</script>
+</body>
+</html>

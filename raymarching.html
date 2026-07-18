@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ray Marching</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}body{background:#000;overflow:hidden}canvas{display:block}
+.ui{position:fixed;top:12px;left:12px;z-index:10;display:flex;gap:6px;flex-wrap:wrap}
+.btn{padding:5px 10px;border-radius:6px;font-size:.7rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);color:rgba(255,255,255,.5);cursor:pointer;transition:all .2s;font-family:inherit}
+.btn:hover{background:rgba(255,255,255,.1);color:#fff}
+.btn.active{background:rgba(139,92,246,.15);border-color:rgba(139,92,246,.3);color:#a78bfa}
+.fps{position:fixed;bottom:12px;left:12px;font-size:.65rem;font-family:'Space Mono',monospace;color:rgba(255,255,255,.2)}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="ui">
+  <button class="btn active" data-scene="0">Metaballs</button>
+  <button class="btn" data-scene="1">Mandelbulb</button>
+  <button class="btn" data-scene="2">Fractal</button>
+  <button class="btn" data-scene="3">Castle</button>
+</div>
+<div class="fps" id="fps"></div>
+
+<script>
+const canvas=document.getElementById('c');
+const gl=canvas.getContext('webgl2')||canvas.getContext('webgl');
+let W,H,scene=0;
+function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight;gl.viewport(0,0,W,H)}
+resize();addEventListener('resize',resize);
+
+document.querySelectorAll('.btn[data-scene]').forEach(b=>{
+  b.addEventListener('click',()=>{
+    document.querySelectorAll('.btn[data-scene]').forEach(b=>b.classList.remove('active'));
+    b.classList.add('active');scene=+b.dataset.scene;
+  });
+});
+
+const VS=`attribute vec2 a;varying vec2 v;void main(){v=a*.5+.5;gl_Position=vec4(a,0,1);}`;
+const FS=`
+precision highp float;
+varying vec2 v;
+uniform vec2 uR;
+uniform float uT;
+uniform int uScene;
+
+mat2 rot(float a){float c=cos(a),s=sin(a);return mat2(c,-s,s,c);}
+
+float sdSphere(vec3 p,float r){return length(p)-r;}
+float sdBox(vec3 p,vec3 b){vec3 q=abs(p)-b;return length(max(q,0.))+min(max(q.x,max(q.y,q.z)),0.);}
+float sdTorus(vec3 p,vec2 t){vec2 q=vec2(length(p.xz)-t.x,p.y);return length(q)-t.y;}
+float sdCylinder(vec3 p,float r,float h){vec2 d=abs(vec2(length(p.xz),p.y))-vec2(r,h);return min(max(d.x,d.y),0.)+length(max(d,0.));}
+
+float opSmoothUnion(float d1,float d2,float k){float h=clamp(.5+.5*(d2-d1)/k,0.,1.);return mix(d2,d1,h)-k*h*(1.-h);}
+float opSmoothSub(float d1,float d2,float k){float h=clamp(.5-.5*(d2+d1)/k,0.,1.);return mix(d1,-d2,h)+k*h*(1.-h);}
+float opRep(vec3 p,vec3 c){return mod(p+.5*c,c)-.5*c;}
+
+float scene_metaballs(vec3 p){
+  float d=1e9;
+  for(int i=0;i<6;i++){
+    float fi=float(i);
+    vec3 c=vec3(sin(uT*.7+fi*1.3)*1.5,cos(uT*.5+fi*1.7)*1.5,sin(uT*.3+fi*2.1)*1.5);
+    d=opSmoothUnion(d,sdSphere(p-c,.6),.5);
+  }
+  return d;
+}
+
+float scene_mandelbulb(vec3 p){
+  vec3 z=p;float dr=1.;float r;float power=8.+sin(uT*.2)*2.;
+  for(int i=0;i<8;i++){
+    r=length(z);
+    if(r>2.)break;
+    float theta=acos(z.r/r);
+    float phi=atan(z.g,z.b);
+    dr=pow(r,power-1.)*power*dr+1.;
+    float zr=pow(r,power);
+    theta*=power;phi*=power;
+    z=zr*vec3(sin(theta)*cos(phi),sin(theta)*sin(phi),cos(theta))+p;
+  }
+  return.5*log(r)*r/dr;
+}
+
+float scene_fractal(vec3 p){
+  float scale=2.;
+  vec3 offset=vec3(1.,1.,1.);
+  float d;
+  for(int i=0;i<12;i++){
+    p=abs(p);
+    if(p.x-p.y<0.)p.xy=p.yx;
+    if(p.x-p.z<0.)p.xz=p.zx;
+    if(p.y-p.z<0.)p.yz=p.zy;
+    p=p*scale-offset*(scale-1.);
+    p.yz*=rot(uT*.1);
+  }
+  return sdBox(p,vec3(1.))*(pow(scale,-float(12)));
+}
+
+float scene_castle(vec3 p){
+  float d=sdBox(p-vec3(0,-.5,0),vec3(3,.5,3));
+  for(float i=-1.;i<=1.;i+=2.)
+    for(float j=-1.;j<=1.;j+=2.){
+      vec3 bp=vec3(i*2.,0,j*2.);
+      d=opSmoothUnion(d,sdCylinder(p-bp,.4,1.5),.1);
+      d=opSmoothUnion(d,sdBox(p-bp-vec3(0,1.6,0),vec3(.5,.15,.5)),.05);
+    }
+  d=opSmoothSub(d,sdBox(p-vec3(0,.2,2.5),vec3(.6,.8,.1)),.1);
+  return d;
+}
+
+float map(vec3 p){
+  if(uScene==0)return scene_metaballs(p);
+  if(uScene==1)return scene_mandelbulb(p);
+  if(uScene==2)return scene_fractal(p);
+  return scene_castle(p);
+}
+
+vec3 calcNormal(vec3 p){
+  vec2 e=vec2(.001,0);
+  return normalize(vec3(map(p+e.xyy)-map(p-e.xyy),map(p+e.yxy)-map(p-e.yxy),map(p+e.yyx)-map(p-e.yyx)));
+}
+
+void main(){
+  vec2 uv=(v-.5*uR)/uR.y;
+  vec3 ro=vec3(0,0,4.);
+  vec3 rd=normalize(vec3(uv,-1.5));
+
+  // Camera rotation
+  float angle=uT*.15;
+  ro.xz*=rot(angle);
+  rd.xz*=rot(angle);
+  if(uScene==2){ro.yz*=rot(.3);rd.yz*=rot(.3);}
+
+  float t=0.;
+  vec3 p;
+  bool hit=false;
+  for(int i=0;i<100;i++){
+    p=ro+rd*t;
+    float d=map(p);
+    if(d<.001){hit=true;break;}
+    if(t>20.)break;
+    t+=d;
+  }
+
+  vec3 col=vec3(.02,.02,.04);
+  if(hit){
+    vec3 n=calcNormal(p);
+    vec3 light=normalize(vec3(1,1,1));
+    float diff=max(dot(n,light),0.);
+    float spec=pow(max(dot(reflect(-light,n),-rd),0.),32.);
+    float ao=.5+.5*n.y;
+    vec3 mat=vec3(.6,.3,.8);
+    if(uScene==1)mat=mix(vec3(.3,.1,.5),vec3(1.,5.,.3),p.x*.3+.5);
+    if(uScene==3)mat=vec3(.4,.35,.3);
+    col=mat*(diff*.6+ao*.3)+vec3(1)*spec*.5;
+    // Fog
+    col=mix(col,vec3(.02,.02,.04),1.-exp(-t*.08));
+  }
+
+  col=pow(col,vec3(.45));
+  gl_FragColor=vec4(col,1);
+}
+`;
+
+function createProg(){
+  const p=gl.createProgram();
+  gl.attachShader(p,(()=>{const s=gl.createShader(gl.VERTEX_SHADER);gl.shaderSource(s,VS);gl.compileShader(s);return s})());
+  gl.attachShader(p,(()=>{const s=gl.createShader(gl.FRAGMENT_SHADER);gl.shaderSource(s,FS);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))console.error(gl.getShaderInfoLog(s));return s})());
+  gl.linkProgram(p);gl.useProgram(p);
+  const loc=gl.getAttribLocation(p,'a');
+  const buf=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buf);
+  gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,2,gl.FLOAT,false,0,0);
+  return p;
+}
+
+const prog=createProg();
+const uR=gl.getUniformLocation(prog,'uR');
+const uT=gl.getUniformLocation(prog,'uT');
+const uScene=gl.getUniformLocation(prog,'uScene');
+
+let frames=0,fpsT=performance.now();
+function loop(t){
+  gl.uniform2f(uR,W,H);
+  gl.uniform1f(uT,t*.001);
+  gl.uniform1i(uScene,scene);
+  gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
+  frames++;
+  if(t-fpsT>500){document.getElementById('fps').textContent=Math.round(frames*1000/(t-fpsT))+' FPS';frames=0;fpsT=t}
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

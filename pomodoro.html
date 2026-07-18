@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pomodoro Timer</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Space+Mono:wght@400&display=swap');
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#050508;--border:rgba(255,255,255,.06);--t1:#fff;--t2:rgba(255,255,255,.55);--t3:rgba(255,255,255,.25)}
+body{background:var(--bg);color:var(--t2);font-family:'Space Grotesk',sans-serif;height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;-webkit-font-smoothing:antialiased;position:relative;overflow:hidden}
+.timer-ring{position:relative;width:300px;height:300px}
+canvas{position:absolute;inset:0}
+.time-display{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.time{font-family:'Space Mono',monospace;font-size:4rem;font-weight:700;color:var(--t1);letter-spacing:4px}
+.phase{font-size:.75rem;color:var(--t3);margin-top:8px;letter-spacing:.1em;text-transform:uppercase}
+.controls{display:flex;gap:10px;margin-top:30px}
+.btn{padding:10px 24px;border-radius:10px;font-size:.8rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--t2);cursor:pointer;transition:all .2s}
+.btn:hover{background:rgba(255,255,255,.1);color:var(--t1)}
+.btn.primary{background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.25);color:#4ade80}
+.btn.warn{background:rgba(234,179,8,.12);border-color:rgba(234,179,8,.25);color:#fbbf24}
+.sessions{display:flex;gap:6px;margin-top:20px}
+.session{width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,.06);border:1px solid var(--border);transition:all .3s}
+.session.done{background:rgba(34,197,94,.3);border-color:rgba(34,197,94,.3)}
+.session.active{background:rgba(34,197,94,.6);border-color:rgba(34,197,94,.6);box-shadow:0 0 12px rgba(34,197,94,.3)}
+.settings{display:flex;gap:16px;margin-top:24px;font-size:.65rem;color:var(--t3)}
+.setting{display:flex;flex-direction:column;align-items:center;gap:4px}
+.setting input{width:50px;padding:4px;text-align:center;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:4px;color:var(--t2);font-family:'Space Mono',monospace;font-size:.7rem;outline:none}
+</style>
+</head>
+<body>
+<div class="timer-ring">
+  <canvas id="ring" width="300" height="300"></canvas>
+  <div class="time-display">
+    <div class="time" id="time">25:00</div>
+    <div class="phase" id="phase">Focus</div>
+  </div>
+</div>
+<div class="sessions" id="sessions"></div>
+<div class="controls">
+  <button class="btn primary" id="startBtn" onclick="toggleTimer()">Start</button>
+  <button class="btn" onclick="resetTimer()">Reset</button>
+  <button class="btn warn" onclick="skipPhase()">Skip</button>
+</div>
+<div class="settings">
+  <div class="setting">Focus<input type="number" id="focusMin" value="25" min="1" max="60" onchange="resetTimer()"></div>
+  <div class="setting">Short Break<input type="number" id="breakMin" value="5" min="1" max="30" onchange="resetTimer()"></div>
+  <div class="setting">Long Break<input type="number" id="longMin" value="15" min="1" max="60" onchange="resetTimer()"></div>
+  <div class="setting">Sessions<input type="number" id="sessionsN" value="4" min="1" max="8" onchange="resetTimer()"></div>
+</div>
+
+<script>
+const canvas=document.getElementById('ring');
+const ctx=canvas.getContext('2d');
+let totalSeconds=25*60,remaining=totalSeconds,running=false,timer=null;
+let phase='focus',session=0;
+const totalSessions=4;
+
+function getSettings(){
+  return{
+    focus:+document.getElementById('focusMin').value*60,
+    break_:+document.getElementById('breakMin').value*60,
+    long:+document.getElementById('longMin').value*60,
+    sessions:+document.getElementById('sessionsN').value
+  };
+}
+
+function resetTimer(){
+  if(running)toggleTimer();
+  const s=getSettings();
+  totalSeconds=s.focus;remaining=totalSeconds;phase='focus';session=0;
+  updateDisplay();drawRing();renderSessions();
+}
+
+function toggleTimer(){
+  running=!running;
+  document.getElementById('startBtn').textContent=running?'Pause':'Start';
+  if(running)timer=setInterval(tick,1000);else clearInterval(timer);
+}
+
+function tick(){
+  remaining--;
+  if(remaining<=0){
+    clearInterval(timer);running=false;
+    document.getElementById('startBtn').textContent='Start';
+    // Notification
+    if(Notification.permission==='granted')new Notification(phase==='focus'?'Focus session complete!':'Break time over!');
+    else if(Notification.permission!=='denied')Notification.requestPermission();
+    nextPhase();
+  }
+  updateDisplay();drawRing();
+}
+
+function nextPhase(){
+  const s=getSettings();
+  if(phase==='focus'){
+    session++;
+    if(session>=s.sessions){phase='long';totalSeconds=s.long}
+    else{phase='break';totalSeconds=s.break_}
+  }else{
+    if(phase==='long')session=0;
+    phase='focus';totalSeconds=s.focus;
+  }
+  remaining=totalSeconds;
+  updateDisplay();drawRing();renderSessions();
+}
+
+function skipPhase(){remaining=1;tick()}
+
+function updateDisplay(){
+  const m=Math.floor(remaining/60),s=remaining%60;
+  document.getElementById('time').textContent=`${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+  document.getElementById('phase').textContent=phase==='focus'?'Focus':phase==='break'?'Short Break':'Long Break';
+  document.title=`${m}:${s.toString().padStart(2,'0')} - Pomodoro`;
+}
+
+function drawRing(){
+  const W=300,H=300,cx=150,cy=150,r=130;
+  ctx.clearRect(0,0,W,H);
+  const progress=1-remaining/totalSeconds;
+  const color=phase==='focus'?'#22c55e':'#06b6d4';
+  // Background ring
+  ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);
+  ctx.strokeStyle='rgba(255,255,255,.05)';ctx.lineWidth=8;ctx.stroke();
+  // Progress ring
+  ctx.beginPath();ctx.arc(cx,cy,r,-Math.PI/2,-Math.PI/2+progress*Math.PI*2);
+  ctx.strokeStyle=color;ctx.lineWidth=8;ctx.lineCap='round';ctx.stroke();
+  // Glow
+  const g=ctx.createRadialGradient(cx,cy,r-20,cx,cy,r+20);
+  g.addColorStop(0,'transparent');g.addColorStop(.5,color+'10');g.addColorStop(1,'transparent');
+  ctx.fillStyle=g;ctx.beginPath();ctx.arc(cx,cy,r+20,0,Math.PI*2);ctx.fill();
+}
+
+function renderSessions(){
+  const s=getSettings();
+  const el=document.getElementById('sessions');el.innerHTML='';
+  for(let i=0;i<s.sessions;i++){
+    const dot=document.createElement('div');dot.className='session';
+    if(i<session)dot.classList.add('done');
+    if(i===session&&phase==='focus')dot.classList.add('active');
+    el.appendChild(dot);
+  }
+}
+
+renderSessions();updateDisplay();drawRing();
+</script>
+</body>
+</html>

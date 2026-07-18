@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>音乐可视化器</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
+
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#050508;--border:rgba(255,255,255,.06);--t1:#fff;--t2:rgba(255,255,255,.55);--t3:rgba(255,255,255,.25)}
+
+body{
+  background:var(--bg);color:var(--t2);font-family:'Space Grotesk',sans-serif;
+  min-height:100vh;overflow:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+
+canvas{position:fixed;inset:0;z-index:0}
+
+.ui{
+  position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:10;
+  display:flex;gap:8px;align-items:center;
+}
+.ui .panel{
+  background:rgba(10,10,15,.75);backdrop-filter:blur(20px);
+  border:1px solid var(--border);border-radius:12px;
+  padding:12px 16px;display:flex;align-items:center;gap:12px;
+}
+.btn{
+  padding:7px 14px;border-radius:8px;font-size:.75rem;font-weight:600;
+  background:rgba(255,255,255,.06);border:1px solid var(--border);
+  color:var(--t2);cursor:pointer;transition:all .2s;
+}
+.btn:hover{background:rgba(255,255,255,.1);color:var(--t1)}
+.btn.primary{background:rgba(139,92,246,.15);border-color:rgba(139,92,246,.3);color:#a78bfa}
+.btn.primary:hover{background:rgba(139,92,246,.25)}
+.btn.active{background:rgba(139,92,246,.15);border-color:rgba(139,92,246,.3);color:#a78bfa}
+
+input[type=file]{display:none}
+input[type=range]{width:80px;height:3px;-webkit-appearance:none;appearance:none;background:rgba(255,255,255,.1);border-radius:2px;outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;background:var(--t1);cursor:pointer}
+
+.label{font-size:.65rem;color:var(--t3);font-family:'Space Mono',monospace}
+
+.controls{
+  position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:10;
+  display:flex;gap:8px;align-items:center;
+}
+.controls .panel{
+  background:rgba(10,10,15,.75);backdrop-filter:blur(20px);
+  border:1px solid var(--border);border-radius:12px;
+  padding:12px 16px;display:flex;align-items:center;gap:12px;
+}
+.progress{
+  width:200px;height:4px;border-radius:2px;background:rgba(255,255,255,.1);
+  cursor:pointer;position:relative;
+}
+.progress .fill{height:100%;border-radius:2px;background:linear-gradient(90deg,#6c5ce7,#06b6d4);transition:width .1s}
+
+.vis-modes{display:flex;gap:4px}
+.vis-mode{
+  width:32px;height:32px;border-radius:8px;border:1px solid var(--border);
+  background:rgba(255,255,255,.04);color:var(--t2);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;font-size:.8rem;
+  transition:all .2s;
+}
+.vis-mode:hover{background:rgba(255,255,255,.08);color:var(--t1)}
+.vis-mode.active{background:rgba(139,92,246,.15);border-color:rgba(139,92,246,.4);color:#a78bfa}
+
+.drop-overlay{
+  position:fixed;inset:0;z-index:100;
+  background:rgba(139,92,246,.1);backdrop-filter:blur(4px);
+  border:3px dashed rgba(139,92,246,.4);
+  display:none;align-items:center;justify-content:center;
+  font-size:1.2rem;font-weight:700;color:#a78bfa;
+}
+.drop-overlay.show{display:flex}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div class="ui">
+  <div class="panel">
+    <button class="btn primary" onclick="document.getElementById('fileInput').click()">Load Audio</button>
+    <input type="file" id="fileInput" accept="audio/*">
+    <button class="btn" id="micBtn" onclick="toggleMic()">Mic</button>
+    <span class="label" id="trackName">No track loaded</span>
+  </div>
+</div>
+
+<div class="controls">
+  <div class="panel">
+    <button class="btn" id="playBtn" onclick="togglePlay()">Play</button>
+    <div class="progress" id="progress"><div class="fill" id="progressFill"></div></div>
+    <span class="label" id="timeLabel">0:00 / 0:00</span>
+    <div class="vis-modes">
+      <button class="vis-mode active" data-mode="bars" title="Bars">▊</button>
+      <button class="vis-mode" data-mode="wave" title="Wave">〰</button>
+      <button class="vis-mode" data-mode="circle" title="Circle">◎</button>
+      <button class="vis-mode" data-mode="galaxy" title="Galaxy">✦</button>
+    </div>
+    <input type="range" id="sensitivity" min="1" max="5" value="2" step="0.1">
+    <span class="label">Gain</span>
+    <select id="colorScheme" style="padding:4px 8px;border-radius:6px;font-size:.7rem;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--t2);font-family:inherit">
+      <option value="neon">Neon</option>
+      <option value="fire">Fire</option>
+      <option value="ocean">Ocean</option>
+      <option value="rainbow">Rainbow</option>
+      <option value="mono">Mono</option>
+    </select>
+  </div>
+</div>
+
+<div class="drop-overlay" id="dropOverlay">Drop audio file here</div>
+
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+let W,H;
+
+function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight}
+resize();addEventListener('resize',resize);
+
+let audioCtx,analyser,source,micStream;
+let audioEl;
+let isPlaying=false;
+let visMode='bars';
+let colorScheme='neon';
+let sensitivity=2;
+let dataArray,freqData;
+let timeData;
+const FFT_SIZE=2048;
+
+function initAudio(){
+  if(audioCtx)return;
+  audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+  analyser=audioCtx.createAnalyser();
+  analyser.fftSize=FFT_SIZE;
+  analyser.smoothingTimeConstant=.8;
+  dataArray=new Uint8Array(analyser.frequencyBinCount);
+  freqData=new Uint8Array(analyser.frequencyBinCount);
+  timeData=new Uint8Array(analyser.frequencyBinCount);
+}
+
+document.getElementById('fileInput').addEventListener('change',e=>{
+  const file=e.target.files[0];
+  if(!file)return;
+  initAudio();
+  if(audioEl){audioEl.pause();audioEl.remove()}
+  if(source)try{source.disconnect()}catch(e){}
+
+  audioEl=new Audio();
+  audioEl.src=URL.createObjectURL(file);
+  audioEl.crossOrigin='anonymous';
+  source=audioCtx.createMediaElementSource(audioEl);
+  source.connect(analyser);
+  analyser.connect(audioCtx.destination);
+
+  document.getElementById('trackName').textContent=file.name;
+  audioEl.addEventListener('ended',()=>{isPlaying=false;document.getElementById('playBtn').textContent='Play'});
+
+  audioEl.play();
+  isPlaying=true;
+  document.getElementById('playBtn').textContent='Pause';
+});
+
+function togglePlay(){
+  if(!audioEl)return;
+  if(audioCtx&&audioCtx.state==='suspended')audioCtx.resume();
+  if(isPlaying){audioEl.pause();isPlaying=false;document.getElementById('playBtn').textContent='Play'}
+  else{audioEl.play();isPlaying=true;document.getElementById('playBtn').textContent='Pause'}
+}
+
+async function toggleMic(){
+  if(micStream){
+    micStream.getTracks().forEach(t=>t.stop());
+    micStream=null;
+    document.getElementById('micBtn').textContent='Mic';
+    document.getElementById('micBtn').classList.remove('active');
+    return;
+  }
+  initAudio();
+  try{
+    micStream=await navigator.mediaDevices.getUserMedia({audio:true});
+    if(source)try{source.disconnect()}catch(e){}
+    source=audioCtx.createMediaElementSource(new Audio());
+    const micSource=audioCtx.createMediaStreamSource(micStream);
+    micSource.connect(analyser);
+    document.getElementById('micBtn').textContent='Mic ON';
+    document.getElementById('micBtn').classList.add('active');
+    document.getElementById('trackName').textContent='Microphone input';
+  }catch(e){alert('Mic access denied')}
+}
+
+// Progress
+document.getElementById('progress').addEventListener('click',e=>{
+  if(!audioEl)return;
+  const rect=e.target.getBoundingClientRect();
+  const pct=(e.clientX-rect.left)/rect.width;
+  audioEl.currentTime=pct*audioEl.duration;
+});
+
+// Vis modes
+document.querySelectorAll('.vis-mode').forEach(b=>{
+  b.addEventListener('click',()=>{
+    document.querySelectorAll('.vis-mode').forEach(b=>b.classList.remove('active'));
+    b.classList.add('active');
+    visMode=b.dataset.mode;
+  });
+});
+
+document.getElementById('sensitivity').addEventListener('input',e=>{sensitivity=+e.target.value});
+document.getElementById('colorScheme').addEventListener('change',e=>{colorScheme=e.target.value});
+
+// Drag & drop
+document.addEventListener('dragover',e=>{e.preventDefault();document.getElementById('dropOverlay').classList.add('show')});
+document.addEventListener('dragleave',e=>{if(e.relatedTarget===null)document.getElementById('dropOverlay').classList.remove('show')});
+document.addEventListener('drop',e=>{
+  e.preventDefault();document.getElementById('dropOverlay').classList.remove('show');
+  const file=e.dataTransfer.files[0];
+  if(file&&file.type.startsWith('audio/')){
+    document.getElementById('fileInput').files=e.dataTransfer.files;
+    document.getElementById('fileInput').dispatchEvent(new Event('change'));
+  }
+});
+
+// Color helpers
+function getColor(i,total,t){
+  const s=colorScheme;
+  if(s==='neon'){
+    const h=260+i/total*100;
+    return`hsl(${h},100%,60%)`;
+  }else if(s==='fire'){
+    const h=i/total*60;
+    return`hsl(${h},100%,${50+t*30}%)`;
+  }else if(s==='ocean'){
+    const h=180+i/total*60;
+    return`hsl(${h},80%,${40+t*30}%)`;
+  }else if(s==='rainbow'){
+    return`hsl(${(i/total*360+Date.now()*.05)%360},80%,60%)`;
+  }else{
+    const v=100+t*155;
+    return`rgb(${v},${v},${v})`;
+  }
+}
+
+// Draw modes
+function drawBars(){
+  analyser.getByteFrequencyData(freqData);
+  const barCount=128;
+  const barW=W/barCount;
+  for(let i=0;i<barCount;i++){
+    const idx=Math.floor(i*freqData.length/barCount);
+    const v=freqData[idx]/255*sensitivity;
+    const h=v*H*.7;
+    const x=i*barW;
+    const c=getColor(i,barCount,v);
+    ctx.fillStyle=c;
+    ctx.fillRect(x,H-h,barW-1,h);
+    // Reflection
+    ctx.globalAlpha=.15;
+    ctx.fillRect(x,H,barW-1,h*.3);
+    ctx.globalAlpha=1;
+  }
+}
+
+function drawWave(){
+  analyser.getByteTimeDomainData(timeData);
+  ctx.lineWidth=2;
+  const c1='#6c5ce7',c2='#06b6d4';
+  const gradient=ctx.createLinearGradient(0,0,W,0);
+  gradient.addColorStop(0,c1);gradient.addColorStop(1,c2);
+  ctx.strokeStyle=gradient;
+  ctx.beginPath();
+  const sliceW=W/timeData.length;
+  for(let i=0;i<timeData.length;i++){
+    const v=timeData[i]/128*sensitivity;
+    const y=v*H/2;
+    if(i===0)ctx.moveTo(0,y);else ctx.lineTo(i*sliceW,y);
+  }
+  ctx.stroke();
+
+  // Fill under
+  ctx.lineTo(W,H);ctx.lineTo(0,H);ctx.closePath();
+  ctx.fillStyle='rgba(108,92,231,.05)';ctx.fill();
+}
+
+function drawCircle(){
+  analyser.getByteFrequencyData(freqData);
+  const cx=W/2,cy=H/2;
+  const baseR=Math.min(W,H)*.15;
+  const bars=180;
+
+  for(let i=0;i<bars;i++){
+    const idx=Math.floor(i*freqData.length/bars);
+    const v=freqData[idx]/255*sensitivity;
+    const angle=(i/bars)*Math.PI*2-Math.PI/2;
+    const innerR=baseR;
+    const outerR=baseR+v*baseR*1.5;
+    const x1=cx+Math.cos(angle)*innerR;
+    const y1=cy+Math.sin(angle)*innerR;
+    const x2=cx+Math.cos(angle)*outerR;
+    const y2=cy+Math.sin(angle)*outerR;
+    ctx.strokeStyle=getColor(i,bars,v);
+    ctx.lineWidth=2.5;
+    ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+  }
+
+  // Center circle
+  analyser.getByteTimeDomainData(timeData);
+  let avg=0;
+  for(let i=0;i<timeData.length;i++)avg+=Math.abs(timeData[i]-128);
+  avg/=timeData.length;
+  const pulseR=baseR*.8+avg*.5*sensitivity;
+  ctx.beginPath();ctx.arc(cx,cy,pulseR,0,Math.PI*2);
+  const grd=ctx.createRadialGradient(cx,cy,0,cx,cy,pulseR);
+  grd.addColorStop(0,'rgba(139,92,246,.15)');grd.addColorStop(1,'rgba(6,182,212,.05)');
+  ctx.fillStyle=grd;ctx.fill();
+  ctx.strokeStyle='rgba(139,92,246,.3)';ctx.lineWidth=1;ctx.stroke();
+}
+
+function drawGalaxy(){
+  analyser.getByteFrequencyData(freqData);
+  const cx=W/2,cy=H/2;
+  const time=Date.now()*.001;
+  const count=300;
+
+  for(let i=0;i<count;i++){
+    const freqIdx=Math.floor(i*freqData.length/count);
+    const v=freqData[freqIdx]/255*sensitivity;
+    const angle=(i/count)*Math.PI*6+time*.3;
+    const dist=20+i*.8+v*150;
+    const x=cx+Math.cos(angle)*dist;
+    const y=cy+Math.sin(angle)*dist;
+    const size=1+v*3;
+    ctx.beginPath();ctx.arc(x,y,size,0,Math.PI*2);
+    ctx.fillStyle=getColor(i,count,v);
+    ctx.globalAlpha=.4+v*.6;
+    ctx.fill();
+  }
+  ctx.globalAlpha=1;
+
+  // Center glow
+  const grd=ctx.createRadialGradient(cx,cy,0,cx,cy,100);
+  grd.addColorStop(0,'rgba(139,92,246,.2)');grd.addColorStop(1,'transparent');
+  ctx.fillStyle=grd;ctx.fillRect(cx-100,cy-100,200,200);
+}
+
+// Update progress
+function updateProgress(){
+  if(!audioEl||!audioEl.duration)return;
+  const pct=audioEl.currentTime/audioEl.duration*100;
+  document.getElementById('progressFill').style.width=pct+'%';
+  const cur=formatTime(audioEl.currentTime);
+  const dur=formatTime(audioEl.duration);
+  document.getElementById('timeLabel').textContent=`${cur} / ${dur}`;
+}
+function formatTime(s){const m=Math.floor(s/60);const sec=Math.floor(s%60);return`${m}:${sec.toString().padStart(2,'0')}`}
+
+// Main loop
+function loop(){
+  ctx.fillStyle='rgba(5,5,8,.2)';
+  ctx.fillRect(0,0,W,H);
+
+  if(analyser){
+    if(visMode==='bars')drawBars();
+    else if(visMode==='wave')drawWave();
+    else if(visMode==='circle')drawCircle();
+    else if(visMode==='galaxy')drawGalaxy();
+    updateProgress();
+  }
+
+  requestAnimationFrame(loop);
+}
+loop();
+</script>
+</body>
+</html>

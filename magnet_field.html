@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Magnetic Field</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}body{background:#050508;overflow:hidden}canvas{display:block}
+.ui{position:fixed;top:12px;left:12px;z-index:10;display:flex;gap:6px;flex-wrap:wrap}
+.btn{padding:5px 10px;border-radius:6px;font-size:.7rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);color:rgba(255,255,255,.5);cursor:pointer;transition:all .2s;font-family:'Space Grotesk',sans-serif}
+.btn:hover{background:rgba(255,255,255,.1);color:#fff}
+.stats{position:fixed;bottom:12px;left:12px;font-size:.62rem;font-family:'Space Mono',monospace;color:rgba(255,255,255,.2)}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="ui">
+  <button class="btn" onclick="addCharge(1)">+ Positive</button>
+  <button class="btn" onclick="addCharge(-1)">- Negative</button>
+  <button class="btn" onclick="charges=[];particles=[];ctx.fillStyle='#050508';ctx.fillRect(0,0,W,H)">Clear</button>
+  <button class="btn" onclick="presetDipole()">Dipole</button>
+  <button class="btn" onclick="presetQuad()">Quadrupole</button>
+  <button class="btn" onclick="showFieldLines=!showFieldLines">Field Lines</button>
+  <button class="btn" onclick="trailMode=!trailMode">Trail</button>
+</div>
+<div class="stats" id="stats"></div>
+
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+let W,H;
+function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight;ctx.fillStyle='#050508';ctx.fillRect(0,0,W,H)}
+addEventListener('resize',resize);
+
+let charges=[],particles=[],showFieldLines=true,trailMode=false,dragging=null;
+
+function addCharge(sign){
+  charges.push({x:W/2+(Math.random()-.5)*200,y:H/2+(Math.random()-.5)*200,q:sign*50});
+}
+
+function presetDipole(){
+  charges=[{x:W/2-100,y:H/2,q:50},{x:W/2+100,y:H/2,q:-50}];
+  particles=[];ctx.fillStyle='#050508';ctx.fillRect(0,0,W,H);
+}
+
+function presetQuad(){
+  charges=[
+    {x:W/2-80,y:H/80-80,q:50},{x:W/2+80,y:H/2-80,q:-50},
+    {x:W/2-80,y:H/2+80,q:-50},{x:W/2+80,y:H/2+80,q:50}
+  ];
+  particles=[];ctx.fillStyle='#050508';ctx.fillRect(0,0,W,H);
+}
+
+function getField(x,y){
+  let ex=0,ey=0;
+  charges.forEach(c=>{
+    const dx=x-c.x,dy=y-c.y;
+    const r2=dx*dx+dy*dy;
+    if(r2<100)return;
+    const r=Math.sqrt(r2);
+    const e=c.q/r2;
+    ex+=e*dx/r;ey+=e*dy/r;
+  });
+  return{ex,ey};
+}
+
+function spawnParticles(){
+  charges.forEach(c=>{
+    if(c.q<=0)return;
+    for(let a=0;a<Math.PI*2;a+=Math.PI/8){
+      particles.push({x:c.x+Math.cos(a)*15,y:c.y+Math.sin(a)*15,life:200});
+    }
+  });
+}
+
+canvas.addEventListener('mousedown',e=>{
+  const rect=canvas.getBoundingClientRect();
+  const mx=e.clientX-rect.left,my=e.clientY-rect.top;
+  dragging=charges.find(c=>Math.hypot(c.x-mx,c.y-my)<20);
+});
+canvas.addEventListener('mousemove',e=>{
+  if(!dragging)return;
+  const rect=canvas.getBoundingClientRect();
+  dragging.x=e.clientX-rect.left;dragging.y=e.clientY-rect.top;
+  ctx.fillStyle='#050508';ctx.fillRect(0,0,W,H);
+});
+canvas.addEventListener('mouseup',()=>{dragging=null});
+
+resize();
+presetDipole();
+
+let frame=0;
+function loop(){
+  if(!trailMode)ctx.fillStyle='rgba(5,5,8,.05)';else ctx.fillStyle='rgba(5,5,8,.01)';
+  ctx.fillRect(0,0,W,H);
+
+  // Draw field lines
+  if(showFieldLines&&frame%3===0){
+    charges.filter(c=>c.q>0).forEach(c=>{
+      for(let a=0;a<Math.PI*2;a+=Math.PI/12){
+        let x=c.x+Math.cos(a)*15,y=c.y+Math.sin(a)*15;
+        ctx.beginPath();ctx.moveTo(x,y);
+        for(let s=0;s<80;s++){
+          const f=getField(x,y);
+          const mag=Math.sqrt(f.ex*f.ex+f.ey*f.ey);
+          if(mag<.001)break;
+          x+=f.ex/mag*4;y+=f.ey/mag*4;
+          if(x<0||x>W||y<0||y>H)break;
+          ctx.lineTo(x,y);
+        }
+        ctx.strokeStyle='rgba(139,92,246,.12)';ctx.lineWidth=1;ctx.stroke();
+      }
+    });
+  }
+
+  // Update particles
+  if(frame%5===0)spawnParticles();
+  particles.forEach(p=>{
+    const f=getField(p.x,p.y);
+    const mag=Math.sqrt(f.ex*f.ex+f.ey*f.ey);
+    if(mag>.001){p.x+=f.ex/mag*2;p.y+=f.ey/mag*2}
+    p.life--;
+    ctx.beginPath();ctx.arc(p.x,p.y,1,0,Math.PI*2);
+    ctx.fillStyle=`rgba(6,182,212,${Math.min(1,p.life/50)*.4})`;ctx.fill();
+  });
+  particles=particles.filter(p=>p.life>0&&p.x>0&&p.x<W&&p.y>0&&p.y<H);
+
+  // Draw charges
+  charges.forEach(c=>{
+    const color=c.q>0?'rgba(239,68,68,.8)':'rgba(59,130,246,.8)';
+    const glow=c.q>0?'rgba(239,68,68,.1)':'rgba(59,130,246,.1)';
+    const g=ctx.createRadialGradient(c.x,c.y,0,c.x,c.y,25);
+    g.addColorStop(0,color);g.addColorStop(.4,color);g.addColorStop(1,glow);
+    ctx.fillStyle=g;ctx.beginPath();ctx.arc(c.x,c.y,10,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#fff';ctx.font='bold 12px Space Grotesk';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(c.q>0?'+':'−',c.x,c.y);
+  });
+
+  document.getElementById('stats').textContent=`${charges.length} charges · ${particles.length} particles`;
+  frame++;requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

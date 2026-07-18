@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Huffman Encoding</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Space+Mono:wght@400&display=swap');
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#050508;--border:rgba(255,255,255,.06);--t1:#fff;--t2:rgba(255,255,255,.55);--t3:rgba(255,255,255,.25)}
+body{background:var(--bg);color:var(--t2);font-family:'Space Grotesk',sans-serif;min-height:100vh;padding:20px;-webkit-font-smoothing:antialiased}
+.top{display:flex;align-items:center;gap:10px;margin-bottom:20px}
+.top h1{font-size:1.1rem;font-weight:700;color:var(--t1);margin-right:auto}
+.btn{padding:6px 12px;border-radius:7px;font-size:.72rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--t2);cursor:pointer;transition:all .2s}
+.btn:hover{background:rgba(255,255,255,.1);color:var(--t1)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.panel{padding:14px;border-radius:10px;background:rgba(255,255,255,.025);border:1px solid var(--border)}
+.panel h3{font-size:.6rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:8px}
+textarea{width:100%;height:120px;resize:vertical;border:1px solid var(--border);border-radius:6px;background:rgba(255,255,255,.03);color:var(--t2);font-family:'Space Mono',monospace;font-size:.75rem;padding:10px;outline:none;line-height:1.6}
+table{width:100%;border-collapse:collapse;font-size:.7rem}
+th{text-align:left;padding:5px 8px;border-bottom:1px solid var(--border);color:var(--t3);font-size:.6rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase}
+td{padding:5px 8px;border-bottom:1px solid rgba(255,255,255,.02);font-family:'Space Mono',monospace;font-size:.68rem}
+.freq-bar{height:12px;border-radius:2px;background:rgba(139,92,246,.3)}
+canvas{width:100%;border-radius:8px;background:rgba(0,0,0,.2)}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:16px}
+.stat{padding:12px;border-radius:8px;background:rgba(255,255,255,.025);border:1px solid var(--border);text-align:center}
+.stat .num{font-size:1.4rem;font-weight:700;color:var(--t1);font-family:'Space Mono',monospace}
+.stat .label{font-size:.58rem;color:var(--t3);margin-top:4px}
+.binary{word-break:break-all;font-family:'Space Mono',monospace;font-size:.65rem;line-height:1.8;max-height:200px;overflow-y:auto;padding:10px;background:rgba(0,0,0,.2);border-radius:6px;margin-top:8px}
+.binary .bit0{color:rgba(244,63,94,.6)}
+.binary .bit1{color:rgba(34,197,94,.6)}
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>Huffman Encoding Visualizer</h1>
+  <button class="btn" onclick="encode()">Encode</button>
+  <button class="btn" onclick="decode()">Decode</button>
+  <button class="btn" onclick="loadSample()">Load Sample</button>
+</div>
+<div class="grid">
+  <div class="panel">
+    <h3>Input Text</h3>
+    <textarea id="input" oninput="encode()">The quick brown fox jumps over the lazy dog. Huffman coding is a lossless data compression algorithm.</textarea>
+    <canvas id="treeCanvas" height="300"></canvas>
+  </div>
+  <div class="panel">
+    <h3>Encoded Output</h3>
+    <div class="binary" id="binary"></div>
+    <div class="stats">
+      <div class="stat"><div class="num" id="origBits">0</div><div class="label">Original (bits)</div></div>
+      <div class="stat"><div class="num" id="compBits">0</div><div class="label">Compressed (bits)</div></div>
+      <div class="stat"><div class="num" id="ratio">0%</div><div class="label">Compression</div></div>
+    </div>
+    <h3 style="margin-top:16px">Code Table</h3>
+    <table><thead><tr><th>Char</th><th>Freq</th><th>Code</th><th>Bits</th></tr></thead><tbody id="table"></tbody></table>
+    <h3 style="margin-top:16px">Frequency</h3>
+    <canvas id="freqCanvas" height="120"></canvas>
+  </div>
+</div>
+
+<script>
+function buildTree(text){
+  const freq={};
+  for(const c of text)freq[c]=(freq[c]||0)+1;
+  let nodes=Object.entries(freq).map(([char,freq])=>({char,freq,left:null,right:null}));
+  if(nodes.length===0)return null;
+  if(nodes.length===1){return{char:null,freq:nodes[0].freq,left:nodes[0],right:null}}
+  while(nodes.length>1){
+    nodes.sort((a,b)=>a.freq-b.freq);
+    const left=nodes.shift(),right=nodes.shift();
+    nodes.push({char:null,freq:left.freq+right.freq,left,right});
+  }
+  return nodes[0];
+}
+
+function buildCodes(node,prefix='',codes={}){
+  if(!node)return codes;
+  if(node.char!==null){codes[node.char]=prefix||'0';return codes}
+  buildCodes(node.left,prefix+'0',codes);
+  buildCodes(node.right,prefix+'1',codes);
+  return codes;
+}
+
+function encode(){
+  const text=document.getElementById('input').value;
+  if(!text)return;
+  const tree=buildTree(text);
+  const codes=buildCodes(tree);
+
+  // Encode
+  let encoded='';
+  for(const c of text)encoded+=codes[c];
+
+  // Display binary
+  const binaryEl=document.getElementById('binary');
+  binaryEl.innerHTML='';
+  for(let i=0;i<encoded.length;i++){
+    const span=document.createElement('span');
+    span.className=encoded[i]==='1'?'bit1':'bit0';
+    span.textContent=encoded[i];
+    binaryEl.appendChild(span);
+  }
+
+  // Stats
+  document.getElementById('origBits').textContent=text.length*8;
+  document.getElementById('compBits').textContent=encoded.length;
+  const ratio=(1-encoded.length/(text.length*8))*100;
+  document.getElementById('ratio').textContent=ratio.toFixed(1)+'%';
+
+  // Table
+  const freq={};
+  for(const c of text)freq[c]=(freq[c]||0)+1;
+  const sorted=Object.entries(freq).sort((a,b)=>b[1]-a[1]);
+  const tableEl=document.getElementById('table');
+  tableEl.innerHTML=sorted.map(([c,f])=>{
+    const display=c===' '?'Space':c==='\n'?'\\n':c;
+    return`<tr><td>${display}</td><td>${f}</td><td style="color:#a78bfa">${codes[c]}</td><td>${codes[c].length}</td></tr>`;
+  }).join('');
+
+  // Frequency chart
+  drawFreqChart(sorted);
+  drawTree(tree,codes);
+}
+
+function drawFreqChart(sorted){
+  const canvas=document.getElementById('freqCanvas');
+  const ctx=canvas.getContext('2d');
+  canvas.width=canvas.offsetWidth*2;canvas.height=240;
+  ctx.fillStyle='#050508';ctx.fillRect(0,0,canvas.width,canvas.height);
+  const max=Math.max(...sorted.map(s=>s[1]));
+  const barW=Math.min(20,(canvas.width-20)/sorted.length-2);
+  sorted.forEach(([c,f],i)=>{
+    const h=(f/max)*180;
+    const x=10+i*(barW+2);
+    ctx.fillStyle='rgba(139,92,246,.4)';
+    ctx.fillRect(x,220-h,barW,h);
+    ctx.fillStyle='rgba(255,255,255,.3)';ctx.font='16px Space Mono';ctx.textAlign='center';
+    ctx.fillText(c===' '?'␣':c,x+barW/2,238);
+  });
+}
+
+function drawTree(tree,codes){
+  const canvas=document.getElementById('treeCanvas');
+  const ctx=canvas.getContext('2d');
+  canvas.width=canvas.offsetWidth*2;canvas.height=600;
+  ctx.fillStyle='#050508';ctx.fillRect(0,0,canvas.width,canvas.height);
+  if(!tree)return;
+
+  function draw(node,x,y,dx,depth){
+    if(!node)return;
+    const r=14;
+    if(node.left){ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x-dx,y+50);ctx.strokeStyle='rgba(139,92,246,.2)';ctx.lineWidth=2;ctx.stroke();draw(node.left,x-dx,y+50,dx*.5,depth+1)}
+    if(node.right){ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+dx,y+50);ctx.strokeStyle='rgba(6,182,212,.2)';ctx.lineWidth=2;ctx.stroke();draw(node.right,x+dx,y+50,dx*.5,depth+1)}
+    ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);
+    if(node.char!==null){ctx.fillStyle='rgba(34,197,94,.3)';ctx.fill();ctx.strokeStyle='rgba(34,197,94,.4)';ctx.stroke();ctx.fillStyle='#22c55e';ctx.font='14px Space Mono';ctx.textAlign='center';ctx.fillText(node.char===' '?'␣':node.char,x,y+5)}
+    else{ctx.fillStyle='rgba(255,255,255,.05)';ctx.fill();ctx.strokeStyle='rgba(255,255,255,.1)';ctx.stroke();ctx.fillStyle='rgba(255,255,255,.2)';ctx.font='11px Space Mono';ctx.fillText(node.freq,x,y+4)}
+  }
+  draw(tree,canvas.width/2,30,canvas.width*.22,0);
+}
+
+function decode(){
+  const text=document.getElementById('input').value;
+  if(!text)return;
+  const tree=buildTree(text);
+  const codes=buildCodes(tree);
+  // Build reverse map
+  const rev={};Object.entries(codes).forEach(([c,code])=>rev[code]=c);
+  // Get encoded
+  let encoded='';for(const c of text)encoded+=codes[c];
+  // Decode
+  let decoded='',buf='';
+  for(const bit of encoded){
+    buf+=bit;
+    if(rev[buf]!==undefined){decoded+=rev[buf];buf=''}
+  }
+  alert('Decoded: '+decoded.substring(0,200)+(decoded.length>200?'...':''));
+}
+
+function loadSample(){
+  document.getElementById('input').value='In computer science and information theory, a Huffman code is a particular type of optimal prefix code that is commonly used for lossless data compression. The process of finding or using such a code is Huffman coding, an algorithm developed by David A. Huffman while he was a ScD student at MIT, and published in the 1952 paper "A Method for the Construction of Minimum-Redundancy Codes".';
+  encode();
+}
+
+encode();
+</script>
+</body>
+</html>

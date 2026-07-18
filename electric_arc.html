@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Electric Arc</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}body{background:#050508;overflow:hidden}canvas{display:block}
+.ui{position:fixed;top:12px;left:12px;z-index:10;display:flex;gap:6px;flex-wrap:wrap}
+.btn{padding:5px 10px;border-radius:6px;font-size:.7rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);color:rgba(255,255,255,.5);cursor:pointer;transition:all .2s;font-family:'Space Grotesk',sans-serif}
+.btn:hover{background:rgba(255,255,255,.1);color:#fff}
+.stats{position:fixed;bottom:12px;left:12px;font-size:.62rem;font-family:'Space Mono',monospace;color:rgba(255,255,255,.2)}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="ui">
+  <button class="btn" onclick="boltCount=Math.min(20,boltCount+2)">More Bolts</button>
+  <button class="btn" onclick="boltCount=Math.max(1,boltCount-2)">Fewer Bolts</button>
+  <button class="btn" onclick="intensity=Math.min(2,intensity+.3)">Brighter</button>
+  <button class="btn" onclick="intensity=Math.max(.2,intensity-.3)">Dimmer</button>
+  <button class="btn" onclick="hue=(hue+40)%360">Color</button>
+  <button class="btn" onclick="groundMode=!groundMode">Ground</button>
+</div>
+<div class="stats" id="stats"></div>
+
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+let W,H;
+function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight}
+addEventListener('resize',resize);
+
+let boltCount=5,intensity=1,hue=200,groundMode=false,mouseX=W/2,mouseY=100;
+
+canvas.addEventListener('mousemove',e=>{mouseX=e.clientX;mouseY=e.clientY});
+
+function generateBolt(x1,y1,x2,y2,segments,jitter){
+  const points=[{x:x1,y:y1}];
+  for(let i=1;i<segments;i++){
+    const t=i/segments;
+    const mx=x1+(x2-x1)*t+(Math.random()-.5)*jitter;
+    const my=y1+(y2-y1)*t+(Math.random()-.5)*jitter;
+    points.push({x:mx,y:my});
+  }
+  points.push({x:x2,y:y2});
+  return points;
+}
+
+function drawBolt(points,hue,width,alpha){
+  if(points.length<2)return;
+  // Main arc
+  ctx.beginPath();ctx.moveTo(points[0].x,points[0].y);
+  for(let i=1;i<points.length;i++)ctx.lineTo(points[i].x,points[i].y);
+  ctx.strokeStyle=`hsla(${hue},80%,85%,${alpha})`;ctx.lineWidth=width;ctx.stroke();
+  // Inner glow
+  ctx.strokeStyle=`hsla(${hue},90%,95%,${alpha*.5})`;ctx.lineWidth=width*.3;ctx.stroke();
+  // Outer glow
+  ctx.strokeStyle=`hsla(${hue},70%,60%,${alpha*.2})`;ctx.lineWidth=width*4;ctx.stroke();
+  ctx.strokeStyle=`hsla(${hue},60%,50%,${alpha*.05})`;ctx.lineWidth=width*10;ctx.stroke();
+
+  // Branches
+  for(let i=2;i<points.length;i+=2+Math.random()*3|0){
+    if(Math.random()>.5)continue;
+    const p=points[i];
+    const bLen=20+Math.random()*40;
+    const bAngle=Math.random()*Math.PI*2;
+    const branch=[
+      {x:p.x,y:p.y},
+      {x:p.x+Math.cos(bAngle)*bLen*.5+(Math.random()-.5)*20,y:p.y+Math.sin(bAngle)*bLen*.5+(Math.random()-.5)*20},
+      {x:p.x+Math.cos(bAngle)*bLen+(Math.random()-.5)*20,y:p.y+Math.sin(bAngle)*bLen+(Math.random()-.5)*20}
+    ];
+    drawBolt(branch,hue,width*.4,alpha*.5);
+  }
+}
+
+function loop(){
+  ctx.fillStyle='rgba(5,5,8,.2)';ctx.fillRect(0,0,W,H);
+
+  // Generate bolts
+  for(let i=0;i<boltCount;i++){
+    const startX=W/2+(Math.random()-.5)*W*.3;
+    const startY=groundMode?H:0;
+    const endX=mouseX+(Math.random()-.5)*100;
+    const endY=groundMode?mouseY:H;
+    const segments=10+Math.random()*15|0;
+    const jitter=100+Math.random()*150;
+    const bolt=generateBolt(startX,startY,endX,endY,segments,jitter);
+    const alpha=(.3+Math.random()*.7)*intensity;
+    drawBolt(bolt,(hue+i*15)%360,.8+Math.random()*1.5,alpha);
+  }
+
+  // Impact glow at mouse
+  const g=ctx.createRadialGradient(mouseX,mouseY,0,mouseX,mouseY,40*intensity);
+  g.addColorStop(0,`hsla(${hue},90%,80%,${.3*intensity})`);g.addColorStop(1,'transparent');
+  ctx.fillStyle=g;ctx.beginPath();ctx.arc(mouseX,mouseY,40*intensity,0,Math.PI*2);ctx.fill();
+
+  // Random flicker
+  if(Math.random()<.1){
+    ctx.fillStyle=`rgba(255,255,255,${Math.random()*.03})`;
+    ctx.fillRect(0,0,W,H);
+  }
+
+  document.getElementById('stats').textContent=`${boltCount} bolts · intensity ${intensity.toFixed(1)}`;
+  requestAnimationFrame(loop);
+}
+resize();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

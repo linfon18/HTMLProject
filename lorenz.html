@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lorenz Attractor</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}body{background:#050508;overflow:hidden}canvas{display:block}
+.ui{position:fixed;top:12px;left:12px;z-index:10;display:flex;flex-direction:column;gap:6px}
+.panel{padding:10px;border-radius:10px;background:rgba(10,10,15,.85);backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.06);min-width:170px}
+.panel h3{font-size:.6rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.25);margin-bottom:6px}
+.row{display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;font-size:.68rem}
+.row label{color:rgba(255,255,255,.35);font-size:.62rem}
+input[type=range]{width:70px;height:3px;-webkit-appearance:none;background:rgba(255,255,255,.1);border-radius:2px;outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;height:10px;border-radius:50%;background:#fff;cursor:pointer}
+.val{font-family:'Space Mono',monospace;font-size:.58rem;color:rgba(255,255,255,.25);min-width:28px;text-align:right}
+.btn{padding:5px 10px;border-radius:6px;font-size:.68rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.06);color:rgba(255,255,255,.4);cursor:pointer;transition:all .2s;text-align:center;margin-top:3px;width:100%}
+.btn:hover{color:#fff;background:rgba(255,255,255,.1)}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="ui">
+  <div class="panel">
+    <h3>Lorenz System</h3>
+    <div class="row"><label>sigma</label><input type="range" id="sigma" min="1" max="30" value="10"><span class="val" id="sigmaV">10</span></div>
+    <div class="row"><label>rho</label><input type="range" id="rho" min="10" max="50" value="28"><span class="val" id="rhoV">28</span></div>
+    <div class="row"><label>beta</label><input type="range" id="beta" min="1" max="10" value="2.67"><span class="val" id="betaV">2.67</span></div>
+    <div class="row"><label>dt</label><input type="range" id="dt" min="1" max="20" value="5"><span class="val" id="dtV">0.005</span></div>
+    <div class="row"><label>Trails</label><input type="range" id="trails" min="1" max="10" value="5"><span class="val" id="trailsV">5</span></div>
+    <button class="btn" onclick="resetAttractor()">Reset</button>
+    <button class="btn" onclick="addParticle()">Add Particle</button>
+  </div>
+</div>
+
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+let W,H;
+function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight}
+addEventListener('resize',resize);
+
+let camAngle=0,camAngleY=.3;
+let dragging=false,lastMX,lastMY;
+canvas.addEventListener('mousedown',e=>{dragging=true;lastMX=e.clientX;lastMY=e.clientY});
+canvas.addEventListener('mousemove',e=>{if(!dragging)return;camAngle+=(e.clientX-lastMX)*.005;camAngleY=Math.max(-1.5,Math.min(1.5,camAngleY+(e.clientY-lastMY)*.005));lastMX=e.clientX;lastMY=e.clientY});
+canvas.addEventListener('mouseup',()=>dragging=false);
+
+let particles=[];
+class Particle{
+  constructor(){
+    this.x=1+Math.random()*.1;this.y=1+Math.random()*.1;this.z=1+Math.random()*.1;
+    this.trail=[];
+    this.hue=Math.random()*360;
+  }
+}
+
+function resetAttractor(){particles=[];for(let i=0;i<+document.getElementById('trails').value;i++)particles.push(new Particle())}
+function addParticle(){particles.push(new Particle())}
+
+function project(x,y,z){
+  const cx=Math.cos(camAngle),sx=Math.sin(camAngle);
+  let x1=x*cx-z*sx,z1=x*sx+z*cx;
+  const cy=Math.cos(camAngleY),sy=Math.sin(camAngleY);
+  let y1=y*cy-z1*sy,z2=y*sy+z1*cy;
+  const d=80;
+  const s=d/(d+z2)*3;
+  return{x:W/2+x1*s,y:H/2-y1*s+50,z:z2};
+}
+
+function update(){
+  const sigma=+document.getElementById('sigma').value;
+  const rho=+document.getElementById('rho').value;
+  const beta=+document.getElementById('beta').value/1;
+  const dt=+document.getElementById('dt').value/1000;
+  const maxTrail=2000;
+
+  particles.forEach(p=>{
+    const dx=sigma*(p.y-p.x)*dt;
+    const dy=(p.x*(rho-p.z)-p.y)*dt;
+    const dz=(p.x*p.y-beta*p.z)*dt;
+    p.x+=dx;p.y+=dy;p.z+=dz;
+    p.trail.push({x:p.x,y:p.y,z:p.z});
+    if(p.trail.length>maxTrail)p.trail.shift();
+  });
+
+  // Manage particle count
+  const target=+document.getElementById('trails').value;
+  while(particles.length<target)particles.push(new Particle());
+  while(particles.length>target)particles.pop();
+}
+
+function draw(){
+  ctx.fillStyle='rgba(5,5,8,.08)';ctx.fillRect(0,0,W,H);
+  if(!dragging)camAngle+=.003;
+
+  // Draw trails
+  particles.forEach(p=>{
+    if(p.trail.length<2)return;
+    ctx.beginPath();
+    const first=project(p.trail[0].x,p.trail[0].y,p.trail[0].z);
+    ctx.moveTo(first.x,first.y);
+    for(let i=1;i<p.trail.length;i++){
+      const pt=project(p.trail[i].x,p.trail[i].y,p.trail[i].z);
+      ctx.lineTo(pt.x,pt.y);
+    }
+    ctx.strokeStyle=`hsla(${p.hue},70%,50%,.4)`;ctx.lineWidth=1.2;ctx.stroke();
+
+    // Current point
+    const curr=project(p.x,p.y,p.z);
+    ctx.beginPath();ctx.arc(curr.x,curr.y,3,0,Math.PI*2);
+    ctx.fillStyle=`hsla(${p.hue},80%,60%,.9)`;ctx.fill();
+  });
+
+  // Axes hint
+  const o=project(0,0,0),ax=project(30,0,0),ay=project(0,30,0),az=project(0,0,30);
+  ctx.globalAlpha=.15;
+  ctx.beginPath();ctx.moveTo(o.x,o.y);ctx.lineTo(ax.x,ax.y);ctx.strokeStyle='#f00';ctx.lineWidth=.5;ctx.stroke();
+  ctx.beginPath();ctx.moveTo(o.x,o.y);ctx.lineTo(ay.x,ay.y);ctx.strokeStyle='#0f0';ctx.lineWidth=.5;ctx.stroke();
+  ctx.beginPath();ctx.moveTo(o.x,o.y);ctx.lineTo(az.x,az.y);ctx.strokeStyle='#00f';ctx.lineWidth=.5;ctx.stroke();
+  ctx.globalAlpha=1;
+}
+
+document.querySelectorAll('input[type=range]').forEach(s=>{
+  const vEl=document.getElementById(s.id+'V');
+  s.addEventListener('input',()=>{
+    if(s.id==='dt')vEl.textContent=(+s.value/1000).toFixed(3);
+    else if(s.id==='beta')vEl.textContent=(+s.value/1).toFixed(1);
+    else vEl.textContent=s.value;
+  });
+});
+
+resetAttractor();
+function loop(){update();draw();requestAnimationFrame(loop)}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

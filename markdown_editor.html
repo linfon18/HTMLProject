@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Markdown Editor</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0a0a0f;--editor:#0d0d14;--preview:#0f0f18;--border:rgba(255,255,255,.06);--t1:#e6edf3;--t2:rgba(255,255,255,.55);--t3:rgba(255,255,255,.25);--accent:#8b5cf6;--green:#22c55e;--red:#f43f5e;--blue:#3b82f6;--amber:#f59e0b}
+body{background:var(--bg);color:var(--t2);font-family:'Inter',sans-serif;height:100vh;display:flex;flex-direction:column;overflow:hidden;-webkit-font-smoothing:antialiased}
+
+.top{padding:8px 16px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border);background:rgba(10,10,15,.8);backdrop-filter:blur(16px);flex-shrink:0;z-index:10}
+.top h1{font-size:.85rem;font-weight:700;color:var(--t1);margin-right:auto;letter-spacing:-.01em}
+.btn{padding:5px 10px;border-radius:6px;font-size:.72rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--t2);cursor:pointer;transition:all .2s}
+.btn:hover{background:rgba(255,255,255,.1);color:var(--t1)}
+.btn.primary{background:rgba(139,92,246,.12);border-color:rgba(139,92,246,.25);color:#a78bfa}
+
+.editor-wrap{flex:1;display:flex;overflow:hidden}
+.editor-pane{flex:1;display:flex;flex-direction:column;border-right:1px solid var(--border)}
+.pane-header{padding:6px 16px;font-size:.65rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);border-bottom:1px solid var(--border);background:rgba(255,255,255,.015);flex-shrink:0;display:flex;align-items:center;gap:8px}
+.pane-header .dot{width:6px;height:6px;border-radius:50%;background:var(--green)}
+
+textarea{
+  flex:1;resize:none;border:none;outline:none;padding:16px;
+  background:var(--editor);color:var(--t1);
+  font-family:'JetBrains Mono',monospace;font-size:.82rem;line-height:1.7;
+  tab-size:2;
+}
+textarea::placeholder{color:var(--t3)}
+
+.preview-pane{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.preview-content{
+  flex:1;overflow-y:auto;padding:24px 28px;
+  background:var(--preview);
+}
+.preview-content h1{font-size:1.8rem;font-weight:700;color:var(--t1);margin:0 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+.preview-content h2{font-size:1.4rem;font-weight:600;color:var(--t1);margin:24px 0 12px}
+.preview-content h3{font-size:1.15rem;font-weight:600;color:var(--t1);margin:20px 0 8px}
+.preview-content p{margin:0 0 12px;color:var(--t2);line-height:1.75}
+.preview-content a{color:var(--accent);text-decoration:none;border-bottom:1px solid rgba(139,92,246,.3)}
+.preview-content a:hover{border-color:var(--accent)}
+.preview-content code{
+  font-family:'JetBrains Mono',monospace;font-size:.82em;
+  background:rgba(139,92,246,.1);color:#a78bfa;
+  padding:2px 6px;border-radius:4px;
+}
+.preview-content pre{
+  background:rgba(0,0,0,.3);border:1px solid var(--border);
+  border-radius:8px;padding:16px;margin:0 0 16px;overflow-x:auto;
+}
+.preview-content pre code{background:none;color:var(--t2);padding:0}
+.preview-content blockquote{
+  border-left:3px solid var(--accent);padding:8px 16px;margin:0 0 16px;
+  background:rgba(139,92,246,.04);border-radius:0 6px 6px 0;
+  color:var(--t2);
+}
+.preview-content ul,.preview-content ol{margin:0 0 12px 24px}
+.preview-content li{margin-bottom:4px;color:var(--t2);line-height:1.6}
+.preview-content img{max-width:100%;border-radius:8px;margin:8px 0}
+.preview-content hr{border:none;border-top:1px solid var(--border);margin:24px 0}
+.preview-content table{width:100%;border-collapse:collapse;margin:0 0 16px}
+.preview-content th,.preview-content td{padding:8px 12px;border:1px solid var(--border);text-align:left;font-size:.85rem}
+.preview-content th{background:rgba(255,255,255,.03);color:var(--t1);font-weight:600}
+.preview-content input[type=checkbox]{margin-right:6px;accent-color:var(--accent)}
+
+.status{padding:4px 16px;font-size:.65rem;font-family:'JetBrains Mono',monospace;color:var(--t3);border-top:1px solid var(--border);background:rgba(10,10,15,.8);display:flex;gap:16px;flex-shrink:0}
+
+/* Toolbar */
+.toolbar{display:flex;gap:2px;margin-right:8px}
+.tb{width:28px;height:28px;border-radius:5px;border:1px solid transparent;background:transparent;color:var(--t3);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:.85rem;transition:all .15s;font-weight:600}
+.tb:hover{background:rgba(255,255,255,.06);color:var(--t1);border-color:var(--border)}
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>Markdown</h1>
+  <div class="toolbar">
+    <button class="tb" onclick="insert('**','**')" title="Bold">B</button>
+    <button class="tb" onclick="insert('*','*')" title="Italic" style="font-style:italic">I</button>
+    <button class="tb" onclick="insert('`','`')" title="Code" style="font-family:JetBrains Mono;font-size:.7rem">&lt;/&gt;</button>
+    <button class="tb" onclick="insert('[','](url)')" title="Link">🔗</button>
+    <button class="tb" onclick="insertLine('> ')" title="Quote">❝</button>
+    <button class="tb" onclick="insertLine('- ')" title="List">☰</button>
+  </div>
+  <button class="btn" onclick="clearAll()">Clear</button>
+  <button class="btn" onclick="copyHTML()">Copy HTML</button>
+  <button class="btn primary" onclick="exportMD()">Export .md</button>
+</div>
+
+<div class="editor-wrap">
+  <div class="editor-pane">
+    <div class="pane-header"><span class="dot"></span>Editor</div>
+    <textarea id="editor" spellcheck="false" placeholder="Write your markdown here..."></textarea>
+  </div>
+  <div class="preview-pane">
+    <div class="pane-header"><span class="dot"></span>Preview</div>
+    <div class="preview-content" id="preview"></div>
+  </div>
+</div>
+
+<div class="status">
+  <span id="lines">Lines: 0</span>
+  <span id="words">Words: 0</span>
+  <span id="chars">Chars: 0</span>
+</div>
+
+<script>
+const editor=document.getElementById('editor');
+const preview=document.getElementById('preview');
+
+function parseMD(md){
+  let html=md;
+  // Escape HTML
+  html=html.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  // Code blocks
+  html=html.replace(/```(\w*)\n([\s\S]*?)```/g,(_,lang,code)=>`<pre><code class="lang-${lang}">${code.trim()}</code></pre>`);
+  // Inline code
+  html=html.replace(/`([^`]+)`/g,'<code>$1</code>');
+  // Headers
+  html=html.replace(/^### (.+)$/gm,'<h3>$1</h3>');
+  html=html.replace(/^## (.+)$/gm,'<h2>$1</h2>');
+  html=html.replace(/^# (.+)$/gm,'<h1>$1</h1>');
+  // Bold & Italic
+  html=html.replace(/\*\*\*(.+?)\*\*\*/g,'<strong><em>$1</em></strong>');
+  html=html.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
+  html=html.replace(/\*(.+?)\*/g,'<em>$1</em>');
+  // Strikethrough
+  html=html.replace(/~~(.+?)~~/g,'<del>$1</del>');
+  // Links & Images
+  html=html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g,'<img src="$2" alt="$1"/>');
+  html=html.replace(/\[([^\]]+)\]\(([^)]+)\)/g,'<a href="$2">$1</a>');
+  // Blockquotes
+  html=html.replace(/^&gt; (.+)$/gm,'<blockquote>$1</blockquote>');
+  // Merge adjacent blockquotes
+  html=html.replace(/<\/blockquote>\n<blockquote>/g,'\n');
+  // Horizontal rules
+  html=html.replace(/^---+$/gm,'<hr/>');
+  // Unordered lists
+  html=html.replace(/^[\-\*] (.+)$/gm,'<li>$1</li>');
+  html=html.replace(/(<li>.*<\/li>\n?)+/g,m=>`<ul>${m}</ul>`);
+  // Ordered lists
+  html=html.replace(/^\d+\. (.+)$/gm,'<li>$1</li>');
+  // Checkboxes
+  html=html.replace(/\[ \]/g,'<input type="checkbox" disabled/>');
+  html=html.replace(/\[x\]/gi,'<input type="checkbox" checked disabled/>');
+  // Tables
+  html=html.replace(/^(\|.+\|)\n(\|[\-\|: ]+\|)\n((?:\|.+\|\n?)+)/gm,(_,header,sep,body)=>{
+    const hCells=header.split('|').filter(c=>c.trim()).map(c=>`<th>${c.trim()}</th>`).join('');
+    const rows=body.trim().split('\n').map(r=>{
+      const cells=r.split('|').filter(c=>c.trim()).map(c=>`<td>${c.trim()}</td>`).join('');
+      return`<tr>${cells}</tr>`;
+    }).join('');
+    return`<table><thead><tr>${hCells}</tr></thead><tbody>${rows}</tbody></table>`;
+  });
+  // Paragraphs
+  html=html.replace(/^(?!<[a-z/])((?!<).+)$/gm,'<p>$1</p>');
+  // Clean up empty paragraphs
+  html=html.replace(/<p>\s*<\/p>/g,'');
+  // Line breaks
+  html=html.replace(/\n\n/g,'\n');
+  return html;
+}
+
+function render(){
+  const md=editor.value;
+  preview.innerHTML=parseMD(md);
+  const lines=md.split('\n').length;
+  const words=md.trim()?md.trim().split(/\s+/).length:0;
+  document.getElementById('lines').textContent='Lines: '+lines;
+  document.getElementById('words').textContent='Words: '+words;
+  document.getElementById('chars').textContent='Chars: '+md.length;
+}
+
+editor.addEventListener('input',render);
+
+// Sync scroll
+editor.addEventListener('scroll',()=>{
+  const pct=editor.scrollTop/(editor.scrollHeight-editor.clientHeight);
+  preview.scrollTop=pct*(preview.scrollHeight-preview.clientHeight);
+});
+
+function insert(before,after){
+  const s=editor.selectionStart,e=editor.selectionEnd;
+  const sel=editor.value.substring(s,e);
+  editor.value=editor.value.substring(0,s)+before+sel+after+editor.value.substring(e);
+  editor.selectionStart=s+before.length;editor.selectionEnd=s+before.length+sel.length;
+  editor.focus();render();
+}
+function insertLine(prefix){
+  const s=editor.selectionStart;
+  const lineStart=editor.value.lastIndexOf('\n',s-1)+1;
+  editor.value=editor.value.substring(0,lineStart)+prefix+editor.value.substring(lineStart);
+  editor.selectionStart=editor.selectionEnd=s+prefix.length;
+  editor.focus();render();
+}
+
+function clearAll(){editor.value='';render()}
+function copyHTML(){navigator.clipboard.writeText(parseHTML(editor.value))}
+function exportMD(){
+  const a=document.createElement('a');
+  a.download='document.md';
+  a.href=URL.createObjectURL(new Blob([editor.value],{type:'text/markdown'}));
+  a.click();
+}
+
+// Load demo
+editor.value=`# Hello Markdown
+
+Welcome to the **Markdown Editor** with live preview!
+
+## Features
+
+- Real-time preview
+- Syntax highlighting
+- Sync scrolling
+- Export to .md
+- Copy HTML
+
+## Code Example
+
+\`\`\`javascript
+function hello(name) {
+  return \`Hello, \${name}!\`;
+}
+\`\`\`
+
+## Table
+
+| Feature | Status |
+|---------|--------|
+| Bold | Done |
+| Italic | Done |
+| Code | Done |
+| Tables | Done |
+
+## Blockquote
+
+> "The best way to predict the future is to invent it." — Alan Kay
+
+## Checklist
+
+- [x] Build editor
+- [x] Add preview
+- [ ] Add more features
+
+---
+
+*Enjoy writing!*`;
+
+render();
+</script>
+</body>
+</html>

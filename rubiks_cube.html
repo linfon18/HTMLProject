@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3D Rubik's Cube</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}body{background:#050508;overflow:hidden}
+canvas{display:block}
+.ui{position:fixed;top:12px;left:12px;z-index:10;display:flex;gap:6px;flex-wrap:wrap}
+.btn{padding:5px 10px;border-radius:6px;font-size:.7rem;font-weight:600;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);color:rgba(255,255,255,.5);cursor:pointer;transition:all .2s;font-family:'Space Grotesk',sans-serif}
+.btn:hover{background:rgba(255,255,255,.1);color:#fff}
+.info{position:fixed;bottom:12px;left:12px;font-size:.62rem;font-family:'Space Mono',monospace;color:rgba(255,255,255,.2);line-height:1.8}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="ui">
+  <button class="btn" onclick="scramble()">Scramble</button>
+  <button class="btn" onclick="resetCube()">Reset</button>
+  <button class="btn" onclick="rotateFace('U')">U</button>
+  <button class="btn" onclick="rotateFace('D')">D</button>
+  <button class="btn" onclick="rotateFace('L')">L</button>
+  <button class="btn" onclick="rotateFace('R')">R</button>
+  <button class="btn" onclick="rotateFace('F')">F</button>
+  <button class="btn" onclick="rotateFace('B')">B</button>
+</div>
+<div class="info">Drag to rotate view · Buttons to rotate faces</div>
+
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+let W,H;
+function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight}
+resize();addEventListener('resize',resize);
+
+let camX=.5,camY=-.6,camDist=8;
+let dragging=false,lastMX,lastMY;
+canvas.addEventListener('mousedown',e=>{dragging=true;lastMX=e.clientX;lastMY=e.clientY});
+canvas.addEventListener('mousemove',e=>{if(!dragging)return;camX+=(e.clientX-lastMX)*.008;camY+=(e.clientY-lastMY)*.008;lastMX=e.clientX;lastMY=e.clientY});
+canvas.addEventListener('mouseup',()=>dragging=false);
+canvas.addEventListener('wheel',e=>{camDist=Math.max(4,Math.min(15,camDist+e.deltaY*.01))});
+
+// Cube colors: W=0,Y=1,R=2,O=3,B=4,G=5
+const COLORS=['#ffffff','#ffd500','#c41e3a','#ff5800','#0051ba','#009e60'];
+const FACE_NAMES=['U','D','R','L','F','B'];
+
+// 3x3x3 cube state: each cubie has position and orientation
+let cubies=[];
+function initCubies(){
+  cubies=[];
+  for(let x=-1;x<=1;x++)for(let y=-1;y<=1;y++)for(let z=-1;z<=1;z++){
+    cubies.push({x,y,z,ox:x,oy:y,oz:z});
+  }
+}
+initCubies();
+
+function project(x,y,z){
+  // Rotate Y
+  const cx=Math.cos(camX),sx=Math.sin(camX);
+  let x1=x*cx-z*sx,z1=x*sx+z*cx;
+  // Rotate X
+  const cy=Math.cos(camY),sy=Math.sin(camY);
+  let y1=y*cy-z1*sy,z2=y*sy+z1*cy;
+  const s=camDist/(camDist+z2)*80;
+  return{x:W/2+x1*s,y:H/2-y1*s,z:z2,s};
+}
+
+// Get face color based on cubie position
+function getColor(face,cubie){
+  const{x,y,z}=cubie;
+  switch(face){
+    case'R':return x===1?COLORS[2]:null;
+    case'L':return x===-1?COLORS[3]:null;
+    case'U':return y===1?COLORS[0]:null;
+    case'D':return y===-1?COLORS[1]:null;
+    case'F':return z===1?COLORS[4]:null;
+    case'B':return z===-1?COLORS[5]:null;
+  }
+  return null;
+}
+
+// Get visible faces for a cubie
+function getFaces(cubie){
+  const faces=[];
+  const{x,y,z}=cubie;
+  if(x===1)faces.push({dir:'R',normal:[1,0,0]});
+  if(x===-1)faces.push({dir:'L',normal:[-1,0,0]});
+  if(y===1)faces.push({dir:'U',normal:[0,1,0]});
+  if(y===-1)faces.push({dir:'D',normal:[0,-1,0]});
+  if(z===1)faces.push({dir:'F',normal:[0,0,1]});
+  if(z===-1)faces.push({dir:'B',normal:[0,0,-1]});
+  return faces;
+}
+
+let animating=false,animQueue=[];
+
+function rotateFace(face,reverse=false){
+  if(animating){animQueue.push({face,reverse});return}
+  animating=true;
+  const axis=face==='U'||face==='D'?1:face==='R'||face==='L'?0:2;
+  const layer=face==='U'||face==='R'||face==='F'?1:-1;
+  const dir=reverse?-1:1;
+  const steps=10;
+  let step=0;
+
+  function anim(){
+    const angle=(Math.PI/2/steps)*dir;
+    // Rotate cubies in the layer
+    cubies.forEach(c=>{
+      let coord=axis===0?c.x:axis===1?c.y:c.z;
+      if(coord===layer){
+        const ca=Math.cos(angle),sa=Math.sin(angle);
+        if(axis===0){const ny=c.y*ca-c.z*sa;const nz=c.y*sa+c.z*ca;c.y=Math.round(ny*10)/10;c.z=Math.round(nz*10)/10}
+        else if(axis===1){const nx=c.x*ca+c.z*sa;const nz=-c.x*sa+c.z*ca;c.x=Math.round(nx*10)/10;c.z=Math.round(nz*10)/10}
+        else{const nx=c.x*ca-c.y*sa;const ny=c.x*sa+c.y*ca;c.x=Math.round(nx*10)/10;c.y=Math.round(ny*10)/10}
+      }
+    });
+    step++;
+    if(step<steps)requestAnimationFrame(anim);
+    else{
+      // Snap
+      cubies.forEach(c=>{c.x=Math.round(c.x);c.y=Math.round(c.y);c.z=Math.round(c.z)});
+      animating=false;
+      if(animQueue.length){const next=animQueue.shift();rotateFace(next.face,next.reverse)}
+    }
+  }
+  requestAnimationFrame(anim);
+}
+
+function scramble(){
+  const faces=['U','D','R','L','F','B'];
+  let i=0;
+  function doMove(){
+    if(i>=20)return;
+    rotateFace(faces[Math.floor(Math.random()*6)],Math.random()>.5);
+    i++;setTimeout(doMove,200);
+  }
+  doMove();
+}
+
+function resetCube(){animQueue=[];animating=false;initCubies()}
+
+// Collect all faces for depth sorting
+function draw(){
+  ctx.fillStyle='#050508';ctx.fillRect(0,0,W,H);
+
+  // Grid
+  ctx.strokeStyle='rgba(255,255,255,.02)';ctx.lineWidth=.5;
+  for(let x=0;x<W;x+=50){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke()}
+  for(let y=0;y<H;y+=50){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke()}
+
+  const allFaces=[];
+  cubies.forEach(cubie=>{
+    const faces=getFaces(cubie);
+    faces.forEach(f=>{
+      const col=getColor(f.dir,cubie);
+      if(!col)return;
+      // Face vertices
+      const{x,y,z}=cubie;
+      const s=.45;
+      let verts=[];
+      switch(f.dir){
+        case'R':verts=[[x+s,y-s,z-s],[x+s,y+s,z-s],[x+s,y+s,z+s],[x+s,y-s,z+s]];break;
+        case'L':verts=[[x-s,y-s,z-s],[x-s,y-s,z+s],[x-s,y+s,z+s],[x-s,y+s,z-s]];break;
+        case'U':verts=[[x-s,y+s,z-s],[x-s,y+s,z+s],[x+s,y+s,z+s],[x+s,y+s,z-s]];break;
+        case'D':verts=[[x-s,y-s,z-s],[x+s,y-s,z-s],[x+s,y-s,z+s],[x-s,y-s,z+s]];break;
+        case'F':verts=[[x-s,y-s,z+s],[x+s,y-s,z+s],[x+s,y+s,z+s],[x-s,y+s,z+s]];break;
+        case'B':verts=[[x-s,y-s,z-s],[x-s,y+s,z-s],[x+s,y+s,z-s],[x+s,y-s,z-s]];break;
+      }
+      const projVerts=verts.map(v=>project(v[0],v[1],v[2]));
+      const avgZ=projVerts.reduce((s,v)=>s+v.z,0)/4;
+      allFaces.push({verts:projVerts,color:col,z:avgZ,dir:f.dir});
+    });
+  });
+
+  // Sort by depth
+  allFaces.sort((a,b)=>b.z-a.z);
+
+  // Draw faces
+  allFaces.forEach(f=>{
+    ctx.beginPath();
+    ctx.moveTo(f.verts[0].x,f.verts[0].y);
+    for(let i=1;i<f.verts.length;i++)ctx.lineTo(f.verts[i].x,f.verts[i].y);
+    ctx.closePath();
+    ctx.fillStyle=f.color;ctx.fill();
+    ctx.strokeStyle='rgba(0,0,0,.3)';ctx.lineWidth=1.5;ctx.stroke();
+  });
+}
+
+function loop(){draw();requestAnimationFrame(loop)}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
