@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Projects Count](https://img.shields.io/badge/Projects-143-8b5cf6?style=for-the-badge)
+![Projects Count](https://img.shields.io/badge/Projects-142-8b5cf6?style=for-the-badge)
 ![Zero Dependencies](https://img.shields.io/badge/Dependencies-0-06b6d4?style=for-the-badge)
 ![Pure Frontend](https://img.shields.io/badge/Type-Pure%20Frontend-f43f5e?style=for-the-badge)
 
