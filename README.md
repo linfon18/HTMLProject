@@ -2,11 +2,11 @@
 
 <div align="center">
 
-![Projects Count](https://img.shields.io/badge/Projects-141-8b5cf6?style=for-the-badge)
+![Projects Count](https://img.shields.io/badge/Projects-143-8b5cf6?style=for-the-badge)
 ![Zero Dependencies](https://img.shields.io/badge/Dependencies-0-06b6d4?style=for-the-badge)
 ![Pure Frontend](https://img.shields.io/badge/Type-Pure%20Frontend-f43f5e?style=for-the-badge)
 
-**141个纯前端单文件HTML项目合集**
+**142个纯前端单文件HTML项目合集**
 
 [🚀 在线预览](./index.html) | [📦 项目列表](#项目分类) | [🎨 特性](#特性)
 
@@ -24,7 +24,7 @@
 
 ## 🎨 导航网站
 
-打开 `index.html` 即可浏览所有142个项目，支持：
+打开 `index.html` 即可浏览所有143个项目，支持：
 
 - 🔍 **实时搜索** - 按标题、描述、标签搜索
 - 🏷️ **分类筛选** - 9个分类标签快速筛选
@@ -148,7 +148,7 @@
 | 无限镜 | 无限镜效果 | [infinity_mirror.html](./infinity_mirror.html) |
 | 雪花 | 雪花飘落动画 | [snowflakes.html](./snowflakes.html) |
 
-### 🌐 WebGL/Shader (5个)
+### 🌐 WebGL/Shader (6个)
 
 | 项目 | 描述 | 文件 |
 |------|------|------|
