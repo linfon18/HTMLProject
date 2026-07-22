@@ -6,7 +6,7 @@
 ![Zero Dependencies](https://img.shields.io/badge/Dependencies-0-06b6d4?style=for-the-badge)
 ![Pure Frontend](https://img.shields.io/badge/Type-Pure%20Frontend-f43f5e?style=for-the-badge)
 
-**142个纯前端单文件HTML项目合集**
+**143个纯前端单文件HTML项目合集**
 
 [🚀 在线预览](./index.html) | [📦 项目列表](#项目分类) | [🎨 特性](#特性)
 
@@ -148,12 +148,13 @@
 | 无限镜 | 无限镜效果 | [infinity_mirror.html](./infinity_mirror.html) |
 | 雪花 | 雪花飘落动画 | [snowflakes.html](./snowflakes.html) |
 
-### 🌐 WebGL/Shader (6个)
+### 🌐 WebGL/Shader (5个)
 
 | 项目 | 描述 | 文件 |
 |------|------|------|
 | WebGL光线追踪 | 实时光线追踪渲染器 | [raytracer.html](./raytracer.html) |
 | GARGANTUA黑洞光追 | 参考工程版：薄盘透镜像、深黑阴影、电影级Bloom | [gargantua.html](./gargantua.html) |
+| GARGANTUA入口导航 | 测试图库、参考截图、调试视图、脚本与v1备份入口 | [gargantua_test_gallery.html](./gargantua_test_gallery.html) |
 | Ray Marching渲染器 | SDF距离场渲染 | [raymarching.html](./raymarching.html) |
 | Shader实验室 | 实时Fragment Shader编辑 | [shader_lab.html](./shader_lab.html) |
 | 3D光影性能测试 | MC/宇宙沙盘风格渲染基准 | [benchmark3d.html](./benchmark3d.html) |
