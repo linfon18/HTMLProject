@@ -1,0 +1,1396 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>深渊潜航：深海声呐勘探与深海沟生态模拟器</title>
+  <style>
+    :root {
+      --deep-ocean: #020611;
+      --sonar-cyan: #00f0ff;
+      --sonar-green: #10ff88;
+      --alert-red: #ff3355;
+      --panel-bg: rgba(6, 14, 28, 0.85);
+      --panel-border: rgba(0, 240, 255, 0.3);
+      --text-main: #d8eeff;
+      --text-dim: #6486aa;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: var(--deep-ocean);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", monospace;
+      color: var(--text-main);
+    }
+
+    #canvas-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* 顶部仪表栏 HUD */
+    .hud-header {
+      position: absolute;
+      top: 16px;
+      left: 20px;
+      right: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    .brand-box {
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      backdrop-filter: blur(10px);
+      padding: 10px 18px;
+      border-radius: 8px;
+      pointer-events: auto;
+      box-shadow: 0 0 20px rgba(0, 240, 255, 0.15);
+    }
+
+    .brand-title {
+      font-size: 15px;
+      font-weight: 800;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      letter-spacing: 1px;
+    }
+
+    .brand-title .badge {
+      font-size: 10px;
+      padding: 2px 6px;
+      background: rgba(0, 240, 255, 0.2);
+      border: 1px solid var(--sonar-cyan);
+      color: var(--sonar-cyan);
+      border-radius: 4px;
+    }
+
+    .brand-sub {
+      font-size: 11px;
+      color: var(--text-dim);
+      margin-top: 3px;
+    }
+
+    /* 核心生理与能源仪表条 (Oxygen, Battery, Hull) */
+    .telemetry-bar {
+      display: flex;
+      gap: 12px;
+      pointer-events: auto;
+    }
+
+    .meter-card {
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      backdrop-filter: blur(10px);
+      padding: 8px 14px;
+      border-radius: 8px;
+      min-width: 110px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+    }
+
+    .meter-label {
+      font-size: 10px;
+      color: var(--text-dim);
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 4px;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+
+    .meter-bar-bg {
+      width: 100%;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .meter-bar-fill {
+      height: 100%;
+      width: 100%;
+      border-radius: 3px;
+      transition: width 0.2s, background-color 0.2s;
+    }
+
+    .fill-hull { background: #10ff88; }
+    .fill-oxygen { background: #00f0ff; }
+    .fill-power { background: #ffaa00; }
+
+    /* 深度计与压强显示 */
+    .depth-gauge {
+      position: absolute;
+      top: 90px;
+      left: 20px;
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      backdrop-filter: blur(10px);
+      padding: 12px 18px;
+      border-radius: 8px;
+      pointer-events: auto;
+      z-index: 10;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+    }
+
+    .depth-val {
+      font-size: 26px;
+      font-weight: 900;
+      color: var(--sonar-cyan);
+      font-family: monospace;
+      text-shadow: 0 0 12px rgba(0, 240, 255, 0.5);
+    }
+
+    .depth-zone {
+      font-size: 11px;
+      color: #fff;
+      margin-top: 2px;
+      font-weight: 600;
+    }
+
+    .depth-press {
+      font-size: 10px;
+      color: var(--text-dim);
+      margin-top: 2px;
+    }
+
+    /* 战术声呐屏幕 (Sonar PPI Display) */
+    .sonar-screen {
+      position: absolute;
+      bottom: 24px;
+      left: 24px;
+      width: 160px;
+      height: 160px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(0, 30, 45, 0.9) 0%, rgba(2, 10, 20, 0.95) 100%);
+      border: 2px solid var(--sonar-cyan);
+      box-shadow: 0 0 25px rgba(0, 240, 255, 0.25);
+      z-index: 10;
+      overflow: hidden;
+      pointer-events: auto;
+    }
+
+    .sonar-screen canvas {
+      width: 100%;
+      height: 100%;
+    }
+
+    .sonar-tag {
+      position: absolute;
+      bottom: 6px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 9px;
+      color: var(--sonar-cyan);
+      background: rgba(0,0,0,0.6);
+      padding: 1px 6px;
+      border-radius: 4px;
+      pointer-events: none;
+      letter-spacing: 0.5px;
+    }
+
+    /* 右侧科研与升级面板 */
+    .right-dock {
+      position: absolute;
+      top: 90px;
+      right: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      z-index: 10;
+    }
+
+    .dock-card {
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      backdrop-filter: blur(10px);
+      padding: 12px 16px;
+      border-radius: 8px;
+      min-width: 220px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+    }
+
+    .dock-header {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--sonar-cyan);
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      padding-bottom: 4px;
+    }
+
+    .sample-list {
+      font-size: 11px;
+      color: var(--text-main);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      max-height: 120px;
+      overflow-y: auto;
+    }
+
+    .sample-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 2px 0;
+    }
+
+    .hud-btn {
+      background: rgba(0, 240, 255, 0.12);
+      border: 1px solid var(--sonar-cyan);
+      color: #fff;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+
+    .hud-btn:hover {
+      background: rgba(0, 240, 255, 0.28);
+      box-shadow: 0 0 12px rgba(0, 240, 255, 0.4);
+    }
+
+    /* 底部操作快捷键说明 */
+    .controls-hint {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(4, 10, 22, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(8px);
+      padding: 8px 18px;
+      border-radius: 20px;
+      font-size: 11px;
+      color: var(--text-dim);
+      display: flex;
+      gap: 16px;
+      z-index: 10;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+    }
+
+    .controls-hint b {
+      color: var(--sonar-cyan);
+    }
+
+    /* 升级母船交互模态框 */
+    .modal-backdrop {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(1, 4, 10, 0.88);
+      backdrop-filter: blur(12px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+
+    .upgrade-modal {
+      width: 540px;
+      max-width: 90%;
+      background: var(--panel-bg);
+      border: 1px solid var(--sonar-cyan);
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 0 40px rgba(0, 240, 255, 0.3);
+    }
+
+    .upgrade-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin: 16px 0;
+    }
+
+    .up-card {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      padding: 10px 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .up-card:hover:not(.maxed) {
+      border-color: var(--sonar-cyan);
+      background: rgba(0, 240, 255, 0.1);
+    }
+
+    .up-card.maxed {
+      border-color: var(--sonar-green);
+      opacity: 0.7;
+      cursor: default;
+    }
+
+    .up-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: #fff;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .up-desc {
+      font-size: 10px;
+      color: var(--text-dim);
+      margin: 4px 0 6px 0;
+      line-height: 1.3;
+    }
+
+    .up-cost {
+      font-size: 11px;
+      color: var(--sonar-cyan);
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="canvas-container">
+    <canvas id="abyssCanvas"></canvas>
+  </div>
+
+  <!-- 顶部 HUD -->
+  <div class="hud-header">
+    <div class="brand-box">
+      <div class="brand-title">
+        <span>ABYSS EXPLORER</span>
+        <span class="badge">DSV-44 深潜器</span>
+      </div>
+      <div class="brand-sub">深海马里亚纳海沟声呐探险模拟器</div>
+    </div>
+
+    <div class="telemetry-bar">
+      <div class="meter-card">
+        <div class="meter-label">
+          <span>船体外壳</span>
+          <span id="hullVal">100%</span>
+        </div>
+        <div class="meter-bar-bg">
+          <div class="meter-bar-fill fill-hull" id="hullBar" style="width: 100%;"></div>
+        </div>
+      </div>
+      <div class="meter-card">
+        <div class="meter-label">
+          <span>生命氧气</span>
+          <span id="oxyVal">100%</span>
+        </div>
+        <div class="meter-bar-bg">
+          <div class="meter-bar-fill fill-oxygen" id="oxyBar" style="width: 100%;"></div>
+        </div>
+      </div>
+      <div class="meter-card">
+        <div class="meter-label">
+          <span>动力电量</span>
+          <span id="powerVal">100%</span>
+        </div>
+        <div class="meter-bar-bg">
+          <div class="meter-bar-fill fill-power" id="powerBar" style="width: 100%;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 深度计 -->
+  <div class="depth-gauge">
+    <div class="depth-val" id="depthMeters">0 m</div>
+    <div class="depth-zone" id="depthZoneName">日光层 (Epipelagic)</div>
+    <div class="depth-press" id="depthPressure">压强: 1.0 ATM</div>
+  </div>
+
+  <!-- 战术声呐圆形屏幕 PPI -->
+  <div class="sonar-screen">
+    <canvas id="sonarRadarCanvas" width="160" height="160"></canvas>
+    <div class="sonar-tag">SONAR PPI [SPACE]</div>
+  </div>
+
+  <!-- 右侧货舱与母船 -->
+  <div class="right-dock">
+    <div class="dock-card">
+      <div class="dock-header">
+        <span>科研基金</span>
+        <span id="fundsVal" style="color: var(--sonar-green);">$500</span>
+      </div>
+      <div class="dock-header" style="margin-top: 6px;">
+        <span>标本货舱</span>
+        <span id="cargoRatio">0 / 6</span>
+      </div>
+      <div class="sample-list" id="cargoList">
+        <div style="color: var(--text-dim); text-align: center; padding: 10px;">货舱为空</div>
+      </div>
+    </div>
+
+    <button class="hud-btn" id="dockShipBtn" onclick="openMothership()" style="display: none;">
+      <span>🚢</span>
+      <span>对接科考母船 (补给与升级)</span>
+    </button>
+  </div>
+
+  <!-- 底部快捷键指南 -->
+  <div class="controls-hint">
+    <span><b>W / S</b> 推进/倒车</span>
+    <span><b>A / D</b> 差速转向</span>
+    <span><b>Q / E</b> 压载浮沉</span>
+    <span><b>[SPACE]</b> 主动声呐脉冲</span>
+    <span><b>F</b> 探照灯</span>
+    <span><b>鼠标左键</b> 机械手打捞</span>
+  </div>
+
+  <!-- 母船升级维修模态框 -->
+  <div class="modal-backdrop" id="shipModal">
+    <div class="upgrade-modal">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--panel-border); padding-bottom: 10px;">
+        <div style="font-size: 16px; font-weight: 800; color: #fff;">科考母船 "鹦鹉螺号" (Nautilus)</div>
+        <button style="background: none; border: none; color: #fff; font-size: 18px; cursor: pointer;" onclick="closeMothership()">✕</button>
+      </div>
+
+      <div style="margin: 12px 0; font-size: 12px; color: var(--text-dim);">
+        已出售所有样本并补充氧气与蓄电池！在此升级潜水艇耐压外壳、声呐与探照灯。
+      </div>
+
+      <div class="upgrade-grid" id="upgradeGrid">
+        <!-- 动态注入升级卡片 -->
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 14px;">
+        <button class="hud-btn" onclick="closeMothership()">完成整备并重新下潜</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /**
+     * 深渊潜航：深海声呐勘探与深海沟生态模拟器
+     * 单文件纯原生 Canvas + Web Audio API 真实水动力与声学仿真
+     */
+
+    // --- Web Audio 原生深海与声呐音频合成 ---
+    let audioCtx = null;
+    let propSoundNode = null;
+    let propGain = null;
+
+    function initAudio() {
+      if (audioCtx) return;
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+      // 创建持续螺旋桨水流循环低音
+      const bufferSize = audioCtx.sampleRate * 2;
+      const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+      const output = noiseBuffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        output[i] = Math.random() * 2 - 1;
+      }
+
+      const whiteNoise = audioCtx.createBufferSource();
+      whiteNoise.buffer = noiseBuffer;
+      whiteNoise.loop = true;
+
+      const filter = audioCtx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(140, audioCtx.currentTime);
+
+      propGain = audioCtx.createGain();
+      propGain.gain.setValueAtTime(0.01, audioCtx.currentTime);
+
+      whiteNoise.connect(filter);
+      filter.connect(propGain);
+      propGain.connect(audioCtx.destination);
+      whiteNoise.start();
+    }
+
+    // 经典水下声呐 Ping (相控阵瞬态脉冲与长混响回声)
+    function playSonarPing() {
+      if (!audioCtx) initAudio();
+      if (!audioCtx) return;
+
+      const t = audioCtx.currentTime;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(1850, t);
+      osc.frequency.exponentialRampToValueAtTime(1400, t + 0.15);
+
+      gain.gain.setValueAtTime(0.25, t);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + 2.2);
+
+      // 回声混响延迟
+      const delay = audioCtx.createDelay();
+      delay.delayTime.setValueAtTime(0.35, t);
+      const delayFeedback = audioCtx.createGain();
+      delayFeedback.gain.setValueAtTime(0.4, t);
+
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      gain.connect(delay);
+      delay.connect(delayFeedback);
+      delayFeedback.connect(delay);
+      delay.connect(audioCtx.destination);
+
+      osc.start(t);
+      osc.stop(t + 2.3);
+    }
+
+    function playClank() {
+      if (!audioCtx) return;
+      const t = audioCtx.currentTime;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(320, t);
+      osc.frequency.exponentialRampToValueAtTime(60, t + 0.12);
+      gain.gain.setValueAtTime(0.3, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(t);
+      osc.stop(t + 0.16);
+    }
+
+    function playBeep(freq, dur) {
+      if (!audioCtx) return;
+      const t = audioCtx.currentTime;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, t);
+      gain.gain.setValueAtTime(0.12, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(t);
+      osc.stop(t + dur);
+    }
+
+    // --- 游戏状态与潜艇物理实体 ---
+    const sub = {
+      x: 1200,
+      y: 120, // 初始在海面附近
+      vx: 0,
+      vy: 0,
+      angle: Math.PI / 2, // 朝右下
+      angularVelocity: 0,
+      hull: 100,
+      maxHull: 100,
+      oxygen: 100,
+      power: 100,
+      headlight: true,
+      maxDepthAllowed: 1200, // 初始外壳额定深度 (米)
+      sonarRadius: 750,
+      cargoCapacity: 6,
+      cargo: []
+    };
+
+    let researchFunds = 500;
+
+    // 海沟地形多边形顶点 (海沟宽度约 3000m，深度达 11000m)
+    // worldX: 0 ~ 2400, worldY: 0 ~ 11500
+    const trenchWalls = [];
+    function generateTrench() {
+      trenchWalls.length = 0;
+      // 左岩壁与右岩壁
+      const leftPoints = [];
+      const rightPoints = [];
+      const steps = 120;
+      const maxY = 11500;
+
+      for (let i = 0; i <= steps; i++) {
+        const y = (i / steps) * maxY;
+        // 海沟随着深度增加收窄，中间具有海蚀洞穴与宽谷
+        const baseWidth = Math.max(380, 1800 - Math.pow(y / 11500, 0.7) * 1350);
+        const noiseL = Math.sin(y * 0.008) * 90 + Math.cos(y * 0.02) * 45;
+        const noiseR = Math.cos(y * 0.009) * 80 + Math.sin(y * 0.025) * 50;
+
+        const centerX = 1200 + Math.sin(y * 0.0015) * 200;
+        leftPoints.push({ x: centerX - baseWidth / 2 + noiseL, y: y });
+        rightPoints.push({ x: centerX + baseWidth / 2 + noiseR, y: y });
+      }
+
+      trenchWalls.push(leftPoints);
+      trenchWalls.push(rightPoints);
+    }
+
+    // 发光生物群落 (Jellyfish, Anglerfish, Gulper Eel, Vent Shrimp)
+    const creatures = [];
+    function spawnCreatures() {
+      creatures.length = 0;
+      // 1. 水母群 (200m - 4000m)
+      for (let i = 0; i < 45; i++) {
+        creatures.push({
+          type: 'jellyfish',
+          name: '夜光栉水母',
+          value: 80,
+          x: 1000 + (Math.random() - 0.5) * 600,
+          y: 300 + Math.random() * 3500,
+          vx: (Math.random() - 0.5) * 0.3,
+          vy: -Math.random() * 0.4 - 0.1,
+          size: 14 + Math.random() * 12,
+          color: '#00f0ff',
+          pulsePhase: Math.random() * Math.PI * 2
+        });
+      }
+
+      // 2. 鮟鱇鱼 (1500m - 6000m)
+      for (let i = 0; i < 25; i++) {
+        creatures.push({
+          type: 'anglerfish',
+          name: '深渊幽灵鮟鱇',
+          value: 180,
+          x: 1000 + (Math.random() - 0.5) * 500,
+          y: 1800 + Math.random() * 4200,
+          vx: (Math.random() - 0.5) * 0.8,
+          vy: (Math.random() - 0.5) * 0.4,
+          size: 20 + Math.random() * 10,
+          color: '#10ff88',
+          lightFlicker: Math.random()
+        });
+      }
+
+      // 3. 热液喷口盲虾 (4500m - 8000m)
+      for (let i = 0; i < 30; i++) {
+        creatures.push({
+          type: 'vent_shrimp',
+          name: '热泉耐热盲虾',
+          value: 260,
+          x: 1100 + (Math.random() - 0.5) * 350,
+          y: 4800 + Math.random() * 3200,
+          vx: (Math.random() - 0.5) * 0.5,
+          vy: (Math.random() - 0.5) * 0.5,
+          size: 8,
+          color: '#ff9d00',
+          pulsePhase: 0
+        });
+      }
+
+      // 4. 超深渊异形巨怪 / 挑战者远古生物 (8500m - 11000m)
+      for (let i = 0; i < 15; i++) {
+        creatures.push({
+          type: 'hadal_leviathan',
+          name: '挑战者深渊巨蠕虫',
+          value: 650,
+          x: 1200 + (Math.random() - 0.5) * 250,
+          y: 8600 + Math.random() * 2400,
+          vx: (Math.random() - 0.5) * 1.2,
+          vy: (Math.random() - 0.5) * 0.6,
+          size: 38,
+          color: '#c054ff',
+          pulsePhase: 0
+        });
+      }
+    }
+
+    // 海底宝藏与样本矿石 (多金属结核、黑烟囱硫化物晶体、沉船黑匣子)
+    const collectibles = [];
+    function spawnCollectibles() {
+      collectibles.length = 0;
+      const items = [
+        { name: '多金属锰结核', val: 90, color: '#adc8ff', yRange: [400, 2500] },
+        { name: '热液黄铁硫化物', val: 220, color: '#ffcc00', yRange: [3000, 6500] },
+        { name: '古代沉船金币箱', val: 400, color: '#ffaa44', yRange: [1200, 4500] },
+        { name: '失联核潜艇黑匣子', val: 800, color: '#ff3355', yRange: [6000, 9500] },
+        { name: '挑战者深渊外星核心', val: 1800, color: '#00f0ff', yRange: [10000, 11400] }
+      ];
+
+      for (let def of items) {
+        for (let i = 0; i < 8; i++) {
+          const cy = def.yRange[0] + Math.random() * (def.yRange[1] - def.yRange[0]);
+          collectibles.push({
+            name: def.name,
+            value: def.val,
+            color: def.color,
+            x: 1200 + (Math.random() - 0.5) * 400,
+            y: cy,
+            size: 10
+          });
+        }
+      }
+    }
+
+    // 动态声呐脉冲波环
+    const sonarRings = [];
+    function triggerSonar() {
+      initAudio();
+      if (sub.power < 5) {
+        playBeep(180, 0.1);
+        return;
+      }
+      sub.power -= 5;
+      playSonarPing();
+
+      sonarRings.push({
+        x: sub.x,
+        y: sub.y,
+        radius: 10,
+        maxRadius: sub.sonarRadius,
+        alpha: 1.0
+      });
+    }
+
+    // 机械手打捞尝试
+    function tryGrab(screenX, screenY) {
+      initAudio();
+      // 计算世界坐标
+      const worldTargetX = sub.x + (screenX - canvas.width / 2);
+      const worldTargetY = sub.y + (screenY - canvas.height / 2);
+
+      const reach = 160;
+      const distToSub = Math.hypot(worldTargetX - sub.x, worldTargetY - sub.y);
+      if (distToSub > reach) {
+        playBeep(240, 0.08);
+        return;
+      }
+
+      if (sub.cargo.length >= sub.cargoCapacity) {
+        playBeep(180, 0.15);
+        showFloatText('货舱已满！请返航卸货', '#ff3355');
+        return;
+      }
+
+      // 1. 尝试抓取矿石与宝藏
+      for (let i = 0; i < collectibles.length; i++) {
+        const item = collectibles[i];
+        if (Math.hypot(item.x - worldTargetX, item.y - worldTargetY) < 35) {
+          sub.cargo.push({ name: item.name, value: item.value });
+          collectibles.splice(i, 1);
+          playClank();
+          showFloatText(`捕获: ${item.name} (+$${item.value})`, '#10ff88');
+          updateCargoUI();
+          return;
+        }
+      }
+
+      // 2. 尝试抓取生物样本
+      for (let i = 0; i < creatures.length; i++) {
+        const c = creatures[i];
+        if (Math.hypot(c.x - worldTargetX, c.y - worldTargetY) < 40) {
+          sub.cargo.push({ name: c.name + '标本', value: c.value });
+          creatures.splice(i, 1);
+          playClank();
+          showFloatText(`捕获样本: ${c.name} (+$${c.value})`, '#00f0ff');
+          updateCargoUI();
+          return;
+        }
+      }
+
+      playClank(); // 空抓
+    }
+
+    // 悬浮文字特效
+    const floatTexts = [];
+    function showFloatText(text, color='#fff') {
+      floatTexts.push({
+        text: text,
+        color: color,
+        x: canvas.width / 2,
+        y: canvas.height / 2 - 40,
+        life: 1.5
+      });
+    }
+
+    function updateCargoUI() {
+      document.getElementById('cargoRatio').textContent = `${sub.cargo.length} / ${sub.cargoCapacity}`;
+      const list = document.getElementById('cargoList');
+      if (sub.cargo.length === 0) {
+        list.innerHTML = '<div style="color: var(--text-dim); text-align: center; padding: 10px;">货舱为空</div>';
+      } else {
+        list.innerHTML = sub.cargo.map(it => `
+          <div class="sample-item">
+            <span>${it.name}</span>
+            <span style="color: var(--sonar-green);">$${it.value}</span>
+          </div>
+        `).join('');
+      }
+    }
+
+    // --- 输入控制 ---
+    const keys = {};
+    window.addEventListener('keydown', (e) => {
+      initAudio();
+      keys[e.key.toLowerCase()] = true;
+      if (e.code === 'Space') {
+        e.preventDefault();
+        triggerSonar();
+      }
+      if (e.key === 'f' || e.key === 'F') {
+        sub.headlight = !sub.headlight;
+        playBeep(sub.headlight ? 880 : 440, 0.08);
+      }
+    });
+
+    window.addEventListener('keyup', (e) => {
+      keys[e.key.toLowerCase()] = false;
+    });
+
+    const canvas = document.getElementById('abyssCanvas');
+    const ctx = canvas.getContext('2d');
+    const radarCanvas = document.getElementById('sonarRadarCanvas');
+    const radarCtx = radarCanvas.getContext('2d');
+
+    canvas.addEventListener('mousedown', (e) => {
+      if (e.button === 0) {
+        tryGrab(e.clientX, e.clientY);
+      }
+    });
+
+    window.addEventListener('resize', () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    });
+
+    // --- 模拟物理更新 (Game Physics Loop) ---
+    let lastTime = performance.now();
+
+    function updatePhysics(dt) {
+      // 1. 推进器操控输入
+      const thrust = 120;
+      const turnSpeed = 2.4;
+
+      if (keys['w']) {
+        sub.vx += Math.cos(sub.angle) * thrust * dt;
+        sub.vy += Math.sin(sub.angle) * thrust * dt;
+        sub.power = Math.max(0, sub.power - 1.2 * dt);
+        if (propGain) propGain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+      } else if (keys['s']) {
+        sub.vx -= Math.cos(sub.angle) * (thrust * 0.6) * dt;
+        sub.vy -= Math.sin(sub.angle) * (thrust * 0.6) * dt;
+        sub.power = Math.max(0, sub.power - 0.8 * dt);
+        if (propGain) propGain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+      } else {
+        if (propGain) propGain.gain.setValueAtTime(0.01, audioCtx.currentTime);
+      }
+
+      if (keys['a']) sub.angle -= turnSpeed * dt;
+      if (keys['d']) sub.angle += turnSpeed * dt;
+
+      // 压载水舱注水/排气沉浮
+      if (keys['e']) {
+        sub.vy += 45 * dt; // 注水下沉
+        sub.power = Math.max(0, sub.power - 0.5 * dt);
+      }
+      if (keys['q']) {
+        sub.vy -= 55 * dt; // 排气上浮
+        sub.power = Math.max(0, sub.power - 0.5 * dt);
+      }
+
+      // 2. 流体粘性阻力与中性浮力
+      sub.vx *= Math.pow(0.85, dt * 60);
+      sub.vy *= Math.pow(0.85, dt * 60);
+
+      // 微弱微下沉重力
+      sub.vy += 3.5 * dt;
+
+      // 更新位置
+      sub.x += sub.vx * dt;
+      sub.y += sub.vy * dt;
+
+      // 限制海面不能跃出水面太高
+      if (sub.y < 40) {
+        sub.y = 40;
+        sub.vy = Math.max(0, sub.vy);
+      }
+
+      // 3. 氧气与电力消耗
+      sub.oxygen = Math.max(0, sub.oxygen - 0.45 * dt);
+      if (sub.headlight) {
+        sub.power = Math.max(0, sub.power - 0.35 * dt);
+      }
+
+      // 4. 水压检测与外壳损耗
+      const depthMeters = Math.max(0, Math.round(sub.y));
+      if (depthMeters > sub.maxDepthAllowed) {
+        const excess = (depthMeters - sub.maxDepthAllowed) / 500;
+        sub.hull = Math.max(0, sub.hull - excess * 6 * dt);
+        if (Math.random() < 0.05) playClank(); // 舱壁挤压异响
+      }
+
+      // 5. 岩壁碰撞检测 (简易左右边界)
+      const currentLevelY = Math.min(11500, Math.max(0, sub.y));
+      const stepIdx = Math.floor((currentLevelY / 11500) * 120);
+      if (trenchWalls.length === 2 && trenchWalls[0][stepIdx] && trenchWalls[1][stepIdx]) {
+        const leftLimit = trenchWalls[0][stepIdx].x;
+        const rightLimit = trenchWalls[1][stepIdx].x;
+
+        if (sub.x < leftLimit + 20) {
+          sub.x = leftLimit + 20;
+          sub.vx = Math.abs(sub.vx) * 0.5;
+          sub.hull = Math.max(0, sub.hull - 3);
+          playClank();
+        }
+        if (sub.x > rightLimit - 20) {
+          sub.x = rightLimit - 20;
+          sub.vx = -Math.abs(sub.vx) * 0.5;
+          sub.hull = Math.max(0, sub.hull - 3);
+          playClank();
+        }
+      }
+
+      // 6. 声呐波环扩散
+      for (let i = sonarRings.length - 1; i >= 0; i--) {
+        const ring = sonarRings[i];
+        ring.radius += 550 * dt;
+        ring.alpha = Math.max(0, 1 - ring.radius / ring.maxRadius);
+        if (ring.alpha <= 0) sonarRings.splice(i, 1);
+      }
+
+      // 7. 发光生物游弋更新
+      for (let c of creatures) {
+        c.x += c.vx;
+        c.y += c.vy;
+        c.pulsePhase = (c.pulsePhase || 0) + dt * 2;
+        // 缓慢转向与浮动
+        if (Math.random() < 0.02) {
+          c.vx += (Math.random() - 0.5) * 0.4;
+          c.vy += (Math.random() - 0.5) * 0.2;
+        }
+      }
+
+      // 8. 漂浮文字
+      for (let i = floatTexts.length - 1; i >= 0; i--) {
+        const ft = floatTexts[i];
+        ft.y -= 20 * dt;
+        ft.life -= dt;
+        if (ft.life <= 0) floatTexts.splice(i, 1);
+      }
+
+      // 9. 更新 HUD 深度与状态
+      updateHUD(depthMeters);
+    }
+
+    function updateHUD(depth) {
+      document.getElementById('depthMeters').textContent = depth + ' m';
+      document.getElementById('depthPressure').textContent = `压强: ${(1 + depth * 0.1).toFixed(1)} ATM`;
+
+      // 深度分层带名称
+      let zone = '日光层 (Epipelagic)';
+      if (depth >= 200 && depth < 1000) zone = '暮光层 (Mesopelagic)';
+      else if (depth >= 1000 && depth < 4000) zone = '午夜层 (Bathypelagic)';
+      else if (depth >= 4000 && depth < 6000) zone = '深渊层 (Abyssopelagic)';
+      else if (depth >= 6000) zone = '超深渊挑战者裂谷 (Hadalpelagic)';
+      document.getElementById('depthZoneName').textContent = zone;
+
+      // 状态条更新
+      document.getElementById('hullVal').textContent = Math.round(sub.hull) + '%';
+      document.getElementById('hullBar').style.width = Math.round(sub.hull) + '%';
+      if (sub.hull < 30) document.getElementById('hullBar').style.backgroundColor = '#ff3355';
+
+      document.getElementById('oxyVal').textContent = Math.round(sub.oxygen) + '%';
+      document.getElementById('oxyBar').style.width = Math.round(sub.oxygen) + '%';
+      if (sub.oxygen < 25) document.getElementById('oxyBar').style.backgroundColor = '#ff3355';
+
+      document.getElementById('powerVal').textContent = Math.round(sub.power) + '%';
+      document.getElementById('powerBar').style.width = Math.round(sub.power) + '%';
+
+      // 接近海平面 (深度 < 150m) 且处于海沟中线附近，显示科考母船对接按钮
+      const nearMothership = sub.y < 160 && Math.abs(sub.x - 1200) < 300;
+      document.getElementById('dockShipBtn').style.display = nearMothership ? 'flex' : 'none';
+    }
+
+    // --- 渲染引擎 (深海极黑迷雾、探照灯光锥、声呐回波、发光生物) ---
+    function render() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      const cx = canvas.width / 2;
+      const cy = canvas.height / 2;
+
+      ctx.save();
+      // 摄像机平滑跟随潜艇
+      ctx.translate(cx - sub.x, cy - sub.y);
+
+      // 1. 绘制海水背景渐变 (根据深度变黑)
+      const depthFactor = Math.min(1.0, sub.y / 2500);
+      const waterColor = `rgb(${Math.round(4 * (1 - depthFactor))}, ${Math.round(20 * (1 - depthFactor))}, ${Math.round(45 * (1 - depthFactor))})`;
+      ctx.fillStyle = waterColor;
+      ctx.fillRect(sub.x - cx - 100, sub.y - cy - 100, canvas.width + 200, canvas.height + 200);
+
+      // 2. 绘制海沟岩壁
+      ctx.fillStyle = '#060a14';
+      ctx.strokeStyle = '#00f0ff33';
+      ctx.lineWidth = 3;
+
+      if (trenchWalls.length === 2) {
+        // 左岩壁
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        for (let pt of trenchWalls[0]) ctx.lineTo(pt.x, pt.y);
+        ctx.lineTo(0, 11500);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // 右岩壁
+        ctx.beginPath();
+        ctx.moveTo(2400, 0);
+        for (let pt of trenchWalls[1]) ctx.lineTo(pt.x, pt.y);
+        ctx.lineTo(2400, 11500);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+      }
+
+      // 海平面船体浮标与科考母船
+      ctx.fillStyle = '#ff4444';
+      ctx.fillRect(1050, 20, 300, 35);
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 13px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('R/V NAUTILUS 母船补给站', 1200, 42);
+
+      // 3. 绘制深海宝藏与矿石
+      for (let it of collectibles) {
+        ctx.fillStyle = it.color;
+        ctx.shadowColor = it.color;
+        ctx.shadowBlur = 10;
+        ctx.beginPath();
+        ctx.arc(it.x, it.y, it.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+
+      // 4. 绘制发光深海生物
+      for (let c of creatures) {
+        drawCreature(c);
+      }
+
+      // 5. 绘制主动声呐波环
+      for (let ring of sonarRings) {
+        ctx.strokeStyle = `rgba(0, 240, 255, ${ring.alpha * 0.7})`;
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.arc(ring.x, ring.y, ring.radius, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      // 6. 绘制潜水艇
+      drawSubmarine();
+
+      // 7. 深海黑幕视野遮罩 (黑暗迷雾 + 探照灯光锥裁切)
+      ctx.restore(); // 回到屏幕绝对坐标绘制全屏遮罩
+
+      drawDarknessFog();
+
+      // 8. 绘制浮动文字
+      for (let ft of floatTexts) {
+        ctx.font = 'bold 15px -apple-system, monospace';
+        ctx.fillStyle = ft.color;
+        ctx.textAlign = 'center';
+        ctx.shadowColor = ft.color;
+        ctx.shadowBlur = 8;
+        ctx.fillText(ft.text, ft.x, ft.y);
+        ctx.shadowBlur = 0;
+      }
+
+      // 9. 绘制战术声呐 PPI 屏幕
+      drawSonarPPI();
+    }
+
+    // 绘制潜水艇实体
+    function drawSubmarine() {
+      ctx.save();
+      ctx.translate(sub.x, sub.y);
+      ctx.rotate(sub.angle);
+
+      // 探照灯光锥 (Volumetric Light Cone)
+      if (sub.headlight) {
+        const lightLen = 420;
+        const lightAngle = 0.55;
+
+        const grad = ctx.createRadialGradient(0, 0, 10, 0, 0, lightLen);
+        grad.addColorStop(0, 'rgba(230, 245, 255, 0.45)');
+        grad.addColorStop(0.3, 'rgba(0, 240, 255, 0.25)');
+        grad.addColorStop(1, 'transparent');
+
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.moveTo(25, 0);
+        ctx.arc(0, 0, lightLen, -lightAngle, lightAngle);
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      // 潜艇外壳 (流线型黄色高强度深潜器)
+      ctx.fillStyle = '#ffaa00';
+      ctx.strokeStyle = '#223344';
+      ctx.lineWidth = 3;
+
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 28, 14, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // 观察耐压舷窗 (圆形发光舱)
+      ctx.fillStyle = '#00f0ff';
+      ctx.shadowColor = '#00f0ff';
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.arc(14, 0, 5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      // 尾部主螺旋桨
+      ctx.fillStyle = '#667788';
+      ctx.fillRect(-32, -8, 6, 16);
+
+      // 机械臂外挂
+      ctx.strokeStyle = '#d8eeff';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(10, 8);
+      ctx.lineTo(26, 14);
+      ctx.stroke();
+
+      ctx.restore();
+    }
+
+    // 绘制发光深海生物
+    function drawCreature(c) {
+      ctx.save();
+      ctx.translate(c.x, c.y);
+
+      if (c.type === 'jellyfish') {
+        const pulse = Math.sin(c.pulsePhase) * 3;
+        ctx.fillStyle = 'rgba(0, 240, 255, 0.35)';
+        ctx.strokeStyle = '#00f0ff';
+        ctx.lineWidth = 1.5;
+
+        // 水母伞帽
+        ctx.beginPath();
+        ctx.arc(0, 0, c.size + pulse, Math.PI, 0);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // 触手
+        ctx.strokeStyle = 'rgba(0, 240, 255, 0.6)';
+        for (let i = -8; i <= 8; i += 4) {
+          ctx.beginPath();
+          ctx.moveTo(i, 0);
+          ctx.quadraticCurveTo(i + Math.sin(c.pulsePhase + i) * 6, 14, i, 22);
+          ctx.stroke();
+        }
+      } else if (c.type === 'anglerfish') {
+        ctx.fillStyle = '#103020';
+        ctx.strokeStyle = '#10ff88';
+        ctx.lineWidth = 2;
+
+        ctx.beginPath();
+        ctx.ellipse(0, 0, c.size, c.size * 0.6, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        // 发光诱饵灯 (Bioluminescent Esca)
+        const lightGlow = Math.sin(c.pulsePhase * 4) * 4 + 8;
+        ctx.fillStyle = '#10ff88';
+        ctx.shadowColor = '#10ff88';
+        ctx.shadowBlur = lightGlow;
+        ctx.beginPath();
+        ctx.arc(c.size * 0.9, -12, 3.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      } else {
+        // 挑战者巨蠕虫
+        ctx.fillStyle = c.color;
+        ctx.shadowColor = c.color;
+        ctx.shadowBlur = 12;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, c.size, 10, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+
+      ctx.restore();
+    }
+
+    // 深海迷雾与黑暗氛围遮罩
+    function drawDarknessFog() {
+      // 随着深度越深，外部视野越黑暗
+      const darkness = Math.min(0.96, Math.max(0.4, (sub.y - 100) / 1200));
+
+      const cx = canvas.width / 2;
+      const cy = canvas.height / 2;
+
+      // 潜艇身旁的近距离环境微光半径
+      const ambientRadius = sub.headlight ? 160 : 70;
+
+      const grad = ctx.createRadialGradient(cx, cy, 20, cx, cy, ambientRadius);
+      grad.addColorStop(0, 'rgba(0,0,0,0)');
+      grad.addColorStop(0.7, `rgba(2, 6, 17, ${darkness * 0.5})`);
+      grad.addColorStop(1, `rgba(2, 6, 17, ${darkness})`);
+
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+
+    // 绘制战术声呐圆形雷达屏幕 (PPI)
+    function drawSonarPPI() {
+      radarCtx.clearRect(0, 0, 160, 160);
+
+      // 网格刻度圆环
+      radarCtx.strokeStyle = 'rgba(0, 240, 255, 0.25)';
+      radarCtx.lineWidth = 1;
+      [25, 50, 75].forEach(r => {
+        radarCtx.beginPath();
+        radarCtx.arc(80, 80, r, 0, Math.PI * 2);
+        radarCtx.stroke();
+      });
+
+      // 十字准星
+      radarCtx.beginPath();
+      radarCtx.moveTo(80, 5); radarCtx.lineTo(80, 155);
+      radarCtx.moveTo(5, 80); radarCtx.lineTo(155, 80);
+      radarCtx.stroke();
+
+      // 声呐扫描指针
+      const now = performance.now() * 0.002;
+      radarCtx.strokeStyle = 'rgba(16, 255, 136, 0.7)';
+      radarCtx.beginPath();
+      radarCtx.moveTo(80, 80);
+      radarCtx.lineTo(80 + Math.cos(now) * 75, 80 + Math.sin(now) * 75);
+      radarCtx.stroke();
+
+      // 投射附近生物与宝藏光点 (范围缩放)
+      const radarScale = 75 / sub.sonarRadius;
+
+      // 矿物点
+      for (let it of collectibles) {
+        const dx = it.x - sub.x;
+        const dy = it.y - sub.y;
+        if (Math.hypot(dx, dy) < sub.sonarRadius) {
+          radarCtx.fillStyle = '#ffaa00';
+          radarCtx.beginPath();
+          radarCtx.arc(80 + dx * radarScale, 80 + dy * radarScale, 2, 0, Math.PI * 2);
+          radarCtx.fill();
+        }
+      }
+
+      // 生物点
+      for (let c of creatures) {
+        const dx = c.x - sub.x;
+        const dy = c.y - sub.y;
+        if (Math.hypot(dx, dy) < sub.sonarRadius) {
+          radarCtx.fillStyle = '#00f0ff';
+          radarCtx.beginPath();
+          radarCtx.arc(80 + dx * radarScale, 80 + dy * radarScale, 2.5, 0, Math.PI * 2);
+          radarCtx.fill();
+        }
+      }
+    }
+
+    // --- 母船升级交互系统 ---
+    const UPGRADES = [
+      { id: 'hull_mk2', name: '钛碳纤维加固外壳 Mk II', desc: '最大安全额定下潜深度扩展至 4500 米', cost: 400, maxed: false, apply: () => sub.maxDepthAllowed = 4500 },
+      { id: 'hull_mk3', name: '深渊超密装甲 Mk III', desc: '最大安全深度直达 11000 米挑战者深渊！', cost: 1200, maxed: false, apply: () => sub.maxDepthAllowed = 11500 },
+      { id: 'sonar_boost', name: '相控阵高频声呐', desc: '声呐探测半径提升 60%，回声精度大幅增强', cost: 350, maxed: false, apply: () => sub.sonarRadius = 1200 },
+      { id: 'cargo_mk2', name: '重载低温样本舱', desc: '标本与宝藏承载容量扩充至 12 格', cost: 300, maxed: false, apply: () => sub.cargoCapacity = 12 }
+    ];
+
+    function openMothership() {
+      initAudio();
+      // 1. 出售所有样本换取资金
+      let totalEarned = 0;
+      sub.cargo.forEach(it => totalEarned += it.value);
+      researchFunds += totalEarned;
+      sub.cargo = [];
+      updateCargoUI();
+
+      // 2. 免费补充氧气、维修外壳、充满电量
+      sub.hull = sub.maxHull;
+      sub.oxygen = 100;
+      sub.power = 100;
+      document.getElementById('fundsVal').textContent = '$' + researchFunds;
+
+      // 3. 打开升级界面
+      renderUpgradeGrid();
+      document.getElementById('shipModal').style.display = 'flex';
+      playBeep(660, 0.2);
+    }
+
+    function closeMothership() {
+      document.getElementById('shipModal').style.display = 'none';
+      playBeep(440, 0.1);
+    }
+
+    function renderUpgradeGrid() {
+      const grid = document.getElementById('upgradeGrid');
+      grid.innerHTML = UPGRADES.map(u => `
+        <div class="up-card ${u.maxed ? 'maxed' : ''}" onclick="buyUpgrade('${u.id}')">
+          <div class="up-title">
+            <span>${u.name}</span>
+            <span>${u.maxed ? '✅ 已升级' : '$' + u.cost}</span>
+          </div>
+          <div class="up-desc">${u.desc}</div>
+        </div>
+      `).join('');
+    }
+
+    function buyUpgrade(id) {
+      const u = UPGRADES.find(item => item.id === id);
+      if (!u || u.maxed) return;
+      if (researchFunds < u.cost) {
+        playBeep(180, 0.12);
+        return;
+      }
+      researchFunds -= u.cost;
+      u.maxed = true;
+      u.apply();
+      playBeep(880, 0.25);
+      document.getElementById('fundsVal').textContent = '$' + researchFunds;
+      renderUpgradeGrid();
+    }
+
+    // --- 主循环 (Animation Engine) ---
+    function loop(time) {
+      const dt = Math.min(0.1, (time - lastTime) / 1000);
+      lastTime = time;
+
+      updatePhysics(dt);
+      render();
+
+      requestAnimationFrame(loop);
+    }
+
+    // 启动系统
+    window.onload = () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      generateTrench();
+      spawnCreatures();
+      spawnCollectibles();
+      updateCargoUI();
+      requestAnimationFrame(loop);
+    };
+  </script>
+</body>
+</html>
