@@ -1,0 +1,1257 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>自旋超流拓扑约瑟夫森二极管与非互易弗洛凯安德列夫反射全息模拟器</title>
+  <style>
+    :root {
+      --bg: #030712;
+      --panel-bg: rgba(15, 23, 42, 0.78);
+      --panel-border: rgba(245, 158, 11, 0.28);
+      --amber: #f59e0b;
+      --gold: #fbbf24;
+      --cyan: #00f0ff;
+      --pink: #ff007f;
+      --blue: #38bdf8;
+      --red: #f43f5e;
+      --emerald: #10b981;
+      --purple: #c084fc;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text-main);
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* 顶部导航与状态条 */
+    header {
+      background: linear-gradient(180deg, rgba(15,23,42,0.95) 0%, rgba(15,23,42,0.65) 100%);
+      border-bottom: 1px solid var(--panel-border);
+      padding: 10px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 20;
+      backdrop-filter: blur(12px);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .badge {
+      background: linear-gradient(135deg, #d97706, #b45309);
+      color: #fff;
+      font-weight: 700;
+      font-size: 11px;
+      padding: 4px 8px;
+      border-radius: 4px;
+      border: 1px solid var(--gold);
+      box-shadow: 0 0 10px rgba(245, 158, 11, 0.4);
+      letter-spacing: 0.5px;
+    }
+
+    .title-group h1 {
+      font-size: 16px;
+      font-weight: 600;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .title-group p {
+      font-size: 11px;
+      color: var(--text-muted);
+      letter-spacing: 0.3px;
+    }
+
+    .top-metrics {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+    }
+
+    .metric-card {
+      background: rgba(30, 41, 59, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 6px;
+      padding: 4px 12px;
+      text-align: right;
+    }
+
+    .metric-card span {
+      display: block;
+      font-size: 10px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+    }
+
+    .metric-card strong {
+      font-size: 13px;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--gold);
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(245, 158, 11, 0.15);
+      border: 1px solid var(--amber);
+      color: var(--amber);
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 20px;
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: currentColor;
+      box-shadow: 0 0 8px currentColor;
+      animation: pulse 1.6s infinite ease-in-out;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 0.5; transform: scale(0.9); }
+      50% { opacity: 1; transform: scale(1.2); }
+    }
+
+    /* 主界面布局 */
+    main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 390px;
+      height: calc(100vh - 61px);
+      position: relative;
+    }
+
+    /* 3D 视口 */
+    .viewport-container {
+      position: relative;
+      background: radial-gradient(circle at 50% 50%, #0c1322 0%, #030712 100%);
+      overflow: hidden;
+    }
+
+    canvas#view3d {
+      width: 100%;
+      height: 100%;
+      display: block;
+      cursor: grab;
+    }
+
+    canvas#view3d:active {
+      cursor: grabbing;
+    }
+
+    .viewport-overlay {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .overlay-tag {
+      background: rgba(15, 23, 42, 0.7);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(245, 158, 11, 0.25);
+      border-radius: 6px;
+      padding: 6px 12px;
+      font-size: 11px;
+      color: var(--text-muted);
+      width: fit-content;
+    }
+
+    .overlay-tag b {
+      color: var(--gold);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .hud-controls-tip {
+      position: absolute;
+      bottom: 16px;
+      left: 16px;
+      font-size: 11px;
+      color: var(--text-muted);
+      background: rgba(15, 23, 42, 0.6);
+      padding: 6px 12px;
+      border-radius: 6px;
+      border: 1px solid rgba(255,255,255,0.06);
+      pointer-events: none;
+    }
+
+    /* 右侧面板 */
+    aside {
+      background: var(--panel-bg);
+      border-left: 1px solid var(--panel-border);
+      backdrop-filter: blur(16px);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      z-index: 10;
+    }
+
+    aside::-webkit-scrollbar {
+      width: 5px;
+    }
+    aside::-webkit-scrollbar-thumb {
+      background: rgba(245, 158, 11, 0.3);
+      border-radius: 3px;
+    }
+
+    .panel-section {
+      padding: 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .section-title {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--gold);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* 示波器卡片 */
+    .scope-box {
+      background: #020617;
+      border: 1px solid rgba(245, 158, 11, 0.2);
+      border-radius: 6px;
+      padding: 8px;
+      margin-bottom: 12px;
+      position: relative;
+    }
+
+    .scope-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+
+    .scope-header span.val {
+      color: var(--gold);
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 600;
+    }
+
+    canvas.scope-canvas {
+      width: 100%;
+      height: 95px;
+      display: block;
+      background: #030712;
+      border-radius: 4px;
+    }
+
+    /* 工况按钮网格 */
+    .presets-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .btn-preset {
+      background: rgba(30, 41, 59, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: var(--text-muted);
+      font-size: 11px;
+      padding: 8px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-align: left;
+    }
+
+    .btn-preset:hover {
+      background: rgba(245, 158, 11, 0.15);
+      border-color: var(--gold);
+      color: #fff;
+    }
+
+    .btn-preset.active {
+      background: linear-gradient(135deg, rgba(245, 158, 11, 0.25), rgba(217, 119, 6, 0.1));
+      border-color: var(--gold);
+      color: var(--gold);
+      box-shadow: 0 0 10px rgba(245, 158, 11, 0.25);
+    }
+
+    /* 控制滑块 */
+    .control-row {
+      margin-bottom: 12px;
+    }
+
+    .control-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+
+    .control-label span.curr {
+      color: var(--gold);
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 600;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 4px;
+      background: #1e293b;
+      border-radius: 2px;
+      outline: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--gold);
+      cursor: pointer;
+      box-shadow: 0 0 8px var(--gold);
+      transition: transform 0.1s;
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.25);
+    }
+
+    /* 动作按钮 */
+    .action-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .btn-action {
+      flex: 1;
+      padding: 8px;
+      background: rgba(30, 41, 59, 0.8);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 600;
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+
+    .btn-action:hover {
+      background: rgba(245, 158, 11, 0.2);
+      border-color: var(--gold);
+      box-shadow: 0 0 10px rgba(245, 158, 11, 0.3);
+    }
+
+    .btn-action.primary {
+      background: linear-gradient(135deg, #d97706, #b45309);
+      border-color: var(--gold);
+    }
+
+    .btn-action.active {
+      background: var(--pink);
+      border-color: #ff3399;
+      box-shadow: 0 0 10px rgba(255, 0, 127, 0.4);
+    }
+
+    .physics-summary {
+      background: rgba(2, 6, 23, 0.5);
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      padding: 10px;
+      font-size: 11px;
+      line-height: 1.5;
+      color: var(--text-muted);
+    }
+
+    .physics-summary b {
+      color: var(--cyan);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 顶部状态导航 -->
+  <header>
+    <div class="brand">
+      <div class="badge">PROJECT #305</div>
+      <div class="title-group">
+        <h1>自旋超流拓扑约瑟夫森二极管与非互易弗洛凯安德列夫反射全息模拟器</h1>
+        <p>Spin Superfluid Topological Josephson Diode &amp; Nonreciprocal Floquet-Andreev Reflection</p>
+      </div>
+    </div>
+
+    <div class="top-metrics">
+      <div class="metric-card">
+        <span>整流效率 (η_SDE)</span>
+        <strong id="metric-efficiency">58.4 %</strong>
+      </div>
+      <div class="metric-card">
+        <span>正向临界电流 (Ic+)</span>
+        <strong id="metric-ic-pos">2.45 mA</strong>
+      </div>
+      <div class="metric-card">
+        <span>反向临界电流 (|Ic-|)</span>
+        <strong id="metric-ic-neg">0.65 mA</strong>
+      </div>
+      <div class="metric-card">
+        <span>反常基态相移 (φ0)</span>
+        <strong id="metric-phi0">0.58 π</strong>
+      </div>
+      <div class="status-pill" id="global-status">
+        <span class="status-dot"></span>
+        <span id="status-text">无耗散单向超导超流</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- 主体工作区 -->
+  <main>
+    <!-- 左侧 3D 全息交互视口 -->
+    <div class="viewport-container" id="container3d">
+      <canvas id="view3d"></canvas>
+
+      <div class="viewport-overlay">
+        <div class="overlay-tag">
+          自旋超流刚度 (ρ_s): <b id="tag-rhos">65.0 meV·nm</b> | 二阶谐波比 (I2/I1): <b id="tag-ratio">0.42</b>
+        </div>
+        <div class="overlay-tag">
+          微波驱动场 (Ω_rf): <b id="tag-omega">2.40 GHz</b> | 当前结相差 (φ): <b id="tag-phase" style="color:var(--cyan);">0.85 rad</b>
+        </div>
+        <div class="overlay-tag">
+          非互易安德列夫电子-空穴反射通道: <b id="tag-andreev" style="color:var(--emerald);">Coherent Reflection ON</b>
+        </div>
+      </div>
+
+      <div class="hud-controls-tip">
+        🖱️ 鼠标左键拖拽旋转 3D 异质结视角 | 滚轮缩放 | 右键平移 | 观察自旋超流涡线与微波安德列夫激元
+      </div>
+    </div>
+
+    <!-- 右侧控制面板与示波器 -->
+    <aside>
+      <!-- 示波器 1 -->
+      <div class="panel-section">
+        <div class="section-title">
+          <span>📊 示波器 I: 非互易超导电流-相位关系 I(φ)</span>
+        </div>
+        <div class="scope-box">
+          <div class="scope-header">
+            <span>反常二极管电流-相位谱线 (CPR: I_pos ≠ |I_neg|)</span>
+            <span class="val" id="scope1-val">Ic+ = 2.45 mA, |Ic-| = 0.65 mA</span>
+          </div>
+          <canvas id="scope1" class="scope-canvas"></canvas>
+        </div>
+
+        <!-- 示波器 2 -->
+        <div class="section-title" style="margin-top: 8px;">
+          <span>📈 示波器 II: 弗洛凯-安德列夫束缚态 (Floquet-ABS) 能谱</span>
+        </div>
+        <div class="scope-box">
+          <div class="scope-header">
+            <span>微波光子边带劈裂 E_ABS(φ, ±ℏΩ)</span>
+            <span class="val" id="scope2-val">E_ABS = ±0.34 Δ0 (m = 0, ±1)</span>
+          </div>
+          <canvas id="scope2" class="scope-canvas"></canvas>
+        </div>
+      </div>
+
+      <!-- 工况模式预设 -->
+      <div class="panel-section">
+        <div class="section-title">
+          <span>🎯 预设工况矩阵 (Preset Configurations)</span>
+        </div>
+        <div class="presets-grid">
+          <button class="btn-preset active" data-preset="max-sde">
+            <b>① 最大二极管整流</b><br>
+            <small style="color:var(--text-muted);">φ0=0.58π, η_SDE > 55%</small>
+          </button>
+          <button class="btn-preset" data-preset="reciprocal">
+            <b>② 互易基准态</b><br>
+            <small style="color:var(--text-muted);">φ0=0, I2=0, 对称正弦CPR</small>
+          </button>
+          <button class="btn-preset" data-preset="floquet-pump">
+            <b>③ 弗洛凯光子泵浦</b><br>
+            <small style="color:var(--text-muted);">强微波诱发非阿贝尔边带</small>
+          </button>
+          <button class="btn-preset" data-preset="phase-slip">
+            <b>④ 相滑临界击穿</b><br>
+            <small style="color:var(--text-muted);">过载偏置电流, 产生AC电压</small>
+          </button>
+        </div>
+      </div>
+
+      <!-- 参数调节面板 -->
+      <div class="panel-section">
+        <div class="section-title">
+          <span>⚙️ 自旋超流与异质结参数 (Junction Controls)</span>
+        </div>
+
+        <div class="control-row">
+          <div class="control-label">
+            <span>自旋超流刚度 (ρ_s)</span>
+            <span class="curr" id="val-rhos">65.0 meV·nm</span>
+          </div>
+          <input type="range" id="slider-rhos" min="10" max="120" step="1" value="65">
+        </div>
+
+        <div class="control-row">
+          <div class="control-label">
+            <span>反常相移角 (φ0 / π)</span>
+            <span class="curr" id="val-phi0">0.58 π</span>
+          </div>
+          <input type="range" id="slider-phi0" min="0.0" max="1.0" step="0.02" value="0.58">
+        </div>
+
+        <div class="control-row">
+          <div class="control-label">
+            <span>二阶约瑟夫森比率 (I2 / I1)</span>
+            <span class="curr" id="val-ratio">0.42</span>
+          </div>
+          <input type="range" id="slider-ratio" min="0.0" max="0.8" step="0.02" value="0.42">
+        </div>
+
+        <div class="control-row">
+          <div class="control-label">
+            <span>微波驱动频率 (Ω_rf)</span>
+            <span class="curr" id="val-omega">2.40 GHz</span>
+          </div>
+          <input type="range" id="slider-omega" min="0.5" max="6.0" step="0.1" value="2.40">
+        </div>
+
+        <div class="control-row">
+          <div class="control-label">
+            <span>注入偏置电流 (I_bias)</span>
+            <span class="curr" id="val-ibias">+1.50 mA (正向超流)</span>
+          </div>
+          <input type="range" id="slider-ibias" min="-3.0" max="3.0" step="0.1" value="1.50">
+        </div>
+      </div>
+
+      <!-- 操作按钮 -->
+      <div class="panel-section">
+        <div class="section-title">
+          <span>⚡ 操作与合成控制 (Trigger &amp; Audio)</span>
+        </div>
+        <div class="action-row">
+          <button class="btn-action primary" id="btn-reverse">⚡ 极性翻转 (I_bias ↔ -I_bias)</button>
+          <button class="btn-action" id="btn-audio">🔊 开启约瑟夫森声效合成</button>
+        </div>
+        <div class="action-row">
+          <button class="btn-action" id="btn-reset-cam">🔄 重置 3D 视角</button>
+        </div>
+      </div>
+
+      <!-- 物理原理摘要 -->
+      <div class="panel-section" style="border-bottom:none;">
+        <div class="physics-summary">
+          <b>二极管物理机理：</b>反铁磁/易面磁体中的自旋超流通道破缺时间反演对称性（<i>T</i>），界面强自旋-轨道耦合破缺空间反演对称性（<i>P</i>）。二者共同打破结区宇称对称，在电流-相位关系中引入反常相移 <b>φ0</b> 与高阶谐波 <b>I_2 sin(2φ)</b>，导致正反向超导临界电流不对称（<i>Ic+ ≠ |Ic-|</i>），形成高整流度超导二极管（SDE）。外加微波驱动通过非互易弗洛凯-安德列夫反射泵浦单向库珀对，实现非耗散无外磁场量子拓扑整流。
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <script>
+    /* =========================================================
+       1. 全局物理状态模型
+       ========================================================= */
+    const STATE = {
+      // 异质结参数
+      rhos: 65.0,          // 自旋超流刚度 (meV·nm)
+      phi0: 0.58,          // 反常相移 (以 PI 为单位)
+      ratioI2: 0.42,       // I2 / I1
+      omegaRF: 2.40,       // 微波频率 (GHz)
+      ibias: 1.50,         // 注入电流 (mA)
+
+      // 计算衍生量
+      icPos: 2.45,         // 正向临界电流 (mA)
+      icNeg: 0.65,         // 反向临界电流绝对值 (mA)
+      efficiency: 58.4,    // 整流效率 (%)
+      currentPhase: 0.85,  // 当前相位差 phi (rad)
+      voltage: 0.0,        // 结电压 (uV)
+      isDissipative: false,// 是否发生相滑击穿
+
+      // 动力学时间
+      time: 0,
+      phaseMicrowave: 0,
+
+      // 3D 视角相机
+      rotX: 0.48,
+      rotY: -0.62,
+      zoom: 1.05,
+      panX: 0,
+      panY: 0,
+      isDragging: false,
+      lastMouseX: 0,
+      lastMouseY: 0,
+      dragButton: 0,
+
+      // 音频
+      audioEnabled: false
+    };
+
+    /* =========================================================
+       2. Web Audio API 动态合成器
+       ========================================================= */
+    class JosephsonSoundEngine {
+      constructor() {
+        this.ctx = null;
+        this.oscSuper = null;
+        this.gainSuper = null;
+        this.oscAC = null;
+        this.gainAC = null;
+      }
+
+      init() {
+        if (this.ctx) return;
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        this.ctx = new AudioContext();
+
+        // 超导基态谐波低鸣
+        this.oscSuper = this.ctx.createOscillator();
+        this.oscSuper.type = 'sine';
+        this.oscSuper.frequency.setValueAtTime(220, this.ctx.currentTime);
+
+        this.gainSuper = this.ctx.createGain();
+        this.gainSuper.gain.setValueAtTime(0.0, this.ctx.currentTime);
+
+        this.oscSuper.connect(this.gainSuper);
+        this.gainSuper.connect(this.ctx.destination);
+
+        // 交流约瑟夫森相滑高频啸叫: f = 2e V / h
+        this.oscAC = this.ctx.createOscillator();
+        this.oscAC.type = 'sawtooth';
+        this.oscAC.frequency.setValueAtTime(600, this.ctx.currentTime);
+
+        this.gainAC = this.ctx.createGain();
+        this.gainAC.gain.setValueAtTime(0.0, this.ctx.currentTime);
+
+        this.oscAC.connect(this.gainAC);
+        this.gainAC.connect(this.ctx.destination);
+
+        this.oscSuper.start();
+        this.oscAC.start();
+      }
+
+      update(isDissipative, voltageUV, currentMA) {
+        if (!this.ctx || !STATE.audioEnabled) return;
+
+        // 稳态超导音频
+        const superGain = Math.min(0.06, Math.abs(currentMA) * 0.02);
+        this.gainSuper.gain.setTargetAtTime(superGain, this.ctx.currentTime, 0.05);
+
+        // 相滑击穿音频
+        if (isDissipative) {
+          const acFreq = 400 + Math.min(3000, voltageUV * 12);
+          this.oscAC.frequency.setTargetAtTime(acFreq, this.ctx.currentTime, 0.05);
+          this.gainAC.gain.setTargetAtTime(0.08, this.ctx.currentTime, 0.05);
+        } else {
+          this.gainAC.gain.setTargetAtTime(0.0, this.ctx.currentTime, 0.08);
+        }
+      }
+
+      playClick() {
+        if (!this.ctx || !STATE.audioEnabled) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(800, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(120, this.ctx.currentTime + 0.08);
+
+        gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.08);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.09);
+      }
+    }
+
+    const sound = new JosephsonSoundEngine();
+
+    /* =========================================================
+       3. 载流子与安德列夫反射粒子系统
+       ========================================================= */
+    const NUM_ANDREEV_PAIRS = 60;
+    const andreevParticles = [];
+    for (let i = 0; i < NUM_ANDREEV_PAIRS; i++) {
+      andreevParticles.push({
+        x: (Math.random() - 0.5) * 220,
+        y: (Math.random() - 0.5) * 50,
+        z: (Math.random() - 0.5) * 20,
+        isElectron: Math.random() > 0.5,
+        vx: 1.2 + Math.random() * 1.5,
+        life: Math.random(),
+        reflected: false
+      });
+    }
+
+    /* =========================================================
+       4. 物理数值模型计算
+       ========================================================= */
+    function evalCPR(phi) {
+      // 广义反常非互易约瑟夫森电流-相位关系: I(phi) = I1*sin(phi - phi0) + I2*sin(2phi)
+      const phi0Rad = STATE.phi0 * Math.PI;
+      const I1 = (STATE.rhos / 65.0) * 1.8;
+      const I2 = I1 * STATE.ratioI2;
+      return I1 * Math.sin(phi - phi0Rad) + I2 * Math.sin(2.0 * phi);
+    }
+
+    function calculateCriticalCurrents() {
+      let maxI = -Infinity;
+      let minI = Infinity;
+      const steps = 180;
+      for (let i = 0; i < steps; i++) {
+        const phi = (i / steps) * Math.PI * 2;
+        const val = evalCPR(phi);
+        if (val > maxI) maxI = val;
+        if (val < minI) minI = val;
+      }
+      STATE.icPos = Number(maxI.toFixed(2));
+      STATE.icNeg = Number(Math.abs(minI).toFixed(2));
+
+      // 二极管整流效率: η = (Ic+ - |Ic-|) / (Ic+ + |Ic-|)
+      const sum = STATE.icPos + STATE.icNeg;
+      const diff = STATE.icPos - STATE.icNeg;
+      STATE.efficiency = Number(((diff / Math.max(0.01, sum)) * 100.0).toFixed(1));
+    }
+
+    function updatePhysics() {
+      STATE.time += 0.016;
+      STATE.phaseMicrowave += 0.12 * STATE.omegaRF;
+
+      calculateCriticalCurrents();
+
+      // 判断当前偏置是否超过临界电流
+      const ib = STATE.ibias;
+      let isOvercritical = false;
+      if (ib > 0 && ib > STATE.icPos) isOvercritical = true;
+      if (ib < 0 && Math.abs(ib) > STATE.icNeg) isOvercritical = true;
+
+      STATE.isDissipative = isOvercritical;
+
+      if (isOvercritical) {
+        // 发生相滑相转 (Phase-slip / AC Josephson Regime)
+        const excess = ib > 0 ? (ib - STATE.icPos) : (Math.abs(ib) - STATE.icNeg);
+        const dphi = (ib > 0 ? 1 : -1) * (0.08 + excess * 0.18);
+        STATE.currentPhase = (STATE.currentPhase + dphi) % (Math.PI * 2);
+        STATE.voltage = Number((excess * 42.0).toFixed(1));
+      } else {
+        // 无耗散超导超流态：固定在使得 I(phi) = I_bias 的准稳态相角
+        STATE.voltage = 0.0;
+        // 缓动逼近
+        const phi0Rad = STATE.phi0 * Math.PI;
+        const targetPhi = phi0Rad + Math.asin(Math.max(-0.98, Math.min(0.98, ib / (STATE.icPos + 0.1))));
+        STATE.currentPhase += (targetPhi - STATE.currentPhase) * 0.12;
+      }
+
+      // 更新安德列夫反射粒子动力学
+      for (let p of andreevParticles) {
+        const speed = (p.vx * (STATE.omegaRF / 2.0) * 0.8 + 0.6) * (STATE.ibias >= 0 ? 1.0 : -0.7);
+        p.x += speed;
+
+        // 在中央约瑟夫森界面 (x ≈ 0) 发生非互易安德列夫电子-空穴转换反射
+        if (Math.abs(p.x) < 8 && !p.reflected) {
+          p.reflected = true;
+          p.isElectron = !p.isElectron; // 电子反射为空穴，或空穴反射为电子
+          p.vx = -p.vx * 0.95;          // 反射回超导基底
+        }
+
+        // 边界再生
+        if (Math.abs(p.x) > 130) {
+          p.x = p.vx > 0 ? -120 : 120;
+          p.y = (Math.random() - 0.5) * 45;
+          p.reflected = false;
+          p.isElectron = Math.random() > 0.5;
+        }
+      }
+
+      // 更新声音引擎
+      sound.update(STATE.isDissipative, STATE.voltage, STATE.ibias);
+
+      // 更新 DOM
+      updateUI();
+    }
+
+    function updateUI() {
+      document.getElementById('metric-efficiency').innerText = `${STATE.efficiency} %`;
+      document.getElementById('metric-ic-pos').innerText = `${STATE.icPos} mA`;
+      document.getElementById('metric-ic-neg').innerText = `${STATE.icNeg} mA`;
+      document.getElementById('metric-phi0').innerText = `${STATE.phi0.toFixed(2)} π`;
+
+      const statusPill = document.getElementById('global-status');
+      const statusText = document.getElementById('status-text');
+      if (STATE.isDissipative) {
+        statusPill.style.color = 'var(--red)';
+        statusPill.style.borderColor = 'var(--red)';
+        statusText.innerText = `相滑击穿耗散态 (V = ${STATE.voltage} μV)`;
+      } else {
+        statusPill.style.color = 'var(--amber)';
+        statusPill.style.borderColor = 'var(--amber)';
+        statusText.innerText = '无耗散单向超导超流';
+      }
+
+      document.getElementById('tag-rhos').innerText = `${STATE.rhos.toFixed(1)} meV·nm`;
+      document.getElementById('tag-ratio').innerText = `${STATE.ratioI2.toFixed(2)}`;
+      document.getElementById('tag-omega').innerText = `${STATE.omegaRF.toFixed(2)} GHz`;
+      document.getElementById('tag-phase').innerText = `${STATE.currentPhase.toFixed(2)} rad`;
+
+      document.getElementById('scope1-val').innerText = `Ic+ = ${STATE.icPos} mA, |Ic-| = ${STATE.icNeg} mA`;
+    }
+
+    /* =========================================================
+       5. 3D 全息投影与渲染引擎
+       ========================================================= */
+    const canvas3d = document.getElementById('view3d');
+    const ctx3d = canvas3d.getContext('2d');
+
+    function resizeCanvas() {
+      const rect = canvas3d.parentElement.getBoundingClientRect();
+      canvas3d.width = rect.width * window.devicePixelRatio;
+      canvas3d.height = rect.height * window.devicePixelRatio;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    function project3D(x, y, z) {
+      const cosY = Math.cos(STATE.rotY);
+      const sinY = Math.sin(STATE.rotY);
+      const x1 = x * cosY + z * sinY;
+      const y1 = y;
+      const z1 = -x * sinY + z * cosY;
+
+      const cosX = Math.cos(STATE.rotX);
+      const sinX = Math.sin(STATE.rotX);
+      const x2 = x1;
+      const y2 = y1 * cosX - z1 * sinX;
+      const z2 = y1 * sinX + z1 * cosX;
+
+      const cameraDist = 580;
+      const scale = (cameraDist / (cameraDist + z2)) * STATE.zoom * (canvas3d.width / 950);
+      const projX = canvas3d.width / 2 + (x2 + STATE.panX) * scale;
+      const projY = canvas3d.height / 2 + (y2 + STATE.panY) * scale;
+
+      return { x: projX, y: projY, z: z2, scale: scale };
+    }
+
+    function render3D() {
+      ctx3d.clearRect(0, 0, canvas3d.width, canvas3d.height);
+
+      // 背景网格
+      ctx3d.strokeStyle = 'rgba(245, 158, 11, 0.05)';
+      ctx3d.lineWidth = 1;
+      const step = 45 * (canvas3d.width / 950);
+      for (let x = 0; x < canvas3d.width; x += step) {
+        ctx3d.beginPath();
+        ctx3d.moveTo(x, 0);
+        ctx3d.lineTo(x, canvas3d.height);
+        ctx3d.stroke();
+      }
+      for (let y = 0; y < canvas3d.height; y += step) {
+        ctx3d.beginPath();
+        ctx3d.moveTo(0, y);
+        ctx3d.lineTo(canvas3d.width, y);
+        ctx3d.stroke();
+      }
+
+      // 1. 绘制左右超导体岛与中央自旋超流弱连接通道
+      drawSuperconductingJunction();
+
+      // 2. 绘制自旋超流界面的易面微磁旋涡流动矢量
+      drawSpinSuperfluidTexture();
+
+      // 3. 绘制微波微带同心光子场波前
+      drawMicrowaveFloquetRings();
+
+      // 4. 绘制非互易安德列夫反射电子-空穴对
+      drawAndreevParticles();
+    }
+
+    function drawSuperconductingJunction() {
+      // 左侧超导体 S_L (-140 到 -15)
+      drawSuperconductorBlock(-140, -50, 125, 100, 15, 'rgba(56, 189, 248, 0.25)', 'TOPOLOGICAL SC (L)');
+
+      // 右侧超导体 S_R (15 到 140)
+      drawSuperconductorBlock(15, -50, 125, 100, 15, 'rgba(56, 189, 248, 0.25)', 'TOPOLOGICAL SC (R)');
+
+      // 中央自旋超流弱连接通道 (-15 到 15)
+      drawSuperconductorBlock(-15, -45, 30, 90, 8, 'rgba(245, 158, 11, 0.35)', 'SPIN SUPERFLUID');
+    }
+
+    function drawSuperconductorBlock(x, y, w, h, d, color, label) {
+      const p1 = project3D(x, y, -d / 2);
+      const p2 = project3D(x + w, y, -d / 2);
+      const p3 = project3D(x + w, y + h, -d / 2);
+      const p4 = project3D(x, y + h, -d / 2);
+
+      const p1t = project3D(x, y, d / 2);
+      const p2t = project3D(x + w, y, d / 2);
+      const p3t = project3D(x + w, y + h, d / 2);
+      const p4t = project3D(x, y + h, d / 2);
+
+      ctx3d.fillStyle = color;
+      ctx3d.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+      ctx3d.lineWidth = 1;
+
+      // 顶面
+      ctx3d.beginPath();
+      ctx3d.moveTo(p1t.x, p1t.y);
+      ctx3d.lineTo(p2t.x, p2t.y);
+      ctx3d.lineTo(p3t.x, p3t.y);
+      ctx3d.lineTo(p4t.x, p4t.y);
+      ctx3d.closePath();
+      ctx3d.fill();
+      ctx3d.stroke();
+
+      if (label && p1t.scale > 0.8) {
+        ctx3d.fillStyle = '#f8fafc';
+        ctx3d.font = `${Math.round(9 * p1t.scale)}px 'JetBrains Mono', monospace`;
+        ctx3d.fillText(label, p1t.x + 6, p1t.y - 6);
+      }
+    }
+
+    function drawSpinSuperfluidTexture() {
+      // 中央自旋超流通道内的自旋各向异性进动箭头
+      const numSpins = 12;
+      for (let i = 0; i < numSpins; i++) {
+        const y = -35 + (i / (numSpins - 1)) * 70;
+        const phase = STATE.currentPhase + i * 0.35;
+        const sx = Math.cos(phase) * 12;
+        const sz = Math.sin(phase) * 12;
+
+        const pBase = project3D(0, y, 0);
+        const pTop = project3D(sx, y, sz);
+
+        ctx3d.strokeStyle = '#f59e0b';
+        ctx3d.lineWidth = 2 * pBase.scale;
+        ctx3d.beginPath();
+        ctx3d.moveTo(pBase.x, pBase.y);
+        ctx3d.lineTo(pTop.x, pTop.y);
+        ctx3d.stroke();
+
+        ctx3d.fillStyle = '#fbbf24';
+        ctx3d.beginPath();
+        ctx3d.arc(pTop.x, pTop.y, 3 * pBase.scale, 0, Math.PI * 2);
+        ctx3d.fill();
+      }
+    }
+
+    function drawMicrowaveFloquetRings() {
+      // 约瑟夫森界面微波天线辐射同心圆环
+      const numRings = 3;
+      ctx3d.strokeStyle = 'rgba(16, 185, 129, 0.4)';
+      ctx3d.lineWidth = 1.5;
+      ctx3d.setLineDash([4, 4]);
+
+      for (let r = 1; r <= numRings; r++) {
+        const radius = ((r * 25 + STATE.phaseMicrowave * 6) % 90);
+        ctx3d.beginPath();
+        for (let a = 0; a <= Math.PI * 2 + 0.1; a += 0.2) {
+          const pt = project3D(Math.cos(a) * radius * 0.4, Math.sin(a) * radius, 0);
+          if (a === 0) ctx3d.moveTo(pt.x, pt.y);
+          else ctx3d.lineTo(pt.x, pt.y);
+        }
+        ctx3d.stroke();
+      }
+      ctx3d.setLineDash([]);
+    }
+
+    function drawAndreevParticles() {
+      for (let p of andreevParticles) {
+        const pt = project3D(p.x, p.y, p.z);
+        if (pt.z > 250) continue;
+
+        // 电子（青蓝）与空穴（绯红）
+        ctx3d.fillStyle = p.isElectron ? '#00f0ff' : '#ff007f';
+        ctx3d.shadowColor = ctx3d.fillStyle;
+        ctx3d.shadowBlur = 6;
+        ctx3d.beginPath();
+        ctx3d.arc(pt.x, pt.y, Math.max(1.5, 3.2 * pt.scale), 0, Math.PI * 2);
+        ctx3d.fill();
+        ctx3d.shadowBlur = 0;
+      }
+    }
+
+    /* =========================================================
+       6. 科学示波器绘制系统
+       ========================================================= */
+    const canvasScope1 = document.getElementById('scope1');
+    const ctxScope1 = canvasScope1.getContext('2d');
+
+    const canvasScope2 = document.getElementById('scope2');
+    const ctxScope2 = canvasScope2.getContext('2d');
+
+    function resizeScopes() {
+      const r1 = canvasScope1.parentElement.getBoundingClientRect();
+      canvasScope1.width = r1.width * window.devicePixelRatio;
+      canvasScope1.height = 95 * window.devicePixelRatio;
+
+      const r2 = canvasScope2.parentElement.getBoundingClientRect();
+      canvasScope2.width = r2.width * window.devicePixelRatio;
+      canvasScope2.height = 95 * window.devicePixelRatio;
+    }
+    window.addEventListener('resize', resizeScopes);
+    resizeScopes();
+
+    function renderScopes() {
+      // 示波器 1: 非互易 CPR 曲线
+      ctxScope1.clearRect(0, 0, canvasScope1.width, canvasScope1.height);
+      drawGrid(ctxScope1, canvasScope1);
+      drawCPR(ctxScope1, canvasScope1);
+
+      // 示波器 2: 弗洛凯-安德列夫束缚态能谱分支
+      ctxScope2.clearRect(0, 0, canvasScope2.width, canvasScope2.height);
+      drawGrid(ctxScope2, canvasScope2);
+      drawFloquetABS(ctxScope2, canvasScope2);
+    }
+
+    function drawGrid(ctx, canvas) {
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
+      ctx.lineWidth = 1;
+      const nx = 6;
+      const ny = 4;
+      for (let i = 1; i < nx; i++) {
+        const x = (canvas.width / nx) * i;
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvas.height);
+        ctx.stroke();
+      }
+      for (let j = 1; j < ny; j++) {
+        const y = (canvas.height / ny) * j;
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
+        ctx.stroke();
+      }
+    }
+
+    function drawCPR(ctx, canvas) {
+      const cy = canvas.height / 2;
+      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth = 2 * window.devicePixelRatio;
+      ctx.beginPath();
+
+      const numPoints = 120;
+      for (let i = 0; i < numPoints; i++) {
+        const phi = (i / (numPoints - 1)) * Math.PI * 2;
+        const I = evalCPR(phi);
+        const x = (i / (numPoints - 1)) * canvas.width;
+        const y = cy - (I / 3.0) * (canvas.height * 0.42);
+
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+
+      // 标记当前工作点
+      const currX = (STATE.currentPhase / (Math.PI * 2)) * canvas.width;
+      const currI = evalCPR(STATE.currentPhase);
+      const currY = cy - (currI / 3.0) * (canvas.height * 0.42);
+
+      ctx.fillStyle = '#00f0ff';
+      ctx.beginPath();
+      ctx.arc(currX, currY, 4 * window.devicePixelRatio, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function drawFloquetABS(ctx, canvas) {
+      const cy = canvas.height / 2;
+      ctx.lineWidth = 1.8 * window.devicePixelRatio;
+
+      // 绘制 m = 0, ±1 的弗洛凯-安德列夫分支
+      const sidebands = [0, 0.28, -0.28];
+      const colors = ['#10b981', 'rgba(56, 189, 248, 0.7)', 'rgba(255, 0, 127, 0.7)'];
+
+      for (let b = 0; b < sidebands.length; b++) {
+        ctx.strokeStyle = colors[b];
+        ctx.beginPath();
+
+        for (let i = 0; i < canvas.width; i += 3) {
+          const phi = (i / canvas.width) * Math.PI * 2;
+          const transmission = 0.85;
+          // E_ABS(phi) = Delta0 * sqrt(1 - tau * sin^2((phi - phi0)/2))
+          const phi0Rad = STATE.phi0 * Math.PI;
+          const E_ABS = Math.sqrt(Math.max(0.01, 1.0 - transmission * Math.pow(Math.sin((phi - phi0Rad) / 2), 2))) + sidebands[b];
+          const y = cy - E_ABS * (canvas.height * 0.32);
+
+          if (i === 0) ctx.moveTo(i, y);
+          else ctx.lineTo(i, y);
+        }
+        ctx.stroke();
+      }
+    }
+
+    /* =========================================================
+       7. 交互事件与控制绑定
+       ========================================================= */
+    const container3d = document.getElementById('container3d');
+
+    container3d.addEventListener('mousedown', (e) => {
+      STATE.isDragging = true;
+      STATE.dragButton = e.button;
+      STATE.lastMouseX = e.clientX;
+      STATE.lastMouseY = e.clientY;
+      sound.init();
+    });
+
+    window.addEventListener('mouseup', () => {
+      STATE.isDragging = false;
+    });
+
+    container3d.addEventListener('mousemove', (e) => {
+      if (!STATE.isDragging) return;
+      const dx = e.clientX - STATE.lastMouseX;
+      const dy = e.clientY - STATE.lastMouseY;
+      STATE.lastMouseX = e.clientX;
+      STATE.lastMouseY = e.clientY;
+
+      if (STATE.dragButton === 0) {
+        STATE.rotY += dx * 0.008;
+        STATE.rotX += dy * 0.008;
+        STATE.rotX = Math.max(-1.4, Math.min(1.4, STATE.rotX));
+      } else if (STATE.dragButton === 2) {
+        STATE.panX += dx * 0.5;
+        STATE.panY += dy * 0.5;
+      }
+    });
+
+    container3d.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      STATE.zoom *= e.deltaY > 0 ? 0.92 : 1.08;
+      STATE.zoom = Math.max(0.5, Math.min(2.5, STATE.zoom));
+    }, { passive: false });
+
+    container3d.addEventListener('contextmenu', (e) => e.preventDefault());
+
+    // 参数滑动条交互
+    const bindSlider = (id, stateKey, displayId, unit, decimals = 1, prefix = '') => {
+      const slider = document.getElementById(id);
+      slider.addEventListener('input', (e) => {
+        const val = parseFloat(e.target.value);
+        STATE[stateKey] = val;
+        document.getElementById(displayId).innerText = `${prefix}${val.toFixed(decimals)} ${unit}`;
+        sound.init();
+      });
+    };
+
+    bindSlider('slider-rhos', 'rhos', 'val-rhos', 'meV·nm', 1);
+    bindSlider('slider-phi0', 'phi0', 'val-phi0', 'π', 2);
+    bindSlider('slider-ratio', 'ratioI2', 'val-ratio', '', 2);
+    bindSlider('slider-omega', 'omegaRF', 'val-omega', 'GHz', 2);
+    bindSlider('slider-ibias', 'ibias', 'val-ibias', 'mA', 2);
+
+    // 预设工况按钮
+    const presetBtns = document.querySelectorAll('.btn-preset');
+    presetBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        presetBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const p = btn.getAttribute('data-preset');
+        sound.init();
+
+        if (p === 'max-sde') {
+          STATE.phi0 = 0.58;
+          STATE.ratioI2 = 0.42;
+          STATE.ibias = 1.5;
+          document.getElementById('slider-phi0').value = 0.58;
+          document.getElementById('val-phi0').innerText = '0.58 π';
+          document.getElementById('slider-ratio').value = 0.42;
+          document.getElementById('val-ratio').innerText = '0.42';
+        } else if (p === 'reciprocal') {
+          STATE.phi0 = 0.0;
+          STATE.ratioI2 = 0.0;
+          document.getElementById('slider-phi0').value = 0.0;
+          document.getElementById('val-phi0').innerText = '0.00 π';
+          document.getElementById('slider-ratio').value = 0.0;
+          document.getElementById('val-ratio').innerText = '0.00';
+        } else if (p === 'floquet-pump') {
+          STATE.omegaRF = 4.8;
+          document.getElementById('slider-omega').value = 4.8;
+          document.getElementById('val-omega').innerText = '4.80 GHz';
+        } else if (p === 'phase-slip') {
+          STATE.ibias = 2.8;
+          document.getElementById('slider-ibias').value = 2.8;
+          document.getElementById('val-ibias').innerText = '+2.80 mA';
+        }
+      });
+    });
+
+    // 偏置电流极性反转
+    document.getElementById('btn-reverse').addEventListener('click', () => {
+      sound.init();
+      sound.playClick();
+      STATE.ibias = -STATE.ibias;
+      document.getElementById('slider-ibias').value = STATE.ibias;
+      document.getElementById('val-ibias').innerText = `${STATE.ibias >= 0 ? '+' : ''}${STATE.ibias.toFixed(2)} mA`;
+    });
+
+    // 音频开关
+    const btnAudio = document.getElementById('btn-audio');
+    btnAudio.addEventListener('click', () => {
+      sound.init();
+      STATE.audioEnabled = !STATE.audioEnabled;
+      btnAudio.innerText = STATE.audioEnabled ? '🔇 关闭声效合成' : '🔊 开启约瑟夫森声效合成';
+      btnAudio.classList.toggle('active', STATE.audioEnabled);
+      if (STATE.audioEnabled) sound.playClick();
+    });
+
+    // 重置相机
+    document.getElementById('btn-reset-cam').addEventListener('click', () => {
+      sound.init();
+      STATE.rotX = 0.48;
+      STATE.rotY = -0.62;
+      STATE.zoom = 1.05;
+      STATE.panX = 0;
+      STATE.panY = 0;
+    });
+
+    /* =========================================================
+       8. 主动画演化循环
+       ========================================================= */
+    function animate() {
+      updatePhysics();
+      render3D();
+      renderScopes();
+      requestAnimationFrame(animate);
+    }
+
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>

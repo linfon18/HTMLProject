@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>双摆混沌演化与庞加莱截面 - Double Pendulum Chaos</title>
+<style>
+  :root {
+    --bg-color: #030308;
+    --accent-violet: #8b5cf6;
+    --accent-cyan: #06b6d4;
+    --accent-rose: #f43f5e;
+    --glass-bg: rgba(13, 15, 28, 0.78);
+    --glass-border: rgba(139, 92, 246, 0.25);
+  }
+
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    user-select: none;
+  }
+
+  body {
+    background-color: var(--bg-color);
+    color: #e2e8f0;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    overflow: hidden;
+    width: 100vw;
+    height: 100vh;
+  }
+
+  #viewport {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    cursor: grab;
+  }
+
+  #viewport:active {
+    cursor: grabbing;
+  }
+
+  /* 顶部科幻标头 */
+  .header-card {
+    position: absolute;
+    top: 24px;
+    left: 28px;
+    z-index: 10;
+    pointer-events: none;
+  }
+
+  .header-card h1 {
+    font-size: 1.6rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+    background: linear-gradient(135deg, #a78bfa, #22d3ee, #fb7185);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-transform: uppercase;
+    text-shadow: 0 0 25px rgba(167, 139, 250, 0.35);
+  }
+
+  .header-card .sub {
+    font-size: 0.85rem;
+    color: #94a3b8;
+    margin-top: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .pulse-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #a78bfa;
+    box-shadow: 0 0 10px #a78bfa;
+    animation: chaosPulse 1.8s infinite ease-in-out;
+  }
+
+  @keyframes chaosPulse {
+    0%, 100% { opacity: 0.3; transform: scale(0.9); }
+    50% { opacity: 1; transform: scale(1.2); }
+  }
+
+  /* 右上角物理遥测 */
+  .telemetry-card {
+    position: absolute;
+    top: 24px;
+    right: 28px;
+    z-index: 10;
+    background: var(--glass-bg);
+    backdrop-filter: blur(16px);
+    border: 1px solid var(--glass-border);
+    border-radius: 14px;
+    padding: 16px 20px;
+    min-width: 270px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+    font-family: 'Courier New', monospace;
+  }
+
+  .telemetry-title {
+    font-size: 0.75rem;
+    color: var(--accent-violet);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    border-bottom: 1px solid rgba(139, 92, 246, 0.2);
+    padding-bottom: 5px;
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .tele-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.82rem;
+    margin-bottom: 5px;
+  }
+
+  .tele-row .lbl { color: #64748b; }
+  .tele-row .val { color: #f8fafc; font-weight: 600; }
+
+  /* 庞加莱截面画中画视窗 */
+  .poincare-panel {
+    position: absolute;
+    bottom: 105px;
+    right: 28px;
+    z-index: 10;
+    background: var(--glass-bg);
+    backdrop-filter: blur(16px);
+    border: 1px solid var(--glass-border);
+    border-radius: 14px;
+    padding: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .poincare-title {
+    font-size: 0.72rem;
+    color: var(--accent-cyan);
+    font-family: monospace;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  #poincare-canvas {
+    background: rgba(5, 5, 12, 0.9);
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  /* 悬浮控制台 */
+  .dock {
+    position: absolute;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border);
+    border-radius: 18px;
+    padding: 14px 22px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    max-width: 94vw;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .ctrl-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .ctrl-item label {
+    font-size: 0.7rem;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .ctrl-item label span {
+    color: var(--accent-violet);
+    font-family: monospace;
+  }
+
+  .ctrl-item input[type="range"] {
+    -webkit-appearance: none;
+    width: 110px;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 2px;
+    outline: none;
+  }
+
+  .ctrl-item input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--accent-violet);
+    cursor: pointer;
+    box-shadow: 0 0 10px var(--accent-violet);
+    transition: transform 0.1s;
+  }
+
+  .ctrl-item input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.3);
+  }
+
+  .btn {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: #fff;
+    padding: 8px 14px;
+    border-radius: 10px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .btn:hover {
+    background: rgba(139, 92, 246, 0.25);
+    border-color: var(--accent-violet);
+    box-shadow: 0 0 15px rgba(139, 92, 246, 0.3);
+    transform: translateY(-2px);
+  }
+
+  .btn.active {
+    background: var(--accent-violet);
+    color: #fff;
+    border-color: var(--accent-violet);
+    box-shadow: 0 0 15px var(--accent-violet);
+  }
+
+  .hint-tip {
+    position: absolute;
+    bottom: 24px;
+    left: 28px;
+    z-index: 10;
+    pointer-events: none;
+    font-size: 0.75rem;
+    color: #64748b;
+    line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+
+<canvas id="viewport"></canvas>
+
+<div class="header-card">
+  <h1>DOUBLE PENDULUM CHAOS</h1>
+  <div class="sub">
+    <div class="pulse-dot"></div>
+    <span>拉格朗日力学 · RK4 数值积分 · 庞加莱相空间</span>
+  </div>
+</div>
+
+<div class="telemetry-card">
+  <div class="telemetry-title">
+    <span>相空间遥测 (PHASE STATE)</span>
+    <span id="fps-val">60 FPS</span>
+  </div>
+  <div class="tele-row">
+    <span class="lbl">上摆角 θ1 / 速度 ω1:</span>
+    <span class="val" id="tele-th1">85.0° / 0.0</span>
+  </div>
+  <div class="tele-row">
+    <span class="lbl">下摆角 θ2 / 速度 ω2:</span>
+    <span class="val" id="tele-th2">90.0° / 0.0</span>
+  </div>
+  <div class="tele-row">
+    <span class="lbl">机械总能 E:</span>
+    <span class="val" id="tele-energy">42.8 J</span>
+  </div>
+  <div class="tele-row">
+    <span class="lbl">能量守恒漂移 ΔE:</span>
+    <span class="val" id="tele-drift">0.0002%</span>
+  </div>
+  <div class="tele-row">
+    <span class="lbl">系综粒子数:</span>
+    <span class="val" id="tele-count">100 个微扰摆</span>
+  </div>
+</div>
+
+<div class="poincare-panel">
+  <div class="poincare-title">
+    <span>庞加莱截面 (θ2 vs ω2)</span>
+    <button class="btn" style="padding:2px 8px;font-size:0.65rem;" id="btn-clear-poincare">清除</button>
+  </div>
+  <canvas id="poincare-canvas" width="180" height="180"></canvas>
+</div>
+
+<div class="hint-tip">
+  🖱️ 拖拽摆球: 任意设定初始转角与初速度<br>
+  🌌 系综模式: 启动 100 组微扰平行宇宙观察混沌发散<br>
+  ⚡ 空格键: 瞬时释放重力反转脉冲
+</div>
+
+<div class="dock">
+  <div class="ctrl-item">
+    <label>引力加速度 g <span id="val-g">9.8</span></label>
+    <input type="range" id="param-g" min="0" max="25" step="0.5" value="9.8">
+  </div>
+  <div class="ctrl-item">
+    <label>摆臂长度比 L2/L1 <span id="val-len">1.0</span></label>
+    <input type="range" id="param-len" min="0.5" max="2.0" step="0.1" value="1.0">
+  </div>
+  <div class="ctrl-item">
+    <label>质点质量比 m2/m1 <span id="val-m">1.0</span></label>
+    <input type="range" id="param-m" min="0.2" max="3.0" step="0.1" value="1.0">
+  </div>
+  <div class="ctrl-item">
+    <label>时间流速 Time <span id="val-time">1.0x</span></label>
+    <input type="range" id="param-time" min="0.1" max="2.5" step="0.1" value="1.0">
+  </div>
+
+  <button class="btn active" id="btn-ensemble">🌌 微扰系综: 100 摆</button>
+  <button class="btn" id="btn-trail">✨ 拖尾光带: 长</button>
+  <button class="btn" id="btn-reset">🔄 经典姿态</button>
+</div>
+
+<script>
+/**
+ * 双摆动力学与四阶龙格库塔数值积分 (Runge-Kutta 4th Order)
+ * 拉格朗日力学导出微分方程组：
+ * dθ1/dt = ω1
+ * dθ2/dt = ω2
+ * dω1/dt = f1(θ1, θ2, ω1, ω2)
+ * dω2/dt = f2(θ1, θ2, ω1, ω2)
+ */
+
+const canvas = document.getElementById('viewport');
+const ctx = canvas.getContext('2d');
+
+const pCanvas = document.getElementById('poincare-canvas');
+const pCtx = pCanvas.getContext('2d');
+
+let width, height;
+function resize() {
+  width = canvas.width = window.innerWidth;
+  height = canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resize);
+resize();
+
+// 物理系统基础参数
+const physics = {
+  l1: 150,
+  l2: 150,
+  m1: 1.0,
+  m2: 1.0,
+  g: 9.8,
+  timeScale: 1.0,
+  damping: 0.00005, // 极轻微摩擦防止数值发散
+  showEnsemble: true,
+  trailLength: 600
+};
+
+// 状态：每个双摆包含 [th1, th2, w1, w2]
+// 主摆
+const mainPendulum = {
+  th1: Math.PI / 2,
+  th2: Math.PI / 2,
+  w1: 0,
+  w2: 0,
+  trail: []
+};
+
+// 混沌系综（微扰平行宇宙摆）
+const ENSEMBLE_SIZE = 100;
+let ensemble = [];
+
+function initEnsemble() {
+  ensemble = [];
+  const baseTh1 = mainPendulum.th1;
+  const baseTh2 = mainPendulum.th2;
+
+  for (let i = 0; i < ENSEMBLE_SIZE; i++) {
+    // 注入 10^-5 弧度级微扰
+    const perturb = (i / ENSEMBLE_SIZE) * 0.0001;
+    ensemble.push({
+      th1: baseTh1 + perturb,
+      th2: baseTh2 + perturb,
+      w1: 0,
+      w2: 0,
+      hue: (i / ENSEMBLE_SIZE) * 360,
+      trail: []
+    });
+  }
+}
+initEnsemble();
+
+// 动力学微分方程加速度导数
+function getDerivatives(th1, th2, w1, w2) {
+  const g = physics.g;
+  const m1 = physics.m1;
+  const m2 = physics.m2;
+  const l1 = physics.l1;
+  const l2 = physics.l2;
+
+  const delta = th1 - th2;
+
+  // 公共分母
+  const den1 = l1 * (2 * m1 + m2 - m2 * Math.cos(2 * th1 - 2 * th2));
+  const den2 = l2 * (2 * m1 + m2 - m2 * Math.cos(2 * th1 - 2 * th2));
+
+  // 分子项
+  const num1 = -g * (2 * m1 + m2) * Math.sin(th1) -
+               m2 * g * Math.sin(th1 - 2 * th2) -
+               2 * Math.sin(delta) * m2 * (w2 * w2 * l2 + w1 * w1 * l1 * Math.cos(delta));
+
+  const num2 = 2 * Math.sin(delta) * (
+               w1 * w1 * l1 * (m1 + m2) +
+               g * (m1 + m2) * Math.cos(th1) +
+               w2 * w2 * l2 * m2 * Math.cos(delta));
+
+  const alpha1 = num1 / den1 - physics.damping * w1;
+  const alpha2 = num2 / den2 - physics.damping * w2;
+
+  return { dth1: w1, dth2: w2, dw1: alpha1, dw2: alpha2 };
+}
+
+// 四阶龙格-库塔 (RK4) 积分器
+function rk4Step(pend, dt) {
+  const { th1, th2, w1, w2 } = pend;
+
+  // k1
+  const k1 = getDerivatives(th1, th2, w1, w2);
+
+  // k2
+  const th1_k2 = th1 + 0.5 * dt * k1.dth1;
+  const th2_k2 = th2 + 0.5 * dt * k1.dth2;
+  const w1_k2 = w1 + 0.5 * dt * k1.dw1;
+  const w2_k2 = w2 + 0.5 * dt * k1.dw2;
+  const k2 = getDerivatives(th1_k2, th2_k2, w1_k2, w2_k2);
+
+  // k3
+  const th1_k3 = th1 + 0.5 * dt * k2.dth1;
+  const th2_k3 = th2 + 0.5 * dt * k2.dth2;
+  const w1_k3 = w1 + 0.5 * dt * k2.dw1;
+  const w2_k3 = w2 + 0.5 * dt * k2.dw2;
+  const k3 = getDerivatives(th1_k3, th2_k3, w1_k3, w2_k3);
+
+  // k4
+  const th1_k4 = th1 + dt * k3.dth1;
+  const th2_k4 = th2 + dt * k3.dth2;
+  const w1_k4 = w1 + dt * k3.dw1;
+  const w2_k4 = w2 + dt * k3.dw2;
+  const k4 = getDerivatives(th1_k4, th2_k4, w1_k4, w2_k4);
+
+  pend.th1 += (dt / 6) * (k1.dth1 + 2 * k2.dth1 + 2 * k3.dth1 + k4.dth1);
+  pend.th2 += (dt / 6) * (k1.dth2 + 2 * k2.dth2 + 2 * k3.dth2 + k4.dth2);
+  pend.w1 += (dt / 6) * (k1.dw1 + 2 * k2.dw1 + 2 * k3.dw1 + k4.dw1);
+  pend.w2 += (dt / 6) * (k1.dw2 + 2 * k2.dw2 + 2 * k3.dw2 + k4.dw2);
+}
+
+// 总机械能计算 E = T + V
+function calculateEnergy(pend) {
+  const { th1, th2, w1, w2 } = pend;
+  const { m1, m2, l1, l2, g } = physics;
+
+  // 动能 T
+  const T = 0.5 * m1 * (l1 * w1) ** 2 +
+            0.5 * m2 * ((l1 * w1) ** 2 + (l2 * w2) ** 2 + 2 * l1 * l2 * w1 * w2 * Math.cos(th1 - th2));
+
+  // 势能 V (以悬挂支点为零势面)
+  const V = -(m1 + m2) * g * l1 * Math.cos(th1) - m2 * g * l2 * Math.cos(th2);
+
+  return T + V;
+}
+
+let initialTotalEnergy = calculateEnergy(mainPendulum);
+
+// 庞加莱截面记录 (当 θ1 穿过 0 时的点集)
+let lastMainTh1 = mainPendulum.th1;
+function checkPoincare(pend) {
+  // 模 2pi 映射到 [-pi, pi]
+  const prev = Math.atan2(Math.sin(lastMainTh1), Math.cos(lastMainTh1));
+  const curr = Math.atan2(Math.sin(pend.th1), Math.cos(pend.th1));
+
+  // 穿越零点检测
+  if ((prev < 0 && curr >= 0) || (prev > 0 && curr <= 0)) {
+    const pw = pCanvas.width;
+    const ph = pCanvas.height;
+
+    // 映射 th2 [-pi, pi] -> [0, pw]
+    // 映射 w2  [-15, 15] -> [0, ph]
+    const normX = (Math.atan2(Math.sin(pend.th2), Math.cos(pend.th2)) / Math.PI + 1) * 0.5 * pw;
+    const normY = (pend.w2 / 20.0 + 1) * 0.5 * ph;
+
+    pCtx.fillStyle = 'rgba(6, 182, 212, 0.7)';
+    pCtx.fillRect(normX, normY, 1.8, 1.8);
+  }
+  lastMainTh1 = pend.th1;
+}
+
+// 物理步进
+let lastTime = performance.now();
+let frames = 0;
+let lastFpsTime = performance.now();
+
+function update(dt) {
+  // 分解为小步长保证高保真积分精度
+  const subSteps = 10;
+  const subDt = (dt * physics.timeScale) / subSteps;
+
+  for (let s = 0; s < subSteps; s++) {
+    rk4Step(mainPendulum, subDt);
+    checkPoincare(mainPendulum);
+
+    if (physics.showEnsemble) {
+      for (let i = 0; i < ensemble.length; i++) {
+        rk4Step(ensemble[i], subDt);
+      }
+    }
+  }
+
+  // 记录末端轨迹点
+  const pivotX = width * 0.5;
+  const pivotY = height * 0.38;
+
+  const x2 = pivotX + physics.l1 * Math.sin(mainPendulum.th1) + physics.l2 * Math.sin(mainPendulum.th2);
+  const y2 = pivotY + physics.l1 * Math.cos(mainPendulum.th1) + physics.l2 * Math.cos(mainPendulum.th2);
+
+  mainPendulum.trail.push({ x: x2, y: y2 });
+  if (mainPendulum.trail.length > physics.trailLength) {
+    mainPendulum.trail.shift();
+  }
+
+  // 系综轨迹记录
+  if (physics.showEnsemble) {
+    for (let i = 0; i < ensemble.length; i++) {
+      const p = ensemble[i];
+      const ex2 = pivotX + physics.l1 * Math.sin(p.th1) + physics.l2 * Math.sin(p.th2);
+      const ey2 = pivotY + physics.l1 * Math.cos(p.th1) + physics.l2 * Math.cos(p.th2);
+      p.trail.push({ x: ex2, y: ey2 });
+      if (p.trail.length > 70) p.trail.shift();
+    }
+  }
+
+  // 遥测卡片刷新
+  const deg1 = (mainPendulum.th1 * 180 / Math.PI) % 360;
+  const deg2 = (mainPendulum.th2 * 180 / Math.PI) % 360;
+  document.getElementById('tele-th1').textContent = `${deg1.toFixed(1)}° / ${mainPendulum.w1.toFixed(2)}`;
+  document.getElementById('tele-th2').textContent = `${deg2.toFixed(1)}° / ${mainPendulum.w2.toFixed(2)}`;
+
+  const currentEnergy = calculateEnergy(mainPendulum);
+  document.getElementById('tele-energy').textContent = (currentEnergy / 1000).toFixed(2) + ' kJ';
+  const drift = Math.abs((currentEnergy - initialTotalEnergy) / (initialTotalEnergy || 1)) * 100;
+  document.getElementById('tele-drift').textContent = drift.toFixed(4) + '%';
+}
+
+// 渲染
+function render() {
+  ctx.fillStyle = 'rgba(3, 3, 8, 0.25)';
+  ctx.fillRect(0, 0, width, height);
+
+  const pivotX = width * 0.5;
+  const pivotY = height * 0.38;
+
+  // 1. 绘制极光系综彩带 (平行宇宙混沌撕裂)
+  if (physics.showEnsemble) {
+    ctx.lineWidth = 1.2;
+    for (let i = 0; i < ensemble.length; i++) {
+      const p = ensemble[i];
+      if (p.trail.length < 2) continue;
+      ctx.strokeStyle = `hsla(${p.hue}, 85%, 65%, 0.15)`;
+      ctx.beginPath();
+      ctx.moveTo(p.trail[0].x, p.trail[0].y);
+      for (let k = 1; k < p.trail.length; k++) {
+        ctx.lineTo(p.trail[k].x, p.trail[k].y);
+      }
+      ctx.stroke();
+    }
+  }
+
+  // 2. 绘制主摆长曝光轨迹
+  if (mainPendulum.trail.length > 1) {
+    ctx.save();
+    for (let i = 1; i < mainPendulum.trail.length; i++) {
+      const pt1 = mainPendulum.trail[i - 1];
+      const pt2 = mainPendulum.trail[i];
+      const alpha = (i / mainPendulum.trail.length);
+
+      ctx.strokeStyle = `rgba(139, 92, 246, ${alpha * 0.8})`;
+      ctx.lineWidth = alpha * 2.5 + 0.5;
+      ctx.beginPath();
+      ctx.moveTo(pt1.x, pt1.y);
+      ctx.lineTo(pt2.x, pt2.y);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // 3. 绘制主摆机械实体
+  const x1 = pivotX + physics.l1 * Math.sin(mainPendulum.th1);
+  const y1 = pivotY + physics.l1 * Math.cos(mainPendulum.th1);
+
+  const x2 = x1 + physics.l2 * Math.sin(mainPendulum.th2);
+  const y2 = y1 + physics.l2 * Math.cos(mainPendulum.th2);
+
+  // 悬挂支点座
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(pivotX, pivotY, 7, 0, Math.PI * 2);
+  ctx.fillStyle = '#64748b';
+  ctx.fill();
+  ctx.strokeStyle = '#e2e8f0';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // 上摆杆
+  ctx.beginPath();
+  ctx.moveTo(pivotX, pivotY);
+  ctx.lineTo(x1, y1);
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+  ctx.lineWidth = 3.5;
+  ctx.stroke();
+
+  // 第一关节点
+  ctx.beginPath();
+  ctx.arc(x1, y1, 10, 0, Math.PI * 2);
+  ctx.fillStyle = '#8b5cf6';
+  ctx.shadowColor = '#8b5cf6';
+  ctx.shadowBlur = 12;
+  ctx.fill();
+
+  // 下摆杆
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.strokeStyle = 'rgba(6, 182, 212, 0.8)';
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  // 第二末端球
+  ctx.beginPath();
+  ctx.arc(x2, y2, 12, 0, Math.PI * 2);
+  ctx.fillStyle = '#06b6d4';
+  ctx.shadowColor = '#06b6d4';
+  ctx.shadowBlur = 18;
+  ctx.fill();
+  ctx.restore();
+
+  // FPS
+  frames++;
+  const now = performance.now();
+  if (now - lastFpsTime >= 1000) {
+    document.getElementById('fps-val').textContent = frames + ' FPS';
+    frames = 0;
+    lastFpsTime = now;
+  }
+}
+
+// 鼠标拖拽交互
+let isDraggingNode = 0; // 0: 无, 1: 节点1, 2: 节点2
+
+canvas.addEventListener('mousedown', (e) => {
+  const pivotX = width * 0.5;
+  const pivotY = height * 0.38;
+
+  const x1 = pivotX + physics.l1 * Math.sin(mainPendulum.th1);
+  const y1 = pivotY + physics.l1 * Math.cos(mainPendulum.th1);
+
+  const x2 = x1 + physics.l2 * Math.sin(mainPendulum.th2);
+  const y2 = y1 + physics.l2 * Math.cos(mainPendulum.th2);
+
+  if (Math.hypot(e.clientX - x2, e.clientY - y2) < 25) {
+    isDraggingNode = 2;
+  } else if (Math.hypot(e.clientX - x1, e.clientY - y1) < 25) {
+    isDraggingNode = 1;
+  }
+});
+
+window.addEventListener('mousemove', (e) => {
+  if (!isDraggingNode) return;
+  const pivotX = width * 0.5;
+  const pivotY = height * 0.38;
+
+  if (isDraggingNode === 1) {
+    mainPendulum.th1 = Math.atan2(e.clientX - pivotX, e.clientY - pivotY);
+    mainPendulum.w1 = 0;
+  } else if (isDraggingNode === 2) {
+    const x1 = pivotX + physics.l1 * Math.sin(mainPendulum.th1);
+    const y1 = pivotY + physics.l1 * Math.cos(mainPendulum.th1);
+    mainPendulum.th2 = Math.atan2(e.clientX - x1, e.clientY - y1);
+    mainPendulum.w2 = 0;
+  }
+  initEnsemble();
+});
+
+window.addEventListener('mouseup', () => {
+  if (isDraggingNode) {
+    isDraggingNode = 0;
+    initialTotalEnergy = calculateEnergy(mainPendulum);
+  }
+});
+
+// 键盘脉冲 (反转重力)
+window.addEventListener('keydown', (e) => {
+  if (e.code === 'Space') {
+    physics.g = -physics.g;
+    document.getElementById('val-g').textContent = physics.g.toFixed(1);
+    document.getElementById('param-g').value = Math.max(0, physics.g);
+  }
+});
+
+// UI 控制绑定
+document.getElementById('param-g').addEventListener('input', (e) => {
+  physics.g = parseFloat(e.target.value);
+  document.getElementById('val-g').textContent = physics.g.toFixed(1);
+});
+
+document.getElementById('param-len').addEventListener('input', (e) => {
+  const ratio = parseFloat(e.target.value);
+  physics.l2 = physics.l1 * ratio;
+  document.getElementById('val-len').textContent = ratio.toFixed(1);
+});
+
+document.getElementById('param-m').addEventListener('input', (e) => {
+  const ratio = parseFloat(e.target.value);
+  physics.m2 = physics.m1 * ratio;
+  document.getElementById('val-m').textContent = ratio.toFixed(1);
+});
+
+document.getElementById('param-time').addEventListener('input', (e) => {
+  physics.timeScale = parseFloat(e.target.value);
+  document.getElementById('val-time').textContent = physics.timeScale.toFixed(1) + 'x';
+});
+
+// 按钮组
+const btnEnsemble = document.getElementById('btn-ensemble');
+btnEnsemble.addEventListener('click', () => {
+  physics.showEnsemble = !physics.showEnsemble;
+  btnEnsemble.classList.toggle('active', physics.showEnsemble);
+});
+
+const btnTrail = document.getElementById('btn-trail');
+btnTrail.addEventListener('click', () => {
+  physics.trailLength = physics.trailLength === 600 ? 150 : (physics.trailLength === 150 ? 1500 : 600);
+  btnTrail.textContent = '✨ 拖尾光带: ' + (physics.trailLength > 1000 ? '超长' : (physics.trailLength > 300 ? '长' : '短'));
+});
+
+document.getElementById('btn-reset').addEventListener('click', () => {
+  mainPendulum.th1 = Math.PI / 2;
+  mainPendulum.th2 = Math.PI / 2;
+  mainPendulum.w1 = 0;
+  mainPendulum.w2 = 0;
+  mainPendulum.trail.length = 0;
+  initEnsemble();
+  initialTotalEnergy = calculateEnergy(mainPendulum);
+});
+
+document.getElementById('btn-clear-poincare').addEventListener('click', () => {
+  pCtx.clearRect(0, 0, pCanvas.width, pCanvas.height);
+});
+
+// 主循环
+function loop(timestamp) {
+  const dt = (timestamp - lastTime) / 1000;
+  lastTime = timestamp;
+
+  update(dt);
+  render();
+
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+</script>
+</body>
+</html>

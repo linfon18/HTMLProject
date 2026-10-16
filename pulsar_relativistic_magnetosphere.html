@@ -1,0 +1,1038 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>脉冲星相对论磁层与射电灯塔辐射 - Pulsar Relativistic Magnetosphere</title>
+<style>
+  :root {
+    --bg-dark: #020617;
+    --panel-bg: rgba(15, 23, 42, 0.82);
+    --panel-border: rgba(56, 189, 248, 0.25);
+    --cyan: #38bdf8;
+    --pulsar-blue: #60a5fa;
+    --beam-glow: #e0f2fe;
+    --gamma-purple: #c084fc;
+    --plasma-pink: #f43f5e;
+    --gold: #fbbf24;
+    --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    user-select: none;
+  }
+
+  body {
+    background-color: var(--bg-dark);
+    color: #f1f5f9;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* 顶栏 HUD */
+  header {
+    background: rgba(2, 6, 23, 0.92);
+    backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--panel-border);
+    padding: 0.75rem 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 50;
+  }
+
+  .brand-group {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+  }
+
+  .pulsar-logo {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #fff 0%, var(--cyan) 40%, var(--gamma-purple) 80%, transparent 100%);
+    box-shadow: 0 0 18px var(--cyan);
+    animation: rotateLogo 1.2s linear infinite;
+  }
+
+  @keyframes rotateLogo {
+    0% { transform: rotate(0deg) scale(0.95); }
+    50% { transform: rotate(180deg) scale(1.1); filter: drop-shadow(0 0 15px #fff); }
+    100% { transform: rotate(360deg) scale(0.95); }
+  }
+
+  h1 {
+    font-size: 1.15rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    background: linear-gradient(90deg, #ffffff, var(--cyan), var(--gamma-purple));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .brand-sub {
+    font-size: 0.75rem;
+    color: #94a3b8;
+    font-family: var(--font-mono);
+  }
+
+  .actions {
+    display: flex;
+    gap: 0.6rem;
+    align-items: center;
+  }
+
+  .btn {
+    background: rgba(56, 189, 248, 0.1);
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    color: #e2e8f0;
+    padding: 0.4rem 0.85rem;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-family: var(--font-mono);
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .btn:hover {
+    background: rgba(56, 189, 248, 0.25);
+    border-color: var(--cyan);
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.3);
+  }
+
+  .btn.active {
+    background: var(--cyan);
+    color: #020617;
+    font-weight: 600;
+    border-color: var(--cyan);
+  }
+
+  .btn.alert {
+    background: rgba(244, 63, 94, 0.2);
+    border-color: var(--plasma-pink);
+    color: #fff;
+  }
+
+  .btn.alert:hover {
+    background: var(--plasma-pink);
+    box-shadow: 0 0 14px var(--plasma-pink);
+  }
+
+  /* 主架构布局 */
+  main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 1rem;
+    padding: 1rem;
+    height: calc(100vh - 65px);
+    overflow: hidden;
+  }
+
+  @media (max-width: 1024px) {
+    main {
+      grid-template-columns: 1fr;
+      height: auto;
+      overflow-y: auto;
+    }
+  }
+
+  .viewport-col {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    height: 100%;
+    position: relative;
+  }
+
+  .canvas-card {
+    flex: 1.5;
+    background: radial-gradient(circle at center, #07152d 0%, #020617 95%);
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: inset 0 0 50px rgba(0, 0, 0, 0.9);
+  }
+
+  #mainCanvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    cursor: crosshair;
+  }
+
+  /* 全屏灯塔脉冲掠过闪烁遮罩 */
+  .flash-pulse-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle at center, rgba(224, 242, 254, 0.6) 0%, rgba(56, 189, 248, 0.2) 50%, transparent 80%);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.05s ease-out;
+    mix-blend-mode: screen;
+  }
+
+  /* 画布内 HUD 状态 */
+  .canvas-hud {
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    pointer-events: none;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    background: rgba(2, 6, 23, 0.75);
+    padding: 0.65rem 0.85rem;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+  }
+
+  .hud-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 1.2rem;
+  }
+
+  .hud-lbl {
+    color: #94a3b8;
+  }
+
+  .hud-val {
+    color: #fff;
+    font-weight: 600;
+  }
+
+  .hud-val.pulse {
+    color: var(--cyan);
+    text-shadow: 0 0 8px rgba(56, 189, 248, 0.7);
+  }
+
+  .hud-val.glitch {
+    color: var(--plasma-pink);
+    text-shadow: 0 0 8px rgba(244, 63, 94, 0.7);
+  }
+
+  /* 视线射电对准捕获器指示灯 */
+  .detector-badge {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.8rem;
+    border-radius: 20px;
+    background: rgba(2, 6, 23, 0.75);
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    pointer-events: none;
+  }
+
+  .detector-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #334155;
+    transition: all 0.04s;
+  }
+
+  .detector-dot.active {
+    background: #fff;
+    box-shadow: 0 0 15px #fff, 0 0 30px var(--cyan);
+    transform: scale(1.4);
+  }
+
+  /* 底部图表面板 */
+  .analysis-card {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+    min-height: 190px;
+  }
+
+  @media (max-width: 768px) {
+    .analysis-card {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .chart-box {
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    padding: 0.6rem;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    backdrop-filter: blur(8px);
+  }
+
+  .chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.75rem;
+    color: #94a3b8;
+    margin-bottom: 0.4rem;
+    font-family: var(--font-mono);
+  }
+
+  .chart-canvas {
+    flex: 1;
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  /* 右侧控制栏 */
+  .control-col {
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    padding: 1.2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.1rem;
+    overflow-y: auto;
+    backdrop-filter: blur(12px);
+  }
+
+  .section-title {
+    font-size: 0.82rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--cyan);
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    border-bottom: 1px solid rgba(56, 189, 248, 0.2);
+    padding-bottom: 0.35rem;
+  }
+
+  .control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .control-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.78rem;
+    color: #cbd5e1;
+  }
+
+  .val-badge {
+    font-family: var(--font-mono);
+    color: var(--cyan);
+    font-size: 0.75rem;
+  }
+
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 5px;
+    background: #1e293b;
+    border-radius: 3px;
+    outline: none;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--cyan);
+    cursor: pointer;
+    box-shadow: 0 0 8px var(--cyan);
+    transition: transform 0.1s;
+  }
+
+  input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+  }
+
+  .btn-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
+  }
+
+  .mode-btn {
+    background: rgba(30, 41, 59, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #94a3b8;
+    padding: 0.5rem;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.2s;
+    font-family: var(--font-mono);
+  }
+
+  .mode-btn.selected {
+    background: rgba(56, 189, 248, 0.2);
+    border-color: var(--cyan);
+    color: #fff;
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.25);
+  }
+
+  .info-card {
+    background: rgba(2, 6, 23, 0.55);
+    border: 1px dashed rgba(56, 189, 248, 0.3);
+    border-radius: 8px;
+    padding: 0.75rem;
+    font-size: 0.72rem;
+    color: #94a3b8;
+    line-height: 1.5;
+  }
+
+  .formula {
+    font-family: var(--font-mono);
+    color: #38bdf8;
+    margin-top: 0.3rem;
+    font-size: 0.68rem;
+    white-space: pre-wrap;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand-group">
+    <div class="pulsar-logo"></div>
+    <div>
+      <h1>脉冲星相对论磁层与射电灯塔辐射</h1>
+      <div class="brand-sub">Pulsar Magnetosphere & Relativistic Synchrotron Beaming</div>
+    </div>
+  </div>
+  <div class="actions">
+    <button class="btn" id="btnAudio">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+        <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+      </svg>
+      射电脉冲声: 关
+    </button>
+    <button class="btn alert" id="btnGlitch">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+      </svg>
+      触发星震周期跃变 (Glitch!)
+    </button>
+  </div>
+</header>
+
+<main>
+  <!-- 左侧主模拟视口与分析图表 -->
+  <div class="viewport-col">
+    <div class="canvas-card" id="canvasCard">
+      <canvas id="mainCanvas"></canvas>
+      <div class="flash-pulse-overlay" id="flashOverlay"></div>
+
+      <!-- 画布浮动 HUD -->
+      <div class="canvas-hud">
+        <div class="hud-row">
+          <span class="hud-lbl">自转周期 P:</span>
+          <span class="hud-val pulse" id="hudPeriod">33.5 ms (蟹状星云脉冲星)</span>
+        </div>
+        <div class="hud-row">
+          <span class="hud-lbl">表面磁感应强度 B_0:</span>
+          <span class="hud-val" id="hudB0">3.8 × 10⁸ T</span>
+        </div>
+        <div class="hud-row">
+          <span class="hud-lbl">光速圆柱半径 R_LC:</span>
+          <span class="hud-val" id="hudRlc">1,600 km</span>
+        </div>
+        <div class="hud-row">
+          <span class="hud-lbl">相对论洛伦兹因子 γ:</span>
+          <span class="hud-val pulse" id="hudGamma">1.5 × 10⁶</span>
+        </div>
+        <div class="hud-row">
+          <span class="hud-lbl">自转能损耗率 Ė:</span>
+          <span class="hud-val" id="hudEdot">4.5 × 10³¹ W</span>
+        </div>
+      </div>
+
+      <!-- 地球射电望远镜对准指示器 -->
+      <div class="detector-badge">
+        <div class="detector-dot" id="detectorDot"></div>
+        <span id="detectorText">射电巡天待机</span>
+      </div>
+    </div>
+
+    <!-- 底部双图表 -->
+    <div class="analysis-card">
+      <div class="chart-box">
+        <div class="chart-header">
+          <span>射电望远镜实时脉冲轮廓 (Pulse Profile)</span>
+          <span style="color:var(--cyan)" id="pulseState">单周期累积</span>
+        </div>
+        <canvas class="chart-canvas" id="pulseChart"></canvas>
+      </div>
+
+      <div class="chart-box">
+        <div class="chart-header">
+          <span>P - Ṗ 脉冲星天文星图演化</span>
+          <span style="color:var(--gamma-purple)">死线 (Death Line) 临界</span>
+        </div>
+        <canvas class="chart-canvas" id="pdotChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- 右侧交互调控面板 -->
+  <div class="control-col">
+    <div>
+      <div class="section-title">脉冲星基本天体物理参数</div>
+      <div class="control-group" style="margin-top:0.8rem">
+        <div class="control-label">
+          <span>自转周期 P (Spin Period)</span>
+          <span class="val-badge" id="valPeriod">33.5 ms</span>
+        </div>
+        <input type="range" id="sliderPeriod" min="2.0" max="200.0" step="0.5" value="33.5">
+      </div>
+
+      <div class="control-group" style="margin-top:0.8rem">
+        <div class="control-label">
+          <span>磁倾角 α (Magnetic Inclination Angle)</span>
+          <span class="val-badge" id="valAlpha">45°</span>
+        </div>
+        <input type="range" id="sliderAlpha" min="10" max="85" step="1" value="45">
+      </div>
+
+      <div class="control-group" style="margin-top:0.8rem">
+        <div class="control-label">
+          <span>视线观测倾角 ζ (Line-of-Sight Angle)</span>
+          <span class="val-badge" id="valZeta">50°</span>
+        </div>
+        <input type="range" id="sliderZeta" min="10" max="85" step="1" value="50">
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title">天体预设与极端脉冲源</div>
+      <div class="btn-grid" style="margin-top:0.8rem">
+        <button class="mode-btn selected" id="btnCrab">蟹状星云 Crab (33ms)</button>
+        <button class="mode-btn" id="btnVela">船帆座 Vela (89ms)</button>
+        <button class="mode-btn" id="btnMSP">毫秒脉冲星 MSP (2.5ms)</button>
+        <button class="mode-btn" id="btnMagnetar">超强磁星 (7.5s 慢转)</button>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title">物理机制与微观理论</div>
+      <div class="info-card">
+        <strong>光速圆柱面与相对论集束:</strong>
+        <div class="formula">R_LC = c / Ω = cP / (2π)</div>
+        <p style="margin-top:0.5rem">
+          在光速圆柱 $R_{LC}$ 内，等离子体与强磁场刚体共转；穿过圆柱面的磁力线断开为<strong>开放极冠磁力线</strong>。
+        </p>
+        <p style="margin-top:0.4rem">
+          极冠区超高压电隙将正负电子加速至 $\gamma \sim 10^6$，沿磁力线发出高度受挤压的<strong>相对论灯塔辐射束（开角仅 $1/\gamma$）</strong>，如宇宙灯塔扫过星空！
+        </p>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+/**
+ * 脉冲星相对论磁层与射电灯塔辐射 (Pulsar Magnetosphere & Relativistic Beaming)
+ * 磁偶极磁场 + 光速圆柱 + 金-朱利安电荷密度 + 视线脉冲轮廓模拟器
+ */
+
+// 物理与天文参数
+let period_ms = 33.5;           // 自转周期 (毫秒)
+let alpha_deg = 45.0;           // 磁倾角 (度)
+let zeta_deg = 50.0;            // 视线倾角 (度)
+let B0_Tesla = 3.8e8;           // 表面磁场 (T)
+
+let rotPhase = 0.0;             // 自转相位 [0, 2π)
+let glitchBoost = 0.0;          // 星震自转加速量
+
+// 脉冲历史波形队列
+const PULSE_HIST_LEN = 200;
+const pulseProfile = new Float32Array(PULSE_HIST_LEN);
+let pulseIdx = 0;
+
+// 磁层粒子流喷流系统 (正负电子对风 e- e+ wind)
+const windParticles = [];
+const PARTICLE_COUNT = 90;
+
+// Web Audio API 射电脉冲嘀嗒声合成
+let audioCtx = null;
+let audioEnabled = false;
+
+function initAudio() {
+  if (audioCtx) return;
+  const AudioContext = window.AudioContext || window.webkitAudioContext;
+  audioCtx = new AudioContext();
+}
+
+function playPulsarTick(intensity) {
+  if (!audioEnabled || !audioCtx) return;
+  const now = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  const filter = audioCtx.createBiquadFilter();
+
+  // 根据周期频率调整基准音调
+  const baseFreq = Math.min(3200, Math.max(300, 1000.0 / (period_ms * 0.1)));
+  osc.type = 'sawtooth';
+  osc.frequency.setValueAtTime(baseFreq, now);
+  osc.frequency.exponentialRampToValueAtTime(120, now + 0.025);
+
+  filter.type = 'bandpass';
+  filter.frequency.setValueAtTime(baseFreq, now);
+  filter.Q.setValueAtTime(3.0, now);
+
+  const vol = Math.min(0.6, 0.08 + intensity * 0.45);
+  gain.gain.setValueAtTime(vol, now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.022);
+
+  osc.connect(filter);
+  filter.connect(gain);
+  gain.connect(audioCtx.destination);
+
+  osc.start(now);
+  osc.stop(now + 0.025);
+}
+
+// 初始化粒子群
+for (let i = 0; i < PARTICLE_COUNT; i++) {
+  windParticles.push({
+    dist: Math.random() * 260 + 20,
+    speed: 3.5 + Math.random() * 5.0,
+    isNorth: Math.random() > 0.5,
+    spread: (Math.random() - 0.5) * 0.22,
+    size: 1.2 + Math.random() * 1.8,
+    alpha: 0.3 + Math.random() * 0.7
+  });
+}
+
+// DOM 与画布
+const canvasCard = document.getElementById('canvasCard');
+const mainCanvas = document.getElementById('mainCanvas');
+const mainCtx = mainCanvas.getContext('2d');
+const pulseChart = document.getElementById('pulseChart');
+const pulseCtx = pulseChart.getContext('2d');
+const pdotChart = document.getElementById('pdotChart');
+const pdotCtx = pdotChart.getContext('2d');
+const flashOverlay = document.getElementById('flashOverlay');
+const detectorDot = document.getElementById('detectorDot');
+const detectorText = document.getElementById('detectorText');
+
+const hudPeriod = document.getElementById('hudPeriod');
+const hudB0 = document.getElementById('hudB0');
+const hudRlc = document.getElementById('hudRlc');
+const hudGamma = document.getElementById('hudGamma');
+const hudEdot = document.getElementById('hudEdot');
+
+const sliderPeriod = document.getElementById('sliderPeriod');
+const sliderAlpha = document.getElementById('sliderAlpha');
+const sliderZeta = document.getElementById('sliderZeta');
+const valPeriod = document.getElementById('valPeriod');
+const valAlpha = document.getElementById('valAlpha');
+const valZeta = document.getElementById('valZeta');
+
+const btnAudio = document.getElementById('btnAudio');
+const btnGlitch = document.getElementById('btnGlitch');
+const modeBtns = document.querySelectorAll('.mode-btn');
+
+// 画布尺寸适配
+function resizeCanvas() {
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvasCard.getBoundingClientRect();
+  mainCanvas.width = rect.width * dpr;
+  mainCanvas.height = rect.height * dpr;
+  mainCtx.scale(dpr, dpr);
+
+  const pRect = pulseChart.parentElement.getBoundingClientRect();
+  pulseChart.width = (pRect.width - 20) * dpr;
+  pulseChart.height = (pRect.height - 40) * dpr;
+  pulseCtx.scale(dpr, dpr);
+
+  pdotChart.width = (pRect.width - 20) * dpr;
+  pdotChart.height = (pRect.height - 40) * dpr;
+  pdotCtx.scale(dpr, dpr);
+}
+
+window.addEventListener('resize', resizeCanvas);
+
+// 绘制主磁层与灯塔锥形辐射
+function renderMain(intensity) {
+  const dpr = window.devicePixelRatio || 1;
+  const w = mainCanvas.width / dpr;
+  const h = mainCanvas.height / dpr;
+  const cx = w * 0.5;
+  const cy = h * 0.5;
+
+  mainCtx.clearRect(0, 0, w, h);
+
+  // 1. 绘制背景深空与光速圆柱投影面 (Light Cylinder R_LC)
+  const rLC = 150.0;
+  mainCtx.save();
+  mainCtx.strokeStyle = 'rgba(56, 189, 248, 0.22)';
+  mainCtx.setLineDash([5, 5]);
+  mainCtx.lineWidth = 1.2;
+  mainCtx.beginPath();
+  mainCtx.arc(cx, cy, rLC, 0, Math.PI * 2);
+  mainCtx.stroke();
+  mainCtx.setLineDash([]);
+
+  // 光速圆柱标签
+  mainCtx.fillStyle = 'rgba(56, 189, 248, 0.5)';
+  mainCtx.font = '10px monospace';
+  mainCtx.fillText(`光速圆柱面 R_LC (共转边界 v=c)`, cx - 85, cy - rLC - 6);
+  mainCtx.restore();
+
+  // 2. 自转轴与磁轴几何
+  const alphaRad = (alpha_deg * Math.PI) / 180.0;
+  // 磁轴相对于自转轴的瞬时空间方位角:
+  // 自转轴竖直微倾斜 (自转角速度沿 y 轴)
+  const magX = Math.sin(alphaRad) * Math.sin(rotPhase);
+  const magY = Math.cos(alphaRad);
+  const magZ = Math.sin(alphaRad) * Math.cos(rotPhase);
+
+  // 磁力线偶极几何 (Dipolar Magnetic Field Lines)
+  // 绘制多组闭合磁层与开放磁力线
+  mainCtx.save();
+  mainCtx.translate(cx, cy);
+
+  const numLines = 14;
+  for (let sign of [-1, 1]) {
+    for (let l = 1; l <= numLines; l++) {
+      const maxL = (l / numLines) * (rLC * 1.35);
+      const isClosed = maxL < rLC * 0.95;
+
+      mainCtx.beginPath();
+      const steps = 45;
+      for (let s = 0; s <= steps; s++) {
+        const th = (s / steps) * Math.PI - Math.PI * 0.5;
+        // 偶极方程: r = L * cos²(th)
+        const r = maxL * Math.cos(th) * Math.cos(th);
+        const lx = sign * r * Math.sin(th);
+        const ly = r * Math.cos(th);
+
+        // 旋转投影到瞬时磁轴方向
+        const rotX = lx * Math.cos(alphaRad * Math.sin(rotPhase)) - ly * Math.sin(alphaRad * Math.sin(rotPhase));
+        const rotY = lx * Math.sin(alphaRad * Math.sin(rotPhase)) + ly * Math.cos(alphaRad * Math.sin(rotPhase));
+
+        if (s === 0) mainCtx.moveTo(rotX, rotY);
+        else mainCtx.lineTo(rotX, rotY);
+      }
+
+      mainCtx.strokeStyle = isClosed ? 'rgba(56, 189, 248, 0.15)' : 'rgba(192, 132, 252, 0.35)';
+      mainCtx.lineWidth = isClosed ? 1.0 : 1.4;
+      mainCtx.stroke();
+    }
+  }
+
+  // 3. 极冠灯塔辐射锥形束 (Relativistic Lighthouse Beams)
+  for (let dir of [1, -1]) {
+    const beamAngle = Math.atan2(dir * magY, dir * magX * 0.85);
+    const beamLen = Math.max(w, h) * 0.75;
+    const beamWidth = 0.22; // 辐射锥开角
+
+    const beamGrad = mainCtx.createRadialGradient(0, 0, 10, 0, 0, beamLen);
+    beamGrad.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
+    beamGrad.addColorStop(0.2, 'rgba(56, 189, 248, 0.7)');
+    beamGrad.addColorStop(0.6, 'rgba(192, 132, 252, 0.25)');
+    beamGrad.addColorStop(1, 'rgba(2, 6, 23, 0.0)');
+
+    mainCtx.fillStyle = beamGrad;
+    mainCtx.beginPath();
+    mainCtx.moveTo(0, 0);
+    mainCtx.arc(0, 0, beamLen, beamAngle - beamWidth * 0.5, beamAngle + beamWidth * 0.5);
+    mainCtx.closePath();
+    mainCtx.fill();
+  }
+
+  // 4. 沿开放力线高速喷射的正负电子风粒子 (Pair Plasma Wind)
+  for (const p of windParticles) {
+    p.dist += p.speed;
+    if (p.dist > rLC * 1.5) {
+      p.dist = 12 + Math.random() * 20;
+    }
+
+    const sign = p.isNorth ? 1 : -1;
+    const baseAngle = Math.atan2(sign * magY, sign * magX * 0.85) + p.spread;
+    const px = Math.cos(baseAngle) * p.dist;
+    const py = Math.sin(baseAngle) * p.dist;
+
+    mainCtx.fillStyle = `rgba(255, 255, 255, ${p.alpha * 0.85})`;
+    mainCtx.shadowColor = '#38bdf8';
+    mainCtx.shadowBlur = 6;
+    mainCtx.beginPath();
+    mainCtx.arc(px, py, p.size, 0, Math.PI * 2);
+    mainCtx.fill();
+  }
+
+  // 5. 中子星核心实体 (Dense Neutron Star Core)
+  const coreGrad = mainCtx.createRadialGradient(0, 0, 1, 0, 0, 16);
+  coreGrad.addColorStop(0, '#ffffff');
+  coreGrad.addColorStop(0.35, '#38bdf8');
+  coreGrad.addColorStop(0.85, '#1e3a8a');
+  coreGrad.addColorStop(1, '#020617');
+
+  mainCtx.fillStyle = coreGrad;
+  mainCtx.shadowColor = '#38bdf8';
+  mainCtx.shadowBlur = 24;
+  mainCtx.beginPath();
+  mainCtx.arc(0, 0, 14, 0, Math.PI * 2);
+  mainCtx.fill();
+
+  mainCtx.restore();
+}
+
+// 绘制射电望远镜脉冲轮廓波形
+function renderPulseChart() {
+  const dpr = window.devicePixelRatio || 1;
+  const w = pulseChart.width / dpr;
+  const h = pulseChart.height / dpr;
+
+  pulseCtx.clearRect(0, 0, w, h);
+
+  // 背景网格线
+  pulseCtx.save();
+  pulseCtx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
+  pulseCtx.lineWidth = 1;
+  for (let y = 0; y < h; y += h / 3) {
+    pulseCtx.beginPath();
+    pulseCtx.moveTo(0, y);
+    pulseCtx.lineTo(w, y);
+    pulseCtx.stroke();
+  }
+
+  // 绘制脉冲轮廓
+  pulseCtx.strokeStyle = '#38bdf8';
+  pulseCtx.lineWidth = 2.0;
+  pulseCtx.beginPath();
+
+  for (let i = 0; i < PULSE_HIST_LEN; i++) {
+    const idx = (pulseIdx + i) % PULSE_HIST_LEN;
+    const val = pulseProfile[idx];
+    const px = (i / (PULSE_HIST_LEN - 1)) * w;
+    const py = (h - 15) - val * (h - 30);
+
+    if (i === 0) pulseCtx.moveTo(px, py);
+    else pulseCtx.lineTo(px, py);
+  }
+  pulseCtx.stroke();
+
+  // 填充辉光
+  pulseCtx.fillStyle = 'rgba(56, 189, 248, 0.12)';
+  pulseCtx.lineTo(w, h - 15);
+  pulseCtx.lineTo(0, h - 15);
+  pulseCtx.closePath();
+  pulseCtx.fill();
+  pulseCtx.restore();
+}
+
+// 绘制 P-Pdot 天文星图演化
+function renderPdotChart() {
+  const dpr = window.devicePixelRatio || 1;
+  const w = pdotChart.width / dpr;
+  const h = pdotChart.height / dpr;
+
+  pdotCtx.clearRect(0, 0, w, h);
+
+  // 坐标系
+  pdotCtx.save();
+  pdotCtx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+  pdotCtx.lineWidth = 1;
+  pdotCtx.beginPath();
+  pdotCtx.moveTo(35, 10);
+  pdotCtx.lineTo(35, h - 20);
+  pdotCtx.lineTo(w - 10, h - 20);
+  pdotCtx.stroke();
+
+  // 死线 (Death Line): 脉冲星在此线下方停止辐射射电熄灭
+  pdotCtx.strokeStyle = 'rgba(244, 63, 94, 0.45)';
+  pdotCtx.setLineDash([4, 4]);
+  pdotCtx.beginPath();
+  pdotCtx.moveTo(35, h - 35);
+  pdotCtx.lineTo(w - 20, 25);
+  pdotCtx.stroke();
+  pdotCtx.setLineDash([]);
+
+  pdotCtx.fillStyle = 'rgba(244, 63, 94, 0.6)';
+  pdotCtx.font = '9px monospace';
+  pdotCtx.fillText('射电死线 (Death Line)', 60, 45);
+
+  // 绘制著名已知脉冲星群分布
+  const knownPulsars = [
+    { name: 'Crab (蟹状)', p: 33, pdot: 13, color: '#38bdf8' },
+    { name: 'Vela (船帆)', p: 89, pdot: 11, color: '#c084fc' },
+    { name: 'B1937+21 (MSP)', p: 1.5, pdot: 2, color: '#fbbf24' },
+    { name: 'SGR 1806 (磁星)', p: 7500, pdot: 16, color: '#f43f5e' }
+  ];
+
+  for (const kp of knownPulsars) {
+    const px = 35 + (Math.log10(kp.p) + 0.3) * (w - 70) * 0.25;
+    const py = (h - 20) - (kp.pdot / 18.0) * (h - 35);
+    pdotCtx.fillStyle = kp.color;
+    pdotCtx.shadowColor = kp.color;
+    pdotCtx.shadowBlur = 6;
+    pdotCtx.beginPath();
+    pdotCtx.arc(px, py, 3.5, 0, Math.PI * 2);
+    pdotCtx.fill();
+
+    pdotCtx.font = '9px monospace';
+    pdotCtx.fillText(kp.name, px + 5, py + 3);
+  }
+
+  // 当前工况天体星图点
+  const curPx = 35 + (Math.log10(Math.max(1, period_ms)) + 0.3) * (w - 70) * 0.25;
+  const curPy = (h - 20) - 0.65 * (h - 35);
+  pdotCtx.fillStyle = '#ffffff';
+  pdotCtx.shadowColor = '#38bdf8';
+  pdotCtx.shadowBlur = 12;
+  pdotCtx.beginPath();
+  pdotCtx.arc(curPx, curPy, 4.5, 0, Math.PI * 2);
+  pdotCtx.fill();
+  pdotCtx.restore();
+}
+
+// 主仿真步进与自转循环
+function animate() {
+  // 自转角速度计算
+  const omega = (2.0 * Math.PI) / (period_ms * 0.001);
+  const dt = 0.016;
+
+  // 衰减周期跃变 Glitch 增益
+  glitchBoost *= 0.96;
+  rotPhase = (rotPhase + (omega + glitchBoost) * dt) % (Math.PI * 2);
+
+  // 计算视线相交多普勒集束强度
+  // 视线矢量 LoS = (0, cos(ζ), sin(ζ))
+  const alphaRad = (alpha_deg * Math.PI) / 180.0;
+  const zetaRad = (zeta_deg * Math.PI) / 180.0;
+  // 磁轴矢量: (sin(α)sin(Φ), cos(α), sin(α)cos(Φ))
+  const cosAngleNorth = Math.sin(alphaRad) * Math.sin(zetaRad) * Math.cos(rotPhase) + Math.cos(alphaRad) * Math.cos(zetaRad);
+  const cosAngleSouth = -cosAngleNorth;
+
+  // 极度尖锐的高斯相对论射电波束
+  const beamSharpness = 38.0;
+  const intensityNorth = Math.pow(Math.max(0, cosAngleNorth), beamSharpness);
+  const intensitySouth = Math.pow(Math.max(0, cosAngleSouth), beamSharpness);
+  const totalIntensity = Math.min(1.0, intensityNorth + intensitySouth * 0.4);
+
+  // 记录到脉冲波形队列
+  pulseProfile[pulseIdx] = totalIntensity;
+  pulseIdx = (pulseIdx + 1) % PULSE_HIST_LEN;
+
+  // 检测是否触发射电捕获闪光与音效
+  if (totalIntensity > 0.45) {
+    detectorDot.classList.add('active');
+    detectorText.textContent = `脉冲捕获! (${(totalIntensity * 100).toFixed(0)}%)`;
+    detectorText.style.color = '#38bdf8';
+    flashOverlay.style.opacity = (totalIntensity * 0.8).toFixed(2);
+    playPulsarTick(totalIntensity);
+  } else {
+    detectorDot.classList.remove('active');
+    detectorText.textContent = '射电巡天待机';
+    detectorText.style.color = '#94a3b8';
+    flashOverlay.style.opacity = '0';
+  }
+
+  renderMain(totalIntensity);
+  renderPulseChart();
+  renderPdotChart();
+
+  requestAnimationFrame(animate);
+}
+
+// 控件与交互事件绑定
+sliderPeriod.addEventListener('input', (e) => {
+  period_ms = parseFloat(e.target.value);
+  valPeriod.textContent = `${period_ms.toFixed(1)} ms`;
+  hudPeriod.textContent = `${period_ms.toFixed(1)} ms`;
+  const rlcKm = Math.round((3e5 * (period_ms * 1e-3)) / (2 * Math.PI));
+  hudRlc.textContent = `${rlcKm.toLocaleString()} km`;
+});
+
+sliderAlpha.addEventListener('input', (e) => {
+  alpha_deg = parseFloat(e.target.value);
+  valAlpha.textContent = `${alpha_deg}°`;
+});
+
+sliderZeta.addEventListener('input', (e) => {
+  zeta_deg = parseFloat(e.target.value);
+  valZeta.textContent = `${zeta_deg}°`;
+});
+
+btnGlitch.addEventListener('click', () => {
+  glitchBoost = 120.0; // 瞬间星震加速
+  hudPeriod.classList.add('glitch');
+  setTimeout(() => hudPeriod.classList.remove('glitch'), 600);
+});
+
+btnAudio.addEventListener('click', () => {
+  initAudio();
+  audioEnabled = !audioEnabled;
+  btnAudio.classList.toggle('active', audioEnabled);
+  btnAudio.innerHTML = `
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+      <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+    </svg>
+    射电脉冲声: ${audioEnabled ? '开' : '关'}
+  `;
+});
+
+modeBtns.forEach((btn) => {
+  btn.addEventListener('click', () => {
+    modeBtns.forEach((b) => b.classList.remove('selected'));
+    btn.classList.add('selected');
+
+    if (btn.id === 'btnCrab') {
+      period_ms = 33.5; alpha_deg = 45; zeta_deg = 50; B0_Tesla = 3.8e8;
+    } else if (btn.id === 'btnVela') {
+      period_ms = 89.0; alpha_deg = 65; zeta_deg = 60; B0_Tesla = 3.4e8;
+    } else if (btn.id === 'btnMSP') {
+      period_ms = 2.5; alpha_deg = 35; zeta_deg = 40; B0_Tesla = 1.2e5;
+    } else if (btn.id === 'btnMagnetar') {
+      period_ms = 7500.0; alpha_deg = 80; zeta_deg = 75; B0_Tesla = 1.0e11;
+    }
+
+    sliderPeriod.value = Math.min(200, period_ms);
+    valPeriod.textContent = `${period_ms.toFixed(1)} ms`;
+    hudPeriod.textContent = `${period_ms.toFixed(1)} ms`;
+    sliderAlpha.value = alpha_deg; valAlpha.textContent = `${alpha_deg}°`;
+    sliderZeta.value = zeta_deg; valZeta.textContent = `${zeta_deg}°`;
+  });
+});
+
+// 初始化启动
+window.addEventListener('DOMContentLoaded', () => {
+  resizeCanvas();
+  animate();
+});
+</script>
+</body>
+</html>

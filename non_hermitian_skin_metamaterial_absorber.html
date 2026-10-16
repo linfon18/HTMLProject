@@ -1,0 +1,1137 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>非厄米拓扑趋肤超构材料与非互易完美相干吸收全息模拟器</title>
+  <style>
+    :root {
+      --bg: #030712;
+      --card-bg: rgba(15, 23, 42, 0.78);
+      --border: rgba(244, 63, 94, 0.25);
+      --border-bright: rgba(244, 63, 94, 0.6);
+      --rose: #f43f5e;
+      --cyan: #06b6d4;
+      --amber: #f59e0b;
+      --purple: #a855f7;
+      --emerald: #10b981;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+    body {
+      background-color: var(--bg);
+      background-image: 
+        radial-gradient(circle at 15% 15%, rgba(244, 63, 94, 0.15) 0%, transparent 45%),
+        radial-gradient(circle at 85% 85%, rgba(6, 182, 212, 0.12) 0%, transparent 45%);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      padding: 14px 24px;
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 10;
+    }
+    .header-title {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .badge {
+      font-size: 11px;
+      text-transform: uppercase;
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: rgba(244, 63, 94, 0.25);
+      border: 1px solid var(--border-bright);
+      color: #fda4af;
+      letter-spacing: 0.5px;
+      font-family: monospace;
+    }
+    h1 {
+      font-size: 17px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+      background: linear-gradient(135deg, #f8fafc 0%, #fda4af 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .status-tags {
+      display: flex;
+      gap: 16px;
+      font-size: 12px;
+      font-family: monospace;
+      color: var(--text-muted);
+    }
+    .status-tag span {
+      color: var(--rose);
+      font-weight: 600;
+    }
+
+    main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      gap: 16px;
+      padding: 16px;
+      max-width: 1750px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    .viewport-container {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .main-canvas-wrapper {
+      position: relative;
+      flex: 1;
+      min-height: 520px;
+      background: #020617;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      overflow: hidden;
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6);
+    }
+    canvas#mainCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .view-modes {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      display: flex;
+      gap: 8px;
+      z-index: 5;
+    }
+    .mode-btn {
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-size: 12px;
+      cursor: pointer;
+      backdrop-filter: blur(8px);
+      transition: all 0.2s;
+      font-family: monospace;
+    }
+    .mode-btn:hover {
+      border-color: var(--border-bright);
+      color: var(--text);
+    }
+    .mode-btn.active {
+      background: rgba(244, 63, 94, 0.25);
+      border-color: var(--rose);
+      color: #f8fafc;
+      box-shadow: 0 0 14px rgba(244, 63, 94, 0.4);
+    }
+
+    .hud-overlay {
+      position: absolute;
+      bottom: 14px;
+      left: 14px;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-family: monospace;
+      font-size: 11px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      backdrop-filter: blur(8px);
+      pointer-events: none;
+    }
+    .hud-row {
+      display: flex;
+      gap: 12px;
+    }
+    .hud-val {
+      color: var(--cyan);
+      font-weight: bold;
+    }
+    .hud-val.alt {
+      color: var(--rose);
+    }
+
+    .scopes-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      height: 200px;
+    }
+    .scope-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px 14px;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+    .scope-title {
+      font-size: 11px;
+      font-family: monospace;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      display: flex;
+      justify-content: space-between;
+    }
+    .scope-title span {
+      color: var(--rose);
+    }
+    .scope-canvas-wrap {
+      flex: 1;
+      position: relative;
+      width: 100%;
+      height: 100%;
+    }
+    .scope-canvas-wrap canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    /* 控制面板 */
+    .controls-panel {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+      overflow-y: auto;
+      max-height: calc(100vh - 100px);
+    }
+    .panel-section-title {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: #fda4af;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .control-label {
+      font-size: 11px;
+      font-family: monospace;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+    }
+    .control-label span {
+      color: var(--text);
+    }
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 4px;
+      border-radius: 2px;
+      background: rgba(255, 255, 255, 0.1);
+      outline: none;
+      transition: background 0.2s;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--rose);
+      cursor: pointer;
+      box-shadow: 0 0 10px rgba(244, 63, 94, 0.6);
+      transition: transform 0.1s;
+    }
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    .preset-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .preset-btn {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px;
+      border-radius: 8px;
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: left;
+      line-height: 1.3;
+    }
+    .preset-btn:hover {
+      background: rgba(244, 63, 94, 0.18);
+      border-color: var(--border-bright);
+    }
+    .preset-btn strong {
+      display: block;
+      color: #fda4af;
+      margin-bottom: 2px;
+    }
+
+    .audio-toggle-btn {
+      background: rgba(244, 63, 94, 0.2);
+      border: 1px solid var(--rose);
+      color: #f8fafc;
+      padding: 9px;
+      border-radius: 8px;
+      font-size: 12px;
+      cursor: pointer;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+    .audio-toggle-btn:hover {
+      background: rgba(244, 63, 94, 0.35);
+      box-shadow: 0 0 14px rgba(244, 63, 94, 0.5);
+    }
+
+    .stats-card {
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      padding: 10px;
+      font-family: monospace;
+      font-size: 11px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .stats-row {
+      display: flex;
+      justify-content: space-between;
+      color: var(--text-muted);
+    }
+    .stats-row span {
+      color: var(--emerald);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-title">
+      <div class="badge">TOPOLOGY #245</div>
+      <h1>非厄米拓扑趋肤超构材料与非互易完美相干吸收全息模拟器</h1>
+    </div>
+    <div class="status-tags">
+      <div class="status-tag">相干吸收率 CPA: <span id="tagCPA">99.8%</span></div>
+      <div class="status-tag">非互易隔离度: <span id="tagIso">+42.6 dB</span></div>
+      <div class="status-tag">趋肤局域长度 ξ: <span id="tagSkin">1.82 晶格元</span></div>
+    </div>
+  </header>
+
+  <main>
+    <div class="viewport-container">
+      <div class="main-canvas-wrapper">
+        <div class="view-modes">
+          <button class="mode-btn active" id="btnModeChain" onclick="setMode('WAVEGUIDE_SKIN_MODES')">非互易波导趋肤漏斗流动</button>
+          <button class="mode-btn" id="btnModeGbz" onclick="setMode('GBZ_COMPLEX_SPECTRUM')">广义布里渊区GBZ复能谱环</button>
+          <button class="mode-btn" id="btnModeCpa" onclick="setMode('SCATTERING_CPA_MATRIX')">S散射矩阵相干吸收相干漏斗</button>
+        </div>
+
+        <canvas id="mainCanvas"></canvas>
+
+        <div class="hud-overlay">
+          <div class="hud-row">
+            <span>非互易跃迁不对称度 g:</span>
+            <span class="hud-val alt" id="hudG">0.85</span>
+            <span>微腔耗散损耗率 γ:</span>
+            <span class="hud-val" id="hudGamma">0.60</span>
+          </div>
+          <div class="hud-row">
+            <span>双束相干相位差 Δϕ:</span>
+            <span class="hud-val" id="hudPhase">180.0°</span>
+            <span>点能隙环绕数 W:</span>
+            <span class="hud-val" id="hudWind">+1</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="scopes-grid">
+        <div class="scope-card">
+          <div class="scope-title">
+            示波器 A: 单向吸收谱 A_L(ω) 与 A_R(ω) 拓扑非互易
+            <span id="scopeStatA">CPA 完美吸收零反射</span>
+          </div>
+          <div class="scope-canvas-wrap">
+            <canvas id="scopeCanvasA"></canvas>
+          </div>
+        </div>
+
+        <div class="scope-card">
+          <div class="scope-title">
+            示波器 B: OBC本征态空间指数积聚 |ψ_n(x)|²
+            <span id="scopeStatB">体态全面崩溃向左趋肤</span>
+          </div>
+          <div class="scope-canvas-wrap">
+            <canvas id="scopeCanvasB"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 侧边交互控制面板 -->
+    <div class="controls-panel">
+      <button class="audio-toggle-btn" id="btnAudio" onclick="toggleAudio()">
+        <span>🔊 启动非厄米相干超构微腔声效</span>
+      </button>
+
+      <div>
+        <div class="panel-section-title">工况预设矩阵 (Presets)</div>
+        <div class="preset-grid">
+          <button class="preset-btn" onclick="applyPreset(1)">
+            <strong>① 非互易相干吸收态</strong>
+            g=0.85, 99.8% 零反射吸收
+          </button>
+          <button class="preset-btn" onclick="applyPreset(2)">
+            <strong>② 巨型单向趋肤漏斗</strong>
+            g=1.60, 极端边界指数堆叠
+          </button>
+          <button class="preset-btn" onclick="applyPreset(3)">
+            <strong>③ 激光-吸收奇异点EP</strong>
+            γ=1.00, 本征态简并凝聚
+          </button>
+          <button class="preset-btn" onclick="applyPreset(4)">
+            <strong>④ 厄米互易传统对照</strong>
+            g=0.00, 对称布洛赫扩展波
+          </button>
+        </div>
+      </div>
+
+      <div>
+        <div class="panel-section-title">非厄米跃迁与耗散参数</div>
+        <div class="control-group">
+          <div class="control-label">跃迁不对称度 g = ln(tR/tL): <span id="valG">0.85</span></div>
+          <input type="range" id="slG" min="0.00" max="2.00" step="0.05" value="0.85">
+        </div>
+        <div class="control-group" style="margin-top:8px;">
+          <div class="control-label">腔元耗散损耗率 γ: <span id="valGamma">0.60</span></div>
+          <input type="range" id="slGamma" min="0.05" max="2.50" step="0.05" value="0.60">
+        </div>
+        <div class="control-group" style="margin-top:8px;">
+          <div class="control-label">微腔谐振失谐量 Δω: <span id="valDetuning">0.00</span></div>
+          <input type="range" id="slDetuning" min="-2.00" max="2.00" step="0.05" value="0.00">
+        </div>
+      </div>
+
+      <div>
+        <div class="panel-section-title">双通道相干入射与阻抗</div>
+        <div class="control-group">
+          <div class="control-label">入射干涉相位差 Δϕ (度): <span id="valPhase">180°</span></div>
+          <input type="range" id="slPhase" min="0" max="360" step="1" value="180">
+        </div>
+        <div class="control-group" style="margin-top:8px;">
+          <div class="control-label">腔元耦合跳跃强度 t₀: <span id="valT0">1.20</span></div>
+          <input type="range" id="slT0" min="0.20" max="3.00" step="0.05" value="1.20">
+        </div>
+        <div class="control-group" style="margin-top:8px;">
+          <div class="control-label">边界终端阻抗匹配比 η_term: <span id="valTerm">1.00</span></div>
+          <input type="range" id="slTerm" min="0.10" max="2.00" step="0.05" value="1.00">
+        </div>
+      </div>
+
+      <div class="stats-card">
+        <div class="stats-row">左入射吸收系数 A_L: <span id="stAbsL">99.8%</span></div>
+        <div class="stats-row">右入射吸收系数 A_R: <span id="stAbsR">12.4%</span></div>
+        <div class="stats-row">广义布里渊区内径 r_GBZ: <span id="stRgbz">0.43</span></div>
+        <div class="stats-row">S矩阵最小本征模 |s_min|: <span id="stSmin">0.002</span></div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // --- 物理系统全局状态 ---
+    const STATE = {
+      mode: 'WAVEGUIDE_SKIN_MODES', // 'WAVEGUIDE_SKIN_MODES' | 'GBZ_COMPLEX_SPECTRUM' | 'SCATTERING_CPA_MATRIX'
+      g: 0.85,          // 非互易跃迁参数 g = 0.5 * ln(tR/tL)
+      gamma: 0.60,      // 耗散损耗强度
+      detuning: 0.00,   // 入射频率失谐
+      deltaPhi: 180,    // 双通道相干入射相位差 (deg)
+      t0: 1.20,         // 腔元基准跳跃强度
+      etaTerm: 1.00,    // 边界终端阻抗匹配比
+      time: 0,
+
+      // 派生物理量
+      absL: 0.998,      // 左入射吸收率
+      absR: 0.124,      // 右入射吸收率
+      isolation: 42.6,  // 单向非互易隔离度 (dB)
+      skinLength: 1.82, // 趋肤局域长度 (晶格元)
+      windingNumber: 1, // 点能隙拓扑环绕数
+      rGbz: 0.43,       // GBZ 变形半径
+
+      // 3D 视角拖拽
+      rotX: 0.35,
+      rotY: 0.40,
+      isDragging: false,
+      lastMouseX: 0,
+      lastMouseY: 0
+    };
+
+    // --- Web Audio 物理声效引擎 ---
+    let audioCtx = null;
+    let oscSkin = null;
+    let oscCpa = null;
+    let gainCpa = null;
+    let biquad = null;
+
+    function initAudio() {
+      if (audioCtx) return;
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioContext();
+
+      oscSkin = audioCtx.createOscillator();
+      oscCpa = audioCtx.createOscillator();
+      oscSkin.type = 'sine';
+      oscCpa.type = 'triangle';
+
+      biquad = audioCtx.createBiquadFilter();
+      biquad.type = 'notch'; // 对应相干完全相消凹陷
+      biquad.frequency.setValueAtTime(320, audioCtx.currentTime);
+      biquad.Q.setValueAtTime(12.0, audioCtx.currentTime);
+
+      gainCpa = audioCtx.createGain();
+      gainCpa.gain.setValueAtTime(0.04, audioCtx.currentTime);
+
+      oscSkin.connect(biquad);
+      oscCpa.connect(biquad);
+      biquad.connect(gainCpa);
+      gainCpa.connect(audioCtx.destination);
+
+      oscSkin.start();
+      oscCpa.start();
+    }
+
+    function toggleAudio() {
+      if (!audioCtx) {
+        initAudio();
+        document.getElementById('btnAudio').innerHTML = "<span>🔊 静音非厄米相干超构声效</span>";
+      } else if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+        document.getElementById('btnAudio').innerHTML = "<span>🔊 静音非厄米相干超构声效</span>";
+      } else if (audioCtx.state === 'running') {
+        audioCtx.suspend();
+        document.getElementById('btnAudio').innerHTML = "<span>🔈 恢复非厄米相干超构声效</span>";
+      }
+    }
+
+    function updateAudio() {
+      if (!audioCtx || audioCtx.state !== 'running') return;
+      // 声音映射: 趋肤局域参数决定音调，完美吸收使音量沉入相消静默零点
+      const f1 = 220 + (1.0 / (STATE.skinLength + 0.1)) * 120;
+      const f2 = 220 + STATE.g * 80;
+      oscSkin.frequency.setTargetAtTime(f1, audioCtx.currentTime, 0.05);
+      oscCpa.frequency.setTargetAtTime(f2, audioCtx.currentTime, 0.05);
+
+      // 相干相消凹陷滤波
+      biquad.frequency.setTargetAtTime(220 + (STATE.deltaPhi / 360) * 200, audioCtx.currentTime, 0.05);
+      const residual = 1.0 - STATE.absL;
+      gainCpa.gain.setTargetAtTime(0.01 + residual * 0.05, audioCtx.currentTime, 0.05);
+    }
+
+    // --- 微观与宏观散射矩阵数值求解器 ---
+    function computePhysics() {
+      // 1. 广义布里渊区 GBZ 半径: r_GBZ = exp(-g)
+      STATE.rGbz = Math.exp(-STATE.g);
+      STATE.skinLength = STATE.g > 0.01 ? (1.0 / STATE.g) : 99.0;
+      STATE.windingNumber = STATE.g > 0.05 ? 1 : 0;
+
+      // 2. 双通道散射矩阵 S(ω) 与相干相消吸收条件:
+      // 当相位差为 180° 且阻抗匹配 η_term ≈ 1.0 时，完美吸收 CPA 达成
+      const phiRad = (STATE.deltaPhi * Math.PI) / 180;
+      const phaseDiff = Math.abs(phiRad - Math.PI);
+      const phaseCoherence = Math.cos(phaseDiff / 2); // 1.0 为最佳干涉相消
+
+      // 左入射波受趋肤漏斗强烈导向左边界损耗终端
+      const matchFactor = 1.0 - Math.abs(STATE.etaTerm - 1.0) * 0.45;
+      const absBaseL = (1.0 - Math.exp(-STATE.g * 2.8)) * matchFactor;
+      const absLCalc = Math.min(0.999, absBaseL * (0.85 + 0.15 * phaseCoherence));
+      STATE.absL = Math.max(0.05, absLCalc);
+
+      // 右入射波逆趋肤方向，发生巨型反射与低吸收
+      const absRCalc = (0.25 / (1.0 + STATE.g * 3.5)) * (0.7 + 0.3 * (1 - phaseCoherence));
+      STATE.absR = Math.max(0.01, Math.min(0.85, absRCalc));
+
+      // 单向隔离度 (dB)
+      const transRatio = Math.max(0.0001, (1.0 - STATE.absR) / (1.0 - STATE.absL + 0.0001));
+      STATE.isolation = Math.min(65.0, 10 * Math.log10(transRatio));
+    }
+
+    // --- 画板初始化与渲染 ---
+    const mainCanvas = document.getElementById('mainCanvas');
+    const mainCtx = mainCanvas.getContext('2d');
+
+    function resizeCanvas() {
+      const rect = mainCanvas.getBoundingClientRect();
+      mainCanvas.width = rect.width * window.devicePixelRatio;
+      mainCanvas.height = rect.height * window.devicePixelRatio;
+      mainCtx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    }
+    window.addEventListener('resize', () => {
+      resizeCanvas();
+      resizeScopeCanvas();
+    });
+
+    // 交互拖拽控制
+    mainCanvas.addEventListener('mousedown', (e) => {
+      STATE.isDragging = true;
+      STATE.lastMouseX = e.clientX;
+      STATE.lastMouseY = e.clientY;
+    });
+    window.addEventListener('mouseup', () => STATE.isDragging = false);
+    window.addEventListener('mousemove', (e) => {
+      if (!STATE.isDragging) return;
+      const dx = e.clientX - STATE.lastMouseX;
+      const dy = e.clientY - STATE.lastMouseY;
+      STATE.lastMouseX = e.clientX;
+      STATE.lastMouseY = e.clientY;
+
+      STATE.rotY += dx * 0.008;
+      STATE.rotX = Math.max(-1.1, Math.min(1.1, STATE.rotX + dy * 0.008));
+    });
+
+    // 模式 1: 非互易波导趋肤漏斗流动与相干吸收
+    function drawWaveguideSkinModes(ctx, w, h) {
+      ctx.fillStyle = "#020617";
+      ctx.fillRect(0, 0, w, h);
+
+      const cx = w / 2;
+      const cy = h / 2;
+      const numSites = 18;
+      const siteSpacing = 34;
+      const startX = cx - ((numSites - 1) * siteSpacing) / 2;
+
+      // 1. 绘制波导链底部轨道与非互易单向跃迁箭头 (从右指向左)
+      ctx.strokeStyle = "rgba(244, 63, 94, 0.25)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(startX, cy);
+      ctx.lineTo(startX + (numSites - 1) * siteSpacing, cy);
+      ctx.stroke();
+
+      // 绘制单向趋肤漏斗流向流动箭头
+      const arrowPhase = (STATE.time * 4.0) % 1.0;
+      for (let i = numSites - 1; i > 0; i--) {
+        const x1 = startX + i * siteSpacing;
+        const x2 = startX + (i - 1) * siteSpacing;
+        const curAx = x1 - (x1 - x2) * arrowPhase;
+
+        ctx.fillStyle = "rgba(244, 63, 94, 0.65)";
+        ctx.beginPath();
+        ctx.moveTo(curAx - 5, cy - 4);
+        ctx.lineTo(curAx - 11, cy);
+        ctx.lineTo(curAx - 5, cy + 4);
+        ctx.fill();
+      }
+
+      // 2. 绘制双束相干干涉入射光路
+      // 左入射波 (青蓝)
+      const leftWaveY = cy - 65;
+      ctx.strokeStyle = "#06b6d4";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      for (let px = 30; px < startX; px += 2) {
+        const wave = Math.sin((px - STATE.time * 120) * 0.12) * 12;
+        if (px === 30) ctx.moveTo(px, leftWaveY + wave);
+        else ctx.lineTo(px, leftWaveY + wave);
+      }
+      ctx.stroke();
+      ctx.fillStyle = "#06b6d4";
+      ctx.font = "11px monospace";
+      ctx.fillText("左相干入射波 S_in,L →", 40, leftWaveY - 18);
+
+      // 右入射波 (粉红，带相干相位差 Δϕ)
+      const rightWaveY = cy + 65;
+      const phiRad = (STATE.deltaPhi * Math.PI) / 180;
+      ctx.strokeStyle = "#fda4af";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      for (let px = w - 30; px > startX + (numSites - 1) * siteSpacing; px -= 2) {
+        const wave = Math.sin((px + STATE.time * 120) * 0.12 + phiRad) * 12;
+        if (px === w - 30) ctx.moveTo(px, rightWaveY + wave);
+        else ctx.lineTo(px, rightWaveY + wave);
+      }
+      ctx.stroke();
+      ctx.fillStyle = "#fda4af";
+      ctx.font = "11px monospace";
+      ctx.fillText("← 右相干入射波 S_in,R (Δϕ)", w - 210, rightWaveY + 28);
+
+      // 3. 绘制微腔谐振单元与指数趋肤波函数包络
+      for (let i = 0; i < numSites; i++) {
+        const sx = startX + i * siteSpacing;
+        // 指数趋肤振幅: ψ_i ∝ exp(-g * i)
+        const skinEnvelope = Math.exp(-STATE.g * i * 0.38);
+        const intensity = skinEnvelope * skinEnvelope;
+        const ringRad = 7 + intensity * 18;
+
+        // 强趋肤光晕
+        const grad = ctx.createRadialGradient(sx, cy, 3, sx, cy, ringRad);
+        grad.addColorStop(0, "rgba(244, 63, 94, 0.95)");
+        grad.addColorStop(0.6, `rgba(168, 85, 247, ${0.4 * intensity})`);
+        grad.addColorStop(1, "rgba(168, 85, 247, 0)");
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(sx, cy, ringRad, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 谐振微腔实心节点
+        ctx.fillStyle = i === 0 ? "#f43f5e" : "#e2e8f0";
+        ctx.beginPath();
+        ctx.arc(sx, cy, i === 0 ? 6.5 : 4.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 腔元索引标号
+        ctx.fillStyle = "#94a3b8";
+        ctx.font = "9px monospace";
+        ctx.fillText(i + 1, sx - 4, cy + 28);
+      }
+
+      // 4. 左边界相干完美吸收 (CPA) 终端特写
+      const termX = startX - 18;
+      ctx.strokeStyle = "rgba(16, 185, 129, 0.8)";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(termX, cy - 35); ctx.lineTo(termX, cy + 35);
+      ctx.stroke();
+
+      ctx.fillStyle = "#10b981";
+      ctx.font = "bold 11px monospace";
+      ctx.fillText(`CPA相干完美吸收极点 (吸收率: ${(STATE.absL * 100).toFixed(1)}%)`, termX - 110, cy - 42);
+
+      // 底部总结
+      ctx.fillStyle = "#f8fafc";
+      ctx.font = "bold 12px monospace";
+      ctx.fillText(`非厄米拓扑趋肤漏斗 (NHSE) | 跃迁非互易度 g = ${STATE.g.toFixed(2)} | 隔离度 = ${STATE.isolation.toFixed(1)} dB`, 20, h - 22);
+    }
+
+    // 模式 2: 广义布里渊区 GBZ 复准能谱环
+    function drawGbzComplexSpectrum(ctx, w, h) {
+      ctx.fillStyle = "#020617";
+      ctx.fillRect(0, 0, w, h);
+
+      const cx = w / 2;
+      const cy = h / 2;
+      const plotRadius = Math.min(w, h) * 0.36;
+
+      // 坐标轴 (实轴 Re E, 虚轴 Im E)
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.12)";
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(cx - plotRadius - 30, cy); ctx.lineTo(cx + plotRadius + 30, cy);
+      ctx.moveTo(cx, cy - plotRadius - 30); ctx.lineTo(cx, cy + plotRadius + 30);
+      ctx.stroke();
+
+      ctx.fillStyle = "#94a3b8";
+      ctx.font = "11px monospace";
+      ctx.fillText("Re(E)", cx + plotRadius + 12, cy + 14);
+      ctx.fillText("Im(E)", cx + 10, cy - plotRadius - 12);
+
+      // 绘制传统布里渊区单位圆 (虚线)
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.arc(cx, cy, plotRadius, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillText("标准单位圆 |z|=1", cx + plotRadius - 65, cy + plotRadius - 10);
+
+      // 绘制广义布里渊区 GBZ 轨迹: z = r_GBZ * e^{ik}
+      const gbzR = plotRadius * STATE.rGbz;
+      ctx.strokeStyle = "#f43f5e";
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(cx, cy, gbzR, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.fillStyle = "#f43f5e";
+      ctx.fillText(`广义布里渊区 GBZ (|z| = ${STATE.rGbz.toFixed(2)})`, cx + gbzR + 10, cy - 20);
+
+      // 绘制复准能谱在周期边界 (PBC) 下的椭圆环绕谱线
+      // E(k) = tR * e^{ik} + tL * e^{-ik} - i*gamma
+      const tR = STATE.t0 * Math.exp(STATE.g);
+      const tL = STATE.t0 * Math.exp(-STATE.g);
+
+      ctx.strokeStyle = "#38bdf8";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+
+      const numPoints = 120;
+      for (let i = 0; i <= numPoints; i++) {
+        const k = (i / numPoints) * Math.PI * 2;
+        const reE = (tR + tL) * Math.cos(k);
+        const imE = (tR - tL) * Math.sin(k) - STATE.gamma;
+
+        const px = cx + (reE / (4.5 * STATE.t0)) * plotRadius;
+        const py = cy - (imE / (4.5 * STATE.t0)) * plotRadius;
+
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+
+      // 标出参考点与点能隙 (Point Gap) 拓扑中心
+      ctx.fillStyle = "#f59e0b";
+      ctx.beginPath();
+      ctx.arc(cx, cy, 5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillText("点能隙参考中心 (E_0=0)", cx + 10, cy - 8);
+
+      // 标注点能隙环绕数
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold 12px monospace";
+      ctx.fillText(`点能隙拓扑环绕数 W = ${STATE.windingNumber} | 开边界能谱完全坍缩为实数弧段 (OBC Real Spectrum)`, 20, h - 22);
+    }
+
+    // 模式 3: 散射矩阵 CPA 相空间干涉漏斗
+    function drawScatteringCpaMatrix(ctx, w, h) {
+      ctx.fillStyle = "#020617";
+      ctx.fillRect(0, 0, w, h);
+
+      const cx = w / 2;
+      const cy = h / 2 + 10;
+
+      // 3D 透视投影映射
+      function project3D(x, y, z) {
+        const cosY = Math.cos(STATE.rotY), sinY = Math.sin(STATE.rotY);
+        const x1 = x * cosY + z * sinY;
+        const z1 = -x * sinY + z * cosY;
+
+        const cosX = Math.cos(STATE.rotX), sinX = Math.sin(STATE.rotX);
+        const y2 = y * cosX - z1 * sinX;
+        const z2 = y * sinX + z1 * cosX;
+
+        const fov = 420;
+        const scale = fov / (fov + z2 + 280);
+        return {
+          px: cx + x1 * scale,
+          py: cy + y2 * scale,
+          scale: scale,
+          depth: z2
+        };
+      }
+
+      // 绘制相干相消双通道相空间吸收曲面 A(Δϕ, η)
+      const nGrid = 30;
+      const phiRange = Math.PI * 2;
+
+      for (let ix = -nGrid / 2; ix <= nGrid / 2; ix++) {
+        ctx.strokeStyle = "rgba(244, 63, 94, 0.35)";
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+
+        for (let iz = -nGrid / 2; iz <= nGrid / 2; iz++) {
+          const phi = (ix / (nGrid / 2)) * Math.PI;
+          const eta = 1.0 + (iz / (nGrid / 2)) * 0.9;
+
+          // 吸收相空间漏斗: 在 phi=π 与 eta=1.0 处达到极小反射 (极大吸收)
+          const dPhi = Math.abs(phi - Math.PI);
+          const rSquare = (dPhi * dPhi) * 0.45 + (eta - 1.0) * (eta - 1.0) * 1.5;
+          const y = (1.0 - Math.exp(-rSquare * 0.8)) * 120 - 60;
+
+          const proj = project3D(ix * 12, y, iz * 12);
+          if (iz === -nGrid / 2) ctx.moveTo(proj.px, proj.py);
+          else ctx.lineTo(proj.px, proj.py);
+        }
+        ctx.stroke();
+      }
+
+      // 绘制当前工作点位置 (CPA 奇异零点)
+      const curPhi = ((STATE.deltaPhi * Math.PI) / 180) - Math.PI;
+      const curX = (curPhi / Math.PI) * (nGrid / 2) * 12;
+      const curZ = ((STATE.etaTerm - 1.0) / 0.9) * (nGrid / 2) * 12;
+      const curY = (1.0 - STATE.absL) * 120 - 60;
+
+      const projCur = project3D(curX, curY, curZ);
+
+      // 发光球与标注
+      const grad = ctx.createRadialGradient(projCur.px, projCur.py, 0, projCur.px, projCur.py, 18 * projCur.scale);
+      grad.addColorStop(0, "rgba(16, 185, 129, 0.95)");
+      grad.addColorStop(0.5, "rgba(244, 63, 94, 0.5)");
+      grad.addColorStop(1, "rgba(244, 63, 94, 0)");
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(projCur.px, projCur.py, 18 * projCur.scale, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold 11px monospace";
+      ctx.fillText(`CPA相干完美吸收零点 (反射率: ${((1 - STATE.absL) * 100).toFixed(2)}%)`, projCur.px - 100, projCur.py - 24);
+
+      ctx.fillStyle = "#f8fafc";
+      ctx.font = "bold 12px monospace";
+      ctx.fillText("双通道非厄米散射相空间 A(Δϕ, η) 完美相干吸收漏斗", 20, h - 22);
+    }
+
+    // --- 示波器 A & B 绘制 ---
+    const scopeCanvasA = document.getElementById('scopeCanvasA');
+    const ctxA = scopeCanvasA.getContext('2d');
+    const scopeCanvasB = document.getElementById('scopeCanvasB');
+    const ctxB = scopeCanvasB.getContext('2d');
+
+    function resizeScopeCanvas() {
+      const rectA = scopeCanvasA.parentElement.getBoundingClientRect();
+      scopeCanvasA.width = rectA.width * window.devicePixelRatio;
+      scopeCanvasA.height = (rectA.height - 24) * window.devicePixelRatio;
+      ctxA.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+      const rectB = scopeCanvasB.parentElement.getBoundingClientRect();
+      scopeCanvasB.width = rectB.width * window.devicePixelRatio;
+      scopeCanvasB.height = (rectB.height - 24) * window.devicePixelRatio;
+      ctxB.scale(window.devicePixelRatio, window.devicePixelRatio);
+    }
+
+    function drawScopes() {
+      // 示波器 A: 单向吸收谱 A_L(ω) 与 A_R(ω)
+      const wA = scopeCanvasA.width / window.devicePixelRatio;
+      const hA = scopeCanvasA.height / window.devicePixelRatio;
+      ctxA.clearRect(0, 0, wA, hA);
+
+      // 基线与中轴
+      ctxA.strokeStyle = "rgba(255, 255, 255, 0.08)";
+      ctxA.beginPath();
+      ctxA.moveTo(0, hA - 15); ctxA.lineTo(wA, hA - 15);
+      ctxA.stroke();
+
+      const midXA = wA / 2;
+
+      // 绘制左入射相干吸收曲线 A_L(ω)
+      ctxA.strokeStyle = "#f43f5e";
+      ctxA.lineWidth = 2.2;
+      ctxA.beginPath();
+
+      for (let px = 0; px < wA; px++) {
+        const deltaW = ((px - midXA) / midXA) * 2.0;
+        // 洛伦兹相干吸收峰
+        const peak = STATE.absL / (1.0 + (deltaW / (STATE.gamma + 0.1)) * (deltaW / (STATE.gamma + 0.1)));
+        const py = hA - 15 - peak * (hA - 25);
+        if (px === 0) ctxA.moveTo(px, py);
+        else ctxA.lineTo(px, py);
+      }
+      ctxA.stroke();
+
+      // 绘制右入射吸收曲线 A_R(ω) (非互易低吸收)
+      ctxA.strokeStyle = "#06b6d4";
+      ctxA.lineWidth = 1.8;
+      ctxA.beginPath();
+      for (let px = 0; px < wA; px++) {
+        const deltaW = ((px - midXA) / midXA) * 2.0;
+        const peak = STATE.absR / (1.0 + (deltaW / (STATE.gamma + 0.1)) * (deltaW / (STATE.gamma + 0.1)));
+        const py = hA - 15 - peak * (hA - 25);
+        if (px === 0) ctxA.moveTo(px, py);
+        else ctxA.lineTo(px, py);
+      }
+      ctxA.stroke();
+
+      ctxA.fillStyle = "#f43f5e";
+      ctxA.font = "9px monospace";
+      ctxA.fillText("A_L(ω) 正向趋肤吸收 (~100%)", midXA + 10, 16);
+
+      ctxA.fillStyle = "#06b6d4";
+      ctxA.fillText("A_R(ω) 反向透射反射", 10, hA - 22);
+
+
+      // 示波器 B: OBC 本征态空间包络分布 |ψ_n(x)|²
+      const wB = scopeCanvasB.width / window.devicePixelRatio;
+      const hB = scopeCanvasB.height / window.devicePixelRatio;
+      ctxB.clearRect(0, 0, wB, hB);
+
+      ctxB.strokeStyle = "rgba(255, 255, 255, 0.08)";
+      ctxB.beginPath();
+      ctxB.moveTo(0, hB - 15); ctxB.lineTo(wB, hB - 15);
+      ctxB.stroke();
+
+      // 绘制全部本征态的指数叠加包络
+      ctxB.strokeStyle = "#a855f7";
+      ctxB.lineWidth = 2;
+      ctxB.beginPath();
+
+      const numSites = 20;
+      for (let px = 0; px < wB; px++) {
+        const sitePos = (px / wB) * numSites;
+        // 指数衰减: exp(-2 * g * x)
+        const envelope = Math.exp(-2 * STATE.g * sitePos * 0.28);
+        const py = hB - 15 - envelope * (hB - 25);
+        if (px === 0) ctxB.moveTo(px, py);
+        else ctxB.lineTo(px, py);
+      }
+      ctxB.stroke();
+
+      ctxB.fillStyle = "#a855f7";
+      ctxB.font = "9px monospace";
+      ctxB.fillText(`趋肤衰减长 ξ = ${STATE.skinLength.toFixed(2)} 晶格`, wB - 110, 16);
+    }
+
+    // --- 主动画循环 ---
+    function animate() {
+      STATE.time += 0.016;
+      computePhysics();
+      updateAudio();
+
+      const rect = mainCanvas.getBoundingClientRect();
+      mainCtx.clearRect(0, 0, rect.width, rect.height);
+
+      if (STATE.mode === 'WAVEGUIDE_SKIN_MODES') {
+        drawWaveguideSkinModes(mainCtx, rect.width, rect.height);
+      } else if (STATE.mode === 'GBZ_COMPLEX_SPECTRUM') {
+        drawGbzComplexSpectrum(mainCtx, rect.width, rect.height);
+      } else if (STATE.mode === 'SCATTERING_CPA_MATRIX') {
+        drawScatteringCpaMatrix(mainCtx, rect.width, rect.height);
+      }
+
+      drawScopes();
+      updateHUD();
+      requestAnimationFrame(animate);
+    }
+
+    // --- HUD 刷新与读数更新 ---
+    function updateHUD() {
+      document.getElementById('tagCPA').innerText = `${(STATE.absL * 100).toFixed(1)}%`;
+      document.getElementById('tagIso').innerText = `+${STATE.isolation.toFixed(1)} dB`;
+      document.getElementById('tagSkin').innerText = `${STATE.skinLength.toFixed(2)} 晶格元`;
+      document.getElementById('hudG').innerText = STATE.g.toFixed(2);
+      document.getElementById('hudGamma').innerText = STATE.gamma.toFixed(2);
+      document.getElementById('hudPhase').innerText = `${STATE.deltaPhi.toFixed(1)}°`;
+      document.getElementById('hudWind').innerText = `${STATE.windingNumber >= 0 ? '+' : ''}${STATE.windingNumber}`;
+
+      // 统计栏
+      document.getElementById('stAbsL').innerText = `${(STATE.absL * 100).toFixed(1)}%`;
+      document.getElementById('stAbsR').innerText = `${(STATE.absR * 100).toFixed(1)}%`;
+      document.getElementById('stRgbz').innerText = STATE.rGbz.toFixed(2);
+      document.getElementById('stSmin').innerText = (1.0 - STATE.absL).toFixed(3);
+    }
+
+    // --- 交互控制面板事件绑定 ---
+    function setMode(m) {
+      STATE.mode = m;
+      document.getElementById('btnModeChain').classList.toggle('active', m === 'WAVEGUIDE_SKIN_MODES');
+      document.getElementById('btnModeGbz').classList.toggle('active', m === 'GBZ_COMPLEX_SPECTRUM');
+      document.getElementById('btnModeCpa').classList.toggle('active', m === 'SCATTERING_CPA_MATRIX');
+    }
+
+    const slG = document.getElementById('slG');
+    slG.addEventListener('input', (e) => {
+      STATE.g = parseFloat(e.target.value);
+      document.getElementById('valG').innerText = STATE.g.toFixed(2);
+    });
+
+    const slGamma = document.getElementById('slGamma');
+    slGamma.addEventListener('input', (e) => {
+      STATE.gamma = parseFloat(e.target.value);
+      document.getElementById('valGamma').innerText = STATE.gamma.toFixed(2);
+    });
+
+    const slDetuning = document.getElementById('slDetuning');
+    slDetuning.addEventListener('input', (e) => {
+      STATE.detuning = parseFloat(e.target.value);
+      document.getElementById('valDetuning').innerText = STATE.detuning.toFixed(2);
+    });
+
+    const slPhase = document.getElementById('slPhase');
+    slPhase.addEventListener('input', (e) => {
+      STATE.deltaPhi = parseFloat(e.target.value);
+      document.getElementById('valPhase').innerText = `${STATE.deltaPhi}°`;
+    });
+
+    const slT0 = document.getElementById('slT0');
+    slT0.addEventListener('input', (e) => {
+      STATE.t0 = parseFloat(e.target.value);
+      document.getElementById('valT0').innerText = STATE.t0.toFixed(2);
+    });
+
+    const slTerm = document.getElementById('slTerm');
+    slTerm.addEventListener('input', (e) => {
+      STATE.etaTerm = parseFloat(e.target.value);
+      document.getElementById('valTerm').innerText = STATE.etaTerm.toFixed(2);
+    });
+
+    function applyPreset(idx) {
+      if (idx === 1) { // 非互易相干吸收态
+        STATE.g = 0.85;
+        STATE.gamma = 0.60;
+        STATE.detuning = 0.00;
+        STATE.deltaPhi = 180;
+        STATE.t0 = 1.20;
+        STATE.etaTerm = 1.00;
+        setMode('WAVEGUIDE_SKIN_MODES');
+      } else if (idx === 2) { // 巨型单向趋肤漏斗
+        STATE.g = 1.60;
+        STATE.gamma = 0.40;
+        STATE.detuning = 0.10;
+        STATE.deltaPhi = 140;
+        STATE.t0 = 1.80;
+        STATE.etaTerm = 1.10;
+        setMode('WAVEGUIDE_SKIN_MODES');
+      } else if (idx === 3) { // 激光-吸收奇异点
+        STATE.g = 0.70;
+        STATE.gamma = 1.00;
+        STATE.detuning = 0.00;
+        STATE.deltaPhi = 90;
+        STATE.t0 = 1.00;
+        STATE.etaTerm = 0.85;
+        setMode('GBZ_COMPLEX_SPECTRUM');
+      } else if (idx === 4) { // 厄米互易传统对照
+        STATE.g = 0.00;
+        STATE.gamma = 0.30;
+        STATE.detuning = 0.00;
+        STATE.deltaPhi = 0;
+        STATE.t0 = 1.00;
+        STATE.etaTerm = 1.00;
+        setMode('WAVEGUIDE_SKIN_MODES');
+      }
+
+      slG.value = STATE.g;
+      slGamma.value = STATE.gamma;
+      slDetuning.value = STATE.detuning;
+      slPhase.value = STATE.deltaPhi;
+      slT0.value = STATE.t0;
+      slTerm.value = STATE.etaTerm;
+
+      document.getElementById('valG').innerText = STATE.g.toFixed(2);
+      document.getElementById('valGamma').innerText = STATE.gamma.toFixed(2);
+      document.getElementById('valDetuning').innerText = STATE.detuning.toFixed(2);
+      document.getElementById('valPhase').innerText = `${STATE.deltaPhi}°`;
+      document.getElementById('valT0').innerText = STATE.t0.toFixed(2);
+      document.getElementById('valTerm').innerText = STATE.etaTerm.toFixed(2);
+    }
+
+    // 启动引擎
+    resizeCanvas();
+    resizeScopeCanvas();
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>

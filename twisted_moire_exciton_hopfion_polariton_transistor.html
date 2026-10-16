@@ -1,0 +1,1188 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>扭转莫尔激子超流与三维霍普夫孤子极化激元量子晶体管全息模拟器</title>
+  <style>
+    :root {
+      --bg-primary: #050711;
+      --bg-panel: rgba(10, 16, 32, 0.82);
+      --bg-card: rgba(16, 26, 50, 0.7);
+      --accent-cyan: #00f2fe;
+      --accent-blue: #38bdf8;
+      --accent-purple: #c084fc;
+      --accent-gold: #fbbf24;
+      --accent-magenta: #f43f5e;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --border-line: rgba(192, 132, 252, 0.28);
+      --border-glow: rgba(0, 242, 254, 0.45);
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+    body {
+      background: var(--bg-primary);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", "JetBrains Mono", monospace;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+    }
+    #main-container {
+      position: relative;
+      flex: 1;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 390px;
+      padding: 16px 24px;
+      background: linear-gradient(180deg, rgba(5, 7, 17, 0.95) 0%, rgba(5, 7, 17, 0.6) 80%, transparent 100%);
+      z-index: 10;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      pointer-events: none;
+    }
+    .header-content {
+      pointer-events: auto;
+    }
+    h1 {
+      font-size: 19px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      background: linear-gradient(135deg, #ffffff 0%, var(--accent-purple) 50%, var(--accent-cyan) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-shadow: 0 0 20px rgba(192, 132, 252, 0.4);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .badge {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: rgba(192, 132, 252, 0.15);
+      border: 1px solid var(--accent-purple);
+      color: var(--accent-purple);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      -webkit-text-fill-color: initial;
+    }
+    .sub-title {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 4px;
+      font-family: "JetBrains Mono", monospace;
+      letter-spacing: 0.3px;
+    }
+    #viewport-container {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle at 50% 50%, #111a36 0%, #060914 70%, #020308 100%);
+    }
+    canvas#view3d {
+      width: 100%;
+      height: 100%;
+      display: block;
+      cursor: grab;
+    }
+    canvas#view3d:active {
+      cursor: grabbing;
+    }
+    .hud-overlay {
+      position: absolute;
+      bottom: 24px;
+      left: 24px;
+      display: flex;
+      gap: 16px;
+      z-index: 5;
+      pointer-events: none;
+    }
+    .hud-chip {
+      background: var(--bg-panel);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border-line);
+      padding: 10px 16px;
+      border-radius: 8px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+      pointer-events: auto;
+    }
+    .hud-label {
+      font-size: 10px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 3px;
+    }
+    .hud-value {
+      font-size: 16px;
+      font-family: "JetBrains Mono", monospace;
+      font-weight: 700;
+      color: var(--accent-purple);
+      text-shadow: 0 0 10px rgba(192, 132, 252, 0.5);
+    }
+    .hud-val-gold {
+      color: var(--accent-gold);
+      text-shadow: 0 0 10px rgba(251, 191, 36, 0.5);
+    }
+    .hud-val-cyan {
+      color: var(--accent-cyan);
+      text-shadow: 0 0 10px rgba(0, 242, 254, 0.5);
+    }
+    .hud-val-mag {
+      color: var(--accent-magenta);
+      text-shadow: 0 0 10px rgba(244, 63, 94, 0.5);
+    }
+
+    #sidebar {
+      width: 390px;
+      height: 100%;
+      background: var(--bg-panel);
+      backdrop-filter: blur(20px);
+      border-left: 1px solid var(--border-line);
+      display: flex;
+      flex-direction: column;
+      z-index: 20;
+      box-shadow: -10px 0 30px rgba(0, 0, 0, 0.7);
+    }
+    .sidebar-scroll {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+    .sidebar-scroll::-webkit-scrollbar {
+      width: 5px;
+    }
+    .sidebar-scroll::-webkit-scrollbar-thumb {
+      background: rgba(192, 132, 252, 0.3);
+      border-radius: 3px;
+    }
+
+    .panel-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-line);
+      border-radius: 10px;
+      padding: 16px;
+      position: relative;
+      overflow: hidden;
+    }
+    .panel-card::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 3px;
+      height: 100%;
+      background: linear-gradient(180deg, var(--accent-purple), var(--accent-cyan));
+    }
+    .card-title {
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      color: var(--text-main);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      text-transform: uppercase;
+    }
+    .card-title span.tag {
+      font-size: 10px;
+      color: var(--accent-blue);
+      font-family: "JetBrains Mono", monospace;
+    }
+
+    .scope-box {
+      width: 100%;
+      height: 130px;
+      background: rgba(3, 7, 16, 0.85);
+      border: 1px solid rgba(192, 132, 252, 0.2);
+      border-radius: 6px;
+      position: relative;
+      overflow: hidden;
+    }
+    .scope-box canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    .scope-legend {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 6px;
+      font-size: 10px;
+      color: var(--text-muted);
+      font-family: "JetBrains Mono", monospace;
+    }
+
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .ctrl-item {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .ctrl-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    .ctrl-val {
+      font-family: "JetBrains Mono", monospace;
+      color: var(--accent-purple);
+      font-weight: 600;
+    }
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 2px;
+      outline: none;
+      transition: background 0.2s;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--accent-purple);
+      box-shadow: 0 0 8px var(--accent-purple);
+      cursor: pointer;
+      transition: transform 0.1s, box-shadow 0.1s;
+    }
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+      box-shadow: 0 0 12px var(--accent-cyan);
+    }
+
+    .preset-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .preset-btn {
+      background: rgba(192, 132, 252, 0.1);
+      border: 1px solid rgba(192, 132, 252, 0.25);
+      color: var(--text-main);
+      padding: 8px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 500;
+      cursor: pointer;
+      text-align: left;
+      transition: all 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .preset-btn span.desc {
+      font-size: 9px;
+      color: var(--text-muted);
+    }
+    .preset-btn:hover {
+      background: rgba(192, 132, 252, 0.2);
+      border-color: var(--accent-purple);
+      transform: translateY(-1px);
+    }
+    .preset-btn.active {
+      background: linear-gradient(135deg, rgba(192, 132, 252, 0.25), rgba(0, 242, 254, 0.25));
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 10px rgba(192, 132, 252, 0.3);
+    }
+
+    .footer-actions {
+      padding: 16px 20px;
+      border-top: 1px solid var(--border-line);
+      background: rgba(5, 7, 17, 0.95);
+      display: flex;
+      gap: 10px;
+    }
+    .act-btn {
+      flex: 1;
+      padding: 10px;
+      border-radius: 6px;
+      border: 1px solid var(--border-line);
+      background: rgba(16, 26, 50, 0.8);
+      color: var(--text-main);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+    .act-btn:hover {
+      border-color: var(--accent-purple);
+      color: var(--accent-purple);
+      background: rgba(192, 132, 252, 0.12);
+    }
+    .act-btn.active {
+      background: rgba(192, 132, 252, 0.25);
+      border-color: var(--accent-purple);
+      color: #fff;
+      box-shadow: 0 0 12px rgba(192, 132, 252, 0.4);
+    }
+
+    .eq-panel {
+      font-size: 11px;
+      line-height: 1.5;
+      color: var(--text-muted);
+      background: rgba(3, 7, 16, 0.6);
+      padding: 10px;
+      border-radius: 6px;
+      border-left: 2px solid var(--accent-purple);
+      font-family: "JetBrains Mono", monospace;
+    }
+    .eq-panel b {
+      color: var(--accent-purple);
+    }
+  </style>
+</head>
+<body>
+  <div id="main-container">
+    <header>
+      <div class="header-content">
+        <h1>
+          扭转莫尔激子超流与三维霍普夫孤子极化激元量子晶体管
+          <span class="badge">#316 HOPF-EXCITON-TR</span>
+        </h1>
+        <div class="sub-title">
+          Q_H = (1/16π²) ∫ F·A d³r | Moire Potential V_m(θ) | Rabi Splitting Ω_R = 2g₀√N | Transistor On/Off &gt; 10⁴
+        </div>
+      </div>
+    </header>
+
+    <div id="viewport-container">
+      <canvas id="view3d"></canvas>
+
+      <div class="hud-overlay">
+        <div class="hud-chip">
+          <div class="hud-label">三维霍普夫拓扑荷 Q_H</div>
+          <div class="hud-value" id="hud-qh">+1 (纽结孤子拓扑保护)</div>
+        </div>
+        <div class="hud-chip">
+          <div class="hud-label">拉比劈裂间隙 Ω_Rabi</div>
+          <div class="hud-value hud-val-cyan" id="hud-rabi">24.6 meV</div>
+        </div>
+        <div class="hud-chip">
+          <div class="hud-label">极化激元晶体管导通态</div>
+          <div class="hud-value hud-val-gold" id="hud-state">开态 ON (超流传输)</div>
+        </div>
+        <div class="hud-chip">
+          <div class="hud-label">开关比 On/Off Ratio</div>
+          <div class="hud-value hud-val-mag" id="hud-ratio">1.42 × 10⁴</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="sidebar">
+    <div class="sidebar-scroll">
+      <!-- 示波器 1: 极化激元色散与下分支能带 -->
+      <div class="panel-card">
+        <div class="card-title">
+          <span>极化激元色散 E_LPB(k) 与反交叉</span>
+          <span class="tag">Polariton Dispersion</span>
+        </div>
+        <div class="scope-box">
+          <canvas id="scope1"></canvas>
+        </div>
+        <div class="scope-legend">
+          <span style="color:#00f2fe;">— 下极化激元分支 (LPB)</span>
+          <span style="color:#c084fc;">— 上极化激元分支 (UPB)</span>
+          <span style="color:#fbbf24;">● 凝聚态波矢 k=0</span>
+        </div>
+      </div>
+
+      <!-- 示波器 2: 晶体管源漏透射转移特性 -->
+      <div class="panel-card">
+        <div class="card-title">
+          <span>门控转移特性 I_D vs V_G</span>
+          <span class="tag">Transfer Dynamics</span>
+        </div>
+        <div class="scope-box">
+          <canvas id="scope2"></canvas>
+        </div>
+        <div class="scope-legend">
+          <span style="color:#c084fc;">— I_D 透射光电流 (对数刻度)</span>
+          <span style="color:#fbbf24;">— Q_H 拓扑结稳定性</span>
+          <span style="color:#00f2fe;">● 工作点</span>
+        </div>
+      </div>
+
+      <!-- 核心动力学参数调节 -->
+      <div class="panel-card">
+        <div class="card-title">
+          <span>微腔光子与莫尔超晶格参量</span>
+          <span class="tag">Controls</span>
+        </div>
+        <div class="control-group">
+          <div class="ctrl-item">
+            <div class="ctrl-header">
+              <span>双层莫尔扭转角 θ_twist</span>
+              <span class="ctrl-val" id="val-theta">1.80°</span>
+            </div>
+            <input type="range" id="param-theta" min="0.5" max="4.0" value="1.8" step="0.05">
+          </div>
+
+          <div class="ctrl-item">
+            <div class="ctrl-header">
+              <span>门控电压 V_gate (直流斯塔克调谐)</span>
+              <span class="ctrl-val" id="val-vg">0.15 V</span>
+            </div>
+            <input type="range" id="param-vg" min="-1.5" max="1.5" value="0.15" step="0.02">
+          </div>
+
+          <div class="ctrl-item">
+            <div class="ctrl-header">
+              <span>微腔激子耦合常数 g₀</span>
+              <span class="ctrl-val" id="val-g0">16.0 meV</span>
+            </div>
+            <input type="range" id="param-g0" min="5" max="35" value="16" step="0.5">
+          </div>
+
+          <div class="ctrl-item">
+            <div class="ctrl-header">
+              <span>连续波泵浦功率 P_pump</span>
+              <span class="ctrl-val" id="val-pump">45.0 mW</span>
+            </div>
+            <input type="range" id="param-pump" min="5" max="100" value="45" step="1">
+          </div>
+
+          <div class="ctrl-item">
+            <div class="ctrl-header">
+              <span>光学微腔品质因子 Q_cav</span>
+              <span class="ctrl-val" id="val-qcav">8500</span>
+            </div>
+            <input type="range" id="param-qcav" min="2000" max="25000" value="8500" step="500">
+          </div>
+
+          <div class="ctrl-item">
+            <div class="ctrl-header">
+              <span>三维环面霍普夫环绕数 N_knot</span>
+              <span class="ctrl-val" id="val-knot">1.0</span>
+            </div>
+            <input type="range" id="param-knot" min="1" max="3" value="1" step="1">
+          </div>
+        </div>
+      </div>
+
+      <!-- 工况预设 -->
+      <div class="panel-card">
+        <div class="card-title">
+          <span>晶体管与纽结工况预设</span>
+          <span class="tag">Presets</span>
+        </div>
+        <div class="preset-grid">
+          <button class="preset-btn active" id="btn-pre1">
+            <span>超流全导通开态</span>
+            <span class="desc">V_G=0.15V | 稳定单重霍普夫子</span>
+          </button>
+          <button class="preset-btn" id="btn-pre2">
+            <span>拓扑孤子阻断关态</span>
+            <span class="desc">V_G=-0.85V | 斯塔克强烈失谐</span>
+          </button>
+          <button class="preset-btn" id="btn-pre3">
+            <span>莫尔魔角极化激元BEC</span>
+            <span class="desc">θ=1.10° | 平带极大凝聚密度</span>
+          </button>
+          <button class="preset-btn" id="btn-pre4">
+            <span>高阶环面纽结缠绕态</span>
+            <span class="desc">Q_H=2 | 双环互锁量子多体结</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 理论解析卡片 -->
+      <div class="panel-card">
+        <div class="card-title">
+          <span>哈密顿量与拓扑物理</span>
+          <span class="tag">Theory</span>
+        </div>
+        <div class="eq-panel">
+          <b>H_pol = E_cav a† a + E_ex(V_G) b† b + g₀ (a† b + b† a) + U |ψ|⁴</b><br>
+          • <b>三维霍普夫孤子 (Hopfion)</b>：超流伪自旋结构在三维微腔中绞结成闭合纽结环，拓扑不变量 Q_H 赋予超强抗扰动能力。<br>
+          • <b>量子极化激元晶体管</b>：微小栅压调控激子失谐 δ(V_G)，在阿秒-皮秒极速尺度触发凝聚体超流相干开启与阻断。
+        </div>
+      </div>
+    </div>
+
+    <!-- 底部控制 -->
+    <div class="footer-actions">
+      <button class="act-btn" id="btn-audio">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+          <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+        </svg>
+        <span>微腔谐振声效: 开</span>
+      </button>
+      <button class="act-btn" id="btn-reset-cam">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
+        </svg>
+        <span>重置视角</span>
+      </button>
+    </div>
+  </div>
+
+  <script>
+    // --- 状态系统与核心物理计算引擎 ---
+    const STATE = {
+      // 可调参数
+      theta: 1.80,     // 扭转角 (deg)
+      vg: 0.15,        // 门控电压 (V)
+      g0: 16.0,        // 耦合系数 (meV)
+      pump: 45.0,      // 泵浦功率 (mW)
+      qcav: 8500,      // 品质因子
+      knot: 1,         // 纽结圈数
+
+      // 实时计算输出
+      time: 0,
+      qh: 1,           // 霍普夫拓扑荷
+      rabiSplitting: 24.6, // meV
+      transistorOn: true,
+      onOffRatio: 14200,
+      densityBEC: 0.82,
+      detuning: 1.5,   // meV
+      currentID: 3.42, // a.u.
+
+      // 3D 摄像机交互
+      camRotX: 0.50,
+      camRotY: -0.65,
+      camDist: 360,
+      isDragging: false,
+      lastMouseX: 0,
+      lastMouseY: 0,
+      audioEnabled: true
+    };
+
+    // --- Web Audio 声音合成系统 ---
+    let audioCtx = null;
+    let oscCavity = null;
+    let oscExciton = null;
+    let gainMaster = null;
+
+    function initAudio() {
+      if (audioCtx) return;
+      try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioContext();
+
+        oscCavity = audioCtx.createOscillator();
+        oscCavity.type = 'sine';
+        oscCavity.frequency.value = 320;
+
+        oscExciton = audioCtx.createOscillator();
+        oscExciton.type = 'triangle';
+        oscExciton.frequency.value = 640;
+
+        const gainCavity = audioCtx.createGain();
+        gainCavity.gain.value = 0.05;
+
+        const gainExciton = audioCtx.createGain();
+        gainExciton.gain.value = 0.03;
+
+        gainMaster = audioCtx.createGain();
+        gainMaster.gain.value = 0.12;
+
+        oscCavity.connect(gainCavity);
+        oscExciton.connect(gainExciton);
+
+        gainCavity.connect(gainMaster);
+        gainExciton.connect(gainMaster);
+
+        gainMaster.connect(audioCtx.destination);
+
+        oscCavity.start();
+        oscExciton.start();
+      } catch (e) {
+        console.warn('Audio deferred:', e);
+      }
+    }
+
+    function updateAudioParams() {
+      if (!audioCtx || !STATE.audioEnabled) return;
+      const baseFreq = 220 + STATE.rabiSplitting * 6.5 + (STATE.transistorOn ? 100 : 0);
+      oscCavity.frequency.setTargetAtTime(baseFreq, audioCtx.currentTime, 0.05);
+      oscExciton.frequency.setTargetAtTime(baseFreq * 1.5, audioCtx.currentTime, 0.05);
+    }
+
+    // --- 物理更新动力学 ---
+    function updatePhysics() {
+      STATE.time += 0.016;
+
+      // 直流斯塔克效应失谐量: δ = α * V_G
+      const deltaStark = STATE.vg * 18.0; // meV
+      STATE.detuning = deltaStark;
+
+      // 拉比劈裂: Ω_R = sqrt(δ² + 4 * g₀² * (1 + P_pump / 50.0))
+      const effCoupling = STATE.g0 * Math.sqrt(1.0 + STATE.pump / 60.0);
+      const rawRabi = Math.sqrt(deltaStark ** 2 + 4.0 * (effCoupling ** 2));
+      STATE.rabiSplitting = rawRabi;
+
+      // 莫尔平带调制因子与极化激元凝聚密度
+      const moireFlatness = 1.0 / (1.0 + ((STATE.theta - 1.1) / 0.7) ** 2);
+      const thresholdP = 20.0 * (1.0 + Math.abs(deltaStark) * 0.08);
+      const isAboveThreshold = STATE.pump > thresholdP;
+
+      // 晶体管导通判据: 门压在共振区且功率超阈值
+      STATE.transistorOn = Math.abs(STATE.vg) < 0.45 && isAboveThreshold;
+
+      if (STATE.transistorOn) {
+        STATE.densityBEC = Math.min(1.0, 0.2 + (STATE.pump - thresholdP) * 0.02 * moireFlatness);
+        STATE.currentID = 2.5 + STATE.densityBEC * 4.2;
+        STATE.qh = STATE.knot;
+      } else {
+        STATE.densityBEC = 0.02;
+        STATE.currentID = 0.00025;
+        STATE.qh = 0;
+      }
+
+      // 开关比计算
+      STATE.onOffRatio = STATE.transistorOn ? Math.round(14200 * (STATE.qcav / 8500.0)) : 1;
+
+      // 更新 HUD
+      document.getElementById('hud-qh').textContent = STATE.qh > 0 ? `+${STATE.qh} (纽结孤子拓扑保护)` : '0 (平庸相阻断)';
+      document.getElementById('hud-rabi').textContent = `${STATE.rabiSplitting.toFixed(1)} meV`;
+      const stateLabel = document.getElementById('hud-state');
+      if (STATE.transistorOn) {
+        stateLabel.textContent = '开态 ON (超流传输)';
+        stateLabel.style.color = 'var(--accent-gold)';
+      } else {
+        stateLabel.textContent = '关态 OFF (孤子捕获阻断)';
+        stateLabel.style.color = 'var(--accent-magenta)';
+      }
+      document.getElementById('hud-ratio').textContent = STATE.transistorOn ? `${(STATE.onOffRatio / 10000).toFixed(2)} × 10⁴` : '1.0';
+
+      updateAudioParams();
+    }
+
+    // --- 3D 渲染引擎 (三维霍普夫纽结光纤环与莫尔干涉板) ---
+    const canvas3d = document.getElementById('view3d');
+    const ctx3d = canvas3d.getContext('2d');
+
+    // 极化激元超流流动流线微粒
+    const NUM_POLARITONS = 150;
+    const polaritonParticles = [];
+    for (let i = 0; i < NUM_POLARITONS; i++) {
+      polaritonParticles.push({
+        t: Math.random(),
+        radOffset: (Math.random() - 0.5) * 12,
+        speed: 0.8 + Math.random() * 1.4
+      });
+    }
+
+    function resizeCanvas() {
+      const parent = document.getElementById('viewport-container');
+      canvas3d.width = parent.clientWidth * window.devicePixelRatio;
+      canvas3d.height = parent.clientHeight * window.devicePixelRatio;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    function project3D(x, y, z, cx, cy, scale) {
+      const cosY = Math.cos(STATE.camRotY);
+      const sinY = Math.sin(STATE.camRotY);
+      const cosX = Math.cos(STATE.camRotX);
+      const sinX = Math.sin(STATE.camRotX);
+
+      const x1 = x * cosY + z * sinY;
+      const z1 = -x * sinY + z * cosY;
+
+      const y2 = y * cosX - z1 * sinX;
+      const z2 = y * sinX + z1 * cosX;
+
+      const fov = 440;
+      const p = fov / (fov + z2);
+
+      return {
+        x: cx + x1 * p * scale,
+        y: cy + y2 * p * scale,
+        z: z2,
+        scale: p * scale,
+        visible: z2 > -fov + 10
+      };
+    }
+
+    function render3D() {
+      const w = canvas3d.width;
+      const h = canvas3d.height;
+      ctx3d.clearRect(0, 0, w, h);
+
+      const cx = w * 0.48;
+      const cy = h * 0.52;
+      const scale = Math.min(w, h) / 720;
+
+      // 背景全息光辉
+      ctx3d.save();
+      const bgGrad = ctx3d.createRadialGradient(cx, cy, 30 * scale, cx, cy, 390 * scale);
+      bgGrad.addColorStop(0, 'rgba(192, 132, 252, 0.08)');
+      bgGrad.addColorStop(0.5, 'rgba(0, 242, 254, 0.03)');
+      bgGrad.addColorStop(1, 'transparent');
+      ctx3d.fillStyle = bgGrad;
+      ctx3d.fillRect(0, 0, w, h);
+      ctx3d.restore();
+
+      // 1. 莫尔超晶格双层底板 (Moiré Superlattice Substrate)
+      const SUB_R = 150;
+      const SUB_Y = 85;
+      const SUB_SEGS = 24;
+
+      ctx3d.save();
+      ctx3d.strokeStyle = 'rgba(56, 189, 248, 0.25)';
+      ctx3d.lineWidth = 1 * scale;
+      // 六角形微腔底板轮廓
+      ctx3d.beginPath();
+      for (let s = 0; s <= 6; s++) {
+        const ang = (s / 6) * Math.PI * 2;
+        const px = SUB_R * Math.cos(ang);
+        const pz = SUB_R * Math.sin(ang);
+        const proj = project3D(px, SUB_Y, pz, cx, cy, scale);
+        if (s === 0) ctx3d.moveTo(proj.x, proj.y);
+        else ctx3d.lineTo(proj.x, proj.y);
+      }
+      ctx3d.stroke();
+
+      // 莫尔同心干涉纹理线
+      for (let r = 30; r < SUB_R; r += 30) {
+        ctx3d.beginPath();
+        for (let s = 0; s <= SUB_SEGS; s++) {
+          const ang = (s / SUB_SEGS) * Math.PI * 2;
+          const px = r * Math.cos(ang);
+          const pz = r * Math.sin(ang);
+          const proj = project3D(px, SUB_Y, pz, cx, cy, scale);
+          if (s === 0) ctx3d.moveTo(proj.x, proj.y);
+          else ctx3d.lineTo(proj.x, proj.y);
+        }
+        ctx3d.strokeStyle = 'rgba(192, 132, 252, 0.15)';
+        ctx3d.stroke();
+      }
+      ctx3d.restore();
+
+      // 2. 重点全息渲染：三维霍普夫孤子环面纽结结构 (3D Torus Hopfion Knot)
+      // 参数方程:
+      // x = (R + r * cos(q * φ)) * cos(p * φ)
+      // y = r * sin(q * φ)
+      // z = (R + r * cos(q * φ)) * sin(p * φ)
+      // 其中对于 Hopfion: p=1, q=STATE.knot 或 p=2, q=3
+      const R_MAJOR = 85;
+      const R_MINOR = 38 * (STATE.transistorOn ? 1.0 : 0.4);
+      const P_KNOT = 1;
+      const Q_KNOT = STATE.knot;
+      const KNOT_STEPS = 200;
+
+      // 绘制纽结主管道流线
+      ctx3d.save();
+      const knotPoints = [];
+      for (let i = 0; i <= KNOT_STEPS; i++) {
+        const phi = (i / KNOT_STEPS) * Math.PI * 2 * (Q_KNOT > 1 ? 1 : 1);
+        const kx = (R_MAJOR + R_MINOR * Math.cos(Q_KNOT * phi + STATE.time * 2.0)) * Math.cos(P_KNOT * phi);
+        const ky = -20 + R_MINOR * Math.sin(Q_KNOT * phi + STATE.time * 2.0);
+        const kz = (R_MAJOR + R_MINOR * Math.cos(Q_KNOT * phi + STATE.time * 2.0)) * Math.sin(P_KNOT * phi);
+        knotPoints.push(project3D(kx, ky, kz, cx, cy, scale));
+      }
+
+      // 绘制发光主干
+      ctx3d.beginPath();
+      let started = false;
+      for (let p of knotPoints) {
+        if (p.visible) {
+          if (!started) { ctx3d.moveTo(p.x, p.y); started = true; }
+          else { ctx3d.lineTo(p.x, p.y); }
+        }
+      }
+      const knotColor = STATE.transistorOn ? '#c084fc' : '#f43f5e';
+      ctx3d.strokeStyle = knotColor;
+      ctx3d.lineWidth = (STATE.transistorOn ? 3.5 : 1.8) * scale;
+      ctx3d.shadowColor = knotColor;
+      ctx3d.shadowBlur = (STATE.transistorOn ? 14 : 4) * scale;
+      ctx3d.stroke();
+      ctx3d.shadowBlur = 0;
+      ctx3d.restore();
+
+      // 3. 绘制辅助套合涡旋环带 (Hopf Fibers Linking)
+      const NUM_FIBERS = 8;
+      ctx3d.save();
+      for (let f = 0; f < NUM_FIBERS; f++) {
+        const fPhi = (f / NUM_FIBERS) * Math.PI * 2;
+        const ringCenterX = R_MAJOR * Math.cos(fPhi);
+        const ringCenterZ = R_MAJOR * Math.sin(fPhi);
+
+        ctx3d.beginPath();
+        for (let s = 0; s <= 20; s++) {
+          const theta = (s / 20) * Math.PI * 2;
+          // 垂直切面小环
+          const rx = ringCenterX + R_MINOR * Math.cos(theta) * Math.cos(fPhi);
+          const ry = -20 + R_MINOR * Math.sin(theta);
+          const rz = ringCenterZ + R_MINOR * Math.cos(theta) * Math.sin(fPhi);
+          const p = project3D(rx, ry, rz, cx, cy, scale);
+          if (s === 0) ctx3d.moveTo(p.x, p.y);
+          else ctx3d.lineTo(p.x, p.y);
+        }
+        ctx3d.strokeStyle = 'rgba(0, 242, 254, 0.35)';
+        ctx3d.lineWidth = 1.2 * scale;
+        ctx3d.stroke();
+      }
+      ctx3d.restore();
+
+      // 4. 绘制源极 (Source) 与漏极 (Drain) 极板和注入极化激元粒子流
+      const pSource = project3D(-160, -20, 0, cx, cy, scale);
+      const pDrain = project3D(160, -20, 0, cx, cy, scale);
+
+      ctx3d.save();
+      // 源极标签
+      ctx3d.font = `bold ${10 * scale}px "JetBrains Mono"`;
+      ctx3d.fillStyle = '#38bdf8';
+      ctx3d.fillText("SOURCE (Laser Inject)", pSource.x - 70 * scale, pSource.y - 10 * scale);
+      // 漏极标签
+      ctx3d.fillStyle = '#fbbf24';
+      ctx3d.fillText("DRAIN (Output Port)", pDrain.x + 10 * scale, pDrain.y - 10 * scale);
+
+      // 极板轮廓
+      ctx3d.strokeStyle = 'rgba(56, 189, 248, 0.6)';
+      ctx3d.lineWidth = 2 * scale;
+      ctx3d.strokeRect(pSource.x - 6 * scale, pSource.y - 25 * scale, 12 * scale, 50 * scale);
+      ctx3d.strokeStyle = 'rgba(251, 191, 36, 0.6)';
+      ctx3d.strokeRect(pDrain.x - 6 * scale, pDrain.y - 25 * scale, 12 * scale, 50 * scale);
+      ctx3d.restore();
+
+      // 5. 渲染沿纽结轨道相干流动的极化激元粒子
+      ctx3d.save();
+      for (let p of polaritonParticles) {
+        if (!STATE.transistorOn) continue;
+        p.t += 0.008 * p.speed;
+        if (p.t > 1.0) p.t = 0;
+
+        const phi = p.t * Math.PI * 2;
+        const kx = (R_MAJOR + (R_MINOR + p.radOffset) * Math.cos(Q_KNOT * phi + STATE.time * 2.0)) * Math.cos(P_KNOT * phi);
+        const ky = -20 + (R_MINOR + p.radOffset) * Math.sin(Q_KNOT * phi + STATE.time * 2.0);
+        const kz = (R_MAJOR + (R_MINOR + p.radOffset) * Math.cos(Q_KNOT * phi + STATE.time * 2.0)) * Math.sin(P_KNOT * phi);
+
+        const proj = project3D(kx, ky, kz, cx, cy, scale);
+        if (proj.visible) {
+          ctx3d.beginPath();
+          ctx3d.arc(proj.x, proj.y, 2.2 * scale, 0, Math.PI * 2);
+          ctx3d.fillStyle = '#fbbf24';
+          ctx3d.shadowColor = '#fbbf24';
+          ctx3d.shadowBlur = 8 * scale;
+          ctx3d.fill();
+          ctx3d.shadowBlur = 0;
+        }
+      }
+      ctx3d.restore();
+    }
+
+    // --- 示波器 1: 极化激元色散下分支能带色散谱 ---
+    const scopeCanvas1 = document.getElementById('scope1');
+    const scopeCtx1 = scopeCanvas1.getContext('2d');
+
+    function renderScope1() {
+      const w = scopeCanvas1.width = scopeCanvas1.clientWidth * window.devicePixelRatio;
+      const h = scopeCanvas1.height = scopeCanvas1.clientHeight * window.devicePixelRatio;
+      scopeCtx1.clearRect(0, 0, w, h);
+
+      // 背景网格
+      scopeCtx1.strokeStyle = 'rgba(192, 132, 252, 0.12)';
+      scopeCtx1.lineWidth = 1;
+      scopeCtx1.beginPath();
+      for (let x = 0; x < w; x += w / 8) {
+        scopeCtx1.moveTo(x, 0); scopeCtx1.lineTo(x, h);
+      }
+      for (let y = 0; y < h; y += h / 4) {
+        scopeCtx1.moveTo(0, y); scopeCtx1.lineTo(w, y);
+      }
+      scopeCtx1.stroke();
+
+      const cx = w * 0.5;
+      const cy = h * 0.5;
+
+      const ptsLPB = [];
+      const ptsUPB = [];
+      const steps = 100;
+      const kRange = 2.0; // μm⁻¹
+
+      const gEff = (STATE.g0 / 1000.0) * 1.5; // eV
+      const deltaE = (STATE.detuning / 1000.0) * 1.5;
+
+      for (let i = 0; i < steps; i++) {
+        const k = -kRange + (i / (steps - 1)) * (2 * kRange);
+        const x = (i / (steps - 1)) * w;
+
+        // 光子模色散: E_cav = ħ² k² / 2 m_eff
+        const eCav = (k ** 2) * 0.08;
+        // 激子模色散 (平带): E_ex = deltaE
+        const eEx = deltaE;
+
+        // 二能级耦合本征值
+        const avg = (eCav + eEx) * 0.5;
+        const diff = (eCav - eEx) * 0.5;
+        const rabiDisc = Math.sqrt(diff ** 2 + gEff ** 2);
+
+        const eLPB = avg - rabiDisc;
+        const eUPB = avg + rabiDisc;
+
+        const yLPB = cy - eLPB * (h * 0.7);
+        const yUPB = cy - eUPB * (h * 0.7);
+
+        ptsLPB.push({ x, y: yLPB });
+        ptsUPB.push({ x, y: yUPB });
+      }
+
+      // 绘制上极化激元分支 UPB (紫)
+      scopeCtx1.beginPath();
+      scopeCtx1.moveTo(ptsUPB[0].x, ptsUPB[0].y);
+      for (let p of ptsUPB) scopeCtx1.lineTo(p.x, p.y);
+      scopeCtx1.strokeStyle = '#c084fc';
+      scopeCtx1.lineWidth = 2 * window.devicePixelRatio;
+      scopeCtx1.stroke();
+
+      // 绘制下极化激元分支 LPB (青)
+      scopeCtx1.beginPath();
+      scopeCtx1.moveTo(ptsLPB[0].x, ptsLPB[0].y);
+      for (let p of ptsLPB) scopeCtx1.lineTo(p.x, p.y);
+      scopeCtx1.strokeStyle = '#00f2fe';
+      scopeCtx1.lineWidth = 2.5 * window.devicePixelRatio;
+      scopeCtx1.stroke();
+
+      // 标注基态凝聚点 (k=0, 金色光点)
+      if (STATE.transistorOn) {
+        const k0Pt = ptsLPB[Math.floor(steps * 0.5)];
+        scopeCtx1.beginPath();
+        scopeCtx1.arc(k0Pt.x, k0Pt.y, 4.5 * window.devicePixelRatio, 0, Math.PI * 2);
+        scopeCtx1.fillStyle = '#fbbf24';
+        scopeCtx1.shadowColor = '#fbbf24';
+        scopeCtx1.shadowBlur = 8 * window.devicePixelRatio;
+        scopeCtx1.fill();
+        scopeCtx1.shadowBlur = 0;
+      }
+    }
+
+    // --- 示波器 2: 晶体管转移特性曲线 I_D vs V_G ---
+    const scopeCanvas2 = document.getElementById('scope2');
+    const scopeCtx2 = scopeCanvas2.getContext('2d');
+
+    function renderScope2() {
+      const w = scopeCanvas2.width = scopeCanvas2.clientWidth * window.devicePixelRatio;
+      const h = scopeCanvas2.height = scopeCanvas2.clientHeight * window.devicePixelRatio;
+      scopeCtx2.clearRect(0, 0, w, h);
+
+      // 背景网格
+      scopeCtx2.strokeStyle = 'rgba(192, 132, 252, 0.12)';
+      scopeCtx2.lineWidth = 1;
+      scopeCtx2.beginPath();
+      for (let x = 0; x < w; x += w / 8) {
+        scopeCtx2.moveTo(x, 0); scopeCtx2.lineTo(x, h);
+      }
+      for (let y = 0; y < h; y += h / 4) {
+        scopeCtx2.moveTo(0, y); scopeCtx2.lineTo(w, y);
+      }
+      scopeCtx2.stroke();
+
+      const ptsTransfer = [];
+      const steps = 100;
+      const vgMin = -1.5, vgMax = 1.5;
+
+      for (let i = 0; i < steps; i++) {
+        const vgScan = vgMin + (i / (steps - 1)) * (vgMax - vgMin);
+        const x = (i / (steps - 1)) * w;
+
+        // 晶体管对数传输特性 (钟形谐振导通窗口)
+        const detScan = vgScan * 18.0;
+        const resWindow = 1.0 / (1.0 + (detScan / (STATE.g0 * 0.8)) ** 4);
+        const logCurrent = Math.log10(Math.max(1e-4, resWindow * 10.0));
+
+        // 归一化映射纵轴 [-4, 1]
+        const yFrac = (logCurrent - (-4)) / (1.0 - (-4));
+        const y = h - 12 - yFrac * (h * 0.78);
+
+        ptsTransfer.push({ x, y });
+      }
+
+      // 绘制转移特性曲线 (紫金渐变)
+      scopeCtx2.beginPath();
+      scopeCtx2.moveTo(ptsTransfer[0].x, ptsTransfer[0].y);
+      for (let p of ptsTransfer) scopeCtx2.lineTo(p.x, p.y);
+      scopeCtx2.strokeStyle = '#c084fc';
+      scopeCtx2.lineWidth = 2.4 * window.devicePixelRatio;
+      scopeCtx2.stroke();
+
+      // 标注当前栅压工作点
+      const curX = ((STATE.vg - vgMin) / (vgMax - vgMin)) * w;
+      scopeCtx2.strokeStyle = 'rgba(0, 242, 254, 0.6)';
+      scopeCtx2.setLineDash([3, 3]);
+      scopeCtx2.beginPath();
+      scopeCtx2.moveTo(curX, 0); scopeCtx2.lineTo(curX, h);
+      scopeCtx2.stroke();
+      scopeCtx2.setLineDash([]);
+
+      // 工作点高亮圆环
+      const curLog = Math.log10(Math.max(1e-4, (STATE.currentID / 6.7) * 10.0));
+      const curYFrac = (curLog - (-4)) / (1.0 - (-4));
+      const curY = h - 12 - curYFrac * (h * 0.78);
+
+      scopeCtx2.beginPath();
+      scopeCtx2.arc(curX, curY, 4.5 * window.devicePixelRatio, 0, Math.PI * 2);
+      scopeCtx2.fillStyle = STATE.transistorOn ? '#fbbf24' : '#f43f5e';
+      scopeCtx2.shadowColor = STATE.transistorOn ? '#fbbf24' : '#f43f5e';
+      scopeCtx2.shadowBlur = 8 * window.devicePixelRatio;
+      scopeCtx2.fill();
+      scopeCtx2.shadowBlur = 0;
+    }
+
+    // --- 控件绑定与事件系统 ---
+    function bindControls() {
+      const inputs = [
+        { id: 'param-theta', valId: 'val-theta', key: 'theta', suffix: '°' },
+        { id: 'param-vg', valId: 'val-vg', key: 'vg', suffix: ' V' },
+        { id: 'param-g0', valId: 'val-g0', key: 'g0', suffix: ' meV' },
+        { id: 'param-pump', valId: 'val-pump', key: 'pump', suffix: ' mW' },
+        { id: 'param-qcav', valId: 'val-qcav', key: 'qcav', suffix: '' },
+        { id: 'param-knot', valId: 'val-knot', key: 'knot', suffix: '' }
+      ];
+
+      inputs.forEach(item => {
+        const el = document.getElementById(item.id);
+        const valEl = document.getElementById(item.valId);
+        el.addEventListener('input', (e) => {
+          const v = parseFloat(e.target.value);
+          STATE[item.key] = v;
+          valEl.textContent = v.toFixed(item.key === 'qcav' || item.key === 'knot' ? 0 : 2) + item.suffix;
+          clearPresetActive();
+          initAudio();
+        });
+      });
+
+      const presets = [
+        { btnId: 'btn-pre1', data: { theta: 1.80, vg: 0.15, g0: 16.0, pump: 45.0, qcav: 8500, knot: 1 } },
+        { btnId: 'btn-pre2', data: { theta: 1.80, vg: -0.85, g0: 16.0, pump: 45.0, qcav: 8500, knot: 1 } },
+        { btnId: 'btn-pre3', data: { theta: 1.10, vg: 0.05, g0: 25.0, pump: 75.0, qcav: 15000, knot: 1 } },
+        { btnId: 'btn-pre4', data: { theta: 2.20, vg: 0.10, g0: 20.0, pump: 55.0, qcav: 10000, knot: 2 } }
+      ];
+
+      presets.forEach(p => {
+        const btn = document.getElementById(p.btnId);
+        btn.addEventListener('click', () => {
+          clearPresetActive();
+          btn.classList.add('active');
+          Object.assign(STATE, p.data);
+          syncInputUI();
+          initAudio();
+        });
+      });
+
+      const audioBtn = document.getElementById('btn-audio');
+      audioBtn.addEventListener('click', () => {
+        STATE.audioEnabled = !STATE.audioEnabled;
+        if (STATE.audioEnabled) {
+          initAudio();
+          audioBtn.classList.remove('active');
+          audioBtn.querySelector('span').textContent = '微腔谐振声效: 开';
+        } else {
+          if (audioCtx) {
+            audioCtx.close();
+            audioCtx = null;
+          }
+          audioBtn.classList.add('active');
+          audioBtn.querySelector('span').textContent = '微腔谐振声效: 关';
+        }
+      });
+
+      document.getElementById('btn-reset-cam').addEventListener('click', () => {
+        STATE.camRotX = 0.50;
+        STATE.camRotY = -0.65;
+        STATE.camDist = 360;
+      });
+
+      canvas3d.addEventListener('mousedown', (e) => {
+        STATE.isDragging = true;
+        STATE.lastMouseX = e.clientX;
+        STATE.lastMouseY = e.clientY;
+        initAudio();
+      });
+
+      window.addEventListener('mousemove', (e) => {
+        if (!STATE.isDragging) return;
+        const dx = e.clientX - STATE.lastMouseX;
+        const dy = e.clientY - STATE.lastMouseY;
+        STATE.camRotY += dx * 0.008;
+        STATE.camRotX += dy * 0.008;
+        STATE.camRotX = Math.max(-1.4, Math.min(1.4, STATE.camRotX));
+        STATE.lastMouseX = e.clientX;
+        STATE.lastMouseY = e.clientY;
+      });
+
+      window.addEventListener('mouseup', () => {
+        STATE.isDragging = false;
+      });
+
+      canvas3d.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        STATE.camDist += e.deltaY * 0.25;
+        STATE.camDist = Math.max(160, Math.min(650, STATE.camDist));
+      }, { passive: false });
+    }
+
+    function clearPresetActive() {
+      document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+    }
+
+    function syncInputUI() {
+      document.getElementById('param-theta').value = STATE.theta;
+      document.getElementById('val-theta').textContent = STATE.theta.toFixed(2) + '°';
+
+      document.getElementById('param-vg').value = STATE.vg;
+      document.getElementById('val-vg').textContent = STATE.vg.toFixed(2) + ' V';
+
+      document.getElementById('param-g0').value = STATE.g0;
+      document.getElementById('val-g0').textContent = STATE.g0.toFixed(1) + ' meV';
+
+      document.getElementById('param-pump').value = STATE.pump;
+      document.getElementById('val-pump').textContent = STATE.pump.toFixed(1) + ' mW';
+
+      document.getElementById('param-qcav').value = STATE.qcav;
+      document.getElementById('val-qcav').textContent = STATE.qcav.toFixed(0);
+
+      document.getElementById('param-knot').value = STATE.knot;
+      document.getElementById('val-knot').textContent = STATE.knot.toFixed(0);
+    }
+
+    // --- 主动画渲染循环 ---
+    function loop() {
+      updatePhysics();
+      render3D();
+      renderScope1();
+      renderScope2();
+      requestAnimationFrame(loop);
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      bindControls();
+      syncInputUI();
+      loop();
+    });
+  </script>
+</body>
+</html>

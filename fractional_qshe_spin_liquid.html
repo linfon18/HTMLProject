@@ -1,0 +1,1020 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>分数量子自旋霍尔效应与拓扑自旋液体全息模拟 - Fractional QSHE & Spin Liquids</title>
+  <style>
+    :root {
+      --bg-dark: #020617;
+      --panel-bg: rgba(10, 16, 32, 0.88);
+      --panel-border: rgba(147, 51, 234, 0.28);
+      --accent-spin-up: #ef4444;
+      --accent-spin-down: #3b82f6;
+      --accent-fractional: #a855f7;
+      --accent-spinon: #ec4899;
+      --accent-emerald: #10b981;
+      --text-main: #f8fafc;
+      --text-dim: #94a3b8;
+      --font-code: 'JetBrains Mono', 'Fira Code', monospace;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      background: rgba(8, 14, 28, 0.96);
+      border-bottom: 1px solid var(--panel-border);
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 10;
+      flex-shrink: 0;
+    }
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .logo-badge {
+      background: linear-gradient(135deg, #a855f7, #ec4899, #3b82f6);
+      color: #fff;
+      font-weight: 800;
+      font-size: 13px;
+      padding: 3px 9px;
+      border-radius: 6px;
+      letter-spacing: 0.5px;
+      box-shadow: 0 0 12px rgba(168, 85, 247, 0.4);
+    }
+    h1 {
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+      background: linear-gradient(to right, #ffffff, #e9d5ff, #fbcfe8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .status-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-family: var(--font-code);
+      background: rgba(168, 85, 247, 0.12);
+      border: 1px solid rgba(168, 85, 247, 0.3);
+      color: #c084fc;
+      padding: 4px 10px;
+      border-radius: 20px;
+    }
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #a855f7;
+      box-shadow: 0 0 8px #a855f7;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+    .btn {
+      background: rgba(168, 85, 247, 0.14);
+      border: 1px solid rgba(168, 85, 247, 0.4);
+      color: #f3e8ff;
+      padding: 5px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 500;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .btn:hover {
+      background: rgba(168, 85, 247, 0.28);
+      border-color: #c084fc;
+      color: #ffffff;
+    }
+    .btn.active {
+      background: #7e22ce;
+      border-color: #a855f7;
+      color: #ffffff;
+      box-shadow: 0 0 10px rgba(168, 85, 247, 0.5);
+    }
+    .main-container {
+      display: flex;
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+    #viewport-container {
+      flex: 1;
+      position: relative;
+      background: radial-gradient(circle at 50% 50%, #15092a 0%, #020617 90%);
+      overflow: hidden;
+    }
+    canvas#main-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    .hud-overlay {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      z-index: 5;
+    }
+    .hud-card {
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      backdrop-filter: blur(12px);
+      border-radius: 8px;
+      padding: 12px 16px;
+      pointer-events: auto;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+      min-width: 270px;
+    }
+    .hud-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-dim);
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .hud-stat-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .hud-stat-item {
+      display: flex;
+      flex-direction: column;
+    }
+    .hud-stat-label {
+      font-size: 10px;
+      color: var(--text-dim);
+      font-family: var(--font-code);
+    }
+    .hud-stat-val {
+      font-size: 14px;
+      font-weight: 700;
+      font-family: var(--font-code);
+      color: #ffffff;
+    }
+    .hud-stat-val.fractional { color: var(--accent-fractional); }
+    .hud-stat-val.spinon { color: var(--accent-spinon); }
+    .hud-stat-val.gap { color: #38bdf8; }
+    .hud-stat-val.charge { color: #facc15; }
+    .side-panel {
+      width: 440px;
+      background: var(--panel-bg);
+      border-left: 1px solid var(--panel-border);
+      backdrop-filter: blur(16px);
+      display: flex;
+      flex-direction: column;
+      z-index: 5;
+      overflow-y: auto;
+    }
+    .panel-section {
+      padding: 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .section-title {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: #e9d5ff;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .preset-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .control-group {
+      margin-bottom: 12px;
+    }
+    .control-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+      font-size: 12px;
+    }
+    .control-label {
+      color: #cbd5e1;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .control-val {
+      font-family: var(--font-code);
+      color: #c084fc;
+      font-weight: 600;
+    }
+    input[type=range] {
+      width: 100%;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 2px;
+      outline: none;
+      -webkit-appearance: none;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #a855f7;
+      cursor: pointer;
+      box-shadow: 0 0 8px rgba(168, 85, 247, 0.8);
+      border: 1px solid #f3e8ff;
+    }
+    .scope-box {
+      background: rgba(2, 6, 23, 0.7);
+      border: 1px solid rgba(168, 85, 247, 0.2);
+      border-radius: 6px;
+      padding: 10px;
+      margin-top: 6px;
+      position: relative;
+    }
+    .scope-box canvas {
+      width: 100%;
+      height: 135px;
+      display: block;
+    }
+    .scope-legend {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      color: var(--text-dim);
+      font-family: var(--font-code);
+      margin-top: 6px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .legend-color {
+      width: 8px;
+      height: 8px;
+      border-radius: 2px;
+    }
+    .info-callout {
+      background: rgba(168, 85, 247, 0.08);
+      border-left: 3px solid #a855f7;
+      padding: 8px 12px;
+      font-size: 11px;
+      line-height: 1.5;
+      color: #cbd5e1;
+      border-radius: 0 4px 4px 0;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="header-left">
+      <span class="logo-badge">FQSH</span>
+      <h1>分数量子自旋霍尔效应与拓扑自旋液体全息模拟</h1>
+    </div>
+    <div class="header-right">
+      <div class="status-pill" id="fqsh-pill">
+        <span class="status-dot"></span>
+        <span id="fqsh-text">分数量子自旋霍尔态 (σ_s = 2/3)</span>
+      </div>
+      <button class="btn" id="btn-audio">
+        <span id="audio-icon">🔊</span> 自旋液体拍频
+      </button>
+      <button class="btn" id="btn-reset">重置视角</button>
+    </div>
+  </header>
+
+  <div class="main-container">
+    <div id="viewport-container">
+      <canvas id="main-canvas"></canvas>
+
+      <div class="hud-overlay">
+        <div class="hud-card">
+          <div class="hud-title">
+            <span>时间反演双重 Laughlin 遥测</span>
+            <span style="color:#a855f7; font-family:var(--font-code)">T² = -1 (Spin Liquid)</span>
+          </div>
+          <div class="hud-stat-grid">
+            <div class="hud-stat-item">
+              <span class="hud-stat-label">自旋霍尔电导 σ_xy^s</span>
+              <span class="hud-stat-val fractional" id="val-sigmas">2/3 (e/2π)</span>
+            </div>
+            <div class="hud-stat-item">
+              <span class="hud-stat-label">准自旋激元电荷 e*</span>
+              <span class="hud-stat-val charge" id="val-qeff">e / 3</span>
+            </div>
+            <div class="hud-stat-item">
+              <span class="hud-stat-label">不可压缩多体能隙 Δ_mb</span>
+              <span class="hud-stat-val gap" id="val-gapmb">18.6 meV</span>
+            </div>
+            <div class="hud-stat-item">
+              <span class="hud-stat-label">分数自旋量子数 S_z*</span>
+              <span class="hud-stat-val spinon" id="val-spinon">ℏ / 6</span>
+            </div>
+            <div class="hud-stat-item">
+              <span class="hud-stat-label">编织统计相位 θ</span>
+              <span class="hud-stat-val" style="color:#10b981" id="val-phase">π / 3 (任意子)</span>
+            </div>
+            <div class="hud-stat-item">
+              <span class="hud-stat-label">体态压缩系数 κ_T</span>
+              <span class="hud-stat-val" style="color:#94a3b8" id="val-compress">0.00 (不可压缩)</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="hud-card" style="min-width: 220px;">
+          <div class="hud-title">拓扑液体机制</div>
+          <div style="font-size:11px; color:#cbd5e1; line-height: 1.4;">
+            <div>• 双重时间反演对称: ν_↑ = 1/3, ν_↓ = -1/3</div>
+            <div>• 净电荷霍尔效应 σ_xy = 0 (时间反演守恒)</div>
+            <div>• 边缘螺旋自旋流 (Helical Luttinger Liquid)</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-panel">
+      <!-- 经典预设 -->
+      <div class="panel-section">
+        <div class="section-title">经典前沿工况 (Presets)</div>
+        <div class="preset-grid">
+          <button class="btn active" id="preset-twothird">ν = 2/3 分数态</button>
+          <button class="btn" id="preset-onethird">ν = 1/3 基础双重态</button>
+          <button class="btn" id="preset-spinliquid">量子自旋液体相</button>
+          <button class="btn" id="preset-compressible">费米液体压缩金属态</button>
+        </div>
+      </div>
+
+      <!-- 参数调节 -->
+      <div class="panel-section">
+        <div class="section-title">多体相互作用调控矩阵 (Controls)</div>
+        
+        <div class="control-group">
+          <div class="control-header">
+            <span class="control-label">莫尔填充因子 ν_total</span>
+            <span class="control-val" id="disp-nu">0.667 (2/3)</span>
+          </div>
+          <input type="range" id="param-nu" min="0.1" max="1.0" step="0.01" value="0.667">
+        </div>
+
+        <div class="control-group">
+          <div class="control-header">
+            <span class="control-label">库仑排斥强度 U / t_0</span>
+            <span class="control-val" id="disp-coulomb">4.50</span>
+          </div>
+          <input type="range" id="param-coulomb" min="1.0" max="8.0" step="0.1" value="4.5">
+        </div>
+
+        <div class="control-group">
+          <div class="control-header">
+            <span class="control-label">层间莫尔自旋轨道耦合 λ_SO</span>
+            <span class="control-val" id="disp-soc">45.0 meV</span>
+          </div>
+          <input type="range" id="param-soc" min="10.0" max="80.0" step="1.0" value="45.0">
+        </div>
+
+        <div class="control-group">
+          <div class="control-header">
+            <span class="control-label">时间反演扰动场 B_z</span>
+            <span class="control-val" id="disp-field">0.00 T (严密对称)</span>
+          </div>
+          <input type="range" id="param-field" min="0.0" max="2.0" step="0.02" value="0.0">
+        </div>
+      </div>
+
+      <!-- 示波器 1: 多体纠缠谱 Li-Haldane 阶梯 -->
+      <div class="panel-section">
+        <div class="section-title">
+          <span>示波器 I: 多体纠缠谱 (Li-Haldane Spectrum)</span>
+        </div>
+        <div class="scope-box">
+          <canvas id="scope-entangle"></canvas>
+          <div class="scope-legend">
+            <span class="legend-item"><span class="legend-color" style="background:#a855f7"></span> 纠缠能级 ξ_i</span>
+            <span class="legend-item"><span class="legend-color" style="background:#ec4899"></span> CFT 共形计数 1, 1, 2, 3</span>
+          </div>
+        </div>
+        <div class="info-callout">
+          不可压缩拓扑自旋液体中，纠缠能谱精确反映边界共形场论 (CFT) 的阶梯计数与时间反演克喇默斯简并。
+        </div>
+      </div>
+
+      <!-- 示波器 2: 分数量子自旋霍尔电导台阶 -->
+      <div class="panel-section">
+        <div class="section-title">
+          <span>示波器 II: 分数自旋霍尔台阶 σ_xy^s(ν)</span>
+        </div>
+        <div class="scope-box">
+          <canvas id="scope-plateau"></canvas>
+          <div class="scope-legend">
+            <span class="legend-item"><span class="legend-color" style="background:#a855f7"></span> 自旋霍尔电导 σ_xy^s</span>
+            <span class="legend-item"><span class="legend-color" style="background:#38bdf8"></span> 纵向磁阻 R_xx (→0)</span>
+          </div>
+        </div>
+        <div class="info-callout">
+          在分数填充 ν = 1/3, 2/3, 3/5 处形成不可压缩多体能隙，产生精准的分数量子自旋霍尔平台。
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- 系统物理状态 ---
+    const STATE = {
+      nu: 0.667,           // 填充因子
+      coulomb: 4.5,        // 库仑强度 U/t
+      soc: 45.0,           // 自旋轨道耦合 meV
+      bz: 0.0,             // 破缺时间反演的外磁场 T
+      audioEnabled: false,
+      panX: 0,
+      panY: 0,
+      zoom: 1.0,
+      isDragging: false,
+      lastMouseX: 0,
+      lastMouseY: 0
+    };
+
+    let physics = {
+      sigmaS: '2/3',       // 分数自旋霍尔电导
+      sigmaSVal: 0.667,    // 数值
+      qEff: 'e / 3',       // 准粒子电荷
+      gapMB: 18.6,         // 多体能隙 meV
+      spinonSz: 'ℏ / 6',   // 自旋量子数
+      isSpinLiquid: true,
+      incompressible: true
+    };
+
+    // --- Web Audio 声音合成 ---
+    let audioCtx = null;
+    let oscUp = null;
+    let oscDown = null;
+    let gainNode = null;
+
+    function initAudio() {
+      if (audioCtx) return;
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioContext();
+
+      oscUp = audioCtx.createOscillator();
+      oscDown = audioCtx.createOscillator();
+      oscUp.type = 'sine';
+      oscDown.type = 'triangle';
+
+      gainNode = audioCtx.createGain();
+      gainNode.gain.value = 0.05;
+
+      oscUp.connect(gainNode);
+      oscDown.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+
+      oscUp.start();
+      oscDown.start();
+    }
+
+    function updateAudio() {
+      if (!audioCtx || !STATE.audioEnabled) return;
+      // 频率映射：双重 Laughlin 态螺旋自旋声波
+      const baseFreq = 220 + physics.sigmaSVal * 160;
+      const diffFreq = STATE.bz * 90.0;
+
+      oscUp.frequency.setTargetAtTime(baseFreq + diffFreq, audioCtx.currentTime, 0.04);
+      oscDown.frequency.setTargetAtTime(Math.max(60, baseFreq - diffFreq), audioCtx.currentTime, 0.04);
+      gainNode.gain.setTargetAtTime(0.06, audioCtx.currentTime, 0.04);
+    }
+
+    // --- 核心理论物理计算 ---
+    function updatePhysics() {
+      const nu = STATE.nu;
+
+      // 1. 判断是否处于分数不可压缩平台
+      const isPlateau23 = Math.abs(nu - 0.667) < 0.06;
+      const isPlateau13 = Math.abs(nu - 0.333) < 0.05;
+      const isPlateau35 = Math.abs(nu - 0.600) < 0.04;
+
+      if (isPlateau23 && STATE.bz < 0.8) {
+        physics.sigmaS = '2/3';
+        physics.sigmaSVal = 0.667;
+        physics.qEff = 'e / 3';
+        physics.spinonSz = 'ℏ / 6';
+        physics.gapMB = (STATE.coulomb * 3.5) * (1.0 - STATE.bz * 0.4);
+        physics.incompressible = true;
+      } else if (isPlateau13 && STATE.bz < 0.8) {
+        physics.sigmaS = '1/3';
+        physics.sigmaSVal = 0.333;
+        physics.qEff = 'e / 3';
+        physics.spinonSz = 'ℏ / 6';
+        physics.gapMB = (STATE.coulomb * 2.8) * (1.0 - STATE.bz * 0.4);
+        physics.incompressible = true;
+      } else if (isPlateau35 && STATE.bz < 0.8) {
+        physics.sigmaS = '3/5';
+        physics.sigmaSVal = 0.600;
+        physics.qEff = 'e / 5';
+        physics.spinonSz = 'ℏ / 10';
+        physics.gapMB = (STATE.coulomb * 2.0) * (1.0 - STATE.bz * 0.4);
+        physics.incompressible = true;
+      } else {
+        physics.sigmaS = (nu * 0.9).toFixed(2);
+        physics.sigmaSVal = nu * 0.9;
+        physics.qEff = 'e (非分数)';
+        physics.spinonSz = 'ℏ / 2';
+        physics.gapMB = 0.0;
+        physics.incompressible = false;
+      }
+
+      // 更新 HUD
+      document.getElementById('val-sigmas').textContent = physics.sigmaS + ' (e/2π)';
+      document.getElementById('val-qeff').textContent = physics.qEff;
+      document.getElementById('val-gapmb').textContent = physics.gapMB.toFixed(1) + ' meV';
+      document.getElementById('val-spinon').textContent = physics.spinonSz;
+      document.getElementById('val-compress').textContent = physics.incompressible ? '0.00 (不可压缩)' : '可压缩金属性';
+
+      const pill = document.getElementById('fqsh-pill');
+      const pillText = document.getElementById('fqsh-text');
+      if (physics.incompressible) {
+        pill.style.background = 'rgba(168, 85, 247, 0.15)';
+        pill.style.borderColor = 'rgba(168, 85, 247, 0.4)';
+        pill.style.color = '#c084fc';
+        pillText.textContent = `分数量子自旋霍尔态 (σ_s = ${physics.sigmaS})`;
+      } else {
+        pill.style.background = 'rgba(148, 163, 184, 0.15)';
+        pill.style.borderColor = 'rgba(148, 163, 184, 0.4)';
+        pill.style.color = '#cbd5e1';
+        pillText.textContent = '可压缩自旋费米液体金属态';
+      }
+
+      updateAudio();
+    }
+
+    // --- 主视口全息交互渲染 (Spin-Liquid Bulk & Counter-Propagating Helical Spin Streams) ---
+    const mainCanvas = document.getElementById('main-canvas');
+    const ctx = mainCanvas.getContext('2d');
+
+    // 准粒子激元：自旋向上(红) 顺时针流动，自旋向下(蓝) 逆时针流动
+    const PARTICLES_UP = [];
+    const PARTICLES_DOWN = [];
+    for (let i = 0; i < 55; i++) {
+      PARTICLES_UP.push({
+        pos: Math.random(),
+        speed: 0.0025 + Math.random() * 0.0015,
+        size: 2.2 + Math.random() * 1.5
+      });
+      PARTICLES_DOWN.push({
+        pos: Math.random(),
+        speed: 0.0025 + Math.random() * 0.0015,
+        size: 2.2 + Math.random() * 1.5
+      });
+    }
+
+    // 体态不可压缩拓扑自旋液体量子网格
+    const LIQUID_NODES = [];
+    for (let i = 0; i < 60; i++) {
+      LIQUID_NODES.push({
+        x: (Math.random() - 0.5) * 440,
+        y: (Math.random() - 0.5) * 240,
+        spinAngle: Math.random() * Math.PI * 2,
+        spinSpeed: (Math.random() - 0.5) * 0.08
+      });
+    }
+
+    function resizeCanvas() {
+      const rect = mainCanvas.parentElement.getBoundingClientRect();
+      mainCanvas.width = rect.width * window.devicePixelRatio;
+      mainCanvas.height = rect.height * window.devicePixelRatio;
+      ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    let animTime = 0;
+
+    function drawMainViewport() {
+      const width = mainCanvas.width / window.devicePixelRatio;
+      const height = mainCanvas.height / window.devicePixelRatio;
+      ctx.clearRect(0, 0, width, height);
+
+      ctx.save();
+      ctx.translate(width / 2 + STATE.panX, height / 2 + STATE.panY);
+      ctx.scale(STATE.zoom, STATE.zoom);
+
+      const slabW = 480;
+      const slabH = 260;
+
+      // 1. 体态衬底与多体能隙不可压缩自旋液体云
+      ctx.fillStyle = 'rgba(15, 10, 32, 0.88)';
+      ctx.strokeStyle = 'rgba(168, 85, 247, 0.35)';
+      ctx.lineWidth = 1.5;
+      ctx.fillRect(-slabW/2, -slabH/2, slabW, slabH);
+      ctx.strokeRect(-slabW/2, -slabH/2, slabW, slabH);
+
+      // 体态共价键/自旋液体短程共振纠缠线 (RVB / Spinon Resonating Bonds)
+      ctx.strokeStyle = 'rgba(236, 72, 153, 0.22)';
+      ctx.lineWidth = 1.0;
+      for (let i = 0; i < LIQUID_NODES.length; i++) {
+        for (let j = i + 1; j < LIQUID_NODES.length; j++) {
+          const d = Math.hypot(LIQUID_NODES[i].x - LIQUID_NODES[j].x, LIQUID_NODES[i].y - LIQUID_NODES[j].y);
+          if (d < 65) {
+            ctx.beginPath();
+            ctx.moveTo(LIQUID_NODES[i].x, LIQUID_NODES[i].y);
+            ctx.lineTo(LIQUID_NODES[j].x, LIQUID_NODES[j].y);
+            ctx.stroke();
+          }
+        }
+      }
+
+      // 体态自旋自旋激元节点 (Spinon Nodes)
+      LIQUID_NODES.forEach(n => {
+        n.spinAngle += n.spinSpeed;
+        ctx.fillStyle = '#ec4899';
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, 2.4, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 自旋箭头
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+        ctx.lineWidth = 1.0;
+        ctx.beginPath();
+        ctx.moveTo(n.x, n.y);
+        ctx.lineTo(n.x + Math.cos(n.spinAngle) * 7, n.y + Math.sin(n.spinAngle) * 7);
+        ctx.stroke();
+      });
+
+      // 2. 边缘螺旋对流轨道 (Helical Edge Channels)
+      // 自旋向上 (Red, 顺时针)
+      ctx.fillStyle = '#ef4444';
+      ctx.shadowColor = '#ef4444';
+      ctx.shadowBlur = 6;
+      PARTICLES_UP.forEach(p => {
+        p.pos = (p.pos + p.speed) % 1.0;
+        let px = 0, py = 0;
+        if (p.pos < 0.3) {
+          px = -slabW/2 + (p.pos / 0.3) * slabW;
+          py = -slabH/2 - 6;
+        } else if (p.pos < 0.5) {
+          px = slabW/2 + 6;
+          py = -slabH/2 + ((p.pos - 0.3) / 0.2) * slabH;
+        } else if (p.pos < 0.8) {
+          px = slabW/2 - ((p.pos - 0.5) / 0.3) * slabW;
+          py = slabH/2 + 6;
+        } else {
+          px = -slabW/2 - 6;
+          py = slabH/2 - ((p.pos - 0.8) / 0.2) * slabH;
+        }
+
+        ctx.beginPath();
+        ctx.arc(px, py, p.size, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      // 自旋向下 (Blue, 逆时针反向流动)
+      ctx.fillStyle = '#3b82f6';
+      ctx.shadowColor = '#3b82f6';
+      PARTICLES_DOWN.forEach(p => {
+        p.pos = (p.pos - p.speed + 1.0) % 1.0;
+        let px = 0, py = 0;
+        if (p.pos < 0.3) {
+          px = -slabW/2 + (p.pos / 0.3) * slabW;
+          py = -slabH/2 + 6;
+        } else if (p.pos < 0.5) {
+          px = slabW/2 - 6;
+          py = -slabH/2 + ((p.pos - 0.3) / 0.2) * slabH;
+        } else if (p.pos < 0.8) {
+          px = slabW/2 - ((p.pos - 0.5) / 0.3) * slabW;
+          py = slabH/2 - 6;
+        } else {
+          px = -slabW/2 + 6;
+          py = slabH/2 - ((p.pos - 0.8) / 0.2) * slabH;
+        }
+
+        ctx.beginPath();
+        ctx.arc(px, py, p.size, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      ctx.shadowBlur = 0;
+
+      // 标注
+      ctx.font = '10px JetBrains Mono';
+      ctx.fillStyle = '#ef4444';
+      ctx.fillText('Spin-Up ν_↑=1/3 (顺时针)', -slabW/2 + 15, -slabH/2 - 16);
+      ctx.fillStyle = '#3b82f6';
+      ctx.fillText('Spin-Down ν_↓=-1/3 (逆时针)', slabW/2 - 180, slabH/2 + 22);
+
+      ctx.restore();
+    }
+
+    // --- 示波器 1: 多体纠缠谱 Li-Haldane 阶梯 ---
+    const scopeEntangle = document.getElementById('scope-entangle');
+    const ctxEntangle = scopeEntangle.getContext('2d');
+
+    function drawScopeEntangle() {
+      const w = scopeEntangle.width = scopeEntangle.parentElement.clientWidth;
+      const h = scopeEntangle.height = 135;
+      ctxEntangle.clearRect(0, 0, w, h);
+
+      const marginL = 35;
+      const marginB = 22;
+      const plotW = w - marginL - 15;
+      const plotH = h - marginB - 15;
+
+      ctxEntangle.strokeStyle = 'rgba(255,255,255,0.12)';
+      ctxEntangle.lineWidth = 1;
+      ctxEntangle.beginPath();
+      ctxEntangle.moveTo(marginL, h - marginB);
+      ctxEntangle.lineTo(w - 10, h - marginB);
+      ctxEntangle.moveTo(marginL, h - marginB);
+      ctxEntangle.lineTo(marginL, 10);
+      ctxEntangle.stroke();
+
+      ctxEntangle.fillStyle = 'rgba(255,255,255,0.4)';
+      ctxEntangle.font = '9px JetBrains Mono';
+      ctxEntangle.fillText('ΔL_z', w * 0.48, h - 6);
+      ctxEntangle.fillText('ξ_i (纠缠能)', 6, 18);
+
+      // CFT 纠缠谱特征能级阶梯: 0 (1态), 1 (1态), 2 (2态), 3 (3态), 4 (5态)
+      const cftLevels = [
+        { l: 0, deg: 1, baseXi: 1.2 },
+        { l: 1, deg: 1, baseXi: 2.1 },
+        { l: 2, deg: 2, baseXi: 3.4 },
+        { l: 3, deg: 3, baseXi: 4.8 },
+        { l: 4, deg: 5, baseXi: 6.2 }
+      ];
+
+      cftLevels.forEach(lvl => {
+        const px = marginL + ((lvl.l + 0.5) / 5) * plotW;
+        ctxEntangle.fillStyle = 'rgba(255,255,255,0.3)';
+        ctxEntangle.fillText(lvl.l, px - 3, h - 8);
+
+        // 绘制该角动量下的纠缠能级点
+        for (let d = 0; d < lvl.deg; d++) {
+          const xi = lvl.baseXi + d * 0.45 + (STATE.bz * 1.2 * (d - lvl.deg/2));
+          const py = (h - marginB) - (xi / 8.0) * plotH;
+
+          ctxEntangle.fillStyle = '#a855f7';
+          ctxEntangle.beginPath();
+          ctxEntangle.arc(px + (d - (lvl.deg - 1) / 2) * 8, py, 3.2, 0, Math.PI * 2);
+          ctxEntangle.fill();
+        }
+      });
+
+      ctxEntangle.fillStyle = '#ec4899';
+      ctxEntangle.fillText('CFT 计数: 1, 1, 2, 3, 5', marginL + 10, 24);
+    }
+
+    // --- 示波器 2: 分数量子自旋霍尔台阶 ---
+    const scopePlateau = document.getElementById('scope-plateau');
+    const ctxPlateau = scopePlateau.getContext('2d');
+
+    function drawScopePlateau() {
+      const w = scopePlateau.width = scopePlateau.parentElement.clientWidth;
+      const h = scopePlateau.height = 135;
+      ctxPlateau.clearRect(0, 0, w, h);
+
+      const marginL = 30;
+      const marginB = 20;
+      const plotW = w - marginL - 15;
+      const plotH = h - marginB - 15;
+
+      ctxPlateau.strokeStyle = 'rgba(255,255,255,0.12)';
+      ctxPlateau.lineWidth = 1;
+      ctxPlateau.beginPath();
+      ctxPlateau.moveTo(marginL, h - marginB);
+      ctxPlateau.lineTo(w - 10, h - marginB);
+      ctxPlateau.moveTo(marginL, h - marginB);
+      ctxPlateau.lineTo(marginL, 10);
+      ctxPlateau.stroke();
+
+      ctxPlateau.fillStyle = 'rgba(255,255,255,0.4)';
+      ctxPlateau.font = '9px JetBrains Mono';
+      ctxPlateau.fillText('0', marginL - 2, h - 6);
+      ctxPlateau.fillText('填充数 ν', w * 0.46, h - 6);
+      ctxPlateau.fillText('1.0', w - 24, h - 6);
+      ctxPlateau.fillText('σ_xy^s', 6, 18);
+
+      // 绘制带平台的分数霍尔电导曲线
+      ctxPlateau.strokeStyle = '#a855f7';
+      ctxPlateau.lineWidth = 2.2;
+      ctxPlateau.beginPath();
+
+      for (let px = 0; px <= plotW; px++) {
+        const curNu = (px / plotW);
+        let sVal = curNu;
+        // 在 1/3, 3/5, 2/3 附近出现平坦台阶
+        if (Math.abs(curNu - 0.333) < 0.05) sVal = 0.333;
+        else if (Math.abs(curNu - 0.600) < 0.04) sVal = 0.600;
+        else if (Math.abs(curNu - 0.667) < 0.06) sVal = 0.667;
+
+        const py = (h - marginB) - (sVal / 1.0) * plotH;
+        if (px === 0) ctxPlateau.moveTo(marginL + px, py);
+        else ctxPlateau.lineTo(marginL + px, py);
+      }
+      ctxPlateau.stroke();
+
+      // 当前工作点指示线
+      const curX = marginL + STATE.nu * plotW;
+      ctxPlateau.strokeStyle = '#ec4899';
+      ctxPlateau.lineWidth = 1.5;
+      ctxPlateau.setLineDash([3, 3]);
+      ctxPlateau.beginPath();
+      ctxPlateau.moveTo(curX, 10);
+      ctxPlateau.lineTo(curX, h - marginB);
+      ctxPlateau.stroke();
+      ctxPlateau.setLineDash([]);
+    }
+
+    // --- 动画循环 ---
+    function animate() {
+      animTime += 0.02;
+      drawMainViewport();
+      drawScopeEntangle();
+      drawScopePlateau();
+      requestAnimationFrame(animate);
+    }
+
+    // --- 控件绑定与事件响应 ---
+    function bindInputs() {
+      const pNu = document.getElementById('param-nu');
+      const pCoulomb = document.getElementById('param-coulomb');
+      const pSOC = document.getElementById('param-soc');
+      const pField = document.getElementById('param-field');
+
+      const dNu = document.getElementById('disp-nu');
+      const dCoulomb = document.getElementById('disp-coulomb');
+      const dSOC = document.getElementById('disp-soc');
+      const dField = document.getElementById('disp-field');
+
+      pNu.addEventListener('input', e => {
+        STATE.nu = parseFloat(e.target.value);
+        dNu.textContent = STATE.nu.toFixed(3);
+        updatePhysics();
+      });
+
+      pCoulomb.addEventListener('input', e => {
+        STATE.coulomb = parseFloat(e.target.value);
+        dCoulomb.textContent = STATE.coulomb.toFixed(2);
+        updatePhysics();
+      });
+
+      pSOC.addEventListener('input', e => {
+        STATE.soc = parseFloat(e.target.value);
+        dSOC.textContent = STATE.soc.toFixed(1) + ' meV';
+        updatePhysics();
+      });
+
+      pField.addEventListener('input', e => {
+        STATE.bz = parseFloat(e.target.value);
+        dField.textContent = STATE.bz.toFixed(2) + ' T';
+        updatePhysics();
+      });
+
+      // 预设模式
+      const presets = [
+        document.getElementById('preset-twothird'),
+        document.getElementById('preset-onethird'),
+        document.getElementById('preset-spinliquid'),
+        document.getElementById('preset-compressible')
+      ];
+
+      function clearActive() {
+        presets.forEach(p => p.classList.remove('active'));
+      }
+
+      document.getElementById('preset-twothird').addEventListener('click', () => {
+        clearActive();
+        document.getElementById('preset-twothird').classList.add('active');
+        STATE.nu = 0.667;
+        STATE.coulomb = 4.5;
+        STATE.bz = 0.0;
+        syncControls();
+      });
+
+      document.getElementById('preset-onethird').addEventListener('click', () => {
+        clearActive();
+        document.getElementById('preset-onethird').classList.add('active');
+        STATE.nu = 0.333;
+        STATE.coulomb = 5.0;
+        STATE.bz = 0.0;
+        syncControls();
+      });
+
+      document.getElementById('preset-spinliquid').addEventListener('click', () => {
+        clearActive();
+        document.getElementById('preset-spinliquid').classList.add('active');
+        STATE.nu = 0.600;
+        STATE.coulomb = 6.8;
+        STATE.bz = 0.0;
+        syncControls();
+      });
+
+      document.getElementById('preset-compressible').addEventListener('click', () => {
+        clearActive();
+        document.getElementById('preset-compressible').classList.add('active');
+        STATE.nu = 0.480;
+        STATE.coulomb = 1.8;
+        STATE.bz = 1.2;
+        syncControls();
+      });
+
+      function syncControls() {
+        pNu.value = STATE.nu;
+        pCoulomb.value = STATE.coulomb;
+        pField.value = STATE.bz;
+
+        dNu.textContent = STATE.nu.toFixed(3);
+        dCoulomb.textContent = STATE.coulomb.toFixed(2);
+        dField.textContent = STATE.bz.toFixed(2) + ' T';
+        updatePhysics();
+      }
+
+      // 音频开关
+      const btnAudio = document.getElementById('btn-audio');
+      btnAudio.addEventListener('click', () => {
+        initAudio();
+        STATE.audioEnabled = !STATE.audioEnabled;
+        btnAudio.classList.toggle('active', STATE.audioEnabled);
+        document.getElementById('audio-icon').textContent = STATE.audioEnabled ? '🔊' : '🔇';
+        if (audioCtx && audioCtx.state === 'suspended') {
+          audioCtx.resume();
+        }
+        updateAudio();
+      });
+
+      // 重置视角
+      document.getElementById('btn-reset').addEventListener('click', () => {
+        STATE.panX = 0;
+        STATE.panY = 0;
+        STATE.zoom = 1.0;
+      });
+
+      // 拖拽与缩放交互
+      mainCanvas.addEventListener('mousedown', e => {
+        STATE.isDragging = true;
+        STATE.lastMouseX = e.clientX;
+        STATE.lastMouseY = e.clientY;
+      });
+
+      window.addEventListener('mousemove', e => {
+        if (!STATE.isDragging) return;
+        const dx = e.clientX - STATE.lastMouseX;
+        const dy = e.clientY - STATE.lastMouseY;
+        STATE.panX += dx;
+        STATE.panY += dy;
+        STATE.lastMouseX = e.clientX;
+        STATE.lastMouseY = e.clientY;
+      });
+
+      window.addEventListener('mouseup', () => {
+        STATE.isDragging = false;
+      });
+
+      mainCanvas.addEventListener('wheel', e => {
+        e.preventDefault();
+        const factor = e.deltaY < 0 ? 1.08 : 0.92;
+        STATE.zoom = Math.max(0.4, Math.min(3.0, STATE.zoom * factor));
+      }, { passive: false });
+    }
+
+    // 初始化启动
+    bindInputs();
+    updatePhysics();
+    animate();
+  </script>
+</body>
+</html>

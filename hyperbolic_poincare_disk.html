@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>非欧几何：庞加莱圆盘双曲密铺 - Hyperbolic Poincaré Disk</title>
+<style>
+  :root {
+    --bg-color: #030308;
+    --accent-emerald: #10b981;
+    --accent-cyan: #06b6d4;
+    --accent-indigo: #6366f1;
+    --glass-bg: rgba(10, 15, 28, 0.8);
+    --glass-border: rgba(16, 185, 129, 0.25);
+  }
+
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    user-select: none;
+  }
+
+  body {
+    background-color: var(--bg-color);
+    color: #f1f5f9;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    overflow: hidden;
+    width: 100vw;
+    height: 100vh;
+  }
+
+  #viewport {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    cursor: grab;
+  }
+
+  #viewport:active {
+    cursor: grabbing;
+  }
+
+  /* 顶部科幻标头 */
+  .header-card {
+    position: absolute;
+    top: 24px;
+    left: 28px;
+    z-index: 10;
+    pointer-events: none;
+  }
+
+  .header-card h1 {
+    font-size: 1.6rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+    background: linear-gradient(135deg, #10b981, #06b6d4, #6366f1);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-transform: uppercase;
+    text-shadow: 0 0 25px rgba(16, 185, 129, 0.35);
+  }
+
+  .header-card .sub {
+    font-size: 0.85rem;
+    color: #94a3b8;
+    margin-top: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .pulse-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #10b981;
+    box-shadow: 0 0 10px #10b981;
+    animation: hyperPulse 1.8s infinite ease-in-out;
+  }
+
+  @keyframes hyperPulse {
+    0%, 100% { opacity: 0.3; transform: scale(0.9); }
+    50% { opacity: 1; transform: scale(1.2); }
+  }
+
+  /* 右上角双曲几何遥测 */
+  .telemetry-card {
+    position: absolute;
+    top: 24px;
+    right: 28px;
+    z-index: 10;
+    background: var(--glass-bg);
+    backdrop-filter: blur(16px);
+    border: 1px solid var(--glass-border);
+    border-radius: 14px;
+    padding: 16px 20px;
+    min-width: 270px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+    font-family: 'Courier New', monospace;
+  }
+
+  .telemetry-title {
+    font-size: 0.75rem;
+    color: var(--accent-emerald);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    border-bottom: 1px solid rgba(16, 185, 129, 0.2);
+    padding-bottom: 5px;
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .tele-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.82rem;
+    margin-bottom: 5px;
+  }
+
+  .tele-row .lbl { color: #64748b; }
+  .tele-row .val { color: #f8fafc; font-weight: 600; }
+
+  /* 左侧密铺预设 */
+  .presets-bar {
+    position: absolute;
+    top: 90px;
+    left: 28px;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .preset-btn {
+    background: rgba(10, 15, 28, 0.65);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #cbd5e1;
+    padding: 7px 14px;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: left;
+    min-width: 170px;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .preset-btn:hover, .preset-btn.active {
+    background: rgba(16, 185, 129, 0.25);
+    border-color: var(--accent-emerald);
+    color: #fff;
+    transform: translateX(4px);
+  }
+
+  /* 悬浮控制台 */
+  .dock {
+    position: absolute;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border);
+    border-radius: 18px;
+    padding: 14px 22px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    max-width: 94vw;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .ctrl-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .ctrl-item label {
+    font-size: 0.7rem;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .ctrl-item label span {
+    color: var(--accent-emerald);
+    font-family: monospace;
+  }
+
+  .ctrl-item input[type="range"] {
+    -webkit-appearance: none;
+    width: 110px;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 2px;
+    outline: none;
+  }
+
+  .ctrl-item input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--accent-emerald);
+    cursor: pointer;
+    box-shadow: 0 0 10px var(--accent-emerald);
+    transition: transform 0.1s;
+  }
+
+  .ctrl-item input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.3);
+  }
+
+  .btn {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: #fff;
+    padding: 8px 14px;
+    border-radius: 10px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .btn:hover {
+    background: rgba(16, 185, 129, 0.2);
+    border-color: var(--accent-emerald);
+    box-shadow: 0 0 15px rgba(16, 185, 129, 0.3);
+    transform: translateY(-2px);
+  }
+
+  .btn.active {
+    background: var(--accent-emerald);
+    color: #030308;
+    border-color: var(--accent-emerald);
+    box-shadow: 0 0 15px var(--accent-emerald);
+  }
+
+  .hint-tip {
+    position: absolute;
+    bottom: 24px;
+    left: 28px;
+    z-index: 10;
+    pointer-events: none;
+    font-size: 0.75rem;
+    color: #64748b;
+    line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+
+<canvas id="viewport"></canvas>
+
+<div class="header-card">
+  <h1>HYPERBOLIC POINCARÉ DISK</h1>
+  <div class="sub">
+    <div class="pulse-dot"></div>
+    <span>罗巴切夫斯基非欧几何 · 默比乌斯等距同构变换 · 正规双曲密铺</span>
+  </div>
+</div>
+
+<div class="presets-bar" id="presets-list">
+  <!-- 预设施莱夫利符号密铺列表 -->
+</div>
+
+<div class="telemetry-card">
+  <div class="telemetry-title">
+    <span>双曲空间测地遥测 (METRIC)</span>
+    <span id="fps-val">60 FPS</span>
+  </div>
+  <div class="tele-row">
+    <span class="lbl">施莱夫利符号 {p, q}:</span>
+    <span class="val" id="tele-pq">{7, 3} 正七边形</span>
+  </div>
+  <div class="tele-row">
+    <span class="lbl">顶点曲率亏格:</span>
+    <span class="val" id="tele-deficit">-0.524 rad (双曲)</span>
+  </div>
+  <div class="tele-row">
+    <span class="lbl">内角和 (2π/q):</span>
+    <span class="val" id="tele-angle">120.0°</span>
+  </div>
+  <div class="tele-row">
+    <span class="lbl">渲染多边形数:</span>
+    <span class="val" id="tele-polys">480 个胞腔</span>
+  </div>
+  <div class="tele-row">
+    <span class="lbl">双曲中心位移 d_H:</span>
+    <span class="val" id="tele-dist">0.000</span>
+  </div>
+</div>
+
+<div class="hint-tip">
+  🖱️ 按住鼠标自由拖拽: 触发全向默比乌斯双曲流形平移<br>
+  ⚙️ 滚轮缩放: 调节双曲透镜观察视野<br>
+  🎨 切换预设: 体验爱舍尔经典《圆极限》等正规双曲镶嵌
+</div>
+
+<div class="dock">
+  <div class="ctrl-item">
+    <label>递归深度 Depth <span id="val-depth">4</span></label>
+    <input type="range" id="param-depth" min="2" max="6" step="1" value="4">
+  </div>
+  <div class="ctrl-item">
+    <label>双曲流速 Flow <span id="val-flow">0.0</span></label>
+    <input type="range" id="param-flow" min="0" max="1.5" step="0.1" value="0.0">
+  </div>
+
+  <button class="btn" id="btn-dual">🔷 对偶格点: 关</button>
+  <button class="btn" id="btn-fill">🎨 胞腔填充: 开</button>
+  <button class="btn" id="btn-style">🌈 配色: 极光翡翠</button>
+  <button class="btn" id="btn-reset">🎯 居中复位</button>
+</div>
+
+<script>
+/**
+ * 庞加莱圆盘双曲几何渲染引擎
+ * 核心数学：
+ * 1. 复数默比乌斯变换 (Möbius Transformation)：
+ *    f(z) = (z - a) / (1 - conj(a) * z) 实现双曲平移
+ * 2. 双曲正 p 边形，每个顶点由 q 个多边形相交：
+ *    满足 (p-2)*(q-2) > 4，则对应高斯曲率 K = -1 的双曲平面
+ * 3. 庞加莱测地线：
+ *    过两点 z1, z2 且正交于单位圆周 |z|=1 的圆弧
+ */
+
+const canvas = document.getElementById('viewport');
+const ctx = canvas.getContext('2d');
+
+let width, height;
+let diskRadius = 0;
+let diskCenter = { x: 0, y: 0 };
+
+function resize() {
+  width = canvas.width = window.innerWidth;
+  height = canvas.height = window.innerHeight;
+  diskRadius = Math.min(width, height) * 0.44;
+  diskCenter = { x: width * 0.5, y: height * 0.5 };
+}
+window.addEventListener('resize', resize);
+resize();
+
+// 复数基本运算工具
+const C = {
+  add: (u, v) => ({ r: u.r + v.r, i: u.i + v.i }),
+  sub: (u, v) => ({ r: u.r - v.r, i: u.i - v.i }),
+  mul: (u, v) => ({ r: u.r * v.r - u.i * v.i, i: u.r * v.i + u.i * v.r }),
+  div: (u, v) => {
+    const d = v.r * v.r + v.i * v.i;
+    return { r: (u.r * v.r + u.i * v.i) / d, i: (u.i * v.r - u.r * v.i) / d };
+  },
+  conj: (u) => ({ r: u.r, i: -u.i }),
+  abs: (u) => Math.hypot(u.r, u.i),
+  absSq: (u) => u.r * u.r + u.i * u.i,
+  scale: (u, s) => ({ r: u.r * s, i: u.i * s })
+};
+
+// 经典施莱夫利符号双曲密铺 {p, q}
+const PRESETS = [
+  { name: '{7, 3} 正七边形', p: 7, q: 3, desc: '经典七边形三相交密铺' },
+  { name: '{5, 4} 正五边形', p: 5, q: 4, desc: '爱舍尔正五边形镶嵌' },
+  { name: '{3, 7} 正三角形', p: 3, q: 7, desc: '细密对偶高阶网格' },
+  { name: '{8, 3} 正八边形', p: 8, q: 3, desc: '八卦阵列双曲花环' },
+  { name: '{4, 5} 正方形密铺', p: 4, q: 5, desc: '每个顶点汇聚5个方格' },
+  { name: '{6, 4} 正六边形', p: 6, q: 4, desc: '蜂窝状双曲几何' }
+];
+
+let currentPreset = PRESETS[0];
+
+// 状态
+const state = {
+  p: 7,
+  q: 3,
+  depth: 4,
+  centerOffset: { r: 0, i: 0 }, // 默比乌斯位移 a
+  isDragging: false,
+  dragStart: { x: 0, y: 0 },
+  startOffset: { r: 0, i: 0 },
+  showDual: false,
+  showFill: true,
+  autoFlow: 0.0,
+  flowAngle: 0,
+  colorScheme: 'emerald' // 'emerald', 'cyber', 'prism', 'woodcut'
+};
+
+// 初始化预设 UI
+const presetsListElem = document.getElementById('presets-list');
+PRESETS.forEach((item, idx) => {
+  const btn = document.createElement('div');
+  btn.className = 'preset-btn' + (idx === 0 ? ' active' : '');
+  btn.innerHTML = `<span>${item.name}</span>`;
+  btn.onclick = () => {
+    document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentPreset = item;
+    state.p = item.p;
+    state.q = item.q;
+    updateTelemetry();
+  };
+  presetsListElem.appendChild(btn);
+});
+
+// 计算正 {p, q} 双曲多边形外接圆半径 r0
+function getFundamentalRadius(p, q) {
+  // 根据双曲三角学余弦定理：
+  // cosh(r0) = cos(pi / q) / sin(pi / p)
+  const cosQ = Math.cos(Math.PI / q);
+  const sinP = Math.sin(Math.PI / p);
+  const coshR = cosQ / sinP;
+  if (coshR <= 1.0) return 0.5; // 非双曲退化保护
+
+  // 双曲距离转庞加莱欧氏半径：r_euclid = tanh(r_hyper / 2) = sqrt((cosh - 1)/(cosh + 1))
+  return Math.sqrt((coshR - 1) / (coshR + 1));
+}
+
+// 庞加莱圆盘默比乌斯平移变换：f_a(z) = (z - a) / (1 - conj(a) * z)
+function mobiusTransform(z, a) {
+  const num = C.sub(z, a);
+  const den = C.sub({ r: 1, i: 0 }, C.mul(C.conj(a), z));
+  return C.div(num, den);
+}
+
+// 逆变换
+function mobiusInverse(w, a) {
+  const negA = { r: -a.r, i: -a.i };
+  return mobiusTransform(w, negA);
+}
+
+// 构建基础多边形顶点
+function getBasePolygon(p, q) {
+  const r0 = getFundamentalRadius(p, q);
+  const vertices = [];
+  for (let k = 0; k < p; k++) {
+    const theta = (2 * Math.PI * k) / p;
+    vertices.push({
+      r: r0 * Math.cos(theta),
+      i: r0 * Math.sin(theta)
+    });
+  }
+  return vertices;
+}
+
+// 递归生成密铺胞腔
+function generateTiling() {
+  const basePoly = getBasePolygon(state.p, state.q);
+  const polygons = [];
+
+  // BFS 或广度展开队列
+  // 每个单元包含顶点集合 verts, generation
+  const queue = [{ verts: basePoly, depth: 0 }];
+  polygons.push(basePoly);
+
+  // 反演变换函数：关于以圆心 c、半径 r 的圆作几何反演（双曲轴对称反射）
+  function circleInvert(z, c, r) {
+    const diff = C.sub(z, c);
+    const d2 = C.absSq(diff);
+    if (d2 < 0.00001) return z;
+    const factor = (r * r) / d2;
+    return C.add(c, C.scale(diff, factor));
+  }
+
+  // 展开直到达到设定深度
+  const visitedCentroids = [{ r: 0, i: 0 }];
+
+  while (queue.length > 0) {
+    const curr = queue.shift();
+    if (curr.depth >= state.depth) continue;
+
+    const p = state.p;
+    for (let edge = 0; edge < p; edge++) {
+      const v1 = curr.verts[edge];
+      const v2 = curr.verts[(edge + 1) % p];
+
+      // 求解过 v1, v2 并正交于 |z|=1 的测地线圆心与半径
+      const geom = getGeodesicCircle(v1, v2);
+      if (!geom) continue;
+
+      // 对 curr.verts 中的所有顶点作此测地圆的反演
+      const newVerts = curr.verts.map(v => circleInvert(v, geom.center, geom.radius));
+
+      // 计算重心检查重复与退化
+      let cr = 0, ci = 0;
+      for (let k = 0; k < p; k++) {
+        cr += newVerts[k].r;
+        ci += newVerts[k].i;
+      }
+      cr /= p; ci /= p;
+      const centroid = { r: cr, i: ci };
+
+      if (C.abs(centroid) >= 0.985) continue; // 边界无限密集处剪枝
+
+      let duplicate = false;
+      for (let i = 0; i < visitedCentroids.length; i++) {
+        if (Math.hypot(visitedCentroids[i].r - cr, visitedCentroids[i].i - ci) < 0.02) {
+          duplicate = true;
+          break;
+        }
+      }
+
+      if (!duplicate) {
+        visitedCentroids.push(centroid);
+        polygons.push(newVerts);
+        queue.push({ verts: newVerts, depth: curr.depth + 1 });
+      }
+    }
+  }
+
+  return polygons;
+}
+
+// 求解两点间正交于单位圆周的测地线圆 (Geodesic Circle)
+function getGeodesicCircle(p1, p2) {
+  // 两点关于单位圆的反演点 p1_inv = p1 / |p1|^2
+  const d1 = C.absSq(p1);
+  if (d1 < 0.000001) {
+    // 直径直线退化
+    return null;
+  }
+  const p1_inv = C.scale(p1, 1 / d1);
+
+  // 找过 p1, p2, p1_inv 的外接圆
+  // 三点确定一个圆
+  const ax = p1.r, ay = p1.i;
+  const bx = p2.r, by = p2.i;
+  const cx = p1_inv.r, cy = p1_inv.i;
+
+  const D = 2 * (ax * (by - cy) + bx * (cy - ay) + cx * (ay - by));
+  if (Math.abs(D) < 0.000001) return null; // 共线退化
+
+  const ux = ((ax*ax + ay*ay)*(by - cy) + (bx*bx + by*by)*(cy - ay) + (cx*cx + cy*cy)*(ay - by)) / D;
+  const uy = ((ax*ax + ay*ay)*(cx - bx) + (bx*bx + by*by)*(ax - cx) + (cx*cx + cy*cy)*(bx - ax)) / D;
+
+  const center = { r: ux, i: uy };
+  const radius = Math.hypot(ax - ux, ay - uy);
+
+  return { center, radius };
+}
+
+// 绘制庞加莱测地线圆弧
+function drawGeodesicArc(p1, p2) {
+  const geom = getGeodesicCircle(p1, p2);
+
+  if (!geom) {
+    // 直线测地线（过原点）
+    const s1 = toScreen(p1);
+    const s2 = toScreen(p2);
+    ctx.lineTo(s2.x, s2.y);
+    return;
+  }
+
+  // 绘制测地圆弧
+  const centerScreen = toScreen(geom.center);
+  const rScreen = geom.radius * diskRadius;
+
+  const ang1 = Math.atan2(p1.i - geom.center.i, p1.r - geom.center.r);
+  const ang2 = Math.atan2(p2.i - geom.center.i, p2.r - geom.center.r);
+
+  // 确定最短顺逆圆弧方向
+  let dAng = ang2 - ang1;
+  while (dAng > Math.PI) dAng -= 2 * Math.PI;
+  while (dAng < -Math.PI) dAng += 2 * Math.PI;
+
+  ctx.arc(centerScreen.x, centerScreen.y, rScreen, ang1, ang1 + dAng, dAng < 0);
+}
+
+// 归一化双曲坐标转屏幕物理像素坐标
+function toScreen(z) {
+  return {
+    x: diskCenter.x + z.r * diskRadius,
+    y: diskCenter.y + z.i * diskRadius
+  };
+}
+
+// 屏幕坐标反查复数
+function toComplex(sx, sy) {
+  return {
+    r: (sx - diskCenter.x) / diskRadius,
+    i: (sy - diskCenter.y) / diskRadius
+  };
+}
+
+// 更新遥测信息
+function updateTelemetry() {
+  document.getElementById('tele-pq').textContent = currentPreset.name;
+
+  // 顶点亏格 = 2pi - q * (内角) = 2pi * (1 - (p-2)*q / (2p))
+  const interior = (2 * Math.PI) / state.q;
+  const deficit = 2 * Math.PI - state.p * ((state.q - 2) * Math.PI / state.q);
+  document.getElementById('tele-angle').textContent = (interior * 180 / Math.PI).toFixed(1) + '°';
+
+  // 双曲距离 d_H = 2 * atanh(|a|)
+  const rOffset = C.abs(state.centerOffset);
+  const dH = 2 * Math.atanh(Math.min(0.999, rOffset));
+  document.getElementById('tele-dist').textContent = dH.toFixed(3);
+}
+
+// 渲染主函数
+let lastTime = performance.now();
+let frames = 0;
+let lastFpsTime = performance.now();
+
+function render() {
+  ctx.fillStyle = '#030308';
+  ctx.fillRect(0, 0, width, height);
+
+  // 自动双曲流形平移演变
+  if (state.autoFlow > 0.01) {
+    state.flowAngle += 0.008;
+    const flowSpeed = state.autoFlow * 0.003;
+    const deltaFlow = {
+      r: Math.cos(state.flowAngle) * flowSpeed,
+      i: Math.sin(state.flowAngle) * flowSpeed
+    };
+    state.centerOffset = mobiusTransform(state.centerOffset, deltaFlow);
+    if (C.abs(state.centerOffset) > 0.95) {
+      state.centerOffset = C.scale(state.centerOffset, 0.92);
+    }
+  }
+
+  // 1. 绘制外部深空阴影与边界发光圆环 (|z| = 1)
+  drawBoundaryCircle();
+
+  // 2. 生成多边形并应用当前的平移变换
+  const polygons = generateTiling();
+  document.getElementById('tele-polys').textContent = polygons.length + ' 个胞腔';
+
+  // 3. 绘制所有多边形
+  drawTilingPolygons(polygons);
+
+  // 4. 对偶格点骨架
+  if (state.showDual) {
+    drawDualLattice(polygons);
+  }
+
+  // FPS
+  frames++;
+  const now = performance.now();
+  if (now - lastFpsTime >= 1000) {
+    document.getElementById('fps-val').textContent = frames + ' FPS';
+    frames = 0;
+    lastFpsTime = now;
+  }
+}
+
+// 绘制庞加莱边界圆环
+function drawBoundaryCircle() {
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(diskCenter.x, diskCenter.y, diskRadius, 0, Math.PI * 2);
+
+  // 内部深邃星空底色
+  const grad = ctx.createRadialGradient(
+    diskCenter.x, diskCenter.y, diskRadius * 0.2,
+    diskCenter.x, diskCenter.y, diskRadius
+  );
+  grad.addColorStop(0, '#0a1020');
+  grad.addColorStop(0.8, '#050712');
+  grad.addColorStop(1, '#020206');
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // 边界环发光
+  ctx.strokeStyle = '#10b981';
+  ctx.lineWidth = 2.5;
+  ctx.shadowColor = '#10b981';
+  ctx.shadowBlur = 20;
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+// 绘制镶嵌几何单元
+function drawTilingPolygons(polygons) {
+  ctx.save();
+
+  // 裁切在庞加莱单位圆盘内部
+  ctx.beginPath();
+  ctx.arc(diskCenter.x, diskCenter.y, diskRadius - 0.5, 0, Math.PI * 2);
+  ctx.clip();
+
+  const a = state.centerOffset;
+
+  for (let i = 0; i < polygons.length; i++) {
+    const rawPoly = polygons[i];
+    // 应用当前平移
+    const poly = rawPoly.map(v => mobiusTransform(v, a));
+
+    // 计算胞腔距离圆心深度以计算色阶
+    let cr = 0, ci = 0;
+    for (let k = 0; k < poly.length; k++) { cr += poly[k].r; ci += poly[k].i; }
+    cr /= poly.length; ci /= poly.length;
+    const distCenter = Math.hypot(cr, ci);
+
+    ctx.beginPath();
+    const startPt = toScreen(poly[0]);
+    ctx.moveTo(startPt.x, startPt.y);
+
+    for (let k = 0; k < poly.length; k++) {
+      const p1 = poly[k];
+      const p2 = poly[(k + 1) % poly.length];
+      drawGeodesicArc(p1, p2);
+    }
+    ctx.closePath();
+
+    // 填充样式
+    if (state.showFill) {
+      let fillCol = 'transparent';
+      if (state.colorScheme === 'emerald') {
+        const hue = 155 + (distCenter * 90);
+        fillCol = `hsla(${hue}, 80%, 45%, ${0.28 - distCenter * 0.15})`;
+      } else if (state.colorScheme === 'cyber') {
+        fillCol = (i % 2 === 0) ? 'rgba(6, 182, 212, 0.18)' : 'rgba(244, 63, 94, 0.18)';
+      } else if (state.colorScheme === 'prism') {
+        fillCol = `hsla(${(i * 35) % 360}, 85%, 55%, 0.22)`;
+      } else if (state.colorScheme === 'woodcut') {
+        fillCol = (i % 2 === 0) ? 'rgba(255, 255, 255, 0.85)' : 'rgba(15, 20, 30, 0.9)';
+      }
+      ctx.fillStyle = fillCol;
+      ctx.fill();
+    }
+
+    // 测地线边界线
+    let strokeCol = 'rgba(16, 185, 129, 0.6)';
+    if (state.colorScheme === 'cyber') strokeCol = 'rgba(6, 182, 212, 0.7)';
+    else if (state.colorScheme === 'woodcut') strokeCol = '#000000';
+
+    ctx.strokeStyle = strokeCol;
+    ctx.lineWidth = Math.max(0.6, (1.8 - distCenter * 1.4));
+    ctx.stroke();
+  }
+
+  ctx.restore();
+}
+
+// 绘制对偶图
+function drawDualLattice(polygons) {
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(diskCenter.x, diskCenter.y, diskRadius - 1, 0, Math.PI * 2);
+  ctx.clip();
+
+  ctx.fillStyle = '#f43f5e';
+  const a = state.centerOffset;
+
+  for (let i = 0; i < polygons.length; i++) {
+    const poly = polygons[i].map(v => mobiusTransform(v, a));
+    let cr = 0, ci = 0;
+    for (let k = 0; k < poly.length; k++) { cr += poly[k].r; ci += poly[k].i; }
+    cr /= poly.length; ci /= poly.length;
+
+    const sp = toScreen({ r: cr, i: ci });
+    ctx.beginPath();
+    ctx.arc(sp.x, sp.y, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+// 鼠标交互：按住拖拽在双曲平面上作默比乌斯平移漫游
+canvas.addEventListener('mousedown', (e) => {
+  state.isDragging = true;
+  state.dragStart = { x: e.clientX, y: e.clientY };
+  state.startOffset = { r: state.centerOffset.r, i: state.centerOffset.i };
+});
+
+window.addEventListener('mousemove', (e) => {
+  if (!state.isDragging) return;
+  const dx = (e.clientX - state.dragStart.x) / diskRadius;
+  const dy = (e.clientY - state.dragStart.y) / diskRadius;
+
+  // 累加位移向量并通过反切双曲保护 |a| < 1
+  const moveVec = { r: -dx * 0.9, i: -dy * 0.9 };
+  state.centerOffset = mobiusTransform(state.startOffset, moveVec);
+
+  const len = C.abs(state.centerOffset);
+  if (len >= 0.99) {
+    state.centerOffset = C.scale(state.centerOffset, 0.98 / len);
+  }
+
+  updateTelemetry();
+});
+
+window.addEventListener('mouseup', () => {
+  state.isDragging = false;
+});
+
+// 触摸支持
+canvas.addEventListener('touchstart', (e) => {
+  if (e.touches.length === 1) {
+    state.isDragging = true;
+    state.dragStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    state.startOffset = { r: state.centerOffset.r, i: state.centerOffset.i };
+  }
+}, { passive: true });
+
+canvas.addEventListener('touchmove', (e) => {
+  if (state.isDragging && e.touches.length === 1) {
+    const dx = (e.touches[0].clientX - state.dragStart.x) / diskRadius;
+    const dy = (e.touches[0].clientY - state.dragStart.y) / diskRadius;
+    const moveVec = { r: -dx * 0.9, i: -dy * 0.9 };
+    state.centerOffset = mobiusTransform(state.startOffset, moveVec);
+    updateTelemetry();
+  }
+}, { passive: true });
+
+window.addEventListener('touchend', () => {
+  state.isDragging = false;
+});
+
+// UI 控制绑定
+document.getElementById('param-depth').addEventListener('input', (e) => {
+  state.depth = parseInt(e.target.value);
+  document.getElementById('val-depth').textContent = state.depth;
+});
+
+document.getElementById('param-flow').addEventListener('input', (e) => {
+  state.autoFlow = parseFloat(e.target.value);
+  document.getElementById('val-flow').textContent = state.autoFlow.toFixed(1);
+});
+
+const btnDual = document.getElementById('btn-dual');
+btnDual.addEventListener('click', () => {
+  state.showDual = !state.showDual;
+  btnDual.textContent = '🔷 对偶格点: ' + (state.showDual ? '开' : '关');
+  btnDual.classList.toggle('active', state.showDual);
+});
+
+const btnFill = document.getElementById('btn-fill');
+btnFill.addEventListener('click', () => {
+  state.showFill = !state.showFill;
+  btnFill.textContent = '🎨 胞腔填充: ' + (state.showFill ? '开' : '关');
+  btnFill.classList.toggle('active', state.showFill);
+});
+
+const btnStyle = document.getElementById('btn-style');
+const styles = [
+  { id: 'emerald', name: '极光翡翠' },
+  { id: 'cyber', name: '赛博双辉' },
+  { id: 'prism', name: '万花棱镜' },
+  { id: 'woodcut', name: '爱舍尔木刻' }
+];
+let styleIdx = 0;
+btnStyle.addEventListener('click', () => {
+  styleIdx = (styleIdx + 1) % styles.length;
+  state.colorScheme = styles[styleIdx].id;
+  btnStyle.textContent = '🌈 配色: ' + styles[styleIdx].name;
+});
+
+document.getElementById('btn-reset').addEventListener('click', () => {
+  state.centerOffset = { r: 0, i: 0 };
+  updateTelemetry();
+});
+
+// 动画主循环
+function loop(timestamp) {
+  render();
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+</script>
+</body>
+</html>

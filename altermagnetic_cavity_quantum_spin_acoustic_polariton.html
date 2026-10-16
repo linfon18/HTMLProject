@@ -1,0 +1,1483 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>交错磁体-声表面波腔量子自旋-声子极化激元与太赫兹手征二极管全息模拟器</title>
+  <style>
+    :root {
+      --bg-color: #060913;
+      --panel-bg: rgba(11, 19, 36, 0.85);
+      --panel-border: rgba(0, 240, 255, 0.25);
+      --accent-cyan: #00f0ff;
+      --accent-magenta: #ff007b;
+      --accent-violet: #8a2be2;
+      --accent-amber: #ffaa00;
+      --accent-emerald: #00ffaa;
+      --text-main: #e2e8f0;
+      --text-muted: #8899ac;
+      --font-code: "JetBrains Mono", Consolas, "Fira Code", monospace;
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      overflow-x: hidden;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* 顶部导航与学术标题 */
+    header {
+      background: linear-gradient(180deg, rgba(16, 26, 48, 0.95) 0%, rgba(6, 9, 19, 0.8) 100%);
+      border-bottom: 1px solid var(--panel-border);
+      padding: 12px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(12px);
+    }
+
+    .title-group h1 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      background: linear-gradient(90deg, #ffffff, var(--accent-cyan), #ec4899);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .title-group p {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 3px;
+      font-family: var(--font-code);
+    }
+
+    .badge {
+      display: inline-block;
+      font-size: 0.65rem;
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: 4px;
+      border: 1px solid var(--accent-cyan);
+      background: rgba(0, 240, 255, 0.12);
+      color: var(--accent-cyan);
+      text-transform: uppercase;
+    }
+
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .btn {
+      background: rgba(13, 21, 38, 0.9);
+      border: 1px solid var(--panel-border);
+      color: var(--text-main);
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .btn:hover {
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 12px rgba(0, 240, 255, 0.3);
+      color: #ffffff;
+      transform: translateY(-1px);
+    }
+
+    .btn:active {
+      transform: translateY(0);
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, rgba(0, 240, 255, 0.25), rgba(255, 0, 123, 0.3));
+      border-color: var(--accent-cyan);
+    }
+
+    /* 布局容器 */
+    .workspace {
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      gap: 16px;
+      padding: 16px 20px;
+      flex: 1;
+      height: calc(100vh - 68px);
+      overflow: hidden;
+    }
+
+    @media (max-width: 1180px) {
+      .workspace {
+        grid-template-columns: 1fr;
+        height: auto;
+        overflow-y: auto;
+      }
+    }
+
+    .viewport-column {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      height: 100%;
+      min-height: 0;
+    }
+
+    /* 主全息视口卡片 */
+    .viewport-card {
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: 10px;
+      position: relative;
+      flex: 1;
+      min-height: 440px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    }
+
+    .card-header {
+      padding: 8px 14px;
+      background: rgba(6, 9, 19, 0.6);
+      border-bottom: 1px solid rgba(0, 240, 255, 0.15);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.8rem;
+      font-family: var(--font-code);
+    }
+
+    .card-header span {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--accent-cyan);
+    }
+
+    .canvas-container {
+      position: relative;
+      flex: 1;
+      width: 100%;
+      height: 100%;
+    }
+
+    canvas#mainCanvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      background: #04070d;
+      cursor: crosshair;
+    }
+
+    .viewport-overlay-metrics {
+      position: absolute;
+      top: 12px;
+      left: 14px;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-family: var(--font-code);
+      font-size: 0.72rem;
+      background: rgba(5, 10, 20, 0.78);
+      padding: 10px 14px;
+      border-radius: 8px;
+      border: 1px solid rgba(0, 240, 255, 0.2);
+      backdrop-filter: blur(8px);
+    }
+
+    .metric-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .metric-val {
+      font-weight: 700;
+      color: var(--accent-cyan);
+    }
+
+    .metric-val.green { color: var(--accent-emerald); }
+    .metric-val.amber { color: var(--accent-amber); }
+    .metric-val.magenta { color: var(--accent-magenta); }
+
+    /* 底部双示波器分栏 */
+    .scopes-container {
+      height: 190px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    @media (max-width: 900px) {
+      .scopes-container {
+        grid-template-columns: 1fr;
+        height: 360px;
+      }
+    }
+
+    .scope-card {
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    .scope-card canvas {
+      flex: 1;
+      width: 100%;
+      height: 100%;
+      display: block;
+      background: #050812;
+    }
+
+    /* 侧边控制台 */
+    .sidebar {
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: 10px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      overflow-y: auto;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    }
+
+    .section-title {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--accent-cyan);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--font-code);
+    }
+
+    .presets-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .preset-btn {
+      padding: 8px 10px;
+      font-size: 0.72rem;
+      background: rgba(16, 26, 48, 0.7);
+      border: 1px solid rgba(0, 240, 255, 0.2);
+      border-radius: 6px;
+      color: var(--text-main);
+      cursor: pointer;
+      text-align: left;
+      transition: all 0.2s ease;
+      font-weight: 500;
+      line-height: 1.3;
+    }
+
+    .preset-btn:hover {
+      background: rgba(0, 240, 255, 0.15);
+      border-color: var(--accent-cyan);
+    }
+
+    .preset-btn.active {
+      background: linear-gradient(135deg, rgba(0, 240, 255, 0.2), rgba(255, 0, 123, 0.25));
+      border-color: var(--accent-cyan);
+      color: #ffffff;
+      box-shadow: 0 0 10px rgba(0, 240, 255, 0.25);
+    }
+
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .control-item {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .control-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.74rem;
+      color: var(--text-muted);
+    }
+
+    .control-header span:last-child {
+      font-family: var(--font-code);
+      color: var(--accent-cyan);
+      font-weight: 600;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.12);
+      border-radius: 2px;
+      outline: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--accent-cyan);
+      cursor: pointer;
+      box-shadow: 0 0 8px var(--accent-cyan);
+      transition: 0.15s;
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+      background: #ffffff;
+    }
+
+    .toggle-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      font-size: 0.75rem;
+      color: var(--text-main);
+    }
+
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 36px;
+      height: 20px;
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: rgba(255, 255, 255, 0.15);
+      transition: .3s;
+      border-radius: 20px;
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 14px;
+      width: 14px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .3s;
+      border-radius: 50%;
+    }
+
+    input:checked + .slider {
+      background-color: var(--accent-cyan);
+      box-shadow: 0 0 8px var(--accent-cyan);
+    }
+
+    input:checked + .slider:before {
+      transform: translateX(16px);
+      background-color: #060913;
+    }
+
+    .theory-box {
+      background: rgba(7, 11, 22, 0.7);
+      border: 1px solid rgba(0, 240, 255, 0.15);
+      border-radius: 6px;
+      padding: 10px;
+      font-size: 0.71rem;
+      line-height: 1.45;
+      color: #94a3b8;
+    }
+
+    .theory-box b {
+      color: var(--text-main);
+    }
+
+    .theory-formula {
+      font-family: var(--font-code);
+      color: var(--accent-cyan);
+      display: block;
+      margin: 4px 0;
+      background: rgba(0, 0, 0, 0.35);
+      padding: 4px 6px;
+      border-radius: 4px;
+      text-align: center;
+    }
+
+    /* 滚动条 */
+    ::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(0, 0, 0, 0.2);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(0, 240, 255, 0.25);
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--accent-cyan);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 顶部状态栏与标题 -->
+  <header>
+    <div class="title-group">
+      <h1>
+        <span>交错磁体-声表面波腔量子自旋-声子极化激元</span>
+        <span class="badge">#295 尖端腔量子自旋声学</span>
+      </h1>
+      <p>ALTERMAGNETIC CAVITY QUANTUM SPIN-ACOUSTIC POLARITON & TERAHERTZ CHIRAL DIODE SIMULATOR</p>
+    </div>
+    <div class="top-actions">
+      <button class="btn" id="btnSound">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+          <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+        </svg>
+        <span>声表面波监听: 关</span>
+      </button>
+      <button class="btn" id="btnDirection">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="17 1 21 5 17 9"></polyline>
+          <path d="M3 11V9a4 4 0 0 1 4-4h14"></path>
+          <polyline points="7 23 3 19 7 15"></polyline>
+          <path d="M21 13v2a4 4 0 0 1-4 4H3"></path>
+        </svg>
+        <span>激励方向: +k (正向导通)</span>
+      </button>
+      <button class="btn" id="btnPause">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="6" y="4" width="4" height="16"></rect>
+          <rect x="14" y="4" width="4" height="16"></rect>
+        </svg>
+        <span>暂停</span>
+      </button>
+      <button class="btn btn-primary" id="btnReset">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M23 4v6h-6"></path>
+          <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+        </svg>
+        <span>重置系统</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- 工作区 -->
+  <main class="workspace">
+    <!-- 左侧视口与示波器区 -->
+    <section class="viewport-column">
+      <!-- 主全息视口卡片 -->
+      <div class="viewport-card">
+        <div class="card-header">
+          <span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="2" y1="12" x2="22" y2="12"></line>
+              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+            </svg>
+            SAW腔驻波格点与交错磁子晶格全息进动场 (非互易手征透射与禁带拦截)
+          </span>
+          <div style="font-size: 0.7rem; color: var(--text-muted);">
+            [可点击两侧 IDT 换能极板 ⇌ 切换正反波向激励]
+          </div>
+        </div>
+
+        <div class="canvas-container" id="canvasWrapper">
+          <canvas id="mainCanvas"></canvas>
+
+          <!-- 悬浮参数监控 -->
+          <div class="viewport-overlay-metrics">
+            <div class="metric-row">
+              <span>手征二极管隔离度 η_diode:</span>
+              <span class="metric-val green" id="valIsolation">38.4 dB</span>
+            </div>
+            <div class="metric-row">
+              <span>真空拉比劈裂 2g_eff:</span>
+              <span class="metric-val magenta" id="valRabi">184.5 MHz</span>
+            </div>
+            <div class="metric-row">
+              <span>正向透射率 T(+k):</span>
+              <span class="metric-val" id="valTransFwd">94.2%</span>
+            </div>
+            <div class="metric-row">
+              <span>反向透射率 T(-k):</span>
+              <span class="metric-val amber" id="valTransRev">0.013%</span>
+            </div>
+            <div class="metric-row">
+              <span>交错d波劈裂 ΔE_alt:</span>
+              <span class="metric-val" id="valAltSplit">1.42 eV</span>
+            </div>
+            <div class="metric-row">
+              <span>SAW腔品质因子 Q_cav:</span>
+              <span class="metric-val green" id="valQFactor">2400</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 底部双示波器 -->
+      <div class="scopes-container">
+        <!-- 示波器 1: 极化激元反交叉色散与能级劈裂 -->
+        <div class="scope-card">
+          <div class="card-header">
+            <span>极化激元避免交叉色散 ω(k) & 真空拉比劈裂</span>
+            <span style="color: var(--accent-magenta);">UP / LP 杂化能带</span>
+          </div>
+          <canvas id="scopeCanvas1"></canvas>
+        </div>
+
+        <!-- 示波器 2: 太赫兹透射频响谱与单向隔离度 -->
+        <div class="scope-card">
+          <div class="card-header">
+            <span>正反传输谱 S_21(+k) vs S_12(-k) & 二极管抑制比</span>
+            <span style="color: var(--accent-emerald);">隔离度 &gt; 35 dB</span>
+          </div>
+          <canvas id="scopeCanvas2"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- 右侧参数调控台 -->
+    <aside class="sidebar">
+      <div>
+        <div class="section-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+            <polyline points="2 17 12 22 22 17"></polyline>
+            <polyline points="2 12 12 17 22 12"></polyline>
+          </svg>
+          预设工况矩阵 (PRESETS)
+        </div>
+        <div class="presets-grid">
+          <button class="preset-btn active" data-preset="diode">强耦合共振手征二极管</button>
+          <button class="preset-btn" data-preset="rabi">真空拉比相干强分裂</button>
+          <button class="preset-btn" data-preset="strain">交错磁体剪切应变相变</button>
+          <button class="preset-btn" data-preset="cavity">高Q超构微腔驻波态</button>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <div class="section-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="4" y1="21" x2="4" y2="14"></line>
+            <line x1="4" y1="10" x2="4" y2="3"></line>
+            <line x1="12" y1="21" x2="12" y2="12"></line>
+            <line x1="12" y1="8" x2="12" y2="3"></line>
+            <line x1="20" y1="21" x2="20" y2="16"></line>
+            <line x1="20" y1="12" x2="20" y2="3"></line>
+            <line x1="1" y1="14" x2="7" y2="14"></line>
+            <line x1="9" y1="8" x2="15" y2="8"></line>
+            <line x1="17" y1="16" x2="23" y2="16"></line>
+          </svg>
+          微观量子与磁弹参数调控
+        </div>
+
+        <div class="control-item">
+          <div class="control-header">
+            <span>磁弹性耦合常数 (b_me)</span>
+            <span id="txtBme">2.40 meV</span>
+          </div>
+          <input type="range" id="slBme" min="0.5" max="4.5" step="0.05" value="2.40">
+        </div>
+
+        <div class="control-item">
+          <div class="control-header">
+            <span>交错磁体d波劈裂 (J_alt)</span>
+            <span id="txtJalt">1.45 eV·Å²</span>
+          </div>
+          <input type="range" id="slJalt" min="0.0" max="3.0" step="0.05" value="1.45">
+        </div>
+
+        <div class="control-item">
+          <div class="control-header">
+            <span>SAW声表面波驱动频率 (f_saw)</span>
+            <span id="txtFsaw">1.85 GHz</span>
+          </div>
+          <input type="range" id="slFsaw" min="0.8" max="3.5" step="0.05" value="1.85">
+        </div>
+
+        <div class="control-item">
+          <div class="control-header">
+            <span>微腔品质因子 (Q_cav)</span>
+            <span id="txtQ">2400</span>
+          </div>
+          <input type="range" id="slQ" min="200" max="5000" step="100" value="2400">
+        </div>
+
+        <div class="control-item">
+          <div class="control-header">
+            <span>外磁场面内取向角 (θ_H)</span>
+            <span id="txtTheta">45.0°</span>
+          </div>
+          <input type="range" id="slTheta" min="0" max="180" step="1" value="45">
+        </div>
+
+        <div class="control-item">
+          <div class="control-header">
+            <span>吉尔伯特磁阻尼 (α_G)</span>
+            <span id="txtAlpha">0.015</span>
+          </div>
+          <input type="range" id="slAlpha" min="0.005" max="0.08" step="0.002" value="0.015">
+        </div>
+      </div>
+
+      <div>
+        <div class="section-title">全息图层渲染开关</div>
+        <div class="toggle-row">
+          <span>交错磁子晶格进动箭头</span>
+          <label class="switch">
+            <input type="checkbox" id="chkSpin" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="toggle-row">
+          <span>SAW瑞利声表面波椭圆位移</span>
+          <label class="switch">
+            <input type="checkbox" id="chkStrain" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="toggle-row">
+          <span>极化激元能量流矢量包络</span>
+          <label class="switch">
+            <input type="checkbox" id="chkFlux" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="toggle-row">
+          <span>微腔布拉格驻波节点标线</span>
+          <label class="switch">
+            <input type="checkbox" id="chkNodes" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="theory-box">
+        <b>理论物理机制说明</b>
+        在交错磁体-声表面波腔（SAW Cavity）异质结中，d波非相对论动量劈裂打破正负动量对称性：
+        <span class="theory-formula">H_me = b_me \sum_k (m_k \cdot \varepsilon_{-k})</span>
+        产生极化激元不对称避免交叉能隙：
+        <span class="theory-formula">\omega_{pol}(+k) \neq \omega_{pol}(-k)</span>
+        正向声波与磁振子形成低损耗极化激元高透射导通，反向声波因手征共振吸收被完全阻断，实现高达38 dB的超高非互易太赫兹声学隔离度。
+      </div>
+    </aside>
+  </main>
+
+  <script>
+    /**
+     * 交错磁体-声表面波腔量子自旋-声子极化激元与太赫兹手征二极管全息模拟器
+     * Zero Dependencies | Vanilla JS + Canvas 2D + Web Audio API
+     */
+
+    // 全局物理状态
+    const STATE = {
+      running: true,
+      time: 0,
+      dt: 0.04,
+      // 激励方向: 1 代表 +k (正向从左到右), -1 代表 -k (反向从右到左)
+      direction: 1,
+      // 微观调控参数
+      bme: 2.40,       // 磁弹耦合 (meV)
+      jalt: 1.45,      // 交错磁体d波劈裂 (eV·Å²)
+      fsaw: 1.85,      // SAW频率 (GHz)
+      qCav: 2400,      // 腔品质因子
+      thetaH: 45.0,    // 磁场取向角 (deg)
+      alphaG: 0.015,   // 吉尔伯特阻尼
+      // 显示图层
+      showSpin: true,
+      showStrain: true,
+      showFlux: true,
+      showNodes: true,
+      // 物理计算输出指标
+      isolation: 38.4,
+      rabiSplitting: 184.5,
+      transFwd: 94.2,
+      transRev: 0.013,
+      altSplitVal: 1.42
+    };
+
+    // Canvas 视口与示波器引用
+    const mainCanvas = document.getElementById('mainCanvas');
+    const ctx = mainCanvas.getContext('2d');
+    const scope1 = document.getElementById('scopeCanvas1');
+    const ctx1 = scope1.getContext('2d');
+    const scope2 = document.getElementById('scopeCanvas2');
+    const ctx2 = scope2.getContext('2d');
+
+    // DOM 元素引用
+    const valIsolation = document.getElementById('valIsolation');
+    const valRabi = document.getElementById('valRabi');
+    const valTransFwd = document.getElementById('valTransFwd');
+    const valTransRev = document.getElementById('valTransRev');
+    const valAltSplit = document.getElementById('valAltSplit');
+    const valQFactor = document.getElementById('valQFactor');
+
+    const slBme = document.getElementById('slBme');
+    const slJalt = document.getElementById('slJalt');
+    const slFsaw = document.getElementById('slFsaw');
+    const slQ = document.getElementById('slQ');
+    const slTheta = document.getElementById('slTheta');
+    const slAlpha = document.getElementById('slAlpha');
+
+    const txtBme = document.getElementById('txtBme');
+    const txtJalt = document.getElementById('txtJalt');
+    const txtFsaw = document.getElementById('txtFsaw');
+    const txtQ = document.getElementById('txtQ');
+    const txtTheta = document.getElementById('txtTheta');
+    const txtAlpha = document.getElementById('txtAlpha');
+
+    const chkSpin = document.getElementById('chkSpin');
+    const chkStrain = document.getElementById('chkStrain');
+    const chkFlux = document.getElementById('chkFlux');
+    const chkNodes = document.getElementById('chkNodes');
+
+    const btnPause = document.getElementById('btnPause');
+    const btnReset = document.getElementById('btnReset');
+    const btnDirection = document.getElementById('btnDirection');
+    const btnSound = document.getElementById('btnSound');
+
+    const presetButtons = document.querySelectorAll('.preset-btn');
+
+    // 画布自适应调整
+    function resizeCanvases() {
+      const wrapper = document.getElementById('canvasWrapper');
+      mainCanvas.width = wrapper.clientWidth * window.devicePixelRatio;
+      mainCanvas.height = wrapper.clientHeight * window.devicePixelRatio;
+      ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+      scope1.width = scope1.clientWidth * window.devicePixelRatio;
+      scope1.height = scope1.clientHeight * window.devicePixelRatio;
+      ctx1.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+      scope2.width = scope2.clientWidth * window.devicePixelRatio;
+      scope2.height = scope2.clientHeight * window.devicePixelRatio;
+      ctx2.scale(window.devicePixelRatio, window.devicePixelRatio);
+    }
+    window.addEventListener('resize', resizeCanvases);
+
+    // ==========================================
+    // Web Audio 声表面波腔量子监听引擎
+    // ==========================================
+    class AcousticPolaritonEngine {
+      constructor() {
+        this.ctx = null;
+        this.oscSAW = null;
+        this.oscMagnon = null;
+        this.filter = null;
+        this.gainNode = null;
+        this.isPlaying = false;
+      }
+
+      init() {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        this.ctx = new AudioCtx();
+
+        this.oscSAW = this.ctx.createOscillator();
+        this.oscMagnon = this.ctx.createOscillator();
+        this.oscSAW.type = 'sine';
+        this.oscMagnon.type = 'sawtooth';
+
+        this.filter = this.ctx.createBiquadFilter();
+        this.filter.type = 'bandpass';
+        this.filter.Q.value = 12.0;
+
+        this.gainNode = this.ctx.createGain();
+        this.gainNode.gain.setValueAtTime(0.0001, this.ctx.currentTime);
+
+        this.oscSAW.connect(this.filter);
+        this.oscMagnon.connect(this.filter);
+        this.filter.connect(this.gainNode);
+        this.gainNode.connect(this.ctx.destination);
+
+        this.oscSAW.start();
+        this.oscMagnon.start();
+      }
+
+      toggle() {
+        if (!this.ctx) this.init();
+        if (this.ctx.state === 'suspended') this.ctx.resume();
+
+        this.isPlaying = !this.isPlaying;
+        if (this.isPlaying) {
+          this.gainNode.gain.setTargetAtTime(0.12, this.ctx.currentTime, 0.05);
+          btnSound.classList.add('btn-primary');
+          btnSound.querySelector('span').textContent = '声表面波监听: 开';
+        } else {
+          this.gainNode.gain.setTargetAtTime(0.0001, this.ctx.currentTime, 0.05);
+          btnSound.classList.remove('btn-primary');
+          btnSound.querySelector('span').textContent = '声表面波监听: 关';
+        }
+      }
+
+      update(freqGHz, rabiMHz, isForward) {
+        if (!this.isPlaying || !this.ctx) return;
+        const now = this.ctx.currentTime;
+        const baseFreq = 220 + (freqGHz - 0.8) * 160;
+        this.oscSAW.frequency.setTargetAtTime(baseFreq, now, 0.03);
+
+        // 拉比拍频 (Rabi beating)
+        const beatFreq = baseFreq + (rabiMHz / 20.0);
+        this.oscMagnon.frequency.setTargetAtTime(beatFreq, now, 0.03);
+        this.filter.frequency.setTargetAtTime(baseFreq, now, 0.03);
+
+        // 如果是反向传播且被手征阻断，音量大幅衰减并伴随高阻尼
+        const targetVol = isForward ? 0.14 : 0.008;
+        this.gainNode.gain.setTargetAtTime(targetVol, now, 0.04);
+      }
+
+      playClick() {
+        if (!this.isPlaying || !this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const g = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(520, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(1040, this.ctx.currentTime + 0.08);
+        g.gain.setValueAtTime(0.18, this.ctx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.09);
+        osc.connect(g);
+        g.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.1);
+      }
+    }
+    const audio = new AcousticPolaritonEngine();
+    btnSound.addEventListener('click', () => audio.toggle());
+
+    // ==========================================
+    // 物理计算与演化方程
+    // ==========================================
+    function updatePhysics() {
+      if (STATE.running) {
+        STATE.time += STATE.dt;
+      }
+
+      // 1. 真空拉比劈裂 2g_eff 计算:
+      // g_eff = sqrt(b_me * omega_saw) * sin(2*theta_H) 耦合因子
+      const radTheta = (STATE.thetaH * Math.PI) / 180.0;
+      const angleCoupling = Math.abs(Math.sin(2.0 * radTheta));
+      const baseRabi = 120.0 * Math.sqrt(STATE.bme * STATE.fsaw) * (0.3 + 0.7 * angleCoupling);
+      STATE.rabiSplitting = Number(baseRabi.toFixed(1));
+
+      // 2. 交错磁体d波劈裂值 ΔE_alt:
+      STATE.altSplitVal = Number((STATE.jalt * (0.8 + 0.4 * Math.cos(2 * radTheta))).toFixed(2));
+
+      // 3. 非互易手征二极管隔离度计算:
+      // 交错磁体打破正反传播的时间反演，反向透射衰减与 d波劈裂及耦合强度呈指数关系
+      const asymFactor = STATE.jalt * 1.8 * Math.sin(radTheta) * (STATE.bme / 2.0);
+      const baseIso = 15.0 + asymFactor * 14.0 + (STATE.qCav / 5000.0) * 12.0;
+      STATE.isolation = Number(Math.max(3.0, Math.min(55.0, baseIso - STATE.alphaG * 120.0)).toFixed(1));
+
+      // 4. 正反向透射率
+      const fwdLoss = Math.exp(-STATE.alphaG * 3.5);
+      STATE.transFwd = Number(Math.max(10.0, Math.min(98.5, 96.0 * fwdLoss)).toFixed(1));
+
+      const revFraction = Math.pow(10.0, -STATE.isolation / 10.0);
+      STATE.transRev = Number((STATE.transFwd * revFraction).toFixed(4));
+
+      // 更新 DOM 指标卡
+      valIsolation.textContent = STATE.isolation + ' dB';
+      valRabi.textContent = STATE.rabiSplitting + ' MHz';
+      valTransFwd.textContent = STATE.transFwd + '%';
+      valTransRev.textContent = (STATE.transRev < 0.001 ? '<0.001%' : STATE.transRev + '%');
+      valAltSplit.textContent = STATE.altSplitVal + ' eV';
+      valQFactor.textContent = STATE.qCav;
+
+      // 声学监听同步更新
+      audio.update(STATE.fsaw, STATE.rabiSplitting, STATE.direction === 1);
+    }
+
+    // ==========================================
+    // 渲染：主视口 (SAW腔与交错磁子晶格进动)
+    // ==========================================
+    function renderMain() {
+      const wrapper = document.getElementById('canvasWrapper');
+      const w = wrapper.clientWidth;
+      const h = wrapper.clientHeight;
+
+      ctx.clearRect(0, 0, w, h);
+
+      // 几何布局
+      const idtWidth = 60;
+      const cavityLeft = idtWidth + 30;
+      const cavityRight = w - idtWidth - 30;
+      const cavityWidth = cavityRight - cavityLeft;
+      const midY = h * 0.52;
+
+      // 1. 绘制网格背景
+      ctx.strokeStyle = 'rgba(0, 240, 255, 0.04)';
+      ctx.lineWidth = 1;
+      const gridSize = 28;
+      for (let x = 0; x < w; x += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0); ctx.lineTo(x, h);
+        ctx.stroke();
+      }
+      for (let y = 0; y < h; y += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(0, y); ctx.lineTo(w, y);
+        ctx.stroke();
+      }
+
+      // 2. 绘制微腔腔体区域与交错薄膜基底
+      const gradCavity = ctx.createLinearGradient(cavityLeft, 0, cavityRight, 0);
+      gradCavity.addColorStop(0, 'rgba(11, 22, 45, 0.85)');
+      gradCavity.addColorStop(0.5, 'rgba(20, 35, 70, 0.7)');
+      gradCavity.addColorStop(1, 'rgba(11, 22, 45, 0.85)');
+      ctx.fillStyle = gradCavity;
+      ctx.fillRect(cavityLeft, 40, cavityWidth, h - 80);
+
+      ctx.strokeStyle = 'rgba(0, 240, 255, 0.35)';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(cavityLeft, 40, cavityWidth, h - 80);
+
+      // 3. 绘制左右两侧叉指换能器 (IDT Bragg Electrodes)
+      function drawIDT(xStart, isLeft) {
+        ctx.save();
+        ctx.fillStyle = 'rgba(255, 170, 0, 0.15)';
+        ctx.fillRect(xStart, 35, idtWidth, h - 70);
+        ctx.strokeStyle = '#ffaa00';
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(xStart, 35, idtWidth, h - 70);
+
+        // 叉指金属微条 (Interdigital fingers)
+        const numFingers = 7;
+        const fSpacing = idtWidth / numFingers;
+        for (let i = 0; i < numFingers; i++) {
+          const fx = xStart + i * fSpacing + fSpacing * 0.5;
+          const isTopActive = i % 2 === 0;
+          ctx.strokeStyle = isTopActive ? '#ffd000' : '#ff7700';
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          if (isTopActive) {
+            ctx.moveTo(fx, 35);
+            ctx.lineTo(fx, h * 0.68);
+          } else {
+            ctx.moveTo(fx, h - 35);
+            ctx.lineTo(fx, h * 0.36);
+          }
+          ctx.stroke();
+        }
+
+        ctx.font = '10px var(--font-code)';
+        ctx.fillStyle = '#ffaa00';
+        const label = isLeft ? 'IDT 1 端口 (发射)' : 'IDT 2 端口 (接收)';
+        ctx.fillText(label, xStart + 2, 26);
+        ctx.restore();
+      }
+      drawIDT(20, true);
+      drawIDT(w - 20 - idtWidth, false);
+
+      // 4. 绘制微腔布拉格驻波节点标线
+      if (STATE.showNodes) {
+        ctx.save();
+        const numNodes = 8;
+        const nodeStep = cavityWidth / numNodes;
+        ctx.strokeStyle = 'rgba(0, 240, 255, 0.18)';
+        ctx.setLineDash([3, 4]);
+        ctx.lineWidth = 1;
+        for (let i = 1; i < numNodes; i++) {
+          const nx = cavityLeft + i * nodeStep;
+          ctx.beginPath();
+          ctx.moveTo(nx, 45);
+          ctx.lineTo(nx, h - 45);
+          ctx.stroke();
+        }
+        ctx.setLineDash([]);
+        ctx.restore();
+      }
+
+      // 5. 绘制交错磁体微观自旋进动点阵 (Sublattice A - 蓝紫, Sublattice B - 红粉)
+      if (STATE.showSpin) {
+        ctx.save();
+        const cols = 14;
+        const rows = 6;
+        const stepX = cavityWidth / (cols + 1);
+        const stepY = (h - 140) / (rows + 1);
+
+        const isFwd = STATE.direction === 1;
+        // 如果是反向传播且被阻断，自旋进动幅度迅速衰减
+        const decayLen = isFwd ? cavityWidth * 1.5 : cavityWidth * 0.28;
+
+        for (let c = 1; c <= cols; c++) {
+          const sx = cavityLeft + c * stepX;
+          const distFromSource = isFwd ? (sx - cavityLeft) : (cavityRight - sx);
+          const atten = Math.exp(-distFromSource / decayLen);
+
+          for (let r = 1; r <= rows; r++) {
+            const sy = 65 + r * stepY;
+            // 棋盘格交错两套子晶格 A 与 B
+            const isSubA = (c + r) % 2 === 0;
+
+            // 进动相位与振幅
+            const kVec = (STATE.direction * STATE.fsaw * 2.8 * Math.PI) / cavityWidth;
+            const wavePhase = STATE.time * 6.0 - kVec * (sx - cavityLeft);
+            const rabiPhase = STATE.time * (STATE.rabiSplitting * 0.035);
+
+            const spinLength = 12 * atten * (0.4 + 0.6 * Math.cos(rabiPhase));
+            const baseAngle = isSubA ? 0 : Math.PI; // 反平行基态
+            // 进动倾角
+            const precAngle = baseAngle + Math.sin(wavePhase) * (0.6 * STATE.bme);
+
+            const px = sx + Math.cos(precAngle) * spinLength;
+            const py = sy + Math.sin(precAngle) * spinLength;
+
+            // 绘制进动矢量箭头
+            ctx.strokeStyle = isSubA ? '#00f0ff' : '#ff007b';
+            ctx.lineWidth = 2.0;
+            ctx.beginPath();
+            ctx.moveTo(sx, sy);
+            ctx.lineTo(px, py);
+            ctx.stroke();
+
+            // 箭头尖端
+            ctx.fillStyle = isSubA ? '#00f0ff' : '#ff007b';
+            ctx.beginPath();
+            ctx.arc(px, py, 2.2, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 晶格节点微点
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.beginPath();
+            ctx.arc(sx, sy, 1.2, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+        ctx.restore();
+      }
+
+      // 6. 绘制声表面波 (SAW) 晶格应变与瑞利波连续位移线
+      if (STATE.showStrain) {
+        ctx.save();
+        const numWaveLines = 5;
+        const isFwd = STATE.direction === 1;
+        const decayLen = isFwd ? cavityWidth * 1.5 : cavityWidth * 0.28;
+
+        for (let l = 0; l < numWaveLines; l++) {
+          const baseLineY = midY + (l - (numWaveLines - 1) / 2) * 26;
+          ctx.strokeStyle = `rgba(0, 255, 170, ${0.45 - Math.abs(l - 2) * 0.1})`;
+          ctx.lineWidth = 2.2;
+          ctx.beginPath();
+
+          for (let x = cavityLeft; x <= cavityRight; x += 4) {
+            const distFromSource = isFwd ? (x - cavityLeft) : (cavityRight - x);
+            const atten = Math.exp(-distFromSource / decayLen);
+
+            const kSaw = (STATE.direction * STATE.fsaw * 2.5 * Math.PI * 2) / cavityWidth;
+            const phi = STATE.time * 6.0 - kSaw * (x - cavityLeft);
+            // 瑞利波横纵杂化振荡
+            const dispY = Math.sin(phi) * 11 * atten;
+
+            if (x === cavityLeft) ctx.moveTo(x, baseLineY + dispY);
+            else ctx.lineTo(x, baseLineY + dispY);
+          }
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      // 7. 绘制极化激元能量流矢量包络与透射指示 (Poynting Flux Packet)
+      if (STATE.showFlux) {
+        ctx.save();
+        const isFwd = STATE.direction === 1;
+        const packetPosFrac = (STATE.time * 0.25) % 1.0;
+        const packetX = isFwd
+          ? cavityLeft + packetPosFrac * cavityWidth
+          : cavityRight - packetPosFrac * cavityWidth;
+
+        const atten = isFwd ? 1.0 : Math.exp(-(cavityRight - packetX) / (cavityWidth * 0.28));
+
+        // 波包能量光晕
+        const gradGlow = ctx.createRadialGradient(packetX, midY, 4, packetX, midY, 55);
+        gradGlow.addColorStop(0, isFwd ? 'rgba(0, 240, 255, 0.45)' : 'rgba(255, 0, 123, 0.45)');
+        gradGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = gradGlow;
+        ctx.beginPath();
+        ctx.arc(packetX, midY, 55, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 能量能流前进箭头
+        const arrowDir = STATE.direction;
+        ctx.strokeStyle = isFwd ? '#00f0ff' : '#ff007b';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(packetX - arrowDir * 20, midY);
+        ctx.lineTo(packetX + arrowDir * 20, midY);
+        ctx.lineTo(packetX + arrowDir * 12, midY - 7);
+        ctx.moveTo(packetX + arrowDir * 20, midY);
+        ctx.lineTo(packetX + arrowDir * 12, midY + 7);
+        ctx.stroke();
+
+        // 状态文字标签
+        ctx.font = '11px var(--font-code)';
+        if (isFwd) {
+          ctx.fillStyle = '#00ffaa';
+          ctx.fillText('手征极化激元导通通道 (+k 强耦合传输 T = 94.2%)', cavityLeft + 15, h - 55);
+        } else {
+          ctx.fillStyle = '#ff007b';
+          ctx.fillText('交错磁子共振强吸收禁带 (-k 手征阻断 T < 0.013%)', cavityLeft + 15, h - 55);
+        }
+        ctx.restore();
+      }
+    }
+
+    // ==========================================
+    // 渲染：示波器 1 (极化激元反交叉避免色散)
+    // ==========================================
+    function renderScope1() {
+      const w = scope1.clientWidth;
+      const h = scope1.clientHeight;
+      ctx1.clearRect(0, 0, w, h);
+
+      const padX = 35;
+      const padY = 20;
+      const plotW = w - padX * 2;
+      const plotH = h - padY * 2;
+      const midX = padX + plotW * 0.5;
+      const midY = padY + plotH * 0.55;
+
+      // 坐标轴
+      ctx1.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+      ctx1.lineWidth = 1;
+      ctx1.beginPath();
+      ctx1.moveTo(padX, midY); ctx1.lineTo(padX + plotW, midY);
+      ctx1.moveTo(midX, padY); ctx1.lineTo(midX, padY + plotH);
+      ctx1.stroke();
+
+      ctx1.font = '9px var(--font-code)';
+      ctx1.fillStyle = 'rgba(255, 255, 255, 0.4)';
+      ctx1.fillText('波矢 k', padX + plotW - 25, midY + 12);
+      ctx1.fillText('能量 ω', midX + 6, padY + 10);
+
+      // 1. 绘制未耦合裸声子线性分支 ω_saw = v_s |k| (虚线)
+      ctx1.strokeStyle = 'rgba(255, 170, 0, 0.4)';
+      ctx1.setLineDash([3, 3]);
+      ctx1.beginPath();
+      ctx1.moveTo(padX, midY + plotH * 0.4);
+      ctx1.lineTo(padX + plotW, midY - plotH * 0.4);
+      ctx1.stroke();
+      ctx1.setLineDash([]);
+
+      // 2. 绘制交错磁振子分支 (带有 d 波非对称劈裂)
+      const altKOffset = (STATE.jalt * 12); // 非相对论自旋劈裂位移
+      ctx1.strokeStyle = 'rgba(255, 0, 123, 0.35)';
+      ctx1.setLineDash([3, 3]);
+      ctx1.beginPath();
+      for (let px = 0; px <= plotW; px += 4) {
+        const k = (px - plotW * 0.5) / (plotW * 0.5); // -1 ~ 1
+        const omegaMag = 0.5 + 0.4 * (k ** 2) + (k * altKOffset * 0.03);
+        const py = midY - omegaMag * plotH * 0.45;
+        if (px === 0) ctx1.moveTo(padX + px, py);
+        else ctx1.lineTo(padX + px, py);
+      }
+      ctx1.stroke();
+      ctx1.setLineDash([]);
+
+      // 3. 绘制杂化反交叉极化激元双分支 (UP 与 LP)
+      const gEffNorm = (STATE.rabiSplitting / 250.0) * 0.35;
+
+      // 上极化激元 (Upper Polariton, UP)
+      ctx1.strokeStyle = '#00f0ff';
+      ctx1.lineWidth = 2.0;
+      ctx1.beginPath();
+      for (let px = 0; px <= plotW; px += 3) {
+        const k = (px - plotW * 0.5) / (plotW * 0.5);
+        const wSaw = k * 0.45;
+        const wMag = 0.5 + 0.35 * (k ** 2) + (k * altKOffset * 0.03);
+        const delta = (wSaw - wMag) * 0.5;
+        const wUP = (wSaw + wMag) * 0.5 + Math.sqrt(delta ** 2 + gEffNorm ** 2);
+        const py = midY - wUP * plotH * 0.45;
+        if (px === 0) ctx1.moveTo(padX + px, py);
+        else ctx1.lineTo(padX + px, py);
+      }
+      ctx1.stroke();
+
+      // 下极化激元 (Lower Polariton, LP)
+      ctx1.strokeStyle = '#bd00ff';
+      ctx1.lineWidth = 2.0;
+      ctx1.beginPath();
+      for (let px = 0; px <= plotW; px += 3) {
+        const k = (px - plotW * 0.5) / (plotW * 0.5);
+        const wSaw = k * 0.45;
+        const wMag = 0.5 + 0.35 * (k ** 2) + (k * altKOffset * 0.03);
+        const delta = (wSaw - wMag) * 0.5;
+        const wLP = (wSaw + wMag) * 0.5 - Math.sqrt(delta ** 2 + gEffNorm ** 2);
+        const py = midY - wLP * plotH * 0.45;
+        if (px === 0) ctx1.moveTo(padX + px, py);
+        else ctx1.lineTo(padX + px, py);
+      }
+      ctx1.stroke();
+
+      // 标出能隙拉比劈裂 2g_eff
+      const gapX = midX + 38;
+      const gapY1 = midY - (0.45 + gEffNorm) * plotH * 0.45;
+      const gapY2 = midY - (0.45 - gEffNorm) * plotH * 0.45;
+
+      ctx1.strokeStyle = '#ffaa00';
+      ctx1.lineWidth = 1.2;
+      ctx1.beginPath();
+      ctx1.moveTo(gapX, gapY1);
+      ctx1.lineTo(gapX, gapY2);
+      ctx1.stroke();
+
+      ctx1.fillStyle = '#ffaa00';
+      ctx1.fillText(`2g_eff = ${STATE.rabiSplitting} MHz`, gapX + 6, (gapY1 + gapY2) * 0.5 + 3);
+
+      ctx1.fillStyle = '#00f0ff';
+      ctx1.fillText('UP 上极化激元', padX + 8, padY + 12);
+      ctx1.fillStyle = '#bd00ff';
+      ctx1.fillText('LP 下极化激元', padX + 8, padY + 26);
+    }
+
+    // ==========================================
+    // 渲染：示波器 2 (太赫兹透射谱与二极管隔离度)
+    // ==========================================
+    function renderScope2() {
+      const w = scope2.clientWidth;
+      const h = scope2.clientHeight;
+      ctx2.clearRect(0, 0, w, h);
+
+      const padX = 35;
+      const padY = 20;
+      const plotW = w - padX * 2;
+      const plotH = h - padY * 2;
+      const baseZeroY = padY + plotH;
+
+      // 坐标轴
+      ctx2.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+      ctx2.lineWidth = 1;
+      ctx2.beginPath();
+      ctx2.moveTo(padX, padY); ctx2.lineTo(padX, baseZeroY);
+      ctx2.lineTo(padX + plotW, baseZeroY);
+      ctx2.stroke();
+
+      ctx2.font = '9px var(--font-code)';
+      ctx2.fillStyle = 'rgba(255, 255, 255, 0.4)';
+      ctx2.fillText('传输系数 |S_21|²', padX - 5, padY - 6);
+      ctx2.fillText('驱动频率 f (GHz)', padX + plotW - 60, baseZeroY + 14);
+
+      // 1. 绘制正向透射谱 S_21(+k) 曲线 (绿青色高透射带)
+      ctx2.strokeStyle = '#00ffaa';
+      ctx2.lineWidth = 2.2;
+      ctx2.beginPath();
+      const fCenter = plotW * 0.52;
+      const fWidth = 24 * (STATE.rabiSplitting / 180.0);
+
+      for (let px = 0; px <= plotW; px += 2) {
+        // 双峰极化激元洛伦兹透射带
+        const d1 = (px - (fCenter - fWidth));
+        const d2 = (px - (fCenter + fWidth));
+        const peak1 = 1.0 / (1.0 + (d1 / 14) ** 2);
+        const peak2 = 1.0 / (1.0 + (d2 / 14) ** 2);
+        const transF = Math.max(peak1, peak2) * (STATE.transFwd / 100.0) * (plotH * 0.88);
+
+        const py = baseZeroY - transF;
+        if (px === 0) ctx2.moveTo(padX + px, py);
+        else ctx2.lineTo(padX + px, py);
+      }
+      ctx2.stroke();
+
+      // 2. 绘制反向透射谱 S_12(-k) 曲线 (粉红极度受抑衰减)
+      ctx2.strokeStyle = '#ff007b';
+      ctx2.lineWidth = 1.8;
+      ctx2.setLineDash([4, 3]);
+      ctx2.beginPath();
+
+      for (let px = 0; px <= plotW; px += 2) {
+        // 在共振区由于交错磁手征耗散发生强烈共振吸收凹陷
+        const dRes = (px - fCenter);
+        const dip = Math.exp(-0.5 * (dRes / 36) ** 2);
+        const transR = Math.max(0.01, (1.0 - dip * 0.98)) * (STATE.transRev / 100.0) * (plotH * 0.88);
+
+        const py = baseZeroY - Math.max(2, transR * 40.0); // 适度放大可读性
+        if (px === 0) ctx2.moveTo(padX + px, py);
+        else ctx2.lineTo(padX + px, py);
+      }
+      ctx2.stroke();
+      ctx2.setLineDash([]);
+
+      // 标注隔离度数值
+      ctx2.fillStyle = '#00ffaa';
+      ctx2.fillText(`S_21 (+k 正向): ${STATE.transFwd}%`, padX + 12, padY + 16);
+      ctx2.fillStyle = '#ff007b';
+      ctx2.fillText(`S_12 (-k 反向): ${STATE.transRev}%`, padX + 12, padY + 30);
+      ctx2.fillStyle = '#ffaa00';
+      ctx2.fillText(`手征隔离度: ${STATE.isolation} dB`, padX + 12, padY + 44);
+    }
+
+    // ==========================================
+    // 交互事件绑定
+    // ==========================================
+
+    // 点击换能器或按钮切换激励方向
+    function toggleDirection() {
+      STATE.direction *= -1;
+      const isFwd = STATE.direction === 1;
+      btnDirection.querySelector('span').textContent = isFwd
+        ? '激励方向: +k (正向导通)'
+        : '激励方向: -k (反向阻断)';
+      btnDirection.classList.toggle('btn-primary', !isFwd);
+      audio.playClick();
+    }
+    btnDirection.addEventListener('click', toggleDirection);
+
+    mainCanvas.addEventListener('click', (e) => {
+      const rect = mainCanvas.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const idtW = 90;
+      if (mouseX < idtW && STATE.direction === -1) {
+        toggleDirection();
+      } else if (mouseX > rect.width - idtW && STATE.direction === 1) {
+        toggleDirection();
+      }
+    });
+
+    // 滑动条事件
+    slBme.addEventListener('input', (e) => {
+      STATE.bme = parseFloat(e.target.value);
+      txtBme.textContent = STATE.bme.toFixed(2) + ' meV';
+    });
+    slJalt.addEventListener('input', (e) => {
+      STATE.jalt = parseFloat(e.target.value);
+      txtJalt.textContent = STATE.jalt.toFixed(2) + ' eV·Å²';
+    });
+    slFsaw.addEventListener('input', (e) => {
+      STATE.fsaw = parseFloat(e.target.value);
+      txtFsaw.textContent = STATE.fsaw.toFixed(2) + ' GHz';
+    });
+    slQ.addEventListener('input', (e) => {
+      STATE.qCav = parseInt(e.target.value);
+      txtQ.textContent = STATE.qCav;
+    });
+    slTheta.addEventListener('input', (e) => {
+      STATE.thetaH = parseFloat(e.target.value);
+      txtTheta.textContent = STATE.thetaH.toFixed(1) + '°';
+    });
+    slAlpha.addEventListener('input', (e) => {
+      STATE.alphaG = parseFloat(e.target.value);
+      txtAlpha.textContent = STATE.alphaG.toFixed(3);
+    });
+
+    // 勾选框
+    chkSpin.addEventListener('change', (e) => STATE.showSpin = e.target.checked);
+    chkStrain.addEventListener('change', (e) => STATE.showStrain = e.target.checked);
+    chkFlux.addEventListener('change', (e) => STATE.showFlux = e.target.checked);
+    chkNodes.addEventListener('change', (e) => STATE.showNodes = e.target.checked);
+
+    // 预设配置切换
+    const PRESETS = {
+      diode: {
+        bme: 2.40, jalt: 1.45, fsaw: 1.85, qCav: 2400, thetaH: 45.0, alphaG: 0.015
+      },
+      rabi: {
+        bme: 3.80, jalt: 0.80, fsaw: 2.20, qCav: 3800, thetaH: 45.0, alphaG: 0.008
+      },
+      strain: {
+        bme: 1.80, jalt: 2.60, fsaw: 1.40, qCav: 1800, thetaH: 90.0, alphaG: 0.025
+      },
+      cavity: {
+        bme: 2.10, jalt: 1.10, fsaw: 2.50, qCav: 4800, thetaH: 30.0, alphaG: 0.006
+      }
+    };
+
+    function applyPreset(name) {
+      const p = PRESETS[name];
+      if (!p) return;
+
+      STATE.bme = p.bme; slBme.value = p.bme; txtBme.textContent = p.bme.toFixed(2) + ' meV';
+      STATE.jalt = p.jalt; slJalt.value = p.jalt; txtJalt.textContent = p.jalt.toFixed(2) + ' eV·Å²';
+      STATE.fsaw = p.fsaw; slFsaw.value = p.fsaw; txtFsaw.textContent = p.fsaw.toFixed(2) + ' GHz';
+      STATE.qCav = p.qCav; slQ.value = p.qCav; txtQ.textContent = p.qCav;
+      STATE.thetaH = p.thetaH; slTheta.value = p.thetaH; txtTheta.textContent = p.thetaH.toFixed(1) + '°';
+      STATE.alphaG = p.alphaG; slAlpha.value = p.alphaG; txtAlpha.textContent = p.alphaG.toFixed(3);
+
+      presetButtons.forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.preset === name);
+      });
+
+      audio.playClick();
+    }
+
+    presetButtons.forEach(btn => {
+      btn.addEventListener('click', () => applyPreset(btn.dataset.preset));
+    });
+
+    // 暂停/继续
+    btnPause.addEventListener('click', () => {
+      STATE.running = !STATE.running;
+      btnPause.querySelector('span').textContent = STATE.running ? '暂停' : '继续';
+      btnPause.classList.toggle('btn-primary', !STATE.running);
+    });
+
+    // 重置
+    btnReset.addEventListener('click', () => {
+      applyPreset('diode');
+      STATE.direction = 1;
+      btnDirection.querySelector('span').textContent = '激励方向: +k (正向导通)';
+      btnDirection.classList.remove('btn-primary');
+      STATE.time = 0;
+      audio.playClick();
+    });
+
+    // ==========================================
+    // 主循环驱动
+    // ==========================================
+    function loop() {
+      updatePhysics();
+      renderMain();
+      renderScope1();
+      renderScope2();
+      requestAnimationFrame(loop);
+    }
+
+    // 初始化启动
+    resizeCanvases();
+    loop();
+  </script>
+</body>
+</html>

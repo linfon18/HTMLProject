@@ -1,0 +1,1127 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>非厄米弗洛凯拓扑极化激元超构微腔李-杨零点相变与单光子受激拓扑激光全息模拟器</title>
+<style>
+  :root {
+    --bg-dark: #030712;
+    --panel-bg: rgba(15, 23, 42, 0.82);
+    --panel-border: rgba(56, 189, 248, 0.22);
+    --cyan: #00f3ff;
+    --cyan-glow: rgba(0, 243, 255, 0.4);
+    --magenta: #f43f5e;
+    --magenta-glow: rgba(244, 63, 94, 0.4);
+    --purple: #a855f7;
+    --purple-glow: rgba(168, 85, 247, 0.35);
+    --amber: #fbbf24;
+    --amber-glow: rgba(251, 191, 36, 0.35);
+    --emerald: #10b981;
+    --emerald-glow: rgba(16, 185, 129, 0.35);
+    --text-main: #f8fafc;
+    --text-dim: #94a3b8;
+    --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+    --font-ui: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    user-select: none;
+  }
+
+  body {
+    background-color: var(--bg-dark);
+    color: var(--text-main);
+    font-family: var(--font-ui);
+    height: 100vh;
+    width: 100vw;
+    overflow: hidden;
+    display: grid;
+    grid-template-columns: 360px 1fr 400px;
+    grid-template-rows: 56px 1fr;
+    grid-template-areas:
+      "header header header"
+      "control viewport analysis";
+  }
+
+  /* 顶部导航标题条 */
+  header {
+    grid-area: header;
+    background: linear-gradient(180deg, rgba(30, 41, 59, 0.92) 0%, rgba(15, 23, 42, 0.88) 100%);
+    border-bottom: 1px solid var(--panel-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 1.5rem;
+    backdrop-filter: blur(12px);
+    z-index: 20;
+  }
+
+  .brand-group {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .brand-badge {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.25), rgba(0, 243, 255, 0.2));
+    border: 1px solid var(--emerald);
+    color: var(--emerald);
+    font-size: 0.72rem;
+    font-family: var(--font-mono);
+    padding: 0.25rem 0.6rem;
+    border-radius: 9999px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    box-shadow: 0 0 12px var(--emerald-glow);
+  }
+
+  .header-title {
+    font-size: 1.05rem;
+    font-weight: 600;
+    background: linear-gradient(90deg, #10b981, #00f3ff, #a855f7);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    letter-spacing: -0.01em;
+  }
+
+  .header-metrics {
+    display: flex;
+    gap: 1.25rem;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+  }
+
+  .metric-item {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: var(--text-dim);
+  }
+
+  .metric-value {
+    color: var(--cyan);
+    font-weight: 600;
+  }
+
+  .audio-toggle-btn {
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid var(--panel-border);
+    color: var(--text-dim);
+    padding: 0.35rem 0.8rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.75rem;
+    font-family: var(--font-mono);
+    transition: all 0.2s ease;
+  }
+
+  .audio-toggle-btn.active {
+    border-color: var(--cyan);
+    color: var(--cyan);
+    box-shadow: 0 0 10px var(--cyan-glow);
+  }
+
+  /* 侧边控制面板 */
+  aside.control-panel {
+    grid-area: control;
+    background: var(--panel-bg);
+    border-right: 1px solid var(--panel-border);
+    backdrop-filter: blur(16px);
+    overflow-y: auto;
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.2rem;
+    z-index: 10;
+  }
+
+  aside.control-panel::-webkit-scrollbar,
+  aside.analysis-panel::-webkit-scrollbar {
+    width: 4px;
+  }
+  aside.control-panel::-webkit-scrollbar-thumb,
+  aside.analysis-panel::-webkit-scrollbar-thumb {
+    background: rgba(16, 185, 129, 0.3);
+    border-radius: 4px;
+  }
+
+  .section-title {
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--cyan);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+    font-weight: 700;
+  }
+  .section-title::before {
+    content: '';
+    display: inline-block;
+    width: 4px;
+    height: 12px;
+    background: var(--cyan);
+    border-radius: 2px;
+    box-shadow: 0 0 6px var(--cyan);
+  }
+
+  .card-group {
+    background: rgba(30, 41, 59, 0.45);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 8px;
+    padding: 0.9rem;
+  }
+
+  .preset-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+  }
+
+  .preset-btn {
+    background: rgba(15, 23, 42, 0.7);
+    border: 1px solid rgba(16, 185, 129, 0.25);
+    color: var(--text-dim);
+    padding: 0.55rem 0.4rem;
+    border-radius: 6px;
+    font-size: 0.72rem;
+    cursor: pointer;
+    text-align: center;
+    line-height: 1.3;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .preset-btn:hover {
+    border-color: var(--cyan);
+    color: var(--cyan);
+    background: rgba(0, 243, 255, 0.08);
+  }
+
+  .preset-btn.active {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.25), rgba(0, 243, 255, 0.2));
+    border-color: var(--cyan);
+    color: #fff;
+    box-shadow: 0 0 10px var(--cyan-glow);
+  }
+
+  .slider-control {
+    margin-bottom: 0.85rem;
+  }
+  .slider-control:last-child {
+    margin-bottom: 0;
+  }
+
+  .slider-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.74rem;
+    color: var(--text-dim);
+    margin-bottom: 0.35rem;
+  }
+
+  .slider-val {
+    font-family: var(--font-mono);
+    color: var(--cyan);
+    font-weight: 500;
+  }
+
+  input[type="range"] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: 2px;
+    outline: none;
+    transition: background 0.2s;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--emerald);
+    cursor: pointer;
+    box-shadow: 0 0 8px var(--emerald);
+    transition: transform 0.1s, background 0.2s;
+  }
+
+  input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.25);
+  }
+
+  /* 中央 3D 全息视口 */
+  main.viewport-container {
+    grid-area: viewport;
+    position: relative;
+    overflow: hidden;
+    background: radial-gradient(circle at 50% 50%, #061921 0%, #030712 100%);
+  }
+
+  #mainCanvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    cursor: grab;
+  }
+  #mainCanvas:active {
+    cursor: grabbing;
+  }
+
+  .viewport-overlay {
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+  }
+
+  .hud-badge {
+    background: rgba(15, 23, 42, 0.75);
+    border: 1px solid var(--panel-border);
+    padding: 0.35rem 0.75rem;
+    border-radius: 4px;
+    backdrop-filter: blur(8px);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .hud-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--emerald);
+    box-shadow: 0 0 8px var(--emerald);
+    animation: pulse 1.6s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.8); }
+  }
+
+  .viewport-controls-hint {
+    position: absolute;
+    bottom: 1rem;
+    left: 1rem;
+    pointer-events: none;
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    font-family: var(--font-mono);
+    background: rgba(15, 23, 42, 0.6);
+    padding: 0.3rem 0.6rem;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
+  /* 右侧物理示波与能带分析面板 */
+  aside.analysis-panel {
+    grid-area: analysis;
+    background: var(--panel-bg);
+    border-left: 1px solid var(--panel-border);
+    backdrop-filter: blur(16px);
+    overflow-y: auto;
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.2rem;
+    z-index: 10;
+  }
+
+  .scope-box {
+    background: rgba(15, 23, 42, 0.85);
+    border: 1px solid rgba(16, 185, 129, 0.25);
+    border-radius: 8px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .scope-header {
+    background: rgba(30, 41, 59, 0.5);
+    padding: 0.45rem 0.75rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.74rem;
+    font-family: var(--font-mono);
+    color: var(--cyan);
+  }
+
+  .scope-canvas {
+    width: 100%;
+    height: 160px;
+    display: block;
+    background: #020617;
+  }
+
+  .stat-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.6rem;
+  }
+
+  .stat-card {
+    background: rgba(30, 41, 59, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 6px;
+    padding: 0.6rem;
+  }
+
+  .stat-title {
+    font-size: 0.68rem;
+    color: var(--text-dim);
+    margin-bottom: 0.2rem;
+  }
+
+  .stat-digit {
+    font-size: 1.05rem;
+    font-family: var(--font-mono);
+    font-weight: 600;
+    color: var(--emerald);
+  }
+  .stat-digit.cyan { color: var(--cyan); }
+  .stat-digit.purple { color: var(--purple); }
+  .stat-digit.magenta { color: var(--magenta); }
+
+  .formula-card {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    line-height: 1.45;
+    color: #cbd5e1;
+    background: rgba(15, 23, 42, 0.9);
+    border-left: 2px solid var(--emerald);
+    padding: 0.6rem;
+    border-radius: 0 4px 4px 0;
+  }
+</style>
+</head>
+<body>
+
+  <!-- 头部状态栏 -->
+  <header>
+    <div class="brand-group">
+      <span class="brand-badge">QUANTO-342</span>
+      <h1 class="header-title">非厄米弗洛凯拓扑极化激元超构微腔李-杨零点与单光子受激激光</h1>
+    </div>
+    <div class="header-metrics">
+      <div class="metric-item">
+        <span>激射边模抑制比:</span>
+        <span class="metric-value" id="topSmsr">62.8 dB</span>
+      </div>
+      <div class="metric-item">
+        <span>激射状态:</span>
+        <span class="metric-value" id="topLaserState">SINGLE-MODE EP</span>
+      </div>
+      <div class="metric-item">
+        <span>佩特曼因子 K:</span>
+        <span class="metric-value" id="topPetermann">1.08 (Sub-Shot)</span>
+      </div>
+      <button class="audio-toggle-btn" id="audioToggle">🔊 音频反馈: 关闭</button>
+    </div>
+  </header>
+
+  <!-- 左侧物理参数交互控制区 -->
+  <aside class="control-panel">
+    <div>
+      <div class="section-title">工况预设矩阵 (Presets)</div>
+      <div class="card-group">
+        <div class="preset-grid">
+          <button class="preset-btn active" data-preset="eplaser">高阶奇异点激射<br><small style="color:var(--emerald)">Exceptional Laser</small></button>
+          <button class="preset-btn" data-preset="leeyang">李-杨零点凝聚<br><small style="color:var(--cyan)">Lee-Yang Condense</small></button>
+          <button class="preset-btn" data-preset="floquet">弗洛凯动态拓扑<br><small style="color:var(--purple)">Floquet Active</small></button>
+          <button class="preset-btn" data-preset="quench">退相干激射猝灭<br><small style="color:var(--magenta)">Decoherence Quench</small></button>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title">微观参数旋钮 (Micro-Knobs)</div>
+      <div class="card-group">
+        <div class="slider-control">
+          <div class="slider-header">
+            <span>增益-损耗率 γ_nh (meV)</span>
+            <span class="slider-val" id="val_gammanh">1.85</span>
+          </div>
+          <input type="range" id="sl_gammanh" min="0.1" max="3.5" step="0.05" value="1.85">
+        </div>
+
+        <div class="slider-control">
+          <div class="slider-header">
+            <span>弗洛凯驱动调制 V_floq (meV)</span>
+            <span class="slider-val" id="val_vfloq">1.40</span>
+          </div>
+          <input type="range" id="sl_vfloq" min="0.2" max="3.0" step="0.05" value="1.40">
+        </div>
+
+        <div class="slider-control">
+          <div class="slider-header">
+            <span>微腔克尔非线性 g_nl (meV)</span>
+            <span class="slider-val" id="val_gnl">1.20</span>
+          </div>
+          <input type="range" id="sl_gnl" min="0.1" max="2.5" step="0.05" value="1.20">
+        </div>
+
+        <div class="slider-control">
+          <div class="slider-header">
+            <span>光学泵浦功率 P_pump (kW/cm²)</span>
+            <span class="slider-val" id="val_ppump">3.50</span>
+          </div>
+          <input type="range" id="sl_ppump" min="0.5" max="6.0" step="0.1" value="3.50">
+        </div>
+
+        <div class="slider-control">
+          <div class="slider-header">
+            <span>莫尔微腔相位角 θ_m (deg)</span>
+            <span class="slider-val" id="val_thetam">28.5°</span>
+          </div>
+          <input type="range" id="sl_thetam" min="0.0" max="60.0" step="1.0" value="28.5">
+        </div>
+
+        <div class="slider-control">
+          <div class="slider-header">
+            <span>无序散射耗散 Γ_dis (meV)</span>
+            <span class="slider-val" id="val_gdis">0.05</span>
+          </div>
+          <input type="range" id="sl_gdis" min="0.0" max="0.5" step="0.01" value="0.05">
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title">非厄米配分方程与本构关系</div>
+      <div class="formula-card">
+        Z(β, z) = ∏_j (1 - z / z_j) ⇒ z_j ∈ ℂ (李-杨代数零点)<br>
+        H_eff = ∑_n [ (t + iγ_nh) a†_{n+1} a_n + c.c. ] + V_fl cos(Ωt)<br>
+        W_GBZ = (1/2π) ∮_C d[ arg( det(H(β) - E) ) ] = 1<br>
+        Δν = (hν / 2P_out) · Γ_cavity · K_petermann (线宽压缩)
+      </div>
+    </div>
+  </aside>
+
+  <!-- 中央 3D 全息交互视口 -->
+  <main class="viewport-container">
+    <canvas id="mainCanvas"></canvas>
+    
+    <div class="viewport-overlay">
+      <div class="hud-badge">
+        <span class="hud-dot"></span>
+        <span>非厄米超构微腔晶格与单模受激激光环流实时追踪中</span>
+      </div>
+      <div class="hud-badge" style="border-color: rgba(16,185,129,0.3)">
+        <span style="color:var(--emerald)">● 增益微柱 (Gain Pillars +iγ)</span>
+        <span style="color:var(--magenta); margin-left: 0.5rem">● 损耗微柱 (Loss Pillars -iγ)</span>
+      </div>
+    </div>
+
+    <div class="viewport-controls-hint">
+      🖱️ 左键拖拽: 旋转 3D 视角 | 滚轮: 缩放景深 | 双击: 视角平滑复位
+    </div>
+  </main>
+
+  <!-- 右侧物理特征与示波器分析面板 -->
+  <aside class="analysis-panel">
+    <div>
+      <div class="section-title">通道 A: 复能平面李-杨零点分布与广义布里渊区</div>
+      <div class="scope-box">
+        <div class="scope-header">
+          <span>LEE-YANG ZEROS & GBZ C-PLANE</span>
+          <span style="color:var(--emerald)" id="gbzStatus">W_GBZ = 1 TOPOLOGICAL</span>
+        </div>
+        <canvas class="scope-canvas" id="scopeGbzCanvas"></canvas>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title">通道 B: 单模拓扑受激激光激射谱线与SMSR</div>
+      <div class="scope-box">
+        <div class="scope-header">
+          <span>STIMULATED LASING SPECTRUM</span>
+          <span id="smsrTag" style="color:var(--cyan)">SMSR: 62.8 dB</span>
+        </div>
+        <canvas class="scope-canvas" id="scopeLasingCanvas"></canvas>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title">非厄米受激拓扑物态参量</div>
+      <div class="stat-grid">
+        <div class="stat-card">
+          <div class="stat-title">激射本征线宽 Δν</div>
+          <div class="stat-digit cyan" id="val_linewidth">64.5 Hz</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-title">李-杨零点凝聚度 ρ_LY</div>
+          <div class="stat-digit" id="val_rholy">0.942</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-title">激射光输出功率 P_out</div>
+          <div class="stat-digit emerald" id="val_pout">28.4 mW</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-title">奇异点距离 Δ_EP</div>
+          <div class="stat-digit purple" id="val_deltaep">0.08 meV</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card-group" style="font-size:0.75rem; color:var(--text-dim); line-height:1.5">
+      <div style="color:var(--cyan); font-weight:600; margin-bottom:0.25rem;">物理机理解析:</div>
+      在交替增益-损耗的非厄米极化激元超构微腔中，周期性弗洛凯微波驱动促使配分函数李-杨零点在复平面积聚并发生拓扑非平衡相变。当系统工作在奇异点(EP)附近时，微腔克尔非线性与非厄米趋肤效应相互锁定，压制了多模自发辐射噪声，产生极高边模抑制比与亚百赫兹本征线宽的无序免疫单模受激激光。
+    </div>
+  </aside>
+
+<script>
+/**
+ * 非厄米弗洛凯拓扑极化激元超构微腔李-杨零点相变与单光子受激拓扑激光
+ * Zero-dependency Vanilla JS + Canvas 2D Pseudo-3D Engine + Web Audio API
+ */
+
+// 物理状态对象
+const STATE = {
+  gammanh: 1.85,    // 增益损耗率 meV
+  vfloq: 1.40,      // 弗洛凯驱动 meV
+  gnl: 1.20,        // 克尔非线性 meV
+  ppump: 3.50,      // 泵浦功率 kW/cm^2
+  thetam: 28.5,     // 莫尔相位角 deg
+  gdis: 0.05,       // 无序耗散 meV
+  audioEnabled: false,
+
+  // 物理推演参量
+  smsr: 62.8,
+  petermann: 1.08,
+  linewidth: 64.5,
+  rholy: 0.942,
+  pout: 28.4,
+  deltaep: 0.08,
+  isLasing: true
+};
+
+// 预设配置
+const PRESETS = {
+  eplaser: { gammanh: 1.85, vfloq: 1.40, gnl: 1.20, ppump: 3.50, thetam: 28.5, gdis: 0.05 },
+  leeyang: { gammanh: 2.60, vfloq: 2.10, gnl: 1.80, ppump: 4.80, thetam: 36.0, gdis: 0.02 },
+  floquet: { gammanh: 1.40, vfloq: 2.80, gnl: 0.90, ppump: 2.80, thetam: 45.0, gdis: 0.04 },
+  quench: { gammanh: 0.40, vfloq: 0.50, gnl: 0.30, ppump: 0.80, thetam: 12.0, gdis: 0.42 }
+};
+
+// 3D 视图交互
+const VIEW = {
+  rotX: 0.48,
+  rotY: -0.62,
+  zoom: 1.05,
+  isDragging: false,
+  lastMouseX: 0,
+  lastMouseY: 0
+};
+
+// Web Audio API 合成引擎
+let audioCtx = null;
+let oscLaser = null;
+let oscGainPillar = null;
+let laserGain = null;
+
+function initAudio() {
+  if (audioCtx) return;
+  const AudioContext = window.AudioContext || window.webkitAudioContext;
+  audioCtx = new AudioContext();
+
+  oscLaser = audioCtx.createOscillator();
+  oscGainPillar = audioCtx.createOscillator();
+  laserGain = audioCtx.createGain();
+
+  oscLaser.type = 'sine';
+  oscGainPillar.type = 'triangle';
+
+  oscLaser.frequency.setValueAtTime(240, audioCtx.currentTime);
+  oscGainPillar.frequency.setValueAtTime(480, audioCtx.currentTime);
+
+  laserGain.gain.setValueAtTime(0.015, audioCtx.currentTime);
+
+  oscLaser.connect(laserGain);
+  oscGainPillar.connect(laserGain);
+  laserGain.connect(audioCtx.destination);
+
+  oscLaser.start();
+  oscGainPillar.start();
+}
+
+function updateAudio() {
+  if (!audioCtx || !STATE.audioEnabled) return;
+  const fLaser = 180 + STATE.ppump * 45;
+  const fHarm = fLaser * 2.0;
+
+  oscLaser.frequency.setTargetAtTime(fLaser, audioCtx.currentTime, 0.06);
+  oscGainPillar.frequency.setTargetAtTime(fHarm, audioCtx.currentTime, 0.06);
+
+  const gainTarget = STATE.isLasing ? 0.038 : 0.008;
+  laserGain.gain.setTargetAtTime(gainTarget, audioCtx.currentTime, 0.06);
+}
+
+// 物理数值计算引擎
+function computePhysics() {
+  // 阈值条件: P_pump > 1.2 + gdis * 8.0, γ_nh > 0.4
+  const pThreshold = 1.2 + STATE.gdis * 8.0;
+  STATE.isLasing = (STATE.ppump >= pThreshold && STATE.gammanh >= 0.4);
+
+  // 奇异点距离 Δ_EP ~ |γ_nh - (t_hop + V_fl * 0.5)|
+  STATE.deltaep = Math.max(0.02, Math.abs(STATE.gammanh - (1.2 + STATE.vfloq * 0.45)));
+
+  if (STATE.isLasing) {
+    STATE.smsr = Math.min(68.5, Math.max(28.0, 48.0 + (STATE.gammanh * 6.5) + (STATE.gnl * 4.0) - (STATE.gdis * 35.0)));
+    STATE.petermann = Math.max(1.02, 1.0 + STATE.deltaep * 1.5);
+    STATE.linewidth = Math.max(15.0, (45.0 / (STATE.ppump * 0.8 + 0.1)) * STATE.petermann * (1.0 + STATE.gdis * 2.5));
+    STATE.rholy = Math.min(0.995, Math.max(0.65, 0.88 + STATE.ppump * 0.02 - STATE.gdis * 0.4));
+    STATE.pout = Math.min(55.0, Math.max(5.0, (STATE.ppump - pThreshold) * 12.0 * (1.0 - STATE.gdis * 1.2)));
+  } else {
+    STATE.smsr = Math.max(4.0, 15.0 - STATE.gdis * 25.0);
+    STATE.petermann = Math.max(3.5, 4.5 + STATE.gdis * 10.0);
+    STATE.linewidth = Math.max(320.0, 480.0 + STATE.gdis * 600.0);
+    STATE.rholy = Math.max(0.12, 0.45 - STATE.gdis * 0.8);
+    STATE.pout = Math.max(0.1, 0.8 * Math.exp(-STATE.gdis * 5.0));
+  }
+
+  // 同步 DOM 节点
+  document.getElementById('topSmsr').textContent = STATE.smsr.toFixed(1) + ' dB';
+  document.getElementById('topLaserState').textContent = STATE.isLasing ? 'SINGLE-MODE EP' : 'BELOW THRESHOLD';
+  document.getElementById('topLaserState').style.color = STATE.isLasing ? 'var(--emerald)' : 'var(--amber)';
+  document.getElementById('topPetermann').textContent = `${STATE.petermann.toFixed(2)} (${STATE.petermann < 1.2 ? 'Sub-Shot' : 'Enhanced'})`;
+
+  document.getElementById('val_linewidth').textContent = STATE.linewidth.toFixed(1) + ' Hz';
+  document.getElementById('val_rholy').textContent = STATE.rholy.toFixed(3);
+  document.getElementById('val_pout').textContent = STATE.pout.toFixed(1) + ' mW';
+  document.getElementById('val_deltaep').textContent = STATE.deltaep.toFixed(2) + ' meV';
+
+  const gbzTag = document.getElementById('gbzStatus');
+  if (STATE.isLasing) {
+    gbzTag.textContent = 'W_GBZ = 1 TOPOLOGICAL';
+    gbzTag.style.color = 'var(--emerald)';
+  } else {
+    gbzTag.textContent = 'W_GBZ = 0 TRIVIAL';
+    gbzTag.style.color = 'var(--magenta)';
+  }
+
+  const smsrEl = document.getElementById('smsrTag');
+  smsrEl.textContent = `SMSR: ${STATE.smsr.toFixed(1)} dB`;
+
+  updateAudio();
+}
+
+// 控件与交互事件绑定
+function setupControls() {
+  const sliders = [
+    { id: 'sl_gammanh', valId: 'val_gammanh', key: 'gammanh', fmt: v => Number(v).toFixed(2) },
+    { id: 'sl_vfloq', valId: 'val_vfloq', key: 'vfloq', fmt: v => Number(v).toFixed(2) },
+    { id: 'sl_gnl', valId: 'val_gnl', key: 'gnl', fmt: v => Number(v).toFixed(2) },
+    { id: 'sl_ppump', valId: 'val_ppump', key: 'ppump', fmt: v => Number(v).toFixed(2) },
+    { id: 'sl_thetam', valId: 'val_thetam', key: 'thetam', fmt: v => Number(v).toFixed(1) + '°' },
+    { id: 'sl_gdis', valId: 'val_gdis', key: 'gdis', fmt: v => Number(v).toFixed(2) }
+  ];
+
+  sliders.forEach(s => {
+    const el = document.getElementById(s.id);
+    const valEl = document.getElementById(s.valId);
+    el.addEventListener('input', e => {
+      STATE[s.key] = parseFloat(e.target.value);
+      valEl.textContent = s.fmt(STATE[s.key]);
+      computePhysics();
+    });
+  });
+
+  const presetBtns = document.querySelectorAll('.preset-btn');
+  presetBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      presetBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const p = PRESETS[btn.dataset.preset];
+      if (p) {
+        Object.assign(STATE, p);
+        sliders.forEach(s => {
+          document.getElementById(s.id).value = STATE[s.key];
+          document.getElementById(s.valId).textContent = s.fmt(STATE[s.key]);
+        });
+        computePhysics();
+      }
+    });
+  });
+
+  const audioBtn = document.getElementById('audioToggle');
+  audioBtn.addEventListener('click', () => {
+    STATE.audioEnabled = !STATE.audioEnabled;
+    if (STATE.audioEnabled) {
+      initAudio();
+      if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+      audioBtn.textContent = '🔊 音频反馈: 开启';
+      audioBtn.classList.add('active');
+    } else {
+      audioBtn.textContent = '🔊 音频反馈: 关闭';
+      audioBtn.classList.remove('active');
+      if (laserGain) laserGain.gain.setValueAtTime(0, audioCtx.currentTime);
+    }
+  });
+
+  const canvas = document.getElementById('mainCanvas');
+  canvas.addEventListener('mousedown', e => {
+    VIEW.isDragging = true;
+    VIEW.lastMouseX = e.clientX;
+    VIEW.lastMouseY = e.clientY;
+  });
+
+  window.addEventListener('mouseup', () => {
+    VIEW.isDragging = false;
+  });
+
+  canvas.addEventListener('mousemove', e => {
+    if (!VIEW.isDragging) return;
+    const dx = e.clientX - VIEW.lastMouseX;
+    const dy = e.clientY - VIEW.lastMouseY;
+    VIEW.rotY += dx * 0.007;
+    VIEW.rotX += dy * 0.007;
+    VIEW.rotX = Math.max(-1.4, Math.min(1.4, VIEW.rotX));
+    VIEW.lastMouseX = e.clientX;
+    VIEW.lastMouseY = e.clientY;
+  });
+
+  canvas.addEventListener('wheel', e => {
+    e.preventDefault();
+    VIEW.zoom *= (e.deltaY > 0 ? 0.92 : 1.08);
+    VIEW.zoom = Math.max(0.4, Math.min(3.2, VIEW.zoom));
+  }, { passive: false });
+
+  canvas.addEventListener('dblclick', () => {
+    VIEW.rotX = 0.48;
+    VIEW.rotY = -0.62;
+    VIEW.zoom = 1.05;
+  });
+}
+
+// 3D 投影变换
+function project3D(x, y, z, width, height) {
+  const cosY = Math.cos(VIEW.rotY);
+  const sinY = Math.sin(VIEW.rotY);
+  const x1 = x * cosY - z * sinY;
+  const z1 = z * cosY + x * sinY;
+
+  const cosX = Math.cos(VIEW.rotX);
+  const sinX = Math.sin(VIEW.rotX);
+  const y2 = y * cosX - z1 * sinX;
+  const z2 = z1 * cosX + y * sinX;
+
+  const fov = 480 * VIEW.zoom;
+  const distance = 420;
+  const pz = z2 + distance;
+  const scale = fov / Math.max(pz, 30);
+
+  return {
+    px: width / 2 + x1 * scale,
+    py: height / 2 + y2 * scale,
+    scale: scale,
+    z: z2
+  };
+}
+
+// 激射光子与受激辐射流体追踪系统
+const LASER_PHOTONS = 85;
+const photonPackets = [];
+for (let i = 0; i < LASER_PHOTONS; i++) {
+  photonPackets.push({
+    dist: Math.random() * 600,
+    speed: 3.5 + Math.random() * 2.0,
+    yDev: (Math.random() - 0.5) * 8,
+    trail: []
+  });
+}
+
+// 分段闭合四边形激光边界轨道坐标计算
+function getLasingLoopCoord(d) {
+  const loopL = 150;
+  const loopW = 85;
+  const totalPerim = 2 * (loopL * 2 + loopW * 2);
+  const mD = (d % totalPerim + totalPerim) % totalPerim;
+
+  // 顺时针定向传输: TopEdge -> RightEdge -> BottomEdge -> LeftEdge
+  if (mD < loopL * 2) {
+    return { x: -loopL + mD, z: -loopW };
+  } else if (mD < loopL * 2 + loopW * 2) {
+    const segD = mD - loopL * 2;
+    return { x: loopL, z: -loopW + segD };
+  } else if (mD < loopL * 4 + loopW * 2) {
+    const segD = mD - (loopL * 2 + loopW * 2);
+    return { x: loopL - segD, z: loopW };
+  } else {
+    const segD = mD - (loopL * 4 + loopW * 2);
+    return { x: -loopL, z: loopW - segD };
+  }
+}
+
+// 3D 主视口渲染循环
+let animTime = 0;
+function renderMain() {
+  const canvas = document.getElementById('mainCanvas');
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width = canvas.clientWidth;
+  const h = canvas.height = canvas.clientHeight;
+
+  animTime += 0.04;
+
+  ctx.fillStyle = '#030712';
+  ctx.fillRect(0, 0, w, h);
+
+  // 1. 渲染微腔基底反射镜衬底 (Substrate Mirror)
+  const mirrorL = 180;
+  const mirrorW = 115;
+  const baseY = 36;
+  const mirrorCorners = [
+    project3D(-mirrorL, baseY, -mirrorW, w, h),
+    project3D(mirrorL, baseY, -mirrorW, w, h),
+    project3D(mirrorL, baseY, mirrorW, w, h),
+    project3D(-mirrorL, baseY, mirrorW, w, h)
+  ];
+  ctx.fillStyle = 'rgba(15, 23, 42, 0.75)';
+  ctx.strokeStyle = 'rgba(16, 185, 129, 0.25)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(mirrorCorners[0].px, mirrorCorners[0].py);
+  for (let i = 1; i < 4; i++) ctx.lineTo(mirrorCorners[i].px, mirrorCorners[i].py);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  // 2. 渲染非厄米微柱阵列 (Gain & Loss Micro-Pillars Grid)
+  const cols = 9;
+  const rows = 5;
+  const pillarHeight = 32;
+
+  for (let c = -Math.floor(cols / 2); c <= Math.floor(cols / 2); c++) {
+    for (let r = -Math.floor(rows / 2); r <= Math.floor(rows / 2); r++) {
+      const px = c * 35;
+      const pz = r * 35;
+      // 交替增益与耗散符号
+      const isGain = (Math.abs(c + r) % 2 === 0);
+      const pillarColor = isGain ? '#10b981' : '#f43f5e';
+      const glowAlpha = isGain ? (0.4 + (STATE.gammanh / 3.5) * 0.5) : 0.3;
+
+      const pBot = project3D(px, baseY, pz, w, h);
+      const pTop = project3D(px, baseY - pillarHeight, pz, w, h);
+
+      ctx.strokeStyle = isGain ? `rgba(16, 185, 129, ${glowAlpha})` : `rgba(244, 63, 94, ${glowAlpha})`;
+      ctx.lineWidth = 2.4;
+      ctx.beginPath();
+      ctx.moveTo(pBot.px, pBot.py);
+      ctx.lineTo(pTop.px, pTop.py);
+      ctx.stroke();
+
+      // 微柱顶端光核
+      ctx.beginPath();
+      ctx.arc(pTop.px, pTop.py, 3.2 * pTop.scale, 0, Math.PI * 2);
+      ctx.fillStyle = pillarColor;
+      ctx.fill();
+    }
+  }
+
+  // 3. 渲染受激单模拓扑边缘激光束闭合回线 (Topological Edge Lasing Loop)
+  const loopY = baseY - pillarHeight / 2;
+  const loopPts = 80;
+  ctx.save();
+  ctx.strokeStyle = STATE.isLasing ? 'rgba(0, 243, 255, 0.85)' : 'rgba(251, 191, 36, 0.25)';
+  ctx.lineWidth = STATE.isLasing ? 3.0 : 1.2;
+  ctx.shadowColor = '#00f3ff';
+  ctx.shadowBlur = STATE.isLasing ? 16 : 0;
+  ctx.beginPath();
+  for (let i = 0; i <= loopPts; i++) {
+    const ptCoord = getLasingLoopCoord((i / loopPts) * 940);
+    const p3d = project3D(ptCoord.x, loopY, ptCoord.z, w, h);
+    if (i === 0) ctx.moveTo(p3d.px, p3d.py);
+    else ctx.lineTo(p3d.px, p3d.py);
+  }
+  ctx.stroke();
+  ctx.restore();
+
+  // 4. 动态更新与渲染单模受激辐射光子流 (Stimulated Photons)
+  if (STATE.isLasing) {
+    photonPackets.forEach(p => {
+      p.dist += p.speed;
+      const ptCoord = getLasingLoopCoord(p.dist);
+      const py = loopY + p.yDev;
+
+      p.trail.push({ x: ptCoord.x, y: py, z: ptCoord.z });
+      if (p.trail.length > 8) p.trail.shift();
+
+      if (p.trail.length > 2) {
+        ctx.beginPath();
+        for (let t = 0; t < p.trail.length; t++) {
+          const tp = project3D(p.trail[t].x, p.trail[t].y, p.trail[t].z, w, h);
+          if (t === 0) ctx.moveTo(tp.px, tp.py);
+          else ctx.lineTo(tp.px, tp.py);
+        }
+        ctx.strokeStyle = 'rgba(0, 243, 255, 0.45)';
+        ctx.lineWidth = 1.4;
+        ctx.stroke();
+      }
+
+      const head = project3D(ptCoord.x, py, ptCoord.z, w, h);
+      ctx.beginPath();
+      ctx.arc(head.px, head.py, 2.5 * head.scale, 0, Math.PI * 2);
+      ctx.fillStyle = '#00f3ff';
+      ctx.fill();
+    });
+  }
+
+  // 5. 标示端点文字
+  const outP = project3D(150, loopY - 20, 0, w, h);
+  ctx.fillStyle = STATE.isLasing ? '#00f3ff' : '#94a3b8';
+  ctx.font = '11px JetBrains Mono';
+  ctx.fillText(`Lasing Power: ${STATE.pout.toFixed(1)} mW`, outP.px + 10, outP.py);
+}
+
+// 通道 A: 复能平面李-杨零点分布与广义布里渊区 (GBZ) 示波器
+function renderScopeGbz() {
+  const canvas = document.getElementById('scopeGbzCanvas');
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width = canvas.clientWidth;
+  const h = canvas.height = canvas.clientHeight;
+
+  ctx.fillStyle = '#020617';
+  ctx.fillRect(0, 0, w, h);
+
+  // 中心十字轴: Re(E) 与 Im(E)
+  const cx = w / 2;
+  const cy = h / 2;
+
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(0, cy); ctx.lineTo(w, cy);
+  ctx.moveTo(cx, 0); ctx.lineTo(cx, h);
+  ctx.stroke();
+
+  // 绘制广义布里渊区 GBZ 闭合环 (Generalized Brillouin Zone)
+  // β = r * exp(iθ), r = sqrt( (t - γ)/(t + γ) )
+  const rGbz = (h * 0.36) * Math.sqrt(Math.max(0.2, (2.0 - STATE.gammanh * 0.4) / (2.0 + STATE.gammanh * 0.4)));
+
+  ctx.lineWidth = 2.2;
+  ctx.strokeStyle = '#10b981';
+  ctx.beginPath();
+  ctx.arc(cx, cy, rGbz, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // 绘制复平面李-杨零点积聚点 (Lee-Yang Zeros Dots)
+  const numZeros = 24;
+  for (let z = 0; z < numZeros; z++) {
+    const ang = (z / numZeros) * Math.PI * 2 + animTime * 0.4;
+    // 李-杨零点逼近单位圆 / GBZ 闭合界面
+    const distZ = rGbz + (Math.sin(ang * 4.0) * 12.0) * (1.0 - STATE.rholy);
+    const zx = cx + Math.cos(ang) * distZ;
+    const zy = cy + Math.sin(ang) * distZ;
+
+    ctx.beginPath();
+    ctx.arc(zx, zy, 2.5, 0, Math.PI * 2);
+    ctx.fillStyle = (z % 2 === 0) ? '#00f3ff' : '#f43f5e';
+    ctx.fill();
+  }
+
+  // 奇异点 EP 标注 (Exceptional Point)
+  const epDist = rGbz * 0.85;
+  ctx.fillStyle = '#fbbf24';
+  ctx.beginPath();
+  ctx.arc(cx - epDist, cy, 4, 0, Math.PI * 2);
+  ctx.arc(cx + epDist, cy, 4, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 文字标注
+  ctx.fillStyle = '#94a3b8';
+  ctx.font = '10px JetBrains Mono';
+  ctx.fillText('Re(E)', w - 38, cy - 6);
+  ctx.fillText('Im(E)', cx + 6, 16);
+  ctx.fillStyle = '#10b981';
+  ctx.fillText(`GBZ Topology W=1`, 16, 20);
+}
+
+// 通道 B: 单模拓扑激射光谱与边模抑制比示波器
+function renderScopeLasing() {
+  const canvas = document.getElementById('scopeLasingCanvas');
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width = canvas.clientWidth;
+  const h = canvas.height = canvas.clientHeight;
+
+  ctx.fillStyle = '#020617';
+  ctx.fillRect(0, 0, w, h);
+
+  // 底部零线
+  const baseY = h - 20;
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(10, baseY); ctx.lineTo(w - 10, baseY);
+  ctx.stroke();
+
+  // 绘制中心主激光峰 (Ultra-narrow Single Lasing Peak)
+  const midX = w / 2;
+  const peakHeight = STATE.isLasing ? (h * 0.78) * (STATE.smsr / 65.0) : 18;
+  const lwPx = Math.max(2.5, (STATE.linewidth / 30.0));
+
+  ctx.lineWidth = 2.5;
+  ctx.strokeStyle = '#00f3ff';
+  ctx.beginPath();
+  for (let x = 10; x < w - 10; x++) {
+    const dist = Math.abs(x - midX);
+    // 洛伦兹线型
+    const lorenz = peakHeight / (1.0 + Math.pow(dist / lwPx, 2));
+    // 边模抑制噪声
+    const sideModes = Math.sin((x / 14.0)) * 6.0 * (1.0 - STATE.smsr / 75.0);
+    const py = baseY - Math.max(0, lorenz + sideModes);
+    if (x === 10) ctx.moveTo(x, py);
+    else ctx.lineTo(x, py);
+  }
+  ctx.stroke();
+
+  // 边模抑制线标示
+  if (STATE.isLasing) {
+    const sideY = baseY - peakHeight * (1.0 - STATE.smsr / 100.0);
+    ctx.strokeStyle = '#f43f5e';
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath();
+    ctx.moveTo(midX + 25, sideY); ctx.lineTo(w - 20, sideY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.fillStyle = '#f43f5e';
+    ctx.font = '10px JetBrains Mono';
+    ctx.fillText(`Side Suppression Δ=${STATE.smsr.toFixed(1)}dB`, midX + 35, sideY - 4);
+  }
+
+  // 标注
+  ctx.fillStyle = '#00f3ff';
+  ctx.font = '10px JetBrains Mono';
+  ctx.fillText(`λ_0: Single-Mode Laser`, 16, 20);
+  ctx.fillStyle = '#10b981';
+  ctx.fillText(`Linewidth: ${STATE.linewidth.toFixed(1)} Hz`, 16, h - 6);
+}
+
+// 主动画连续循环
+function animate() {
+  renderMain();
+  renderScopeGbz();
+  renderScopeLasing();
+  requestAnimationFrame(animate);
+}
+
+// 页面加载启动
+window.addEventListener('DOMContentLoaded', () => {
+  setupControls();
+  computePhysics();
+  animate();
+});
+</script>
+</body>
+</html>

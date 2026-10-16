@@ -1,0 +1,1041 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>非互易拓扑超构材料声子二极管全息模拟 - Non-Reciprocal Acoustic Diode & Metamaterials</title>
+  <style>
+    :root {
+      --bg-dark: #020617;
+      --panel-bg: rgba(10, 16, 32, 0.88);
+      --panel-border: rgba(14, 165, 233, 0.28);
+      --accent-forward: #10b981;
+      --accent-backward: #ef4444;
+      --accent-pump: #f59e0b;
+      --accent-phonon: #38bdf8;
+      --accent-purple: #a855f7;
+      --text-main: #f8fafc;
+      --text-dim: #94a3b8;
+      --font-code: 'JetBrains Mono', 'Fira Code', monospace;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      background: rgba(8, 14, 28, 0.96);
+      border-bottom: 1px solid var(--panel-border);
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 10;
+      flex-shrink: 0;
+    }
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .logo-badge {
+      background: linear-gradient(135deg, #10b981, #38bdf8, #f59e0b);
+      color: #fff;
+      font-weight: 800;
+      font-size: 13px;
+      padding: 3px 9px;
+      border-radius: 6px;
+      letter-spacing: 0.5px;
+      box-shadow: 0 0 12px rgba(14, 165, 233, 0.4);
+    }
+    h1 {
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+      background: linear-gradient(to right, #ffffff, #bae6fd, #fed7aa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .status-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-family: var(--font-code);
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: #34d399;
+      padding: 4px 10px;
+      border-radius: 20px;
+    }
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #10b981;
+      box-shadow: 0 0 8px #10b981;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+    .btn {
+      background: rgba(14, 165, 233, 0.14);
+      border: 1px solid rgba(14, 165, 233, 0.4);
+      color: #e0f2fe;
+      padding: 5px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 500;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .btn:hover {
+      background: rgba(14, 165, 233, 0.28);
+      border-color: #38bdf8;
+      color: #ffffff;
+    }
+    .btn.active {
+      background: #0284c7;
+      border-color: #38bdf8;
+      color: #ffffff;
+      box-shadow: 0 0 10px rgba(14, 165, 233, 0.5);
+    }
+    .main-container {
+      display: flex;
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+    #viewport-container {
+      flex: 1;
+      position: relative;
+      background: radial-gradient(circle at 50% 50%, #08182e 0%, #020617 90%);
+      overflow: hidden;
+    }
+    canvas#main-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    .hud-overlay {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      z-index: 5;
+    }
+    .hud-card {
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      backdrop-filter: blur(12px);
+      border-radius: 8px;
+      padding: 12px 16px;
+      pointer-events: auto;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+      min-width: 270px;
+    }
+    .hud-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-dim);
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .hud-stat-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .hud-stat-item {
+      display: flex;
+      flex-direction: column;
+    }
+    .hud-stat-label {
+      font-size: 10px;
+      color: var(--text-dim);
+      font-family: var(--font-code);
+    }
+    .hud-stat-val {
+      font-size: 14px;
+      font-weight: 700;
+      font-family: var(--font-code);
+      color: #ffffff;
+    }
+    .hud-stat-val.forward { color: var(--accent-forward); }
+    .hud-stat-val.backward { color: var(--accent-backward); }
+    .hud-stat-val.isolation { color: #f59e0b; }
+    .hud-stat-val.pump { color: #38bdf8; }
+    .side-panel {
+      width: 440px;
+      background: var(--panel-bg);
+      border-left: 1px solid var(--panel-border);
+      backdrop-filter: blur(16px);
+      display: flex;
+      flex-direction: column;
+      z-index: 5;
+      overflow-y: auto;
+    }
+    .panel-section {
+      padding: 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .section-title {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: #7dd3fc;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .preset-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .control-group {
+      margin-bottom: 12px;
+    }
+    .control-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+      font-size: 12px;
+    }
+    .control-label {
+      color: #cbd5e1;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .control-val {
+      font-family: var(--font-code);
+      color: #38bdf8;
+      font-weight: 600;
+    }
+    input[type=range] {
+      width: 100%;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 2px;
+      outline: none;
+      -webkit-appearance: none;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #0284c7;
+      cursor: pointer;
+      box-shadow: 0 0 8px rgba(14, 165, 233, 0.8);
+      border: 1px solid #bae6fd;
+    }
+    .scope-box {
+      background: rgba(2, 6, 23, 0.7);
+      border: 1px solid rgba(14, 165, 233, 0.2);
+      border-radius: 6px;
+      padding: 10px;
+      margin-top: 6px;
+      position: relative;
+    }
+    .scope-box canvas {
+      width: 100%;
+      height: 135px;
+      display: block;
+    }
+    .scope-legend {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      color: var(--text-dim);
+      font-family: var(--font-code);
+      margin-top: 6px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .legend-color {
+      width: 8px;
+      height: 8px;
+      border-radius: 2px;
+    }
+    .info-callout {
+      background: rgba(14, 165, 233, 0.08);
+      border-left: 3px solid #0284c7;
+      padding: 8px 12px;
+      font-size: 11px;
+      line-height: 1.5;
+      color: #cbd5e1;
+      border-radius: 0 4px 4px 0;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="header-left">
+      <span class="logo-badge">ACOUSTIC</span>
+      <h1>非互易拓扑超构材料声子二极管全息模拟</h1>
+    </div>
+    <div class="header-right">
+      <div class="status-pill" id="diode-pill">
+        <span class="status-dot"></span>
+        <span id="diode-text">单向声二极管导通态 (38.5 dB)</span>
+      </div>
+      <button class="btn" id="btn-audio">
+        <span id="audio-icon">🔊</span> 声学声效反馈
+      </button>
+      <button class="btn" id="btn-reset">重置视角</button>
+    </div>
+  </header>
+
+  <div class="main-container">
+    <div id="viewport-container">
+      <canvas id="main-canvas"></canvas>
+
+      <div class="hud-overlay">
+        <div class="hud-card">
+          <div class="hud-title">
+            <span>非互易声学遥测 (Non-Reciprocal Telemetry)</span>
+            <span style="color:#38bdf8; font-family:var(--font-code)">ω(+k) ≠ ω(-k)</span>
+          </div>
+          <div class="hud-stat-grid">
+            <div class="hud-stat-item">
+              <span class="hud-stat-label">正向声波透射 T_+</span>
+              <span class="hud-stat-val forward" id="val-tplus">96.8 %</span>
+            </div>
+            <div class="hud-stat-item">
+              <span class="hud-stat-label">反向声波透射 T_-</span>
+              <span class="hud-stat-val backward" id="val-tminus">0.02 %</span>
+            </div>
+            <div class="hud-stat-item">
+              <span class="hud-stat-label">整流隔离度 ℛ</span>
+              <span class="hud-stat-val isolation" id="val-isolation">36.8 dB</span>
+            </div>
+            <div class="hud-stat-item">
+              <span class="hud-stat-label">时空调制波速 v_m</span>
+              <span class="hud-stat-val pump" id="val-vmod">450 m/s</span>
+            </div>
+            <div class="hud-stat-item">
+              <span class="hud-stat-label">受激布里渊增益 g_B</span>
+              <span class="hud-stat-val" style="color:#a855f7" id="val-gain">14.2 m⁻¹</span>
+            </div>
+            <div class="hud-stat-item">
+              <span class="hud-stat-label">单向阻带衰减 α_bg</span>
+              <span class="hud-stat-val" style="color:#ef4444" id="val-alpha">42.5 dB/cm</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="hud-card" style="min-width: 220px;">
+          <div class="hud-title">声学超构物理机制</div>
+          <div style="font-size:11px; color:#cbd5e1; line-height: 1.4;">
+            <div>• 时空周期行波调制打破时间反演对称</div>
+            <div>• 正向波落入声子通带，反向波落入动量禁带</div>
+            <div>• 产生声学单向阀门效应 (Phonon Diode)</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-panel">
+      <!-- 经典预设 -->
+      <div class="panel-section">
+        <div class="section-title">经典前沿工况 (Presets)</div>
+        <div class="preset-grid">
+          <button class="btn active" id="preset-diode">完美声学二极管态</button>
+          <button class="btn" id="preset-sbs">受激布里渊声子放大</button>
+          <button class="btn" id="preset-valley">声学谷拓扑边缘波</button>
+          <button class="btn" id="preset-reciprocal">平庸互易驻波态</button>
+        </div>
+      </div>
+
+      <!-- 参数调节 -->
+      <div class="panel-section">
+        <div class="section-title">时空调制矩阵 (Modulation Controls)</div>
+        
+        <div class="control-group">
+          <div class="control-header">
+            <span class="control-label">行波调制深度 δ_m</span>
+            <span class="control-val" id="disp-mod">0.35</span>
+          </div>
+          <input type="range" id="param-mod" min="0.00" max="0.60" step="0.01" value="0.35">
+        </div>
+
+        <div class="control-group">
+          <div class="control-header">
+            <span class="control-label">调制波速 v_m / c_0</span>
+            <span class="control-val" id="disp-speed">0.45</span>
+          </div>
+          <input type="range" id="param-speed" min="0.10" max="0.90" step="0.02" value="0.45">
+        </div>
+
+        <div class="control-group">
+          <div class="control-header">
+            <span class="control-label">工作声波频率 f_0</span>
+            <span class="control-val" id="disp-freq">12.5 kHz</span>
+          </div>
+          <input type="range" id="param-freq" min="5.0" max="25.0" step="0.5" value="12.5">
+        </div>
+
+        <div class="control-group">
+          <div class="control-header">
+            <span class="control-label">注入激发模式</span>
+            <span class="control-val" id="disp-mode">正反双向对比 (Dual)</span>
+          </div>
+          <input type="range" id="param-mode" min="0" max="2" step="1" value="2">
+        </div>
+      </div>
+
+      <!-- 示波器 1: 非互易非对称声子色散曲线 -->
+      <div class="panel-section">
+        <div class="section-title">
+          <span>示波器 I: 非互易声子色散 ω(k) ≠ ω(-k)</span>
+        </div>
+        <div class="scope-box">
+          <canvas id="scope-dispersion"></canvas>
+          <div class="scope-legend">
+            <span class="legend-item"><span class="legend-color" style="background:#10b981"></span> 正向分支 ω(+k)</span>
+            <span class="legend-item"><span class="legend-color" style="background:#ef4444"></span> 反向分支 ω(-k)</span>
+            <span class="legend-item"><span class="legend-color" style="background:#f59e0b"></span> 单向带隙</span>
+          </div>
+        </div>
+        <div class="info-callout">
+          时空多普勒频移将布里渊区带隙倾斜倾角化，在目标频率 f_0 下出现正向通带与反向阻带的不对称完全分离。
+        </div>
+      </div>
+
+      <!-- 示波器 2: 正反向声波透射谱与整流隔离度 -->
+      <div class="panel-section">
+        <div class="section-title">
+          <span>示波器 II: 透射谱 T_±(f) & 隔离度 ℛ(dB)</span>
+        </div>
+        <div class="scope-box">
+          <canvas id="scope-transmission"></canvas>
+          <div class="scope-legend">
+            <span class="legend-item"><span class="legend-color" style="background:#10b981"></span> 正向透射 T_+</span>
+            <span class="legend-item"><span class="legend-color" style="background:#ef4444"></span> 反向透射 T_-</span>
+            <span class="legend-item"><span class="legend-color" style="background:#f59e0b"></span> 隔离度 ℛ(dB)</span>
+          </div>
+        </div>
+        <div class="info-callout">
+          隔离度 ℛ = 10 log₁₀(T_+ / T_-) 在带隙中心可超过 35 dB，实现高保真无回声声学单向阀。
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- 系统物理状态 ---
+    const STATE = {
+      modDepth: 0.35,      // 调制深度
+      modSpeed: 0.45,      // 调制波速 vm / c0
+      freq0: 12.5,         // 工作频率 kHz
+      mode: 2,             // 0: 仅正向, 1: 仅反向, 2: 双向对比
+      audioEnabled: false,
+      panX: 0,
+      panY: 0,
+      zoom: 1.0,
+      isDragging: false,
+      lastMouseX: 0,
+      lastMouseY: 0
+    };
+
+    let physics = {
+      tPlus: 96.8,         // 正向透射率 %
+      tMinus: 0.02,        // 反向透射率 %
+      isolation: 36.8,     // 隔离度 dB
+      vModReal: 450,       // 实际调制波速 m/s
+      sbsGain: 14.2,       // 受激布里渊增益
+      alphaBG: 42.5        // 衰减率
+    };
+
+    // --- Web Audio 声音合成 ---
+    let audioCtx = null;
+    let oscForward = null;
+    let oscBackward = null;
+    let gainForward = null;
+    let gainBackward = null;
+
+    function initAudio() {
+      if (audioCtx) return;
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioContext();
+
+      // 双通道振荡器模拟正向清晰声音与反向被阻断衰减声效
+      oscForward = audioCtx.createOscillator();
+      oscBackward = audioCtx.createOscillator();
+      oscForward.type = 'sine';
+      oscBackward.type = 'sawtooth';
+
+      gainForward = audioCtx.createGain();
+      gainBackward = audioCtx.createGain();
+
+      gainForward.gain.value = 0.06;
+      gainBackward.gain.value = 0.002;
+
+      oscForward.connect(gainForward);
+      oscBackward.connect(gainBackward);
+
+      gainForward.connect(audioCtx.destination);
+      gainBackward.connect(audioCtx.destination);
+
+      oscForward.start();
+      oscBackward.start();
+    }
+
+    function updateAudio() {
+      if (!audioCtx || !STATE.audioEnabled) return;
+      const fHz = 240 + (STATE.freq0 - 5.0) * 18.0;
+      oscForward.frequency.setTargetAtTime(fHz, audioCtx.currentTime, 0.04);
+      oscBackward.frequency.setTargetAtTime(fHz * 1.5, audioCtx.currentTime, 0.04);
+
+      // 正向透射清晰，反向被严重衰减
+      gainForward.gain.setTargetAtTime(0.06 * (physics.tPlus / 100.0), audioCtx.currentTime, 0.04);
+      gainBackward.gain.setTargetAtTime(0.06 * (physics.tMinus / 100.0), audioCtx.currentTime, 0.04);
+    }
+
+    // --- 核心理论物理计算 ---
+    function updatePhysics() {
+      const c0 = 1000.0; // 基准声速 m/s
+      physics.vModReal = Math.round(STATE.modSpeed * c0);
+
+      // 非互易带隙位置与宽度
+      const delta = STATE.modDepth;
+      const vmRatio = STATE.modSpeed;
+
+      // 在工作频率附近计算正反向透射率
+      const fNorm = (STATE.freq0 - 12.5) / 3.0; // 偏离度
+      if (delta > 0.05) {
+        // 正向处于通带
+        physics.tPlus = Math.max(70.0, 98.0 - Math.pow(fNorm, 2) * 8.0);
+        // 反向落入动量带隙，指数衰减
+        const gapDecay = Math.exp(-Math.pow(fNorm / (delta * 1.5), 2) * 5.0);
+        physics.tMinus = Math.max(0.001, 100.0 * (1.0 - delta * 0.9) * (1.0 - gapDecay * 0.999));
+        physics.isolation = 10.0 * Math.log10(physics.tPlus / Math.max(0.001, physics.tMinus));
+      } else {
+        // 无调制平庸互易态
+        physics.tPlus = 90.0;
+        physics.tMinus = 90.0;
+        physics.isolation = 0.0;
+      }
+
+      physics.sbsGain = delta * 40.0;
+      physics.alphaBG = delta * 120.0;
+
+      // 更新 HUD
+      document.getElementById('val-tplus').textContent = physics.tPlus.toFixed(1) + ' %';
+      document.getElementById('val-tminus').textContent = physics.tMinus.toFixed(2) + ' %';
+      document.getElementById('val-isolation').textContent = physics.isolation.toFixed(1) + ' dB';
+      document.getElementById('val-vmod').textContent = physics.vModReal + ' m/s';
+      document.getElementById('val-gain').textContent = physics.sbsGain.toFixed(1) + ' m⁻¹';
+      document.getElementById('val-alpha').textContent = physics.alphaBG.toFixed(1) + ' dB/cm';
+
+      const pill = document.getElementById('diode-pill');
+      const pillText = document.getElementById('diode-text');
+      if (physics.isolation > 20.0) {
+        pill.style.background = 'rgba(16, 185, 129, 0.15)';
+        pill.style.borderColor = 'rgba(16, 185, 129, 0.4)';
+        pill.style.color = '#34d399';
+        pillText.textContent = `强非互易二极管导通 (${physics.isolation.toFixed(1)} dB)`;
+      } else if (physics.isolation > 5.0) {
+        pill.style.background = 'rgba(245, 158, 11, 0.15)';
+        pill.style.borderColor = 'rgba(245, 158, 11, 0.4)';
+        pill.style.color = '#fbbf24';
+        pillText.textContent = `弱非互易整流态 (${physics.isolation.toFixed(1)} dB)`;
+      } else {
+        pill.style.background = 'rgba(148, 163, 184, 0.15)';
+        pill.style.borderColor = 'rgba(148, 163, 184, 0.4)';
+        pill.style.color = '#cbd5e1';
+        pillText.textContent = '平庸对称互易传输态';
+      }
+
+      updateAudio();
+    }
+
+    // --- 主视口全息交互渲染 (Acoustic Metamaterial Lattice & Nonreciprocal Wave Propagation) ---
+    const mainCanvas = document.getElementById('main-canvas');
+    const ctx = mainCanvas.getContext('2d');
+
+    // 声波振子点阵 (2D Resonator Metamaterial Array)
+    const GRID_COLS = 22;
+    const GRID_ROWS = 7;
+    const METAMATERIAL_NODES = [];
+    for (let r = 0; r < GRID_ROWS; r++) {
+      for (let c = 0; c < GRID_COLS; c++) {
+        METAMATERIAL_NODES.push({
+          c: c,
+          r: r,
+          dispForward: 0,
+          dispBackward: 0
+        });
+      }
+    }
+
+    function resizeCanvas() {
+      const rect = mainCanvas.parentElement.getBoundingClientRect();
+      mainCanvas.width = rect.width * window.devicePixelRatio;
+      mainCanvas.height = rect.height * window.devicePixelRatio;
+      ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    let animTime = 0;
+
+    function drawMainViewport() {
+      const width = mainCanvas.width / window.devicePixelRatio;
+      const height = mainCanvas.height / window.devicePixelRatio;
+      ctx.clearRect(0, 0, width, height);
+
+      ctx.save();
+      ctx.translate(width / 2 + STATE.panX, height / 2 + STATE.panY);
+      ctx.scale(STATE.zoom, STATE.zoom);
+
+      const latW = 540;
+      const latH = 200;
+      const dx = latW / (GRID_COLS - 1);
+      const dy = latH / (GRID_ROWS - 1);
+
+      // 1. 超构波导背景管道
+      ctx.fillStyle = 'rgba(11, 19, 38, 0.85)';
+      ctx.strokeStyle = 'rgba(14, 165, 233, 0.35)';
+      ctx.lineWidth = 1.5;
+      ctx.fillRect(-latW/2, -latH/2, latW, latH);
+      ctx.strokeRect(-latW/2, -latH/2, latW, latH);
+
+      // 2. 行波时空调制势场全息背景 (Spatiotemporal traveling wave pump)
+      const qMod = 0.035;
+      const omegaMod = animTime * 3.5 * STATE.modSpeed;
+      if (STATE.modDepth > 0.05) {
+        for (let c = 0; c < GRID_COLS - 1; c++) {
+          const gx = -latW/2 + c * dx;
+          const pumpVal = Math.sin(gx * qMod - omegaMod);
+          const alpha = 0.05 + Math.abs(pumpVal) * 0.12 * STATE.modDepth;
+          ctx.fillStyle = `rgba(245, 158, 11, ${alpha})`;
+          ctx.fillRect(gx, -latH/2, dx, latH);
+        }
+      }
+
+      // 3. 计算并绘制点阵微振子位移与弹性应变波 (Strain Wave Field)
+      const omegaAcoustic = animTime * 6.0;
+      const kForward = 0.045;
+      const kBackward = 0.045;
+
+      METAMATERIAL_NODES.forEach(node => {
+        const xPos = -latW/2 + node.c * dx;
+        const yPos = -latH/2 + node.r * dy;
+
+        // 正向激励声波 (从左向右顺利穿透)
+        const forwardAmp = (physics.tPlus / 100.0) * 12.0;
+        node.dispForward = forwardAmp * Math.sin(kForward * (xPos + latW/2) - omegaAcoustic);
+
+        // 反向激励声波 (从右向左，落入阻带被指数衰减吸收/反射)
+        const distFromRight = (latW/2 - xPos);
+        const decayFactor = Math.exp(-distFromRight / (80.0 / Math.max(0.1, STATE.modDepth)));
+        const backwardAmp = 12.0 * decayFactor;
+        node.dispBackward = backwardAmp * Math.sin(kBackward * distFromRight - omegaAcoustic);
+
+        // 根据激励模式计算净位移
+        let totalDisp = 0;
+        if (STATE.mode === 0) totalDisp = node.dispForward;
+        else if (STATE.mode === 1) totalDisp = node.dispBackward;
+        else totalDisp = node.dispForward * 0.7 + node.dispBackward * 0.7;
+
+        // 绘制振子小球与受力连杆
+        const renderX = xPos + totalDisp;
+        const renderY = yPos;
+
+        // 连杆线
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.2)';
+        ctx.lineWidth = 1.0;
+        ctx.beginPath();
+        ctx.moveTo(xPos, yPos);
+        ctx.lineTo(renderX, renderY);
+        ctx.stroke();
+
+        // 振子球颜色依据传播方向着色
+        let nodeColor = '#38bdf8';
+        if (STATE.mode === 0) nodeColor = '#10b981';
+        else if (STATE.mode === 1) nodeColor = '#ef4444';
+        else nodeColor = node.c < GRID_COLS/2 ? '#10b981' : '#ef4444';
+
+        ctx.fillStyle = nodeColor;
+        ctx.beginPath();
+        ctx.arc(renderX, renderY, 3.2, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      // 4. 正向与反向声源端口全息图标
+      // 左端口 (正向输入)
+      ctx.fillStyle = '#10b981';
+      ctx.font = '11px JetBrains Mono';
+      ctx.fillText('Port 1 (正向输入 ➔ 无阻碍导通 96.8%)', -latW/2 - 10, -latH/2 - 14);
+
+      // 右端口 (反向阻隔)
+      ctx.fillStyle = '#ef4444';
+      ctx.fillText('Port 2 (反向输入 ➔ 禁带全反射 0.02%)', latW/2 - 240, latH/2 + 24);
+
+      // 声二极管单向阀全息三角符号
+      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth = 2.0;
+      ctx.beginPath();
+      ctx.moveTo(-15, -latH/2 - 32);
+      ctx.lineTo(15, -latH/2 - 32);
+      ctx.lineTo(0, -latH/2 - 42);
+      ctx.closePath();
+      ctx.stroke();
+
+      ctx.fillStyle = '#f59e0b';
+      ctx.fillText('单向传输', 22, -latH/2 - 32);
+
+      ctx.restore();
+    }
+
+    // --- 示波器 1: 非互易非对称声子色散曲线 ---
+    const scopeDispersion = document.getElementById('scope-dispersion');
+    const ctxDisp = scopeDispersion.getContext('2d');
+
+    function drawScopeDispersion() {
+      const w = scopeDispersion.width = scopeDispersion.parentElement.clientWidth;
+      const h = scopeDispersion.height = 135;
+      ctxDisp.clearRect(0, 0, w, h);
+
+      const midX = w / 2;
+      const midY = h / 2;
+
+      // 坐标网格
+      ctxDisp.strokeStyle = 'rgba(255,255,255,0.12)';
+      ctxDisp.lineWidth = 1;
+      ctxDisp.beginPath();
+      ctxDisp.moveTo(20, midY);
+      ctxDisp.lineTo(w - 20, midY);
+      ctxDisp.moveTo(midX, 15);
+      ctxDisp.lineTo(midX, h - 15);
+      ctxDisp.stroke();
+
+      ctxDisp.fillStyle = 'rgba(255,255,255,0.4)';
+      ctxDisp.font = '9px JetBrains Mono';
+      ctxDisp.fillText('-k', 25, midY + 12);
+      ctxDisp.fillText('+k', w - 35, midY + 12);
+      ctxDisp.fillText('ω(k)', midX + 6, 22);
+
+      // 绘制倾斜的非对称非互易色散分支
+      const tilt = STATE.modSpeed * 22.0;
+      const gapW = STATE.modDepth * 28.0;
+
+      // 正向色散分支 ω(+k) (绿色)
+      ctxDisp.strokeStyle = '#10b981';
+      ctxDisp.lineWidth = 2.2;
+      ctxDisp.beginPath();
+      for (let px = midX; px <= w - 25; px++) {
+        const k = (px - midX) / (w * 0.35);
+        const omega = k * 35.0 + tilt * k;
+        const py = midY - omega;
+        if (px === midX) ctxDisp.moveTo(px, py);
+        else ctxDisp.lineTo(px, py);
+      }
+      ctxDisp.stroke();
+
+      // 反向色散分支 ω(-k) (红色，在特定频率出现能隙断开)
+      ctxDisp.strokeStyle = '#ef4444';
+      ctxDisp.lineWidth = 2.2;
+      // 低能段
+      ctxDisp.beginPath();
+      for (let px = 25; px <= midX; px++) {
+        const k = (midX - px) / (w * 0.35);
+        let omega = k * 35.0 - tilt * k;
+        // 在带隙区间断开
+        if (omega > 18.0 && omega < 18.0 + gapW) continue;
+        const py = midY - omega;
+        if (px === 25) ctxDisp.moveTo(px, py);
+        else ctxDisp.lineTo(px, py);
+      }
+      ctxDisp.stroke();
+
+      // 高亮单向带隙阴影区
+      if (gapW > 2) {
+        ctxDisp.fillStyle = 'rgba(245, 158, 11, 0.25)';
+        const py0 = midY - (18.0 + gapW);
+        ctxDisp.fillRect(25, py0, midX - 25, gapW);
+        ctxDisp.fillStyle = '#f59e0b';
+        ctxDisp.fillText('单向声学带隙', 35, py0 + gapW/2 + 3);
+      }
+    }
+
+    // --- 示波器 2: 正反向透射谱与隔离度 ---
+    const scopeTransmission = document.getElementById('scope-transmission');
+    const ctxTrans = scopeTransmission.getContext('2d');
+
+    function drawScopeTransmission() {
+      const w = scopeTransmission.width = scopeTransmission.parentElement.clientWidth;
+      const h = scopeTransmission.height = 135;
+      ctxTrans.clearRect(0, 0, w, h);
+
+      const marginL = 30;
+      const marginB = 20;
+      const plotW = w - marginL - 15;
+      const plotH = h - marginB - 15;
+
+      ctxTrans.strokeStyle = 'rgba(255,255,255,0.12)';
+      ctxTrans.lineWidth = 1;
+      ctxTrans.beginPath();
+      ctxTrans.moveTo(marginL, h - marginB);
+      ctxTrans.lineTo(w - 10, h - marginB);
+      ctxTrans.moveTo(marginL, h - marginB);
+      ctxTrans.lineTo(marginL, 10);
+      ctxTrans.stroke();
+
+      ctxTrans.fillStyle = 'rgba(255,255,255,0.4)';
+      ctxTrans.font = '9px JetBrains Mono';
+      ctxTrans.fillText('5k', marginL - 2, h - 6);
+      ctxTrans.fillText('频率 f (kHz)', w * 0.44, h - 6);
+      ctxTrans.fillText('25k', w - 24, h - 6);
+      ctxTrans.fillText('100%', 6, 20);
+      ctxTrans.fillText('0%', 6, h - marginB);
+
+      // 1. 正向透射谱 T_+(f) (绿色高平稳)
+      ctxTrans.strokeStyle = '#10b981';
+      ctxTrans.lineWidth = 2.0;
+      ctxTrans.beginPath();
+      for (let px = 0; px <= plotW; px++) {
+        const curF = 5.0 + (px / plotW) * 20.0;
+        const norm = (curF - 12.5) / 3.0;
+        const tp = Math.max(0.65, 0.98 - Math.pow(norm, 2) * 0.08);
+        const py = (h - marginB) - tp * plotH;
+        if (px === 0) ctxTrans.moveTo(marginL + px, py);
+        else ctxTrans.lineTo(marginL + px, py);
+      }
+      ctxTrans.stroke();
+
+      // 2. 反向透射谱 T_-(f) (红色带隙深陷深谷)
+      ctxTrans.strokeStyle = '#ef4444';
+      ctxTrans.lineWidth = 2.0;
+      ctxTrans.beginPath();
+      for (let px = 0; px <= plotW; px++) {
+        const curF = 5.0 + (px / plotW) * 20.0;
+        const norm = (curF - 12.5) / 3.0;
+        const gapDecay = Math.exp(-Math.pow(norm / (STATE.modDepth * 1.5), 2) * 5.0);
+        const tm = Math.max(0.0001, (1.0 - STATE.modDepth * 0.9) * (1.0 - gapDecay * 0.999));
+        const py = (h - marginB) - tm * plotH;
+        if (px === 0) ctxTrans.moveTo(marginL + px, py);
+        else ctxTrans.lineTo(marginL + px, py);
+      }
+      ctxTrans.stroke();
+
+      // 3. 当前工作频率指示竖线
+      const curX = marginL + ((STATE.freq0 - 5.0) / 20.0) * plotW;
+      ctxTrans.strokeStyle = '#f59e0b';
+      ctxTrans.lineWidth = 1.5;
+      ctxTrans.setLineDash([3, 3]);
+      ctxTrans.beginPath();
+      ctxTrans.moveTo(curX, 10);
+      ctxTrans.lineTo(curX, h - marginB);
+      ctxTrans.stroke();
+      ctxTrans.setLineDash([]);
+
+      ctxTrans.fillStyle = '#f59e0b';
+      ctxTrans.fillText(`ℛ = ${physics.isolation.toFixed(1)} dB`, curX - 25, 24);
+    }
+
+    // --- 动画循环 ---
+    function animate() {
+      animTime += 0.02;
+      drawMainViewport();
+      drawScopeDispersion();
+      drawScopeTransmission();
+      requestAnimationFrame(animate);
+    }
+
+    // --- 控件绑定与事件响应 ---
+    function bindInputs() {
+      const pMod = document.getElementById('param-mod');
+      const pSpeed = document.getElementById('param-speed');
+      const pFreq = document.getElementById('param-freq');
+      const pMode = document.getElementById('param-mode');
+
+      const dMod = document.getElementById('disp-mod');
+      const dSpeed = document.getElementById('disp-speed');
+      const dFreq = document.getElementById('disp-freq');
+      const dMode = document.getElementById('disp-mode');
+
+      pMod.addEventListener('input', e => {
+        STATE.modDepth = parseFloat(e.target.value);
+        dMod.textContent = STATE.modDepth.toFixed(2);
+        updatePhysics();
+      });
+
+      pSpeed.addEventListener('input', e => {
+        STATE.modSpeed = parseFloat(e.target.value);
+        dSpeed.textContent = STATE.modSpeed.toFixed(2);
+        updatePhysics();
+      });
+
+      pFreq.addEventListener('input', e => {
+        STATE.freq0 = parseFloat(e.target.value);
+        dFreq.textContent = STATE.freq0.toFixed(1) + ' kHz';
+        updatePhysics();
+      });
+
+      pMode.addEventListener('input', e => {
+        STATE.mode = parseInt(e.target.value);
+        const modeTexts = ['仅正向激励 (Forward)', '仅反向激励 (Backward)', '正反双向对比 (Dual)'];
+        dMode.textContent = modeTexts[STATE.mode];
+        updatePhysics();
+      });
+
+      // 预设模式
+      const presets = [
+        document.getElementById('preset-diode'),
+        document.getElementById('preset-sbs'),
+        document.getElementById('preset-valley'),
+        document.getElementById('preset-reciprocal')
+      ];
+
+      function clearActive() {
+        presets.forEach(p => p.classList.remove('active'));
+      }
+
+      document.getElementById('preset-diode').addEventListener('click', () => {
+        clearActive();
+        document.getElementById('preset-diode').classList.add('active');
+        STATE.modDepth = 0.35;
+        STATE.modSpeed = 0.45;
+        STATE.freq0 = 12.5;
+        STATE.mode = 2;
+        syncControls();
+      });
+
+      document.getElementById('preset-sbs').addEventListener('click', () => {
+        clearActive();
+        document.getElementById('preset-sbs').classList.add('active');
+        STATE.modDepth = 0.55;
+        STATE.modSpeed = 0.60;
+        STATE.freq0 = 14.0;
+        STATE.mode = 0;
+        syncControls();
+      });
+
+      document.getElementById('preset-valley').addEventListener('click', () => {
+        clearActive();
+        document.getElementById('preset-valley').classList.add('active');
+        STATE.modDepth = 0.40;
+        STATE.modSpeed = 0.25;
+        STATE.freq0 = 10.5;
+        STATE.mode = 2;
+        syncControls();
+      });
+
+      document.getElementById('preset-reciprocal').addEventListener('click', () => {
+        clearActive();
+        document.getElementById('preset-reciprocal').classList.add('active');
+        STATE.modDepth = 0.00;
+        STATE.modSpeed = 0.20;
+        STATE.freq0 = 12.5;
+        STATE.mode = 2;
+        syncControls();
+      });
+
+      function syncControls() {
+        pMod.value = STATE.modDepth;
+        pSpeed.value = STATE.modSpeed;
+        pFreq.value = STATE.freq0;
+        pMode.value = STATE.mode;
+
+        dMod.textContent = STATE.modDepth.toFixed(2);
+        dSpeed.textContent = STATE.modSpeed.toFixed(2);
+        dFreq.textContent = STATE.freq0.toFixed(1) + ' kHz';
+        const modeTexts = ['仅正向激励 (Forward)', '仅反向激励 (Backward)', '正反双向对比 (Dual)'];
+        dMode.textContent = modeTexts[STATE.mode];
+        updatePhysics();
+      }
+
+      // 音频开关
+      const btnAudio = document.getElementById('btn-audio');
+      btnAudio.addEventListener('click', () => {
+        initAudio();
+        STATE.audioEnabled = !STATE.audioEnabled;
+        btnAudio.classList.toggle('active', STATE.audioEnabled);
+        document.getElementById('audio-icon').textContent = STATE.audioEnabled ? '🔊' : '🔇';
+        if (audioCtx && audioCtx.state === 'suspended') {
+          audioCtx.resume();
+        }
+        updateAudio();
+      });
+
+      // 重置视角
+      document.getElementById('btn-reset').addEventListener('click', () => {
+        STATE.panX = 0;
+        STATE.panY = 0;
+        STATE.zoom = 1.0;
+      });
+
+      // 拖拽与缩放交互
+      mainCanvas.addEventListener('mousedown', e => {
+        STATE.isDragging = true;
+        STATE.lastMouseX = e.clientX;
+        STATE.lastMouseY = e.clientY;
+      });
+
+      window.addEventListener('mousemove', e => {
+        if (!STATE.isDragging) return;
+        const dx = e.clientX - STATE.lastMouseX;
+        const dy = e.clientY - STATE.lastMouseY;
+        STATE.panX += dx;
+        STATE.panY += dy;
+        STATE.lastMouseX = e.clientX;
+        STATE.lastMouseY = e.clientY;
+      });
+
+      window.addEventListener('mouseup', () => {
+        STATE.isDragging = false;
+      });
+
+      mainCanvas.addEventListener('wheel', e => {
+        e.preventDefault();
+        const factor = e.deltaY < 0 ? 1.08 : 0.92;
+        STATE.zoom = Math.max(0.4, Math.min(3.0, STATE.zoom * factor));
+      }, { passive: false });
+    }
+
+    // 初始化启动
+    bindInputs();
+    updatePhysics();
+    animate();
+  </script>
+</body>
+</html>

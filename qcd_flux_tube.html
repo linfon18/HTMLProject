@@ -1,0 +1,997 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>量子色动力学 (QCD) 胶子通量管与夸克禁闭全息模拟器</title>
+<style>
+  :root {
+    --bg-primary: #05050f;
+    --panel-bg: rgba(12, 14, 28, 0.8);
+    --panel-border: rgba(168, 85, 247, 0.3);
+    --accent-purple: #c084fc;
+    --accent-red: #ef4444;
+    --accent-green: #10b981;
+    --accent-blue: #3b82f6;
+    --accent-gold: #f59e0b;
+    --text-primary: #f8fafc;
+    --text-dim: #94a3b8;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    overflow: hidden;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    user-select: none;
+  }
+
+  /* 主模拟视口 */
+  #viewport-container {
+    flex: 1;
+    position: relative;
+    height: 100vh;
+    background: radial-gradient(circle at 50% 50%, #0d0c24 0%, #020208 100%);
+    overflow: hidden;
+  }
+  canvas#qcdCanvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    cursor: grab;
+  }
+  canvas#qcdCanvas:active {
+    cursor: grabbing;
+  }
+
+  /* 顶部状态遥测条 */
+  #telemetry-bar {
+    position: absolute;
+    top: 20px;
+    left: 24px;
+    display: flex;
+    gap: 12px;
+    z-index: 10;
+  }
+  .telemetry-chip {
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    backdrop-filter: blur(12px);
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-family: monospace;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+  }
+  .chip-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--accent-purple);
+    box-shadow: 0 0 8px var(--accent-purple);
+    animation: pulse 1.8s infinite ease-in-out;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 0.5; transform: scale(0.9); }
+    50% { opacity: 1; transform: scale(1.3); }
+  }
+
+  /* 悬浮康奈尔势能与弦断裂图表 HUD */
+  #potential-overlay {
+    position: absolute;
+    bottom: 24px;
+    left: 24px;
+    width: 380px;
+    height: 165px;
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    backdrop-filter: blur(16px);
+    box-shadow: 0 12px 36px rgba(0,0,0,0.6);
+    padding: 10px 14px;
+    display: flex;
+    flex-direction: column;
+    pointer-events: none;
+  }
+  .overlay-title {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--accent-purple);
+    margin-bottom: 6px;
+    display: flex;
+    justify-content: space-between;
+  }
+  canvas#potentialCanvas {
+    width: 100%;
+    height: 125px;
+    border-radius: 6px;
+    background: rgba(0,0,0,0.45);
+  }
+
+  /* 右侧控制面板 */
+  #control-panel {
+    width: 360px;
+    height: 100vh;
+    background: var(--panel-bg);
+    border-left: 1px solid var(--panel-border);
+    backdrop-filter: blur(20px);
+    overflow-y: auto;
+    padding: 24px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    box-shadow: -10px 0 30px rgba(0,0,0,0.6);
+    z-index: 20;
+  }
+  #control-panel::-webkit-scrollbar { width: 4px; }
+  #control-panel::-webkit-scrollbar-thumb { background: rgba(168, 85, 247, 0.4); border-radius: 4px; }
+
+  .header-group h1 {
+    font-size: 18px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .header-group h1 span {
+    background: linear-gradient(135deg, var(--accent-purple), var(--accent-red));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .header-group p {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-top: 4px;
+    line-height: 1.4;
+  }
+
+  .section-card {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 10px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .section-card h2 {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--accent-purple);
+    font-weight: 600;
+  }
+
+  /* 按钮与网格 */
+  .btn-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .preset-btn, .action-btn {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: var(--text-primary);
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: center;
+  }
+  .preset-btn:hover, .action-btn:hover {
+    background: rgba(168, 85, 247, 0.25);
+    border-color: var(--accent-purple);
+    color: #fff;
+  }
+  .preset-btn.active, .action-btn.active {
+    background: linear-gradient(135deg, rgba(168, 85, 247, 0.25), rgba(239, 68, 68, 0.2));
+    border-color: var(--accent-purple);
+    box-shadow: 0 0 12px rgba(168, 85, 247, 0.35);
+    color: #fff;
+    font-weight: 600;
+  }
+
+  /* 控制滑块 */
+  .slider-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .slider-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+  .slider-header span.val {
+    color: var(--accent-purple);
+    font-family: monospace;
+  }
+  input[type=range] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 4px;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.15);
+    outline: none;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--accent-purple);
+    cursor: pointer;
+    box-shadow: 0 0 8px var(--accent-purple);
+    transition: transform 0.1s;
+  }
+  input[type=range]::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+  }
+
+  .legend-box {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 10px;
+    border-radius: 6px;
+    background: rgba(0,0,0,0.3);
+    font-size: 11px;
+  }
+  .color-triad {
+    display: flex;
+    gap: 6px;
+  }
+  .triad-chip {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+  }
+
+  .tip-text {
+    font-size: 11px;
+    line-height: 1.5;
+    color: var(--text-dim);
+  }
+  .tip-text b { color: #fff; }
+</style>
+</head>
+<body>
+
+<!-- 主模拟视口 -->
+<div id="viewport-container">
+  <canvas id="qcdCanvas"></canvas>
+
+  <!-- 顶部状态遥测 -->
+  <div id="telemetry-bar">
+    <div class="telemetry-chip">
+      <div class="chip-dot"></div>
+      <span>胶子通量管张力 σ: <span id="stat-tension" style="color:var(--accent-purple)">0.98 GeV/fm</span></span>
+    </div>
+    <div class="telemetry-chip">
+      <span>强子态: <span id="stat-state" style="color:var(--accent-gold)">介子束缚态 (Meson)</span></span>
+    </div>
+    <div class="telemetry-chip">
+      <span>禁闭势能 V(r): <span id="stat-energy" style="color:var(--accent-red)">1.45 GeV</span></span>
+    </div>
+    <div class="telemetry-chip">
+      <span>FPS: <span id="stat-fps" style="color:#fff">60</span></span>
+    </div>
+  </div>
+
+  <!-- 悬浮康奈尔势能曲线 HUD -->
+  <div id="potential-overlay">
+    <div class="overlay-title">
+      <span>夸克禁闭康奈尔势 (Cornell Potential V(r))</span>
+      <span style="color:var(--accent-purple)">-4/3 α_s/r + σ·r</span>
+    </div>
+    <canvas id="potentialCanvas" width="350" height="125"></canvas>
+  </div>
+</div>
+
+<!-- 右侧控制坞 -->
+<div id="control-panel">
+  <div class="header-group">
+    <h1><span>QCD</span> FLUX TUBE</h1>
+    <p>量子色动力学非阿贝尔胶子通量管与对偶超导夸克禁闭系统</p>
+  </div>
+
+  <!-- 强子拓扑结构预设 -->
+  <div class="section-card">
+    <h2>强子色荷拓扑预设 (Hadron Topology)</h2>
+    <div class="btn-grid">
+      <button class="preset-btn active" data-preset="meson">介子 (正反夸克对 q - q̄)</button>
+      <button class="preset-btn" data-preset="baryon">重子 (三夸克 Y 型结 q-q-q)</button>
+      <button class="preset-btn" data-preset="tetraquark">四夸克态 (Tetraquark)</button>
+      <button class="preset-btn" data-preset="gluon_glueball">胶球振荡 (Glueball)</button>
+    </div>
+  </div>
+
+  <!-- 物理参数控制 -->
+  <div class="section-card">
+    <h2>QCD 真空与参数 (QCD Parameters)</h2>
+    <div class="slider-row">
+      <div class="slider-header">
+        <span>弦张力系数 σ (String Tension)</span>
+        <span class="val" id="val-sigma">1.0</span>
+      </div>
+      <input type="range" id="param-sigma" min="0.3" max="2.0" step="0.1" value="1.0">
+    </div>
+
+    <div class="slider-row">
+      <div class="slider-header">
+        <span>对偶穿透深度 λ_QCD (管径厚度)</span>
+        <span class="val" id="val-lambda">16 px</span>
+      </div>
+      <input type="range" id="param-lambda" min="8" max="32" step="2" value="16">
+    </div>
+
+    <div class="slider-row">
+      <div class="slider-header">
+        <span>弦断裂临界拉伸阈值 R_break</span>
+        <span class="val" id="val-break">240 px</span>
+      </div>
+      <input type="range" id="param-break" min="150" max="420" step="10" value="240">
+    </div>
+
+    <div class="slider-row">
+      <div class="slider-header">
+        <span>强耦合常数 α_s (库仑项)</span>
+        <span class="val" id="val-alphas">0.35</span>
+      </div>
+      <input type="range" id="param-alphas" min="0.1" max="0.8" step="0.05" value="0.35">
+    </div>
+  </div>
+
+  <!-- 视效控制 -->
+  <div class="section-card">
+    <h2>色荷与流向图例 (Color Charge)</h2>
+    <div class="legend-box">
+      <span>SU(3) 原色</span>
+      <div class="color-triad">
+        <div class="triad-chip" style="background:#ef4444;" title="Red Quark"></div>
+        <div class="triad-chip" style="background:#10b981;" title="Green Quark"></div>
+        <div class="triad-chip" style="background:#3b82f6;" title="Blue Quark"></div>
+      </div>
+      <span>反色中和</span>
+    </div>
+
+    <div class="btn-grid" style="margin-top:6px;">
+      <button class="action-btn active" id="btn-streamlines">胶子通量流线粒子</button>
+      <button class="action-btn active" id="btn-sound">开启亚原子重击音景</button>
+    </div>
+
+    <div class="btn-grid" style="margin-top:4px;">
+      <button class="action-btn" id="btn-snap">强制触发弦断裂</button>
+      <button class="action-btn" id="btn-reset">重置强子平衡态</button>
+    </div>
+  </div>
+
+  <!-- 交互说明卡 -->
+  <div class="tip-text">
+    💡 <b>夸克禁闭与施温格对产生原理：</b><br>
+    • <b>胶子自聚作用：</b> SU(3) 色电场不会像电磁场那样在空间中平方反比弥散，而是被对偶超导真空压缩成能量密度极其恒定的<b>胶子管 (Flux Tube)</b>。<br>
+    • <b>弦断裂 (String Breaking)：</b> 拖动夸克拉开距离时，管中势能线性暴增。当能量足够凭空产生一对新夸克时，通量管瞬间断开并生成两枚新介子！<br>
+    • <b>鼠标交互：</b> 在主画布中可<b>按住左键直接抓取并拖拽任意夸克</b>，感受弹性弦的超强拉力！
+  </div>
+</div>
+
+<script>
+/**
+ * 量子色动力学 (QCD) 胶子通量管动力学模型
+ */
+
+// 夸克粒子定义
+let quarks = [];
+let currentTopology = 'meson';
+
+// 物理参数
+let stringTension = 1.0;     // sigma (GeV/fm)
+let lambdaQCD = 16.0;        // 通量管特征横向厚度
+let breakDistance = 240.0;   // 弦断裂阈值
+let alphaS = 0.35;           // 强相互作用精细结构常数
+let showStreamlines = true;
+
+// 弦断裂与强子化特效
+let snapFlash = 0.0;
+let breakCooldown = 0;
+
+// 通量管内流动胶子虚拟示踪粒子
+const GLUON_PARTICLE_COUNT = 180;
+let gluonParticles = [];
+
+// 画布上下文
+const qcdCanvas = document.getElementById('qcdCanvas');
+const qcdCtx = qcdCanvas.getContext('2d');
+const potentialCanvas = document.getElementById('potentialCanvas');
+const potCtx = potentialCanvas.getContext('2d');
+
+// Web Audio API
+let audioCtx = null;
+let humOsc = null;
+let humFilter = null;
+let humGain = null;
+let isAudioActive = false;
+
+// 拖拽状态
+let draggedQuark = null;
+
+// 帧率
+let lastTime = performance.now();
+let frames = 0;
+
+/**
+ * 初始化强子夸克拓扑
+ */
+function initHadronTopology(type) {
+  currentTopology = type;
+  quarks = [];
+  draggedQuark = null;
+  const cx = qcdCanvas.width * 0.5;
+  const cy = qcdCanvas.height * 0.5;
+
+  switch (type) {
+    case 'meson': {
+      // 介子：红夸克 (q) 与 反青/反红夸克 (q_bar)
+      quarks.push({ x: cx - 80, y: cy, vx: 0, vy: 0, color: '#ef4444', label: 'u (Red)', charge: +1 });
+      quarks.push({ x: cx + 80, y: cy, vx: 0, vy: 0, color: '#06b6d4', label: 'd̄ (Anti-Red)', charge: -1 });
+      document.getElementById('stat-state').innerText = '介子束缚态 (Meson)';
+      break;
+    }
+    case 'baryon': {
+      // 重子 (质子/中子)：红绿蓝三夸克 Y 型拓扑
+      const r = 95;
+      quarks.push({ x: cx, y: cy - r, vx: 0, vy: 0, color: '#ef4444', label: 'u (Red)', charge: +1 });
+      quarks.push({ x: cx - r * 0.866, y: cy + r * 0.5, vx: 0, vy: 0, color: '#10b981', label: 'u (Green)', charge: +1 });
+      quarks.push({ x: cx + r * 0.866, y: cy + r * 0.5, vx: 0, vy: 0, color: '#3b82f6', label: 'd (Blue)', charge: +1 });
+      document.getElementById('stat-state').innerText = '重子三夸克态 (Baryon Y-String)';
+      break;
+    }
+    case 'tetraquark': {
+      // 四夸克态：正四边形介子分子
+      const r = 75;
+      quarks.push({ x: cx - r, y: cy - r, vx: 0, vy: 0, color: '#ef4444', label: 'c (Red)', charge: +1 });
+      quarks.push({ x: cx + r, y: cy - r, vx: 0, vy: 0, color: '#06b6d4', label: 'c̄ (Anti-Red)', charge: -1 });
+      quarks.push({ x: cx + r, y: cy + r, vx: 0, vy: 0, color: '#3b82f6', label: 'u (Blue)', charge: +1 });
+      quarks.push({ x: cx - r, y: cy + r, vx: 0, vy: 0, color: '#f59e0b', label: 'd̄ (Anti-Blue)', charge: -1 });
+      document.getElementById('stat-state').innerText = '四夸克外来态 (Tetraquark)';
+      break;
+    }
+    case 'gluon_glueball': {
+      // 纯胶子束缚态：双胶子自闭环通量环
+      quarks.push({ x: cx - 60, y: cy, vx: 0, vy: 0, color: '#c084fc', label: 'g₁ (Gluon)', charge: 0 });
+      quarks.push({ x: cx + 60, y: cy, vx: 0, vy: 0, color: '#c084fc', label: 'g₂ (Gluon)', charge: 0 });
+      document.getElementById('stat-state').innerText = '胶球本征振荡态 (Glueball)';
+      break;
+    }
+  }
+
+  // 初始化胶子通量管示踪粒子
+  gluonParticles = [];
+  for (let i = 0; i < GLUON_PARTICLE_COUNT; i++) {
+    gluonParticles.push({
+      t: Math.random(),
+      offset: (Math.random() - 0.5) * lambdaQCD * 1.5,
+      speed: 0.008 + Math.random() * 0.015,
+      segment: 0
+    });
+  }
+}
+
+/**
+ * 物理动力学：夸克相互作用力与通量管张力计算
+ */
+function updatePhysics() {
+  if (breakCooldown > 0) breakCooldown--;
+
+  // 1. 介子拓扑力学与弦断裂检测
+  if (currentTopology === 'meson' && quarks.length >= 2) {
+    const q1 = quarks[0];
+    const q2 = quarks[1];
+    const dx = q2.x - q1.x;
+    const dy = q2.y - q1.y;
+    const dist = Math.hypot(dx, dy);
+
+    // 康奈尔力 F = - 4/3 alpha_s / r^2 - sigma
+    const invDist = 1.0 / Math.max(15, dist);
+    const coulombForce = (1.333 * alphaS * 2800) / (dist * dist);
+    const stringForce = stringTension * 1.8;
+    const totalForce = coulombForce + stringForce;
+
+    const fx = (dx * invDist) * totalForce;
+    const fy = (dy * invDist) * totalForce;
+
+    if (draggedQuark !== q1) {
+      q1.vx += fx * 0.08;
+      q1.vy += fy * 0.08;
+    }
+    if (draggedQuark !== q2) {
+      q2.vx -= fx * 0.08;
+      q2.vy -= fy * 0.08;
+    }
+
+    // 阻尼稳定
+    for (let q of quarks) {
+      if (draggedQuark !== q) {
+        q.vx *= 0.88;
+        q.vy *= 0.88;
+        q.x += q.vx;
+        q.y += q.vy;
+      }
+    }
+
+    // 弦断裂判定
+    if (dist >= breakDistance && breakCooldown === 0) {
+      triggerStringBreak();
+    }
+
+    // 更新 HUD
+    const vGeV = (-1.333 * alphaS * 15.0 / Math.max(1, dist * 0.05) + stringTension * (dist * 0.012)).toFixed(2);
+    document.getElementById('stat-energy').innerText = vGeV + ' GeV';
+  } else if (currentTopology === 'baryon' && quarks.length === 3) {
+    // 重子斯坦纳极小化中间点 (Fermat-Steiner Point)
+    const cx = (quarks[0].x + quarks[1].x + quarks[2].x) / 3.0;
+    const cy = (quarks[0].y + quarks[1].y + quarks[2].y) / 3.0;
+
+    for (let q of quarks) {
+      if (draggedQuark !== q) {
+        const dx = cx - q.x;
+        const dy = cy - q.y;
+        const d = Math.hypot(dx, dy);
+        const f = stringTension * 1.5;
+        q.vx += (dx / Math.max(1, d)) * f * 0.06;
+        q.vy += (dy / Math.max(1, d)) * f * 0.06;
+        q.vx *= 0.88;
+        q.vy *= 0.88;
+        q.x += q.vx;
+        q.y += q.vy;
+      }
+    }
+  }
+
+  // 推进胶子示踪粒子
+  for (let p of gluonParticles) {
+    p.t += p.speed;
+    if (p.t > 1.0) p.t -= 1.0;
+  }
+}
+
+/**
+ * 触发弦断裂与新介子产生 (String Breaking & Pair Production)
+ */
+function triggerStringBreak() {
+  breakCooldown = 120;
+  snapFlash = 1.0;
+
+  // 播放量子声学断裂重击声
+  triggerHadronSnapAudio();
+
+  // 将两个夸克弹性弹回至平衡距离并产生中间闪光
+  const cx = qcdCanvas.width * 0.5;
+  const cy = qcdCanvas.height * 0.5;
+
+  quarks[0].x = cx - 70;
+  quarks[0].vx = -8;
+  quarks[1].x = cx + 70;
+  quarks[1].vx = 8;
+}
+
+/**
+ * 主视口全息渲染
+ */
+function renderSimulation() {
+  qcdCtx.clearRect(0, 0, qcdCanvas.width, qcdCanvas.height);
+
+  // 1. 绘制对偶超导背景微弱网格
+  drawDualVacuumGrid();
+
+  // 2. 绘制胶子通量管 (Flux Tubes)
+  if (currentTopology === 'meson' && quarks.length >= 2) {
+    drawFluxTube(quarks[0], quarks[1]);
+  } else if (currentTopology === 'baryon' && quarks.length === 3) {
+    const sjx = (quarks[0].x + quarks[1].x + quarks[2].x) / 3.0;
+    const sjy = (quarks[0].y + quarks[1].y + quarks[2].y) / 3.0;
+    const junction = { x: sjx, y: sjy };
+    drawFluxTube(quarks[0], junction, true);
+    drawFluxTube(quarks[1], junction, true);
+    drawFluxTube(quarks[2], junction, true);
+
+    // 绘制中心斯坦纳色中性结 (Color Neutral Y-Junction)
+    qcdCtx.fillStyle = '#fff';
+    qcdCtx.beginPath();
+    qcdCtx.arc(sjx, sjy, 5, 0, Math.PI * 2);
+    qcdCtx.fill();
+  } else if (currentTopology === 'tetraquark' && quarks.length === 4) {
+    drawFluxTube(quarks[0], quarks[1]);
+    drawFluxTube(quarks[1], quarks[2]);
+    drawFluxTube(quarks[2], quarks[3]);
+    drawFluxTube(quarks[3], quarks[0]);
+  } else if (currentTopology === 'gluon_glueball' && quarks.length === 2) {
+    drawGlueballLoop(quarks[0], quarks[1]);
+  }
+
+  // 3. 绘制夸克球核与色晕
+  for (let q of quarks) {
+    drawQuark(q);
+  }
+
+  // 4. 弦断裂瞬间电离全屏暴闪
+  if (snapFlash > 0.01) {
+    qcdCtx.fillStyle = `rgba(192, 132, 252, ${snapFlash * 0.6})`;
+    qcdCtx.fillRect(0, 0, qcdCanvas.width, qcdCanvas.height);
+    snapFlash *= 0.85;
+  }
+
+  // 绘制康奈尔势能曲线 HUD
+  renderCornellPotentialChart();
+}
+
+/**
+ * 绘制两夸克之间的胶子通量管
+ */
+function drawFluxTube(q1, q2, isHalf = false) {
+  const dx = q2.x - q1.x;
+  const dy = q2.y - q1.y;
+  const dist = Math.hypot(dx, dy);
+  if (dist < 1e-4) return;
+
+  const nx = -dy / dist;
+  const ny = dx / dist;
+  const tubeR = lambdaQCD;
+
+  qcdCtx.save();
+
+  // 多层辉光管体渲染
+  const layers = [
+    { width: tubeR * 2.8, color: 'rgba(192, 132, 252, 0.08)' },
+    { width: tubeR * 1.8, color: 'rgba(168, 85, 247, 0.22)' },
+    { width: tubeR * 0.9, color: 'rgba(239, 68, 68, 0.45)' },
+    { width: tubeR * 0.35, color: '#fff' }
+  ];
+
+  for (let l of layers) {
+    qcdCtx.strokeStyle = l.color;
+    qcdCtx.lineWidth = l.width;
+    qcdCtx.lineCap = 'round';
+    qcdCtx.beginPath();
+    qcdCtx.moveTo(q1.x, q1.y);
+    qcdCtx.lineTo(q2.x, q2.y);
+    qcdCtx.stroke();
+  }
+
+  // 绘制通量管内部穿梭的胶子发光粒子
+  if (showStreamlines) {
+    qcdCtx.fillStyle = '#fff';
+    for (let p of gluonParticles) {
+      const px = q1.x + dx * p.t + nx * p.offset;
+      const py = q1.y + dy * p.t + ny * p.offset;
+      qcdCtx.fillRect(px - 1.5, py - 1.5, 3, 3);
+    }
+  }
+
+  qcdCtx.restore();
+}
+
+/**
+ * 绘制胶球自闭环通量管
+ */
+function drawGlueballLoop(q1, q2) {
+  const mx = (q1.x + q2.x) * 0.5;
+  const my = (q1.y + q2.y) * 0.5;
+  const radX = Math.hypot(q2.x - q1.x, q2.y - q1.y) * 0.5 + 20;
+  const radY = 45;
+
+  qcdCtx.strokeStyle = 'rgba(192, 132, 252, 0.6)';
+  qcdCtx.lineWidth = 14;
+  qcdCtx.beginPath();
+  qcdCtx.ellipse(mx, my, radX, radY, 0, 0, Math.PI * 2);
+  qcdCtx.stroke();
+
+  qcdCtx.strokeStyle = '#fff';
+  qcdCtx.lineWidth = 3;
+  qcdCtx.stroke();
+}
+
+/**
+ * 绘制单个夸克
+ */
+function drawQuark(q) {
+  const isHover = draggedQuark === q;
+  const r = isHover ? 16 : 13;
+
+  // 外围色荷光晕
+  const grad = qcdCtx.createRadialGradient(q.x, q.y, 2, q.x, q.y, r * 2.2);
+  grad.addColorStop(0, q.color);
+  grad.addColorStop(1, 'transparent');
+
+  qcdCtx.fillStyle = grad;
+  qcdCtx.beginPath();
+  qcdCtx.arc(q.x, q.y, r * 2.2, 0, Math.PI * 2);
+  qcdCtx.fill();
+
+  // 实体核心
+  qcdCtx.fillStyle = q.color;
+  qcdCtx.beginPath();
+  qcdCtx.arc(q.x, q.y, r, 0, Math.PI * 2);
+  qcdCtx.fill();
+
+  // 白色高光与边框
+  qcdCtx.strokeStyle = '#fff';
+  qcdCtx.lineWidth = 1.8;
+  qcdCtx.stroke();
+
+  // 文字标签
+  qcdCtx.font = '10px monospace';
+  qcdCtx.fillStyle = '#fff';
+  qcdCtx.textAlign = 'center';
+  qcdCtx.fillText(q.label, q.x, q.y - r - 6);
+}
+
+/**
+ * 绘制对偶超导真空背景微结构
+ */
+function drawDualVacuumGrid() {
+  qcdCtx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
+  qcdCtx.lineWidth = 1;
+  const step = 45;
+
+  for (let x = 0; x < qcdCanvas.width; x += step) {
+    qcdCtx.beginPath();
+    qcdCtx.moveTo(x, 0);
+    qcdCtx.lineTo(x, qcdCanvas.height);
+    qcdCtx.stroke();
+  }
+  for (let y = 0; y < qcdCanvas.height; y += step) {
+    qcdCtx.beginPath();
+    qcdCtx.moveTo(0, y);
+    qcdCtx.lineTo(qcdCanvas.width, y);
+    qcdCtx.stroke();
+  }
+}
+
+/**
+ * 绘制康奈尔势能图表 HUD
+ */
+function renderCornellPotentialChart() {
+  const w = potentialCanvas.width;
+  const h = potentialCanvas.height;
+  potCtx.clearRect(0, 0, w, h);
+
+  potCtx.strokeStyle = 'rgba(255,255,255,0.12)';
+  potCtx.beginPath();
+  potCtx.moveTo(25, h - 20);
+  potCtx.lineTo(w - 15, h - 20);
+  potCtx.lineTo(25, 10);
+  potCtx.stroke();
+
+  // 绘制理论 V(r) = -4/3 * alpha_s / r + sigma * r
+  potCtx.strokeStyle = '#c084fc';
+  potCtx.lineWidth = 2;
+  potCtx.beginPath();
+
+  for (let px = 26; px < w - 20; px++) {
+    const r = (px - 25) * 0.04;
+    const v = -1.333 * alphaS / Math.max(0.1, r) + stringTension * r;
+    const py = (h - 25) - Math.min(h - 35, Math.max(0, (v + 1.2) * 22));
+
+    if (px === 26) potCtx.moveTo(px, py);
+    else potCtx.lineTo(px, py);
+  }
+  potCtx.stroke();
+
+  // 标记当前介子间距位置红点
+  if (quarks.length >= 2) {
+    const d = Math.hypot(quarks[1].x - quarks[0].x, quarks[1].y - quarks[0].y);
+    const currPx = 25 + (d * 0.035) / 0.04;
+    const currR = (currPx - 25) * 0.04;
+    const currV = -1.333 * alphaS / Math.max(0.1, currR) + stringTension * currR;
+    const currPy = (h - 25) - Math.min(h - 35, Math.max(0, (currV + 1.2) * 22));
+
+    if (currPx >= 25 && currPx < w - 20) {
+      potCtx.fillStyle = '#ef4444';
+      potCtx.beginPath();
+      potCtx.arc(currPx, currPy, 4.5, 0, Math.PI * 2);
+      potCtx.fill();
+    }
+  }
+}
+
+/**
+ * Web Audio 亚原子通量振荡与弦断裂音效
+ */
+function initAudio() {
+  if (audioCtx) return;
+  const AudioContext = window.AudioContext || window.webkitAudioContext;
+  audioCtx = new AudioContext();
+
+  humOsc = audioCtx.createOscillator();
+  humOsc.type = 'sawtooth';
+  humOsc.frequency.setValueAtTime(78.0, audioCtx.currentTime); // D#2
+
+  humFilter = audioCtx.createBiquadFilter();
+  humFilter.type = 'lowpass';
+  humFilter.frequency.setValueAtTime(240, audioCtx.currentTime);
+  humFilter.Q.setValueAtTime(5.0, audioCtx.currentTime);
+
+  humGain = audioCtx.createGain();
+  humGain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+
+  humOsc.connect(humFilter);
+  humFilter.connect(humGain);
+  humGain.connect(audioCtx.destination);
+
+  humOsc.start();
+  isAudioActive = true;
+}
+
+function triggerHadronSnapAudio() {
+  if (!isAudioActive || !audioCtx) return;
+  const now = audioCtx.currentTime;
+  const burst = audioCtx.createOscillator();
+  const bGain = audioCtx.createGain();
+
+  burst.type = 'sine';
+  burst.frequency.setValueAtTime(950, now);
+  burst.frequency.exponentialRampToValueAtTime(80, now + 0.35);
+
+  bGain.gain.setValueAtTime(0.35, now);
+  bGain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+
+  burst.connect(bGain);
+  bGain.connect(audioCtx.destination);
+  burst.start(now);
+  burst.stop(now + 0.4);
+}
+
+/**
+ * 鼠标交互拖拽夸克
+ */
+qcdCanvas.addEventListener('mousedown', e => {
+  const rect = qcdCanvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+
+  // 命中测试
+  for (let q of quarks) {
+    if (Math.hypot(q.x - mx, q.y - my) <= 25) {
+      draggedQuark = q;
+      break;
+    }
+  }
+});
+
+window.addEventListener('mouseup', () => {
+  draggedQuark = null;
+});
+
+window.addEventListener('mousemove', e => {
+  if (!draggedQuark) return;
+  const rect = qcdCanvas.getBoundingClientRect();
+  draggedQuark.x = e.clientX - rect.left;
+  draggedQuark.y = e.clientY - rect.top;
+  draggedQuark.vx = 0;
+  draggedQuark.vy = 0;
+});
+
+/**
+ * UI 按钮与参数交互
+ */
+// 强子拓扑切换
+document.querySelectorAll('.preset-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    initHadronTopology(btn.dataset.preset);
+  });
+});
+
+// 弦张力滑块
+document.getElementById('param-sigma').addEventListener('input', e => {
+  stringTension = parseFloat(e.target.value);
+  document.getElementById('val-sigma').innerText = stringTension.toFixed(1);
+  document.getElementById('stat-tension').innerText = stringTension.toFixed(2) + ' GeV/fm';
+});
+
+// 管径滑块
+document.getElementById('param-lambda').addEventListener('input', e => {
+  lambdaQCD = parseFloat(e.target.value);
+  document.getElementById('val-lambda').innerText = lambdaQCD + ' px';
+});
+
+// 断裂阈值滑块
+document.getElementById('param-break').addEventListener('input', e => {
+  breakDistance = parseFloat(e.target.value);
+  document.getElementById('val-break').innerText = breakDistance + ' px';
+});
+
+// 强耦合滑块
+document.getElementById('param-alphas').addEventListener('input', e => {
+  alphaS = parseFloat(e.target.value);
+  document.getElementById('val-alphas').innerText = alphaS.toFixed(2);
+});
+
+// 流线开关
+const btnStream = document.getElementById('btn-streamlines');
+btnStream.addEventListener('click', () => {
+  showStreamlines = !showStreamlines;
+  btnStream.classList.toggle('active', showStreamlines);
+});
+
+// 强制断裂
+document.getElementById('btn-snap').addEventListener('click', () => {
+  triggerStringBreak();
+});
+
+// 重置
+document.getElementById('btn-reset').addEventListener('click', () => {
+  initHadronTopology(currentTopology);
+});
+
+// 声音开关
+const btnSound = document.getElementById('btn-sound');
+btnSound.addEventListener('click', () => {
+  if (!audioCtx) {
+    initAudio();
+    btnSound.innerText = '亚原子音景: 运行中';
+    btnSound.style.background = 'rgba(168, 85, 247, 0.25)';
+    btnSound.style.borderColor = 'var(--accent-purple)';
+  } else {
+    if (audioCtx.state === 'running') {
+      audioCtx.suspend();
+      btnSound.innerText = '开启亚原子重击音景';
+      btnSound.style.background = 'rgba(255, 255, 255, 0.06)';
+      btnSound.style.borderColor = 'rgba(255, 255, 255, 0.12)';
+    } else {
+      audioCtx.resume();
+      btnSound.innerText = '亚原子音景: 运行中';
+      btnSound.style.background = 'rgba(168, 85, 247, 0.25)';
+      btnSound.style.borderColor = 'var(--accent-purple)';
+    }
+  }
+});
+
+// 视口自适应
+function handleResize() {
+  const container = document.getElementById('viewport-container');
+  qcdCanvas.width = container.clientWidth;
+  qcdCanvas.height = container.clientHeight;
+  if (quarks.length === 0) initHadronTopology('meson');
+}
+window.addEventListener('resize', handleResize);
+
+/**
+ * 主动画循环
+ */
+function animate() {
+  updatePhysics();
+  renderSimulation();
+
+  frames++;
+  const now = performance.now();
+  if (now - lastTime >= 500) {
+    const fps = Math.round((frames * 1000) / (now - lastTime));
+    document.getElementById('stat-fps').innerText = fps;
+    frames = 0;
+    lastTime = now;
+  }
+
+  requestAnimationFrame(animate);
+}
+
+// 启动
+handleResize();
+requestAnimationFrame(animate);
+</script>
+</body>
+</html>

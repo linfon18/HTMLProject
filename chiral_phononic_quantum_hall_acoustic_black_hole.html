@@ -1,0 +1,1369 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>手征声子量子霍尔效应与超构声学黑洞霍金辐射全息模拟器</title>
+  <style>
+    :root {
+      --bg-color: #060913;
+      --card-bg: rgba(13, 20, 36, 0.75);
+      --card-border: rgba(56, 189, 248, 0.2);
+      --accent-cyan: #38bdf8;
+      --accent-gold: #fbbf24;
+      --accent-crimson: #f43f5e;
+      --accent-purple: #c084fc;
+      --accent-green: #34d399;
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+      background-image: 
+        radial-gradient(circle at 15% 20%, rgba(56, 189, 248, 0.08) 0%, transparent 40%),
+        radial-gradient(circle at 85% 80%, rgba(244, 63, 94, 0.07) 0%, transparent 40%),
+        radial-gradient(circle at 50% 50%, rgba(192, 132, 252, 0.05) 0%, transparent 60%);
+    }
+
+    /* 顶部导航与物理看板 */
+    header {
+      padding: 1rem 2rem;
+      background: rgba(6, 9, 19, 0.85);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--card-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+      z-index: 10;
+    }
+
+    .title-group h1 {
+      font-size: 1.35rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      background: linear-gradient(135deg, #38bdf8, #fbbf24, #f43f5e);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .title-group p {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-top: 0.2rem;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .telemetry-bar {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .telemetry-item {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 0.4rem 0.8rem;
+      display: flex;
+      flex-direction: column;
+      min-width: 90px;
+    }
+
+    .telemetry-label {
+      font-size: 0.65rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .telemetry-val {
+      font-size: 1.05rem;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* 主布局 */
+    main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 380px;
+      gap: 1.25rem;
+      padding: 1.25rem 2rem;
+      max-width: 1920px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    @media (max-width: 1200px) {
+      main {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .viewport-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .canvas-container {
+      position: relative;
+      background: rgba(10, 15, 30, 0.8);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      overflow: hidden;
+      aspect-ratio: 16 / 9;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5), inset 0 0 80px rgba(56, 189, 248, 0.03);
+    }
+
+    canvas#simCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      cursor: crosshair;
+    }
+
+    /* 视口浮动标签 */
+    .viewport-overlay {
+      position: absolute;
+      top: 1rem;
+      left: 1rem;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.25rem 0.6rem;
+      background: rgba(6, 9, 19, 0.7);
+      border: 1px solid var(--card-border);
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-family: 'JetBrains Mono', monospace;
+      color: #38bdf8;
+      backdrop-filter: blur(8px);
+    }
+
+    .badge-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #38bdf8;
+      box-shadow: 0 0 8px #38bdf8;
+      animation: pulse 1.5s infinite alternate;
+    }
+
+    @keyframes pulse {
+      0% { opacity: 0.4; }
+      100% { opacity: 1; }
+    }
+
+    .hud-subsonic {
+      position: absolute;
+      bottom: 1rem;
+      left: 1.5rem;
+      pointer-events: none;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      color: #38bdf8;
+      background: rgba(6, 9, 19, 0.6);
+      padding: 0.3rem 0.6rem;
+      border-radius: 4px;
+      border-left: 3px solid #38bdf8;
+    }
+
+    .hud-horizon {
+      position: absolute;
+      top: 1rem;
+      left: 50%;
+      transform: translateX(-50%);
+      pointer-events: none;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      color: #fbbf24;
+      background: rgba(6, 9, 19, 0.8);
+      padding: 0.3rem 0.8rem;
+      border-radius: 999px;
+      border: 1px solid rgba(251, 191, 36, 0.5);
+      box-shadow: 0 0 15px rgba(251, 191, 36, 0.3);
+      text-align: center;
+    }
+
+    .hud-supersonic {
+      position: absolute;
+      bottom: 1rem;
+      right: 1.5rem;
+      pointer-events: none;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      color: #f43f5e;
+      background: rgba(6, 9, 19, 0.6);
+      padding: 0.3rem 0.6rem;
+      border-radius: 4px;
+      border-right: 3px solid #f43f5e;
+      text-align: right;
+    }
+
+    /* 侧边分析栏 */
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    .panel-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 1.1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.8rem;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    }
+
+    .panel-card h3 {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--accent-cyan);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      letter-spacing: 0.03em;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding-bottom: 0.4rem;
+    }
+
+    .scope-canvas {
+      width: 100%;
+      height: 140px;
+      background: rgba(6, 9, 19, 0.9);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      display: block;
+    }
+
+    /* 控制面板与预设 */
+    .controls-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1rem;
+    }
+
+    .preset-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .btn-preset {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: var(--text-main);
+      padding: 0.45rem 0.85rem;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      font-family: 'Space Grotesk', sans-serif;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .btn-preset:hover {
+      background: rgba(56, 189, 248, 0.2);
+      border-color: rgba(56, 189, 248, 0.4);
+      transform: translateY(-2px);
+    }
+
+    .btn-preset.active {
+      background: linear-gradient(135deg, rgba(56, 189, 248, 0.3), rgba(192, 132, 252, 0.3));
+      border-color: #38bdf8;
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.3);
+      color: #fff;
+      font-weight: 600;
+    }
+
+    .slider-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+    }
+
+    .slider-item {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .slider-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .slider-header span:last-child {
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--accent-cyan);
+      font-weight: 600;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 5px;
+      background: rgba(255, 255, 255, 0.12);
+      border-radius: 3px;
+      outline: none;
+      transition: background 0.2s;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--accent-cyan);
+      cursor: pointer;
+      box-shadow: 0 0 8px var(--accent-cyan);
+      transition: transform 0.15s;
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.25);
+    }
+
+    /* 音频与激发操作栏 */
+    .action-bar {
+      display: flex;
+      gap: 0.8rem;
+      align-items: center;
+      margin-top: 0.4rem;
+    }
+
+    .btn-action {
+      flex: 1;
+      padding: 0.6rem;
+      background: rgba(56, 189, 248, 0.15);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      border-radius: 8px;
+      color: #38bdf8;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.4rem;
+    }
+
+    .btn-action:hover {
+      background: rgba(56, 189, 248, 0.3);
+      box-shadow: 0 0 15px rgba(56, 189, 248, 0.35);
+      transform: translateY(-2px);
+    }
+
+    .btn-action.active {
+      background: linear-gradient(135deg, #f43f5e, #fbbf24);
+      color: #fff;
+      border-color: #fbbf24;
+      box-shadow: 0 0 20px rgba(244, 63, 94, 0.5);
+    }
+
+    footer {
+      padding: 1rem 2rem;
+      text-align: center;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      border-top: 1px solid var(--card-border);
+      background: rgba(6, 9, 19, 0.7);
+      margin-top: auto;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 顶部状态导航 -->
+  <header>
+    <div class="title-group">
+      <h1>
+        <span>⚛️</span>
+        手征声子量子霍尔效应与超构声学黑洞霍金辐射全息模拟器
+      </h1>
+      <p>CHIRAL PHONON QUANTUM HALL HORIZON & ACOUSTIC HAWKING RADIATION</p>
+    </div>
+
+    <div class="telemetry-bar">
+      <div class="telemetry-item">
+        <span class="telemetry-label">Hawking Temp TH</span>
+        <span class="telemetry-val" id="dispTH" style="color: #fbbf24;">42.8 nK</span>
+      </div>
+      <div class="telemetry-item">
+        <span class="telemetry-label">Surface Grav κ</span>
+        <span class="telemetry-val" id="dispKappa" style="color: #38bdf8;">1.85 kHz</span>
+      </div>
+      <div class="telemetry-item">
+        <span class="telemetry-label">Horizon Mach M_H</span>
+        <span class="telemetry-val" id="dispMach">1.00</span>
+      </div>
+      <div class="telemetry-item">
+        <span class="telemetry-label">Phonon Chern C_ph</span>
+        <span class="telemetry-val" id="dispChern" style="color: #34d399;">+1</span>
+      </div>
+      <div class="telemetry-item">
+        <span class="telemetry-label">Entanglement E_N</span>
+        <span class="telemetry-val" id="dispEN" style="color: #c084fc;">1.46 ebits</span>
+      </div>
+      <div class="telemetry-item">
+        <span class="telemetry-label">Isolation Ratio</span>
+        <span class="telemetry-val" id="dispIso" style="color: #f43f5e;">48.5 dB</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- 主仿真区 -->
+  <main>
+    <div class="viewport-panel">
+      <div class="canvas-container">
+        <canvas id="simCanvas"></canvas>
+
+        <div class="viewport-overlay">
+          <div class="badge">
+            <span class="badge-dot"></span>
+            <span>Unruh-Acoustic Metric Engine v2.73</span>
+          </div>
+          <div class="badge" style="color: #34d399; border-color: rgba(52, 211, 153, 0.3);">
+            <span>Topological Edge Protection: Active</span>
+          </div>
+        </div>
+
+        <div class="hud-subsonic">
+          <div>▲ SUBSONIC REGION (v &lt; cs)</div>
+          <div style="font-size: 0.65rem; color: var(--text-muted);">Hawking Phonons Outflowing (ω &gt; 0)</div>
+        </div>
+
+        <div class="hud-horizon">
+          <div>⚡ ACOUSTIC EVENT HORIZON ⚡</div>
+          <div style="font-size: 0.65rem; color: #fef08a;">v(x) = cs(x) | M = 1.00</div>
+        </div>
+
+        <div class="hud-supersonic">
+          <div>SUPERSONIC INTERIOR (v &gt; cs) ▼</div>
+          <div style="font-size: 0.65rem; color: var(--text-muted);">Partner Infalling (Negative Energy ω &lt; 0)</div>
+        </div>
+      </div>
+
+      <!-- 控制面板与滑动条 -->
+      <div class="panel-card">
+        <h3>
+          <span>工况预设模式 PRESET CONDITIONS</span>
+          <span style="font-size: 0.7rem; color: var(--text-muted);">点击即时切换宏观量子态</span>
+        </h3>
+        <div class="preset-container">
+          <button class="btn-preset active" data-preset="standard">标准霍金声学黑洞 (Standard Horizon)</button>
+          <button class="btn-preset" data-preset="steep">极陡引力超辐射 (Steep Superradiance)</button>
+          <button class="btn-preset" data-preset="chiral">拓扑手征保护边缘流 (Topological Chiral)</button>
+          <button class="btn-preset" data-preset="subcritical">亚临界无视界正常态 (Horizonless Stream)</button>
+          <button class="btn-preset" data-preset="whitehole">超音速白洞冲击激波 (Acoustic White Hole)</button>
+        </div>
+
+        <div class="controls-grid" style="margin-top: 0.8rem;">
+          <div class="slider-group">
+            <div class="slider-item">
+              <div class="slider-header">
+                <span>背景基底流速 v0 / cs</span>
+                <span id="valV0">1.25 cs</span>
+              </div>
+              <input type="range" id="rngV0" min="0.5" max="2.5" step="0.05" value="1.25">
+            </div>
+            <div class="slider-item">
+              <div class="slider-header">
+                <span>表面引力梯度 (视界陡度) κ</span>
+                <span id="valKappa">1.85 kHz</span>
+              </div>
+              <input type="range" id="rngKappa" min="0.2" max="5.0" step="0.1" value="1.85">
+            </div>
+            <div class="slider-item">
+              <div class="slider-header">
+                <span>拓扑手征自旋-轨道耦合 g_chiral</span>
+                <span id="valChiral">0.85</span>
+              </div>
+              <input type="range" id="rngChiral" min="0.0" max="1.0" step="0.02" value="0.85">
+            </div>
+          </div>
+
+          <div class="slider-group">
+            <div class="slider-item">
+              <div class="slider-header">
+                <span>声学泵浦激励频率 f_pump</span>
+                <span id="valPump">320 Hz</span>
+              </div>
+              <input type="range" id="rngPump" min="50" max="1000" step="10" value="320">
+            </div>
+            <div class="slider-item">
+              <div class="slider-header">
+                <span>声子耗散衰减率 γ_loss</span>
+                <span id="valLoss">0.05</span>
+              </div>
+              <input type="range" id="rngLoss" min="0.01" max="0.4" step="0.01" value="0.05">
+            </div>
+            <div class="action-bar">
+              <button class="btn-action" id="btnPulse">
+                <span>⚡</span> 视界激发声子波包
+              </button>
+              <button class="btn-action" id="btnAudio">
+                <span id="audioIcon">🔈</span> 开启量子声学生成
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 侧边科学示波器 -->
+    <div class="sidebar">
+      <div class="panel-card">
+        <h3>
+          <span>示波器 1: 马赫数空间轮廓与霍金谱</span>
+          <span style="color: #fbbf24;">M(x) & S(ω)</span>
+        </h3>
+        <canvas class="scope-canvas" id="scopeMach"></canvas>
+        <div style="font-size: 0.7rem; color: var(--text-muted); line-height: 1.4;">
+          实线标出局域马赫数 <span style="color:#38bdf8;">M=v/cs</span>，黄色标定 <span style="color:#fbbf24;">M=1 视界</span>；虚线为霍金热黑体分布 <span style="color:#f43f5e;">S(ω) ~ (e^(ℏω/kB TH)-1)⁻¹</span>。
+        </div>
+      </div>
+
+      <div class="panel-card">
+        <h3>
+          <span>示波器 2: 声子双模压缩纠缠与手征传输</span>
+          <span style="color: #34d399;">EN & Nonreciprocity</span>
+        </h3>
+        <canvas class="scope-canvas" id="scopeEntangle"></canvas>
+        <div style="font-size: 0.7rem; color: var(--text-muted); line-height: 1.4;">
+          紫色曲线展示正负能量声子对的 <span style="color:#c084fc;">对数负度纠缠熵 EN</span>；绿色与红色条带展示手征拓扑声子顺向与逆向透射谱。
+        </div>
+      </div>
+
+      <div class="panel-card">
+        <h3>
+          <span>微观物理模型概要</span>
+          <span style="color: var(--text-muted);">Hamiltonian & Metric</span>
+        </h3>
+        <div style="font-size: 0.72rem; color: #cbd5e1; line-height: 1.6; font-family: 'JetBrains Mono', monospace;">
+          <div>• 有效声学度规: ds² = (ρ/cs)[-(cs²-v²)dt² - 2v dt dx + dx² + dy²]</div>
+          <div>• 霍金温度定理: TH = (ℏ / 2π kB) · |∂(v - cs)/∂x|_(x=xH)</div>
+          <div>• 负能声子态: ω_lab = ω_comov + v·k &lt; 0 (位于超音速流内部)</div>
+          <div>• 手征声子陈数: C_ph = 1/(2π) ∮ Ω_k d²k = ±1 (无背向散射)</div>
+          <div>• 拓扑单向透射: 阻止超音速反射声子泄漏，隔离度高达 48.5 dB</div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    手征声子量子霍尔效应与超构声学黑洞霍金辐射全息模拟器 • Zero External Dependencies • Pure Vanilla JS & Canvas 2D/3D & Web Audio API
+  </footer>
+
+  <script>
+    // --- 模拟器全局核心状态与物理参数 ---
+    const STATE = {
+      // 物理参数
+      v0: 1.25,          // 背景流速相对声速比 (Mach 基底)
+      kappa: 1.85,       // 视界表面引力 (梯度陡度, kHz)
+      gChiral: 0.85,     // 手征自旋-轨道耦合度 (0~1)
+      fPump: 320,        // 激发频率 (Hz)
+      gammaLoss: 0.05,   // 声子阻尼
+      chern: 1,          // 拓扑陈数
+      
+      // 派生遥测数据
+      thNanoK: 42.8,     // 霍金温度 (nK)
+      entanglementN: 1.46, // 对数负度纠缠
+      isolationDb: 48.5, // 手征隔离度
+      
+      // 运行与交互状态
+      time: 0,
+      activePreset: 'standard',
+      isPulseTriggered: false,
+      pulseTime: 0,
+      mouseX: -1,
+      mouseY: -1,
+      isMouseDown: false
+    };
+
+    // --- DOM 节点索引 ---
+    const simCanvas = document.getElementById('simCanvas');
+    const ctxSim = simCanvas.getContext('2d');
+    const scopeMach = document.getElementById('scopeMach');
+    const ctxScope1 = scopeMach.getContext('2d');
+    const scopeEntangle = document.getElementById('scopeEntangle');
+    const ctxScope2 = scopeEntangle.getContext('2d');
+
+    // 遥测元素
+    const dispTH = document.getElementById('dispTH');
+    const dispKappa = document.getElementById('dispKappa');
+    const dispMach = document.getElementById('dispMach');
+    const dispChern = document.getElementById('dispChern');
+    const dispEN = document.getElementById('dispEN');
+    const dispIso = document.getElementById('dispIso');
+
+    // 滑块及显示
+    const rngV0 = document.getElementById('rngV0');
+    const valV0 = document.getElementById('valV0');
+    const rngKappa = document.getElementById('rngKappa');
+    const valKappa = document.getElementById('valKappa');
+    const rngChiral = document.getElementById('rngChiral');
+    const valChiral = document.getElementById('valChiral');
+    const rngPump = document.getElementById('rngPump');
+    const valPump = document.getElementById('valPump');
+    const rngLoss = document.getElementById('rngLoss');
+    const valLoss = document.getElementById('valLoss');
+
+    const btnPulse = document.getElementById('btnPulse');
+    const btnAudio = document.getElementById('btnAudio');
+    const audioIcon = document.getElementById('audioIcon');
+    const presetBtns = document.querySelectorAll('.btn-preset');
+
+    // --- 高性能粒子与霍金纠缠对系统 ---
+    const NUM_FLUID_PARTICLES = 360;
+    const FLUID_PARTICLES = [];
+    for (let i = 0; i < NUM_FLUID_PARTICLES; i++) {
+      FLUID_PARTICLES.push({
+        x: Math.random(),
+        y: 0.15 + Math.random() * 0.7,
+        size: 1.5 + Math.random() * 2.5,
+        speedFactor: 0.8 + Math.random() * 0.4,
+        alpha: 0.2 + Math.random() * 0.7,
+        trail: []
+      });
+    }
+
+    // 霍金声子纠缠对粒子集合
+    const HAWKING_PAIRS = [];
+    const MAX_HAWKING_PAIRS = 45;
+
+    function spawnHawkingPair() {
+      if (HAWKING_PAIRS.length >= MAX_HAWKING_PAIRS) return;
+      // 产生在声学视界中央附近 (x ~ 0.5)
+      const y0 = 0.2 + Math.random() * 0.6;
+      const energy = 0.5 + Math.random() * 1.0;
+      HAWKING_PAIRS.push({
+        birthTime: STATE.time,
+        life: 1.0,
+        y: y0,
+        // 正能量声子：向亚音速区逃逸 (左侧)
+        pPos: { x: 0.5, vx: -0.0035 * (0.8 + energy * 0.4), phase: 0 },
+        // 负能量伴随声子：被超音速冲向下游黑洞深处 (右侧)
+        pNeg: { x: 0.5, vx: 0.0055 * (0.9 + energy * 0.5), phase: Math.PI }
+      });
+    }
+
+    // 手征边缘波包扰动
+    const EDGE_SOLITONS = [];
+    function spawnEdgeSoliton(topOrBottom) {
+      EDGE_SOLITONS.push({
+        x: 0.0,
+        isTop: topOrBottom,
+        speed: 0.004 + STATE.gChiral * 0.003,
+        amplitude: 1.0,
+        width: 0.08
+      });
+    }
+
+    // --- 动态物理参数更新与微观理论模型运算 ---
+    function updatePhysicsModel() {
+      // 表面引力 κ 决定霍金温度: TH = (ℏ / 2π kB) · κ
+      // 这里采用无量纲标度转换至真实 nK 数量级
+      STATE.thNanoK = (STATE.kappa * 23.15 * (STATE.v0 > 0.95 ? 1.0 : 0.0)).toFixed(1);
+      
+      // 对数负度纠缠 EN 随着表面引力与相干性增大，受耗散抑制
+      const rawEn = (Math.log(1.0 + STATE.kappa * 1.8) * Math.exp(-STATE.gammaLoss * 3.5));
+      STATE.entanglementN = Math.max(0.0, rawEn * (STATE.v0 > 1.0 ? 1.0 : 0.1)).toFixed(2);
+      
+      // 手征隔离度 (非互易二极管性能, dB)
+      if (STATE.gChiral > 0.05) {
+        STATE.chern = 1;
+        const iso = 20.0 + STATE.gChiral * 32.0 - STATE.gammaLoss * 18.0;
+        STATE.isolationDb = Math.max(0.0, iso).toFixed(1);
+      } else {
+        STATE.chern = 0;
+        STATE.isolationDb = "1.2";
+      }
+
+      // 更新仪表盘数值
+      dispTH.textContent = (STATE.v0 < 0.95) ? "0.0 nK" : `${STATE.thNanoK} nK`;
+      dispKappa.textContent = `${STATE.kappa.toFixed(2)} kHz`;
+      dispMach.textContent = (1.0).toFixed(2);
+      dispChern.textContent = (STATE.chern > 0) ? "+1" : "0";
+      dispChern.style.color = (STATE.chern > 0) ? "#34d399" : "#94a3b8";
+      dispEN.textContent = `${STATE.entanglementN} ebits`;
+      dispIso.textContent = `${STATE.isolationDb} dB`;
+    }
+
+    // 计算任意空间位置 x (0~1) 处的局域流体速度与马赫数
+    function getMachAtX(x) {
+      // 视界设定在 x = 0.5 处
+      // 使用双曲正切函数模拟亚音速向超音速跃迁的势垒
+      const dx = x - 0.5;
+      const steepness = STATE.kappa * 2.2;
+      const deltaM = (STATE.v0 - 1.0) + Math.tanh(dx * steepness) * 0.85;
+      return Math.max(0.1, 1.0 + deltaM);
+    }
+
+    // --- Web Audio API 真实声学生成器 ---
+    let audioCtx = null;
+    let isAudioPlaying = false;
+    let hawkingNoiseNode = null;
+    let subBassOsc = null;
+    let biquadFilter = null;
+    let masterGain = null;
+
+    function initAudio() {
+      if (audioCtx) return;
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioContext();
+
+      // 1. 霍金高频热声（逃逸辐射白噪声）
+      const bufferSize = audioCtx.sampleRate * 2;
+      const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+      const output = noiseBuffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        output[i] = Math.random() * 2 - 1;
+      }
+      const whiteNoise = audioCtx.createBufferSource();
+      whiteNoise.buffer = noiseBuffer;
+      whiteNoise.loop = true;
+
+      // 带通滤波器模拟辐射峰
+      biquadFilter = audioCtx.createBiquadFilter();
+      biquadFilter.type = 'bandpass';
+      biquadFilter.frequency.setValueAtTime(STATE.fPump * 1.5, audioCtx.currentTime);
+      biquadFilter.Q.setValueAtTime(4.0, audioCtx.currentTime);
+
+      const noiseGain = audioCtx.createGain();
+      noiseGain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+
+      whiteNoise.connect(biquadFilter);
+      biquadFilter.connect(noiseGain);
+
+      // 2. 超音速坠落声波深沉低频 (Sub-bass)
+      subBassOsc = audioCtx.createOscillator();
+      subBassOsc.type = 'sine';
+      subBassOsc.frequency.setValueAtTime(68, audioCtx.currentTime);
+
+      const bassGain = audioCtx.createGain();
+      bassGain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+      subBassOsc.connect(bassGain);
+
+      // 总输出增益
+      masterGain = audioCtx.createGain();
+      masterGain.gain.setValueAtTime(0.0001, audioCtx.currentTime);
+
+      noiseGain.connect(masterGain);
+      bassGain.connect(masterGain);
+      masterGain.connect(audioCtx.destination);
+
+      whiteNoise.start();
+      subBassOsc.start();
+    }
+
+    function toggleAudio() {
+      if (!audioCtx) initAudio();
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+
+      if (!isAudioPlaying) {
+        masterGain.gain.setTargetAtTime(0.25, audioCtx.currentTime, 0.1);
+        isAudioPlaying = true;
+        btnAudio.classList.add('active');
+        audioIcon.textContent = '🔊';
+      } else {
+        masterGain.gain.setTargetAtTime(0.0001, audioCtx.currentTime, 0.05);
+        isAudioPlaying = false;
+        btnAudio.classList.remove('active');
+        audioIcon.textContent = '🔈';
+      }
+    }
+
+    function triggerAudioPulse() {
+      if (!audioCtx || !isAudioPlaying) return;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(STATE.fPump, audioCtx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(STATE.fPump * 2.8, audioCtx.currentTime + 0.35);
+
+      gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.4);
+
+      osc.connect(gain);
+      gain.connect(masterGain);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.45);
+    }
+
+    // --- 视口与画布自适应缩放 ---
+    function resizeCanvases() {
+      const rectSim = simCanvas.parentElement.getBoundingClientRect();
+      simCanvas.width = rectSim.width * window.devicePixelRatio;
+      simCanvas.height = rectSim.height * window.devicePixelRatio;
+
+      const rectS1 = scopeMach.getBoundingClientRect();
+      scopeMach.width = rectS1.width * window.devicePixelRatio;
+      scopeMach.height = rectS1.height * window.devicePixelRatio;
+
+      const rectS2 = scopeEntangle.getBoundingClientRect();
+      scopeEntangle.width = rectS2.width * window.devicePixelRatio;
+      scopeEntangle.height = rectS2.height * window.devicePixelRatio;
+    }
+    window.addEventListener('resize', resizeCanvases);
+    setTimeout(resizeCanvases, 50);
+
+    // --- 主视口全息渲染引擎 ---
+    function renderSimViewport() {
+      const w = simCanvas.width;
+      const h = simCanvas.height;
+      ctxSim.clearRect(0, 0, w, h);
+
+      const horizonX = w * 0.5;
+
+      // 1. 绘制流体背景渐变与视界分界
+      // 亚音速区 (左, 青蓝色)
+      const gradSub = ctxSim.createLinearGradient(0, 0, horizonX, 0);
+      gradSub.addColorStop(0, 'rgba(8, 25, 48, 0.4)');
+      gradSub.addColorStop(1, 'rgba(14, 52, 90, 0.6)');
+      ctxSim.fillStyle = gradSub;
+      ctxSim.fillRect(0, 0, horizonX, h);
+
+      // 超音速区 (右, 绯红/暗紫色)
+      const gradSuper = ctxSim.createLinearGradient(horizonX, 0, w, 0);
+      gradSuper.addColorStop(0, 'rgba(70, 15, 30, 0.5)');
+      gradSuper.addColorStop(1, 'rgba(30, 8, 20, 0.7)');
+      ctxSim.fillStyle = gradSuper;
+      ctxSim.fillRect(horizonX, 0, w - horizonX, h);
+
+      // 2. 绘制声学事件视界光柱与量子脉冲
+      const horizonPulse = Math.sin(STATE.time * 6.0) * 0.2 + 0.8;
+      const horizonGlow = ctxSim.createLinearGradient(horizonX - 35, 0, horizonX + 35, 0);
+      horizonGlow.addColorStop(0, 'rgba(251, 191, 36, 0.0)');
+      horizonGlow.addColorStop(0.5, `rgba(251, 191, 36, ${0.45 * horizonPulse})`);
+      horizonGlow.addColorStop(1, 'rgba(251, 191, 36, 0.0)');
+      ctxSim.fillStyle = horizonGlow;
+      ctxSim.fillRect(horizonX - 35, 0, 70, h);
+
+      // 视界核心中轴线
+      ctxSim.strokeStyle = '#fbbf24';
+      ctxSim.lineWidth = 2.5;
+      ctxSim.setLineDash([8, 6]);
+      ctxSim.lineDashOffset = -STATE.time * 20;
+      ctxSim.beginPath();
+      ctxSim.moveTo(horizonX, 0);
+      ctxSim.lineTo(horizonX, h);
+      ctxSim.stroke();
+      ctxSim.setLineDash([]);
+
+      // 3. 绘制声学超构流体粒子运动与流线跟踪
+      for (let p of FLUID_PARTICLES) {
+        const localMach = getMachAtX(p.x);
+        // 流速随局域马赫数递增
+        const vx = 0.0018 * localMach * p.speedFactor;
+        p.x += vx;
+        if (p.x > 1.05) {
+          p.x = -0.05;
+          p.y = 0.15 + Math.random() * 0.7;
+          p.trail = [];
+        }
+
+        const px = p.x * w;
+        const py = p.y * h + Math.sin(STATE.time * 4.0 + p.x * 12.0) * (localMach > 1.0 ? 8.0 : 4.0);
+
+        // 记录拖尾
+        p.trail.push({ x: px, y: py });
+        if (p.trail.length > 6) p.trail.shift();
+
+        // 绘制粒子轨迹
+        if (p.trail.length > 1) {
+          ctxSim.beginPath();
+          ctxSim.moveTo(p.trail[0].x, p.trail[0].y);
+          for (let k = 1; k < p.trail.length; k++) {
+            ctxSim.lineTo(p.trail[k].x, p.trail[k].y);
+          }
+          ctxSim.strokeStyle = (p.x < 0.5) 
+            ? `rgba(56, 189, 248, ${p.alpha * 0.4})` 
+            : `rgba(244, 63, 94, ${p.alpha * 0.45})`;
+          ctxSim.lineWidth = p.size * 0.8;
+          ctxSim.stroke();
+        }
+
+        // 绘制粒子自身
+        ctxSim.beginPath();
+        ctxSim.arc(px, py, p.size, 0, Math.PI * 2);
+        ctxSim.fillStyle = (p.x < 0.5) ? '#38bdf8' : '#f43f5e';
+        ctxSim.shadowColor = (p.x < 0.5) ? '#38bdf8' : '#f43f5e';
+        ctxSim.shadowBlur = 8;
+        ctxSim.fill();
+        ctxSim.shadowBlur = 0;
+      }
+
+      // 4. 拓扑手征声子量子霍尔通道（上边缘与下边缘高亮展示）
+      if (STATE.chern > 0) {
+        const edgeGlowYTop = 30;
+        const edgeGlowYBot = h - 30;
+        
+        ctxSim.fillStyle = 'rgba(52, 211, 153, 0.15)';
+        ctxSim.fillRect(0, 0, w, 50);
+        ctxSim.fillRect(0, h - 50, w, 50);
+
+        // 上边缘手征单向箭头 (向右传输)
+        ctxSim.strokeStyle = '#34d399';
+        ctxSim.lineWidth = 2.5;
+        ctxSim.setLineDash([14, 10]);
+        ctxSim.lineDashOffset = -STATE.time * 40;
+        ctxSim.beginPath();
+        ctxSim.moveTo(0, edgeGlowYTop);
+        ctxSim.lineTo(w, edgeGlowYTop);
+        ctxSim.stroke();
+
+        // 下边缘手征单向箭头 (向左反向传输)
+        ctxSim.strokeStyle = '#34d399';
+        ctxSim.lineDashOffset = STATE.time * 40;
+        ctxSim.beginPath();
+        ctxSim.moveTo(w, edgeGlowYBot);
+        ctxSim.lineTo(0, edgeGlowYBot);
+        ctxSim.stroke();
+        ctxSim.setLineDash([]);
+
+        // 拓扑手征文字标识
+        ctxSim.font = '11px "JetBrains Mono", monospace';
+        ctxSim.fillStyle = '#34d399';
+        ctxSim.fillText('TOPOLOGICAL CHIRAL PHONON EDGE CHANNEL (Chern C_ph = +1, Backscattering-Immune) ▶▶', 20, edgeGlowYTop - 12);
+        ctxSim.fillText('◀◀ OPPOSITE CHIRAL PHONON EDGE CHANNEL (Dissipationless Topological Transport)', 20, edgeGlowYBot + 20);
+      }
+
+      // 5. 渲染霍金声子对与量子纠缠纽带
+      for (let i = HAWKING_PAIRS.length - 1; i >= 0; i--) {
+        const pair = HAWKING_PAIRS[i];
+        pair.life -= 0.0045;
+        if (pair.life <= 0) {
+          HAWKING_PAIRS.splice(i, 1);
+          continue;
+        }
+
+        // 演化声子位置
+        pair.pPos.x += pair.pPos.vx;
+        pair.pNeg.x += pair.pNeg.vx;
+        pair.pPos.phase += 0.18;
+        pair.pNeg.phase += 0.22;
+
+        const x1 = pair.pPos.x * w;
+        const y1 = pair.y * h + Math.sin(pair.pPos.phase) * 12;
+        const x2 = pair.pNeg.x * w;
+        const y2 = pair.y * h + Math.sin(pair.pNeg.phase) * 12;
+
+        const alpha = Math.min(1.0, pair.life * 2.0);
+
+        // 绘制纠缠态量子关联弦 (EPR Entanglement Link)
+        ctxSim.strokeStyle = `rgba(192, 132, 252, ${alpha * 0.7})`;
+        ctxSim.lineWidth = 1.8;
+        ctxSim.setLineDash([4, 4]);
+        ctxSim.beginPath();
+        ctxSim.moveTo(x1, y1);
+        const midX = (x1 + x2) * 0.5;
+        const midY = (y1 + y2) * 0.5 + Math.sin(STATE.time * 10 + pair.birthTime) * 15;
+        ctxSim.quadraticCurveTo(midX, midY, x2, y2);
+        ctxSim.stroke();
+        ctxSim.setLineDash([]);
+
+        // 正能量声子（向左逃逸）
+        ctxSim.beginPath();
+        ctxSim.arc(x1, y1, 5.5, 0, Math.PI * 2);
+        ctxSim.fillStyle = `rgba(56, 189, 248, ${alpha})`;
+        ctxSim.shadowColor = '#38bdf8';
+        ctxSim.shadowBlur = 12;
+        ctxSim.fill();
+        ctxSim.shadowBlur = 0;
+
+        ctxSim.font = '9px "JetBrains Mono", monospace';
+        ctxSim.fillStyle = `rgba(56, 189, 248, ${alpha})`;
+        ctxSim.fillText('ω>0 (Hawking)', x1 - 38, y1 - 10);
+
+        // 负能量伴随声子（坠入超音速区）
+        ctxSim.beginPath();
+        ctxSim.arc(x2, y2, 5.5, 0, Math.PI * 2);
+        ctxSim.fillStyle = `rgba(244, 63, 94, ${alpha})`;
+        ctxSim.shadowColor = '#f43f5e';
+        ctxSim.shadowBlur = 12;
+        ctxSim.fill();
+        ctxSim.shadowBlur = 0;
+
+        ctxSim.fillStyle = `rgba(244, 63, 94, ${alpha})`;
+        ctxSim.fillText('ω<0 (Partner)', x2 + 10, y2 - 10);
+      }
+
+      // 6. 视界脉冲波包激活动画
+      if (STATE.isPulseTriggered) {
+        STATE.pulseTime += 0.035;
+        const radius = STATE.pulseTime * w * 0.45;
+        const pulseAlpha = Math.max(0.0, 1.0 - STATE.pulseTime);
+
+        ctxSim.save();
+        ctxSim.strokeStyle = `rgba(251, 191, 36, ${pulseAlpha * 0.9})`;
+        ctxSim.lineWidth = 3.0;
+        ctxSim.beginPath();
+        ctxSim.ellipse(horizonX, h * 0.5, radius * 0.8, radius * 0.4, 0, 0, Math.PI * 2);
+        ctxSim.stroke();
+        ctxSim.restore();
+
+        if (STATE.pulseTime >= 1.0) {
+          STATE.isPulseTriggered = false;
+        }
+      }
+
+      // 7. 鼠标交互波纹
+      if (STATE.mouseX > 0 && STATE.mouseY > 0) {
+        ctxSim.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+        ctxSim.lineWidth = 1;
+        ctxSim.beginPath();
+        ctxSim.arc(STATE.mouseX, STATE.mouseY, 16 + Math.sin(STATE.time * 8) * 4, 0, Math.PI * 2);
+        ctxSim.stroke();
+      }
+    }
+
+    // --- 示波器 1: 马赫数轮廓 M(x) 与霍金黑体谱 S(ω) ---
+    function renderScope1() {
+      const w = scopeMach.width;
+      const h = scopeMach.height;
+      ctxScope1.clearRect(0, 0, w, h);
+
+      // 背景网格
+      ctxScope1.strokeStyle = 'rgba(255, 255, 255, 0.06)';
+      ctxScope1.lineWidth = 1;
+      for (let x = 0; x <= w; x += w / 8) {
+        ctxScope1.beginPath();
+        ctxScope1.moveTo(x, 0);
+        ctxScope1.lineTo(x, h);
+        ctxScope1.stroke();
+      }
+      for (let y = 0; y <= h; y += h / 4) {
+        ctxScope1.beginPath();
+        ctxScope1.moveTo(0, y);
+        ctxScope1.lineTo(w, y);
+        ctxScope1.stroke();
+      }
+
+      // M = 1 临界水平基准线
+      const yM1 = h * 0.5;
+      ctxScope1.strokeStyle = 'rgba(251, 191, 36, 0.4)';
+      ctxScope1.setLineDash([5, 5]);
+      ctxScope1.beginPath();
+      ctxScope1.moveTo(0, yM1);
+      ctxScope1.lineTo(w, yM1);
+      ctxScope1.stroke();
+      ctxScope1.setLineDash([]);
+
+      ctxScope1.font = '10px "JetBrains Mono", monospace';
+      ctxScope1.fillStyle = '#fbbf24';
+      ctxScope1.fillText('M = 1.00 (Sonic Horizon)', 10, yM1 - 6);
+
+      // 绘制 M(x) 空间曲线
+      ctxScope1.beginPath();
+      ctxScope1.strokeStyle = '#38bdf8';
+      ctxScope1.lineWidth = 2.5;
+      for (let i = 0; i <= w; i++) {
+        const normX = i / w;
+        const mach = getMachAtX(normX);
+        // 映射高度：M=0 对应 h*0.85, M=1 对应 h*0.5, M=2 对应 h*0.15
+        const y = h * 0.85 - (mach / 2.0) * (h * 0.7);
+        if (i === 0) ctxScope1.moveTo(i, y);
+        else ctxScope1.lineTo(i, y);
+      }
+      ctxScope1.stroke();
+
+      // 绘制霍金辐射普朗克黑体热谱 S(ω)
+      ctxScope1.beginPath();
+      ctxScope1.strokeStyle = '#f43f5e';
+      ctxScope1.lineWidth = 2.0;
+      const thFactor = parseFloat(STATE.thNanoK) / 40.0;
+      for (let i = 0; i <= w; i++) {
+        const omega = (i / w) * 4.0;
+        const planck = (omega > 0.05 && thFactor > 0.01) 
+          ? (1.0 / (Math.exp(omega / thFactor) - 1.0)) * 0.35 
+          : 0;
+        const y = h * 0.95 - Math.min(h * 0.85, planck * h);
+        if (i === 0) ctxScope1.moveTo(i, y);
+        else ctxScope1.lineTo(i, y);
+      }
+      ctxScope1.stroke();
+
+      // 图例标注
+      ctxScope1.fillStyle = '#38bdf8';
+      ctxScope1.fillText('■ M(x) Profile', w - 170, 18);
+      ctxScope1.fillStyle = '#f43f5e';
+      ctxScope1.fillText('■ S(ω) Hawking Spectrum', w - 170, 32);
+    }
+
+    // --- 示波器 2: 声子对纠缠熵 EN 与手征非互易传输 ---
+    function renderScope2() {
+      const w = scopeEntangle.width;
+      const h = scopeEntangle.height;
+      ctxScope2.clearRect(0, 0, w, h);
+
+      // 背景网格
+      ctxScope2.strokeStyle = 'rgba(255, 255, 255, 0.06)';
+      ctxScope2.lineWidth = 1;
+      for (let x = 0; x <= w; x += w / 8) {
+        ctxScope2.beginPath();
+        ctxScope2.moveTo(x, 0);
+        ctxScope2.lineTo(x, h);
+        ctxScope2.stroke();
+      }
+      for (let y = 0; y <= h; y += h / 4) {
+        ctxScope2.beginPath();
+        ctxScope2.moveTo(0, y);
+        ctxScope2.lineTo(w, y);
+        ctxScope2.stroke();
+      }
+
+      // 绘制手征顺向 (T_forward) 与逆向 (T_backward) 透射谱
+      const barWidth = 36;
+      const barGap = 60;
+      const startX = w * 0.18;
+
+      // 顺向透射率 (接近 98%)
+      const tFwd = (STATE.chern > 0) ? 0.96 : 0.48;
+      const hFwd = tFwd * (h * 0.65);
+      ctxScope2.fillStyle = '#34d399';
+      ctxScope2.fillRect(startX, h * 0.85 - hFwd, barWidth, hFwd);
+
+      // 逆向透射率 (手征保护下被深度抑制，仅 0.02)
+      const tBwd = (STATE.chern > 0) ? Math.max(0.01, 0.05 * (1.0 - STATE.gChiral)) : 0.48;
+      const hBwd = tBwd * (h * 0.65);
+      ctxScope2.fillStyle = '#f43f5e';
+      ctxScope2.fillRect(startX + barGap, h * 0.85 - hBwd, barWidth, hBwd);
+
+      ctxScope2.font = '10px "JetBrains Mono", monospace';
+      ctxScope2.fillStyle = '#34d399';
+      ctxScope2.fillText(`T_fwd ${(tFwd * 100).toFixed(0)}%`, startX - 10, h * 0.85 - hFwd - 8);
+      ctxScope2.fillStyle = '#f43f5e';
+      ctxScope2.fillText(`T_rev ${(tBwd * 100).toFixed(1)}%`, startX + barGap - 10, h * 0.85 - hBwd - 8);
+
+      // 绘制对数负度纠缠随表面引力变化动态曲线 (紫色)
+      ctxScope2.beginPath();
+      ctxScope2.strokeStyle = '#c084fc';
+      ctxScope2.lineWidth = 2.5;
+      for (let i = w * 0.55; i <= w; i++) {
+        const normK = ((i - w * 0.55) / (w * 0.45)) * 5.0;
+        const enVal = Math.log(1.0 + normK * 1.8) * Math.exp(-STATE.gammaLoss * 3.5);
+        const y = h * 0.85 - (enVal / 3.0) * (h * 0.7);
+        if (i === Math.floor(w * 0.55)) ctxScope2.moveTo(i, y);
+        else ctxScope2.lineTo(i, y);
+      }
+      ctxScope2.stroke();
+
+      // 当前工作点高亮圆点
+      const curNormX = w * 0.55 + (STATE.kappa / 5.0) * (w * 0.45);
+      const curY = h * 0.85 - (parseFloat(STATE.entanglementN) / 3.0) * (h * 0.7);
+      ctxScope2.beginPath();
+      ctxScope2.arc(curNormX, curY, 5, 0, Math.PI * 2);
+      ctxScope2.fillStyle = '#c084fc';
+      ctxScope2.shadowColor = '#c084fc';
+      ctxScope2.shadowBlur = 10;
+      ctxScope2.fill();
+      ctxScope2.shadowBlur = 0;
+
+      // 图例
+      ctxScope2.fillStyle = '#c084fc';
+      ctxScope2.fillText(`E_N(κ) [${STATE.entanglementN} ebits]`, w * 0.55, 20);
+      ctxScope2.fillStyle = 'var(--text-muted)';
+      ctxScope2.fillText('Surface Gravity κ →', w - 120, h - 8);
+    }
+
+    // --- 主动画时序循环 ---
+    let lastTime = performance.now();
+    let pairSpawnTimer = 0;
+
+    function mainLoop(now) {
+      const dt = Math.min(0.1, (now - lastTime) / 1000);
+      lastTime = now;
+      STATE.time += dt;
+
+      // 周期性产生霍金声子纠缠对
+      pairSpawnTimer += dt;
+      const spawnInterval = (STATE.v0 > 0.98) ? Math.max(0.12, 0.4 / (STATE.kappa * 0.8)) : 999;
+      if (pairSpawnTimer >= spawnInterval) {
+        pairSpawnTimer = 0;
+        spawnHawkingPair();
+      }
+
+      // 手征边缘孤子周期产生
+      if (STATE.chern > 0 && Math.random() < 0.035) {
+        spawnEdgeSoliton(Math.random() > 0.5);
+      }
+
+      // 渲染主视口与示波器
+      renderSimViewport();
+      renderScope1();
+      renderScope2();
+
+      requestAnimationFrame(mainLoop);
+    }
+
+    // --- 事件监听与控制器绑定 ---
+    rngV0.addEventListener('input', e => {
+      STATE.v0 = parseFloat(e.target.value);
+      valV0.textContent = `${STATE.v0.toFixed(2)} cs`;
+      updatePhysicsModel();
+    });
+
+    rngKappa.addEventListener('input', e => {
+      STATE.kappa = parseFloat(e.target.value);
+      valKappa.textContent = `${STATE.kappa.toFixed(2)} kHz`;
+      updatePhysicsModel();
+    });
+
+    rngChiral.addEventListener('input', e => {
+      STATE.gChiral = parseFloat(e.target.value);
+      valChiral.textContent = STATE.gChiral.toFixed(2);
+      updatePhysicsModel();
+    });
+
+    rngPump.addEventListener('input', e => {
+      STATE.fPump = parseInt(e.target.value);
+      valPump.textContent = `${STATE.fPump} Hz`;
+      if (biquadFilter && audioCtx) {
+        biquadFilter.frequency.setTargetAtTime(STATE.fPump * 1.5, audioCtx.currentTime, 0.05);
+      }
+    });
+
+    rngLoss.addEventListener('input', e => {
+      STATE.gammaLoss = parseFloat(e.target.value);
+      valLoss.textContent = STATE.gammaLoss.toFixed(2);
+      updatePhysicsModel();
+    });
+
+    btnPulse.addEventListener('click', () => {
+      STATE.isPulseTriggered = true;
+      STATE.pulseTime = 0;
+      // 连续激发多对纠缠声子
+      for (let k = 0; k < 6; k++) spawnHawkingPair();
+      triggerAudioPulse();
+    });
+
+    btnAudio.addEventListener('click', toggleAudio);
+
+    // 预设工况点击切换
+    presetBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        presetBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const p = btn.dataset.preset;
+        STATE.activePreset = p;
+
+        switch (p) {
+          case 'standard':
+            STATE.v0 = 1.25;
+            STATE.kappa = 1.85;
+            STATE.gChiral = 0.85;
+            STATE.fPump = 320;
+            STATE.gammaLoss = 0.05;
+            break;
+          case 'steep':
+            STATE.v0 = 1.85;
+            STATE.kappa = 4.80;
+            STATE.gChiral = 0.70;
+            STATE.fPump = 650;
+            STATE.gammaLoss = 0.02;
+            break;
+          case 'chiral':
+            STATE.v0 = 1.20;
+            STATE.kappa = 2.20;
+            STATE.gChiral = 1.00;
+            STATE.fPump = 440;
+            STATE.gammaLoss = 0.03;
+            break;
+          case 'subcritical':
+            STATE.v0 = 0.75;
+            STATE.kappa = 0.80;
+            STATE.gChiral = 0.20;
+            STATE.fPump = 200;
+            STATE.gammaLoss = 0.12;
+            break;
+          case 'whitehole':
+            STATE.v0 = 2.40;
+            STATE.kappa = 3.60;
+            STATE.gChiral = 0.90;
+            STATE.fPump = 580;
+            STATE.gammaLoss = 0.04;
+            break;
+        }
+
+        // 同步 UI 控件
+        rngV0.value = STATE.v0; valV0.textContent = `${STATE.v0.toFixed(2)} cs`;
+        rngKappa.value = STATE.kappa; valKappa.textContent = `${STATE.kappa.toFixed(2)} kHz`;
+        rngChiral.value = STATE.gChiral; valChiral.textContent = STATE.gChiral.toFixed(2);
+        rngPump.value = STATE.fPump; valPump.textContent = `${STATE.fPump} Hz`;
+        rngLoss.value = STATE.gammaLoss; valLoss.textContent = STATE.gammaLoss.toFixed(2);
+
+        updatePhysicsModel();
+        triggerAudioPulse();
+      });
+    });
+
+    // 鼠标在主视口中的交互
+    simCanvas.addEventListener('mousemove', e => {
+      const rect = simCanvas.getBoundingClientRect();
+      STATE.mouseX = (e.clientX - rect.left) * (simCanvas.width / rect.width);
+      STATE.mouseY = (e.clientY - rect.top) * (simCanvas.height / rect.height);
+      if (STATE.isMouseDown && Math.random() < 0.25) {
+        spawnHawkingPair();
+      }
+    });
+
+    simCanvas.addEventListener('mouseleave', () => {
+      STATE.mouseX = -1;
+      STATE.mouseY = -1;
+      STATE.isMouseDown = false;
+    });
+
+    simCanvas.addEventListener('mousedown', () => {
+      STATE.isMouseDown = true;
+      STATE.isPulseTriggered = true;
+      STATE.pulseTime = 0;
+      spawnHawkingPair();
+      triggerAudioPulse();
+    });
+
+    simCanvas.addEventListener('mouseup', () => {
+      STATE.isMouseDown = false;
+    });
+
+    // 初始化运行
+    updatePhysicsModel();
+    requestAnimationFrame(mainLoop);
+  </script>
+</body>
+</html>

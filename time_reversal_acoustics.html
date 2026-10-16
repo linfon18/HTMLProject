@@ -1,0 +1,1044 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>声学时间反演镜与自适应超表面波束自聚焦模拟器</title>
+<style>
+  :root {
+    --bg-primary: #04060e;
+    --panel-bg: rgba(10, 16, 32, 0.78);
+    --panel-border: rgba(56, 189, 248, 0.28);
+    --accent-cyan: #38bdf8;
+    --accent-gold: #fbbf24;
+    --accent-emerald: #34d399;
+    --text-primary: #f8fafc;
+    --text-dim: #94a3b8;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    overflow: hidden;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    user-select: none;
+  }
+
+  /* 主模拟视口 */
+  #viewport-container {
+    flex: 1;
+    position: relative;
+    height: 100vh;
+    background: #020308;
+    overflow: hidden;
+  }
+  canvas#waveCanvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    cursor: crosshair;
+    image-rendering: pixelated;
+  }
+
+  /* 顶部科幻遥测条 */
+  #telemetry-bar {
+    position: absolute;
+    top: 20px;
+    left: 24px;
+    display: flex;
+    gap: 12px;
+    z-index: 10;
+  }
+  .telemetry-chip {
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    backdrop-filter: blur(12px);
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-family: monospace;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+  }
+  .chip-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--accent-cyan);
+    box-shadow: 0 0 8px var(--accent-cyan);
+    animation: pulse 1.8s infinite ease-in-out;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 0.5; transform: scale(0.9); }
+    50% { opacity: 1; transform: scale(1.3); }
+  }
+
+  /* 悬浮换能器阵列波形分析仪 HUD */
+  #waveform-overlay {
+    position: absolute;
+    bottom: 24px;
+    left: 24px;
+    width: 380px;
+    height: 170px;
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    backdrop-filter: blur(16px);
+    box-shadow: 0 12px 36px rgba(0,0,0,0.6);
+    padding: 10px 14px;
+    display: flex;
+    flex-direction: column;
+    pointer-events: none;
+  }
+  .overlay-title {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--accent-cyan);
+    margin-bottom: 6px;
+    display: flex;
+    justify-content: space-between;
+  }
+  canvas#waveformCanvas {
+    width: 100%;
+    height: 130px;
+    border-radius: 6px;
+    background: rgba(0,0,0,0.45);
+  }
+
+  /* 右侧控制面板 */
+  #control-panel {
+    width: 360px;
+    height: 100vh;
+    background: var(--panel-bg);
+    border-left: 1px solid var(--panel-border);
+    backdrop-filter: blur(20px);
+    overflow-y: auto;
+    padding: 24px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    box-shadow: -10px 0 30px rgba(0,0,0,0.6);
+    z-index: 20;
+  }
+  #control-panel::-webkit-scrollbar { width: 4px; }
+  #control-panel::-webkit-scrollbar-thumb { background: rgba(56, 189, 248, 0.4); border-radius: 4px; }
+
+  .header-group h1 {
+    font-size: 18px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .header-group h1 span {
+    background: linear-gradient(135deg, var(--accent-cyan), var(--accent-gold));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .header-group p {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-top: 4px;
+    line-height: 1.4;
+  }
+
+  .section-card {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 10px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .section-card h2 {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--accent-cyan);
+    font-weight: 600;
+  }
+
+  /* 按钮与网格 */
+  .btn-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .preset-btn, .action-btn {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: var(--text-primary);
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: center;
+  }
+  .preset-btn:hover, .action-btn:hover {
+    background: rgba(56, 189, 248, 0.25);
+    border-color: var(--accent-cyan);
+    color: #fff;
+  }
+  .preset-btn.active, .action-btn.active {
+    background: linear-gradient(135deg, rgba(56, 189, 248, 0.25), rgba(251, 191, 36, 0.2));
+    border-color: var(--accent-cyan);
+    box-shadow: 0 0 12px rgba(56, 189, 248, 0.35);
+    color: #fff;
+    font-weight: 600;
+  }
+
+  /* 流程操作主按钮 */
+  .flow-btn {
+    width: 100%;
+    padding: 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid var(--accent-cyan);
+    background: linear-gradient(135deg, rgba(56, 189, 248, 0.2), rgba(251, 191, 36, 0.2));
+    color: #fff;
+    box-shadow: 0 0 15px rgba(56, 189, 248, 0.3);
+    transition: all 0.2s;
+  }
+  .flow-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0 25px rgba(56, 189, 248, 0.5);
+  }
+
+  /* 控制滑块 */
+  .slider-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .slider-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+  .slider-header span.val {
+    color: var(--accent-cyan);
+    font-family: monospace;
+  }
+  input[type=range] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 4px;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.15);
+    outline: none;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--accent-cyan);
+    cursor: pointer;
+    box-shadow: 0 0 8px var(--accent-cyan);
+    transition: transform 0.1s;
+  }
+  input[type=range]::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+  }
+
+  .legend-box {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 10px;
+    border-radius: 6px;
+    background: rgba(0,0,0,0.3);
+    font-size: 11px;
+  }
+  .pressure-bar {
+    width: 140px;
+    height: 8px;
+    border-radius: 4px;
+    background: linear-gradient(to right, #fbbf24, #040817, #38bdf8);
+  }
+
+  .tip-text {
+    font-size: 11px;
+    line-height: 1.5;
+    color: var(--text-dim);
+  }
+  .tip-text b { color: #fff; }
+</style>
+</head>
+<body>
+
+<!-- 主模拟视口 -->
+<div id="viewport-container">
+  <canvas id="waveCanvas"></canvas>
+
+  <!-- 顶部状态遥测 -->
+  <div id="telemetry-bar">
+    <div class="telemetry-chip">
+      <div class="chip-dot"></div>
+      <span>声学阶段: <span id="stat-stage" style="color:var(--accent-cyan)">等待前向发射</span></span>
+    </div>
+    <div class="telemetry-chip">
+      <span>阵列探头数: <span id="stat-transducers" style="color:var(--accent-gold)">48 阵元</span></span>
+    </div>
+    <div class="telemetry-chip">
+      <span>焦点自适应峰值增益: <span id="stat-gain" style="color:var(--accent-emerald)">-- dB</span></span>
+    </div>
+    <div class="telemetry-chip">
+      <span>FPS: <span id="stat-fps" style="color:#fff">60</span></span>
+    </div>
+  </div>
+
+  <!-- 悬浮换能器信号波形 HUD -->
+  <div id="waveform-overlay">
+    <div class="overlay-title">
+      <span>换能器阵列多重混响与反演波形 (TRM Waveform)</span>
+      <span style="color:var(--accent-gold)">CH #24 Sensor Echo</span>
+    </div>
+    <canvas id="waveformCanvas" width="350" height="130"></canvas>
+  </div>
+</div>
+
+<!-- 右侧控制坞 -->
+<div id="control-panel">
+  <div class="header-group">
+    <h1><span>TIME REVERSAL</span> ACOUSTICS</h1>
+    <p>多重无序散射介质声波时间反演自适应聚焦超表面模拟系统</p>
+  </div>
+
+  <!-- 核心两阶段操作按钮 -->
+  <div class="section-card">
+    <h2>时间反演流程操作 (TRM Protocol)</h2>
+    <button class="flow-btn" id="btn-main-flow">① 发射前向声呐探测脉冲 (Ping)</button>
+    <div class="btn-grid" style="margin-top:6px;">
+      <button class="action-btn" id="btn-clear-wave">重置波场 (Clear)</button>
+      <button class="action-btn active" id="btn-sound">开启声呐与回击音景</button>
+    </div>
+  </div>
+
+  <!-- 散射介质拓扑预设 -->
+  <div class="section-card">
+    <h2>复杂多重散射环境预设 (Medium)</h2>
+    <div class="btn-grid">
+      <button class="preset-btn active" data-preset="random_cylinders">随机无序散射森林</button>
+      <button class="preset-btn" data-preset="lens">声速梯度折射透镜</button>
+      <button class="preset-btn" data-preset="waveguide">双壁封闭波导混响</button>
+      <button class="preset-btn" data-preset="empty">均质自由空间 (无散射)</button>
+    </div>
+  </div>
+
+  <!-- 物理参数控制 -->
+  <div class="section-card">
+    <h2>声学波动参数 (Parameters)</h2>
+    <div class="slider-row">
+      <div class="slider-header">
+        <span>声波基础相速度 c₀</span>
+        <span class="val" id="val-speed">0.45</span>
+      </div>
+      <input type="range" id="param-speed" min="0.25" max="0.65" step="0.02" value="0.45">
+    </div>
+
+    <div class="slider-row">
+      <div class="slider-header">
+        <span>散射体密度 / 障碍物数量</span>
+        <span class="val" id="val-obs">32</span>
+      </div>
+      <input type="range" id="param-obs" min="8" max="64" step="4" value="32">
+    </div>
+
+    <div class="slider-row">
+      <div class="slider-header">
+        <span>记录采样时窗深度 (Frames)</span>
+        <span class="val" id="val-record">360</span>
+      </div>
+      <input type="range" id="param-record" min="200" max="600" step="20" value="360">
+    </div>
+  </div>
+
+  <!-- 视效控制 -->
+  <div class="section-card">
+    <h2>波场与声压图例 (Color Scale)</h2>
+    <div class="legend-box">
+      <span style="color:#fbbf24">-P (稀疏)</span>
+      <div class="pressure-bar"></div>
+      <span style="color:#38bdf8">+P (压缩)</span>
+    </div>
+    <div class="slider-row" style="margin-top:6px;">
+      <div class="slider-header">
+        <span>声压渲染对比度增益</span>
+        <span class="val" id="val-gain">1.6</span>
+      </div>
+      <input type="range" id="param-gain" min="0.5" max="3.5" step="0.1" value="1.6">
+    </div>
+  </div>
+
+  <!-- 交互说明卡 -->
+  <div class="tip-text">
+    💡 <b>时间反演镜 (Time-Reversal Mirror) 物理奇迹：</b><br>
+    • <b>无序介质超分辨聚焦：</b> 在常规均匀空间中，受限于衍射极限，波束难于高度聚集；而在多重散射介质中，散射体反而充当了全向天线扩大了数值孔径！<br>
+    • <b>时间反演对称性：</b> 波动方程 $\frac{\partial^2 p}{\partial t^2} - c^2 \nabla^2 p = 0$ 在 $t \to -t$ 下严格不变。换能器将记录到的杂乱混响颠倒发射，波前自动沿原路回溯，在原声源位置形成相干爆炸式自聚焦！<br>
+    • <b>鼠标交互：</b> 点击画布可移动目标声源发射点位置！
+  </div>
+</div>
+
+<script>
+/**
+ * 二维标量声压波动方程 FDTD 求解器
+ * 网格尺度: NX x NY
+ */
+const NX = 240;
+const NY = 140;
+
+// 声压场：p_prev (n-1), p_curr (n), p_next (n+1)
+let pPrev = new Float32Array(NX * NY);
+let pCurr = new Float32Array(NX * NY);
+let pNext = new Float32Array(NX * NY);
+
+// 空间非均匀声速平方场 c^2(x, y) 与 固体刚性障碍物反射壁
+let c2 = new Float32Array(NX * NY);
+let obstacles = new Uint8Array(NX * NY); // 1: 刚性全反射体
+
+// 换能器阵列配置 (放置在视口右侧 x = NX - 25 处的一列阵列)
+const TRANSDUCER_X = NX - 25;
+const TRANSDUCER_COUNT = 48;
+let transducerYs = [];
+for (let i = 0; i < TRANSDUCER_COUNT; i++) {
+  const y = Math.floor(18 + (i / (TRANSDUCER_COUNT - 1)) * (NY - 36));
+  transducerYs.push(y);
+}
+
+// 换能器波形记录缓冲区: 存储长时回波历史 [timeIndex][transducerIndex]
+const MAX_RECORD_FRAMES = 360;
+let recordedSignals = []; // 二维数组 [frame][sensorIdx]
+let recordLength = 360;
+
+// 目标声源发射点位置
+let sourceX = 40;
+let sourceY = Math.floor(NY * 0.5);
+
+// 模拟生命周期状态: 'IDLE' | 'FORWARD' | 'RECORDED' | 'REVERSING'
+let simStage = 'IDLE';
+let currentFrame = 0;
+
+// 物理与视效参数
+let baseSpeed = 0.45;       // Courant 数 c * dt / dx <= 0.707 保证稳定性
+let obstacleCount = 32;
+let currentPreset = 'random_cylinders';
+let pGain = 1.6;
+
+// 焦点虚拟水听器声压时域监测 (用于评估聚焦增益)
+let focusHistory = new Float32Array(150);
+let focusHistIndex = 0;
+let peakFocusGain = 0;
+
+// 画布上下文
+const waveCanvas = document.getElementById('waveCanvas');
+const waveCtx = waveCanvas.getContext('2d');
+const waveformCanvas = document.getElementById('waveformCanvas');
+const wfCtx = waveformCanvas.getContext('2d');
+
+// 离屏渲染缓冲区
+let offCanvas = document.createElement('canvas');
+offCanvas.width = NX;
+offCanvas.height = NY;
+let offCtx = offCanvas.getContext('2d');
+let imgData = offCtx.createImageData(NX, NY);
+
+// Web Audio API
+let audioCtx = null;
+let pingGain = null;
+let isAudioActive = false;
+
+// 帧率
+let lastTime = performance.now();
+let frames = 0;
+
+/**
+ * 初始化散射介质环境
+ */
+function initMedium() {
+  obstacles.fill(0);
+  c2.fill(baseSpeed * baseSpeed);
+
+  switch (currentPreset) {
+    case 'random_cylinders': {
+      // 随机生成 32 个刚性圆柱散射体（模拟骨骼、多孔岩石或散射微粒）
+      const rng = seedRandom(42);
+      for (let i = 0; i < obstacleCount; i++) {
+        const ox = 70 + Math.floor(rng() * (NX - 110));
+        const oy = 15 + Math.floor(rng() * (NY - 30));
+        const r = 3 + Math.floor(rng() * 4);
+
+        for (let dy = -r; dy <= r; dy++) {
+          for (let dx = -r; dx <= r; dx++) {
+            if (dx * dx + dy * dy <= r * r) {
+              const px = ox + dx;
+              const py = oy + dy;
+              if (px >= 0 && px < NX && py >= 0 && py < NY) {
+                obstacles[py * NX + px] = 1;
+              }
+            }
+          }
+        }
+      }
+      break;
+    }
+    case 'lens': {
+      // 凸形梯度声速聚焦/发散透镜
+      const cx = Math.floor(NX * 0.45);
+      const cy = Math.floor(NY * 0.5);
+      for (let y = 0; y < NY; y++) {
+        for (let x = 0; x < NX; x++) {
+          const dx = (x - cx) / 20.0;
+          const dy = (y - cy) / 45.0;
+          if (dx * dx + dy * dy <= 1.0) {
+            // 透镜内部声速减半，引发剧烈波前畸变折射
+            const s = baseSpeed * 0.55;
+            c2[y * NX + x] = s * s;
+          }
+        }
+      }
+      break;
+    }
+    case 'waveguide': {
+      // 两个平行的起伏壁面构成复杂混响波导
+      for (let x = 0; x < NX; x++) {
+        const topH = Math.floor(20 + 8 * Math.sin(x * 0.08));
+        const botH = Math.floor(NY - (20 + 8 * Math.cos(x * 0.08)));
+        for (let y = 0; y < topH; y++) obstacles[y * NX + x] = 1;
+        for (let y = botH; y < NY; y++) obstacles[y * NX + x] = 1;
+      }
+      break;
+    }
+    case 'empty':
+    default:
+      // 均质空间
+      break;
+  }
+
+  clearWavefield();
+}
+
+// 伪随机数发生器保证可重复性
+function seedRandom(seed) {
+  let s = seed;
+  return function() {
+    s = (s * 9301 + 49297) % 233280;
+    return s / 233280;
+  };
+}
+
+/**
+ * 清空波场与状态
+ */
+function clearWavefield() {
+  pPrev.fill(0);
+  pCurr.fill(0);
+  pNext.fill(0);
+  simStage = 'IDLE';
+  currentFrame = 0;
+  recordedSignals = [];
+  peakFocusGain = 0;
+  updateStageUI();
+}
+
+/**
+ * 触发前向发射：声源产生短促高斯声呐脉冲
+ */
+function startForwardPing() {
+  clearWavefield();
+  simStage = 'FORWARD';
+  currentFrame = 0;
+  recordedSignals = [];
+
+  // 在 (sourceX, sourceY) 处注入宽频高斯脉冲
+  injectPulse(sourceX, sourceY, 1.0);
+
+  // 播放短促声呐 Ping 音效
+  triggerPingAudio(480, 0.12);
+  updateStageUI();
+}
+
+/**
+ * 触发时间反演发射：换能器阵列倒序回放录音
+ */
+function startTimeReversal() {
+  pPrev.fill(0);
+  pCurr.fill(0);
+  pNext.fill(0);
+  simStage = 'REVERSING';
+  currentFrame = 0;
+  peakFocusGain = 0;
+
+  // 播放逆向回放声景
+  triggerPingAudio(240, 0.25);
+  updateStageUI();
+}
+
+function injectPulse(cx, cy, amp) {
+  const r = 4;
+  for (let dy = -r; dy <= r; dy++) {
+    for (let dx = -r; dx <= r; dx++) {
+      const d2 = dx * dx + dy * dy;
+      if (d2 <= r * r) {
+        const val = amp * Math.exp(-d2 / 4.0);
+        const idx = (cy + dy) * NX + (cx + dx);
+        pCurr[idx] = val;
+        pPrev[idx] = val;
+      }
+    }
+  }
+}
+
+/**
+ * FDTD 声压波动积分核心循环
+ */
+function stepWaveEquation() {
+  // 1. 波动方程更新: p_next = 2*p - p_prev + c^2 * nabla^2(p)
+  for (let y = 1; y < NY - 1; y++) {
+    const row = y * NX;
+    for (let x = 1; x < NX - 1; x++) {
+      const idx = row + x;
+
+      if (obstacles[idx]) {
+        pNext[idx] = 0;
+        continue;
+      }
+
+      // 4 点拉普拉斯
+      const lap = pCurr[idx - 1] + pCurr[idx + 1] + pCurr[idx - NX] + pCurr[idx + NX] - 4.0 * pCurr[idx];
+      const val = 2.0 * pCurr[idx] - pPrev[idx] + c2[idx] * lap;
+
+      pNext[idx] = val;
+    }
+  }
+
+  // 2. PML / 边界虚吸收阻尼 (减弱外侧硬反射)
+  applyAbsorbingBoundaries(pNext);
+
+  // 3. 换能器阵列行为：记录 或 时间反演发射
+  if (simStage === 'FORWARD') {
+    // 连续记录各个阵元处声压
+    const frameData = new Float32Array(TRANSDUCER_COUNT);
+    for (let i = 0; i < TRANSDUCER_COUNT; i++) {
+      const ty = transducerYs[i];
+      frameData[i] = pNext[ty * NX + TRANSDUCER_X];
+    }
+    recordedSignals.push(frameData);
+
+    currentFrame++;
+    if (currentFrame >= recordLength) {
+      simStage = 'RECORDED';
+      updateStageUI();
+    }
+  } else if (simStage === 'REVERSING') {
+    // 时间倒序发射: 取 recordedSignals[recordLength - 1 - currentFrame]
+    const revIdx = (recordedSignals.length - 1) - currentFrame;
+    if (revIdx >= 0) {
+      const sigs = recordedSignals[revIdx];
+      for (let i = 0; i < TRANSDUCER_COUNT; i++) {
+        const ty = transducerYs[i];
+        const val = sigs[i] * 1.8; // 发射反演声压波
+        pNext[ty * NX + TRANSDUCER_X] = val;
+        pCurr[ty * NX + TRANSDUCER_X] = val;
+      }
+    }
+
+    currentFrame++;
+    if (currentFrame >= recordLength + 40) {
+      simStage = 'IDLE';
+      updateStageUI();
+    }
+  }
+
+  // 4. 滚动缓冲区指针
+  let tmp = pPrev;
+  pPrev = pCurr;
+  pCurr = pNext;
+  pNext = tmp;
+
+  // 5. 监测源焦点处声压
+  const focusP = Math.abs(pCurr[sourceY * NX + sourceX]);
+  focusHistory[focusHistIndex] = focusP;
+  focusHistIndex = (focusHistIndex + 1) % focusHistory.length;
+
+  if (simStage === 'REVERSING' && focusP > peakFocusGain) {
+    peakFocusGain = focusP;
+    const db = (20 * Math.log10(Math.max(1e-3, peakFocusGain / 0.1))).toFixed(1);
+    document.getElementById('stat-gain').innerText = '+' + db + ' dB';
+
+    // 当出现极高峰值聚集瞬间，播放干脆的重合爆破声！
+    if (peakFocusGain > 0.45 && currentFrame > 80 && currentFrame < 160) {
+      triggerFocusStrikeAudio();
+    }
+  }
+}
+
+// PML 吸收层
+function applyAbsorbingBoundaries(arr) {
+  const pad = 10;
+  for (let y = 0; y < NY; y++) {
+    for (let x = 0; x < NX; x++) {
+      let damp = 1.0;
+      if (x < pad) damp *= (x / pad);
+      if (x > NX - pad) damp *= ((NX - x) / pad);
+      if (y < pad) damp *= (y / pad);
+      if (y > NY - pad) damp *= ((NY - y) / pad);
+      if (damp < 0.99) {
+        arr[y * NX + x] *= damp;
+      }
+    }
+  }
+}
+
+/**
+ * 像素着色与画面绘制
+ */
+function renderSimulation() {
+  const data = imgData.data;
+
+  for (let y = 0; y < NY; y++) {
+    const row = y * NX;
+    for (let x = 0; x < NX; x++) {
+      const idx = row + x;
+      const pIdx = idx * 4;
+
+      if (obstacles[idx]) {
+        // 刚性障碍物金属石材质感
+        data[pIdx] = 45;
+        data[pIdx + 1] = 55;
+        data[pIdx + 2] = 75;
+        data[pIdx + 3] = 255;
+        continue;
+      }
+
+      // 声压渲染: 正压为亮青 (#38bdf8)，负压为暖金橙 (#fbbf24)
+      const p = pCurr[idx] * pGain;
+      const absP = Math.abs(p);
+
+      if (absP > 0.005) {
+        const t = Math.min(1.0, absP);
+        if (p > 0) {
+          // 正压
+          data[pIdx] = Math.floor(10 + t * 46);
+          data[pIdx + 1] = Math.floor(20 + t * 169);
+          data[pIdx + 2] = Math.floor(40 + t * 208);
+        } else {
+          // 负压
+          data[pIdx] = Math.floor(10 + t * 241);
+          data[pIdx + 1] = Math.floor(20 + t * 171);
+          data[pIdx + 2] = Math.floor(40 + t * 20);
+        }
+      } else {
+        data[pIdx] = 4;
+        data[pIdx + 1] = 6;
+        data[pIdx + 2] = 14;
+      }
+      data[pIdx + 3] = 255;
+    }
+  }
+
+  offCtx.putImageData(imgData, 0, 0);
+
+  // 绘制至主视口画布
+  waveCtx.imageSmoothingEnabled = false;
+  waveCtx.drawImage(offCanvas, 0, 0, waveCanvas.width, waveCanvas.height);
+
+  const scaleX = waveCanvas.width / NX;
+  const scaleY = waveCanvas.height / NY;
+
+  // 1. 绘制换能器阵列探头高光
+  for (let i = 0; i < TRANSDUCER_COUNT; i++) {
+    const ty = transducerYs[i];
+    const sx = TRANSDUCER_X * scaleX;
+    const sy = ty * scaleY;
+
+    waveCtx.fillStyle = simStage === 'REVERSING' ? '#fbbf24' : '#38bdf8';
+    waveCtx.fillRect(sx - 2, sy - 1, 4, 3);
+  }
+
+  // 2. 绘制声源焦点标靶 (Target Focus)
+  const fx = sourceX * scaleX;
+  const fy = sourceY * scaleY;
+  waveCtx.strokeStyle = simStage === 'REVERSING' && peakFocusGain > 0.3 ? '#34d399' : '#e2e8f0';
+  waveCtx.lineWidth = 1.5;
+  waveCtx.beginPath();
+  waveCtx.arc(fx, fy, 8, 0, Math.PI * 2);
+  waveCtx.moveTo(fx - 12, fy); waveCtx.lineTo(fx + 12, fy);
+  waveCtx.moveTo(fx, fy - 12); waveCtx.lineTo(fx, fy + 12);
+  waveCtx.stroke();
+
+  // 绘制换能器信号波形 HUD
+  renderWaveformHUD();
+}
+
+/**
+ * 绘制换能器阵列回波波形与焦点声压
+ */
+function renderWaveformHUD() {
+  const w = waveformCanvas.width;
+  const h = waveformCanvas.height;
+  wfCtx.clearRect(0, 0, w, h);
+
+  const midY = h * 0.5;
+  wfCtx.strokeStyle = 'rgba(255,255,255,0.12)';
+  wfCtx.beginPath();
+  wfCtx.moveTo(0, midY);
+  wfCtx.lineTo(w, midY);
+  wfCtx.stroke();
+
+  // 1. 绘制第 24 号换能器的时域录制信号曲线 (金黄色)
+  if (recordedSignals.length > 1) {
+    const sensorIdx = 24;
+    const len = recordedSignals.length;
+
+    wfCtx.strokeStyle = '#fbbf24';
+    wfCtx.lineWidth = 1.5;
+    wfCtx.beginPath();
+
+    for (let t = 0; t < len; t++) {
+      const px = (t / (recordLength - 1)) * (w * 0.65);
+      const val = recordedSignals[t][sensorIdx];
+      const py = midY - val * (h * 0.42);
+      if (t === 0) wfCtx.moveTo(px, py);
+      else wfCtx.lineTo(px, py);
+    }
+    wfCtx.stroke();
+  }
+
+  // 2. 绘制焦点处实时声压脉冲时域图 (绿色/亮青)
+  const fLen = focusHistory.length;
+  wfCtx.strokeStyle = '#34d399';
+  wfCtx.lineWidth = 2;
+  wfCtx.beginPath();
+
+  for (let i = 0; i < fLen; i++) {
+    const idx = (focusHistIndex + i) % fLen;
+    const px = (w * 0.68) + (i / (fLen - 1)) * (w * 0.3);
+    const py = (h - 15) - focusHistory[idx] * (h * 0.8);
+    if (i === 0) wfCtx.moveTo(px, py);
+    else wfCtx.lineTo(px, py);
+  }
+  wfCtx.stroke();
+}
+
+/**
+ * 更新界面流程状态文本
+ */
+function updateStageUI() {
+  const stageElem = document.getElementById('stat-stage');
+  const mainBtn = document.getElementById('btn-main-flow');
+
+  switch (simStage) {
+    case 'IDLE':
+      stageElem.innerText = '等待前向探测';
+      stageElem.style.color = 'var(--text-dim)';
+      mainBtn.innerText = '① 发射前向声呐探测脉冲 (Ping)';
+      mainBtn.style.borderColor = 'var(--accent-cyan)';
+      break;
+    case 'FORWARD':
+      stageElem.innerText = '多重散射记录中 (' + currentFrame + '/' + recordLength + ')';
+      stageElem.style.color = 'var(--accent-cyan)';
+      mainBtn.innerText = '正在记录多重散射回波...';
+      break;
+    case 'RECORDED':
+      stageElem.innerText = '回波已锁存，准备时间反演';
+      stageElem.style.color = 'var(--accent-gold)';
+      mainBtn.innerText = '② 触发时间反演全息自聚焦 (Re-emission)';
+      mainBtn.style.borderColor = 'var(--accent-gold)';
+      break;
+    case 'REVERSING':
+      stageElem.innerText = '时间反演逆向回溯中 ⚡';
+      stageElem.style.color = 'var(--accent-emerald)';
+      mainBtn.innerText = '波阵面自适应聚焦聚敛中...';
+      break;
+  }
+}
+
+/**
+ * Web Audio API 声学脉冲与聚焦冲击波
+ */
+function initAudio() {
+  if (audioCtx) return;
+  const AudioContext = window.AudioContext || window.webkitAudioContext;
+  audioCtx = new AudioContext();
+  isAudioActive = true;
+}
+
+function triggerPingAudio(freq, dur) {
+  if (!isAudioActive || !audioCtx) return;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(freq * 0.6, audioCtx.currentTime + dur);
+
+  gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc.start();
+  osc.stop(audioCtx.currentTime + dur);
+}
+
+function triggerFocusStrikeAudio() {
+  if (!isAudioActive || !audioCtx) return;
+  const now = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+
+  osc.type = 'triangle';
+  osc.frequency.setValueAtTime(880, now);
+  osc.frequency.exponentialRampToValueAtTime(110, now + 0.3);
+
+  gain.gain.setValueAtTime(0.35, now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc.start(now);
+  osc.stop(now + 0.4);
+}
+
+/**
+ * 鼠标交互：点击重新指定声源靶心
+ */
+waveCanvas.addEventListener('mousedown', e => {
+  const rect = waveCanvas.getBoundingClientRect();
+  const gx = Math.floor(((e.clientX - rect.left) / rect.width) * NX);
+  const gy = Math.floor(((e.clientY - rect.top) / rect.height) * NY);
+
+  if (gx >= 15 && gx < NX - 50 && gy >= 15 && gy < NY - 15) {
+    sourceX = gx;
+    sourceY = gy;
+    clearWavefield();
+  }
+});
+
+/**
+ * UI 按钮与参数交互
+ */
+// 流程主按钮
+document.getElementById('btn-main-flow').addEventListener('click', () => {
+  if (!audioCtx) initAudio();
+  if (simStage === 'IDLE') {
+    startForwardPing();
+  } else if (simStage === 'RECORDED') {
+    startTimeReversal();
+  } else {
+    clearWavefield();
+  }
+});
+
+// 重置按钮
+document.getElementById('btn-clear-wave').addEventListener('click', () => {
+  clearWavefield();
+});
+
+// 预设介质切换
+document.querySelectorAll('.preset-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentPreset = btn.dataset.preset;
+    initMedium();
+  });
+});
+
+// 声速滑块
+document.getElementById('param-speed').addEventListener('input', e => {
+  baseSpeed = parseFloat(e.target.value);
+  document.getElementById('val-speed').innerText = baseSpeed.toFixed(2);
+  initMedium();
+});
+
+// 障碍物数滑块
+document.getElementById('param-obs').addEventListener('input', e => {
+  obstacleCount = parseInt(e.target.value);
+  document.getElementById('val-obs').innerText = obstacleCount;
+  initMedium();
+});
+
+// 采样深度滑块
+document.getElementById('param-record').addEventListener('input', e => {
+  recordLength = parseInt(e.target.value);
+  document.getElementById('val-record').innerText = recordLength;
+});
+
+// 增益滑块
+document.getElementById('param-gain').addEventListener('input', e => {
+  pGain = parseFloat(e.target.value);
+  document.getElementById('val-gain').innerText = pGain.toFixed(1);
+});
+
+// 声音开关
+const btnSound = document.getElementById('btn-sound');
+btnSound.addEventListener('click', () => {
+  if (!audioCtx) {
+    initAudio();
+    btnSound.innerText = '声呐音景: 运行中';
+    btnSound.style.background = 'rgba(56, 189, 248, 0.25)';
+  } else {
+    if (audioCtx.state === 'running') {
+      audioCtx.suspend();
+      btnSound.innerText = '开启声呐与回击音景';
+      btnSound.style.background = 'rgba(255, 255, 255, 0.06)';
+    } else {
+      audioCtx.resume();
+      btnSound.innerText = '声呐音景: 运行中';
+      btnSound.style.background = 'rgba(56, 189, 248, 0.25)';
+    }
+  }
+});
+
+// 视口自适应
+function handleResize() {
+  const container = document.getElementById('viewport-container');
+  waveCanvas.width = container.clientWidth;
+  waveCanvas.height = container.clientHeight;
+}
+window.addEventListener('resize', handleResize);
+
+/**
+ * 主循环驱动
+ */
+function animate() {
+  // 单帧执行两次 FDTD 步进保证平滑传输
+  stepWaveEquation();
+  stepWaveEquation();
+  renderSimulation();
+
+  frames++;
+  const now = performance.now();
+  if (now - lastTime >= 500) {
+    const fps = Math.round((frames * 1000) / (now - lastTime));
+    document.getElementById('stat-fps').innerText = fps;
+    frames = 0;
+    lastTime = now;
+  }
+
+  requestAnimationFrame(animate);
+}
+
+// 启动
+handleResize();
+initMedium();
+requestAnimationFrame(animate);
+</script>
+</body>
+</html>

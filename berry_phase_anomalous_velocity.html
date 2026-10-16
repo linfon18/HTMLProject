@@ -1,0 +1,1061 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>贝里曲率反常速度与本征自旋霍尔效应全息模拟 - Berry Curvature & Intrinsic Spin Hall Effect</title>
+  <style>
+    :root {
+      --bg-dark: #020617;
+      --panel-bg: rgba(10, 16, 32, 0.88);
+      --panel-border: rgba(14, 165, 233, 0.28);
+      --accent-spin-up: #ef4444;
+      --accent-spin-down: #3b82f6;
+      --accent-berry: #a855f7;
+      --accent-efield: #f59e0b;
+      --accent-emerald: #10b981;
+      --text-main: #f8fafc;
+      --text-dim: #94a3b8;
+      --font-code: 'JetBrains Mono', 'Fira Code', monospace;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      background: rgba(8, 14, 28, 0.96);
+      border-bottom: 1px solid var(--panel-border);
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 10;
+      flex-shrink: 0;
+    }
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .logo-badge {
+      background: linear-gradient(135deg, #ef4444, #a855f7, #3b82f6);
+      color: #fff;
+      font-weight: 800;
+      font-size: 13px;
+      padding: 3px 9px;
+      border-radius: 6px;
+      letter-spacing: 0.5px;
+      box-shadow: 0 0 12px rgba(14, 165, 233, 0.4);
+    }
+    h1 {
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+      background: linear-gradient(to right, #ffffff, #fed7aa, #e9d5ff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .status-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-family: var(--font-code);
+      background: rgba(168, 85, 247, 0.12);
+      border: 1px solid rgba(168, 85, 247, 0.3);
+      color: #c084fc;
+      padding: 4px 10px;
+      border-radius: 20px;
+    }
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #a855f7;
+      box-shadow: 0 0 8px #a855f7;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+    .btn {
+      background: rgba(14, 165, 233, 0.14);
+      border: 1px solid rgba(14, 165, 233, 0.4);
+      color: #e0f2fe;
+      padding: 5px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 500;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .btn:hover {
+      background: rgba(14, 165, 233, 0.28);
+      border-color: #38bdf8;
+      color: #ffffff;
+    }
+    .btn.active {
+      background: #0284c7;
+      border-color: #38bdf8;
+      color: #ffffff;
+      box-shadow: 0 0 10px rgba(14, 165, 233, 0.5);
+    }
+    .main-container {
+      display: flex;
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+    #viewport-container {
+      flex: 1;
+      position: relative;
+      background: radial-gradient(circle at 50% 50%, #0c152e 0%, #020617 90%);
+      overflow: hidden;
+    }
+    canvas#main-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    .hud-overlay {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      z-index: 5;
+    }
+    .hud-card {
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      backdrop-filter: blur(12px);
+      border-radius: 8px;
+      padding: 12px 16px;
+      pointer-events: auto;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+      min-width: 270px;
+    }
+    .hud-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-dim);
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .hud-stat-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .hud-stat-item {
+      display: flex;
+      flex-direction: column;
+    }
+    .hud-stat-label {
+      font-size: 10px;
+      color: var(--text-dim);
+      font-family: var(--font-code);
+    }
+    .hud-stat-val {
+      font-size: 14px;
+      font-weight: 700;
+      font-family: var(--font-code);
+      color: #ffffff;
+    }
+    .hud-stat-val.berry { color: var(--accent-berry); }
+    .hud-stat-val.spinup { color: var(--accent-spin-up); }
+    .hud-stat-val.spindown { color: var(--accent-spin-down); }
+    .hud-stat-val.she { color: #10b981; }
+    .side-panel {
+      width: 440px;
+      background: var(--panel-bg);
+      border-left: 1px solid var(--panel-border);
+      backdrop-filter: blur(16px);
+      display: flex;
+      flex-direction: column;
+      z-index: 5;
+      overflow-y: auto;
+    }
+    .panel-section {
+      padding: 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .section-title {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: #fed7aa;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .preset-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .control-group {
+      margin-bottom: 12px;
+    }
+    .control-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+      font-size: 12px;
+    }
+    .control-label {
+      color: #cbd5e1;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .control-val {
+      font-family: var(--font-code);
+      color: #38bdf8;
+      font-weight: 600;
+    }
+    input[type=range] {
+      width: 100%;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 2px;
+      outline: none;
+      -webkit-appearance: none;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #0284c7;
+      cursor: pointer;
+      box-shadow: 0 0 8px rgba(14, 165, 233, 0.8);
+      border: 1px solid #bae6fd;
+    }
+    .scope-box {
+      background: rgba(2, 6, 23, 0.7);
+      border: 1px solid rgba(14, 165, 233, 0.2);
+      border-radius: 6px;
+      padding: 10px;
+      margin-top: 6px;
+      position: relative;
+    }
+    .scope-box canvas {
+      width: 100%;
+      height: 135px;
+      display: block;
+    }
+    .scope-legend {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      color: var(--text-dim);
+      font-family: var(--font-code);
+      margin-top: 6px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .legend-color {
+      width: 8px;
+      height: 8px;
+      border-radius: 2px;
+    }
+    .info-callout {
+      background: rgba(14, 165, 233, 0.08);
+      border-left: 3px solid #0284c7;
+      padding: 8px 12px;
+      font-size: 11px;
+      line-height: 1.5;
+      color: #cbd5e1;
+      border-radius: 0 4px 4px 0;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="header-left">
+      <span class="logo-badge">BERRY</span>
+      <h1>贝里曲率反常速度与本征自旋霍尔效应全息模拟</h1>
+    </div>
+    <div class="header-right">
+      <div class="status-pill" id="she-pill">
+        <span class="status-dot"></span>
+        <span id="she-text">本征自旋流分离 (j_s^z ≠ 0)</span>
+      </div>
+      <button class="btn" id="btn-audio">
+        <span id="audio-icon">🔊</span> 自旋声效反馈
+      </button>
+      <button class="btn" id="btn-reset">重置视角</button>
+    </div>
+  </header>
+
+  <div class="main-container">
+    <div id="viewport-container">
+      <canvas id="main-canvas"></canvas>
+
+      <div class="hud-overlay">
+        <div class="hud-card">
+          <div class="hud-title">
+            <span>反常动力学遥测 (Semiclassical Telemetry)</span>
+            <span style="color:#a855f7; font-family:var(--font-code)">v_anom = -(e/ℏ) E × Ω</span>
+          </div>
+          <div class="hud-stat-grid">
+            <div class="hud-stat-item">
+              <span class="hud-stat-label">贝里曲率峰值 Ω_z</span>
+              <span class="hud-stat-val berry" id="val-omega">142.5 Å²</span>
+            </div>
+            <div class="hud-stat-item">
+              <span class="hud-stat-label">反常漂移速度 v_anom</span>
+              <span class="hud-stat-val" style="color:#f59e0b" id="val-vanom">18.6 km/s</span>
+            </div>
+            <div class="hud-stat-item">
+              <span class="hud-stat-label">自旋霍尔电导 σ_xy^s</span>
+              <span class="hud-stat-val she" id="val-sigmash">0.96 (e/4π)</span>
+            </div>
+            <div class="hud-stat-item">
+              <span class="hud-stat-label">横向净电荷流 j_c</span>
+              <span class="hud-stat-val" style="color:#94a3b8" id="val-jc">0.00 μA</span>
+            </div>
+            <div class="hud-stat-item">
+              <span class="hud-stat-label">上边界自旋极化 P_↑</span>
+              <span class="hud-stat-val spinup" id="val-pup">+78.4 %</span>
+            </div>
+            <div class="hud-stat-item">
+              <span class="hud-stat-label">下边界自旋极化 P_↓</span>
+              <span class="hud-stat-val spindown" id="val-pdown">-78.4 %</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="hud-card" style="min-width: 220px;">
+          <div class="hud-title">拓扑半经典物理机制</div>
+          <div style="font-size:11px; color:#cbd5e1; line-height: 1.4;">
+            <div>• 自旋向上 Ω_↑: <span style="color:var(--accent-spin-up)">+Ω_z(k) 向上漂移</span></div>
+            <div>• 自旋向下 Ω_↓: <span style="color:var(--accent-spin-down)">-Ω_z(k) 向下漂移</span></div>
+            <div style="margin-top:4px; color:#94a3b8; font-size:10px;">
+              时间反演守恒：横向无耗散纯自旋流产生，克尔偏振光可探测两端自旋积聚。
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-panel">
+      <!-- 预设模式 -->
+      <div class="panel-section">
+        <div class="section-title">经典前沿工况 (Presets)</div>
+        <div class="preset-grid">
+          <button class="btn active" id="preset-intrinsic">本征自旋霍尔态</button>
+          <button class="btn" id="preset-valley">谷自旋锁定态 (MoS₂)</button>
+          <button class="btn" id="preset-weaksoc">弱自旋轨道平庸态</button>
+          <button class="btn" id="preset-critical">临界零能隙发散态</button>
+        </div>
+      </div>
+
+      <!-- 参数调节 -->
+      <div class="panel-section">
+        <div class="section-title">半经典哈密顿调控 (Controls)</div>
+        
+        <div class="control-group">
+          <div class="control-header">
+            <span class="control-label">驱动电场 E_x</span>
+            <span class="control-val" id="disp-efield">25.0 kV/cm</span>
+          </div>
+          <input type="range" id="param-efield" min="0.0" max="60.0" step="0.5" value="25.0">
+        </div>
+
+        <div class="control-group">
+          <div class="control-header">
+            <span class="control-label">自旋轨道耦合 λ_SOC</span>
+            <span class="control-val" id="disp-soc">85.0 meV</span>
+          </div>
+          <input type="range" id="param-soc" min="5.0" max="180.0" step="1.0" value="85.0">
+        </div>
+
+        <div class="control-group">
+          <div class="control-header">
+            <span class="control-label">狄拉克带隙 Δ_gap</span>
+            <span class="control-val" id="disp-gap">60.0 meV</span>
+          </div>
+          <input type="range" id="param-gap" min="10.0" max="200.0" step="1.0" value="60.0">
+        </div>
+
+        <div class="control-group">
+          <div class="control-header">
+            <span class="control-label">费米能级 E_F</span>
+            <span class="control-val" id="disp-ef">0.0 meV (带隙中央)</span>
+          </div>
+          <input type="range" id="param-ef" min="-120.0" max="120.0" step="1.0" value="0.0">
+        </div>
+      </div>
+
+      <!-- 示波器 1: 动量空间贝里曲率三维奇异峰 -->
+      <div class="panel-section">
+        <div class="section-title">
+          <span>示波器 I: 动量空间贝里曲率 Ω_z(k_x, k_y)</span>
+        </div>
+        <div class="scope-box">
+          <canvas id="scope-berry"></canvas>
+          <div class="scope-legend">
+            <span class="legend-item"><span class="legend-color" style="background:#ef4444"></span> Spin-Up Ω_↑(k)</span>
+            <span class="legend-item"><span class="legend-color" style="background:#3b82f6"></span> Spin-Down Ω_↓(k)</span>
+            <span class="legend-item"><span class="legend-color" style="background:#a855f7"></span> 谷极端点 K/K'</span>
+          </div>
+        </div>
+        <div class="info-callout">
+          在动量空间狄拉克锥顶点附近，贝里曲率如同虚拟磁单极子通量，满足峰值 Ω_max ∝ ℏ² v_F² / Δ²。
+        </div>
+      </div>
+
+      <!-- 示波器 2: 自旋霍尔电导率与费米能级扫描 -->
+      <div class="panel-section">
+        <div class="section-title">
+          <span>示波器 II: 本征自旋霍尔电导率 σ_xy^s(E_F)</span>
+        </div>
+        <div class="scope-box">
+          <canvas id="scope-sigma"></canvas>
+          <div class="scope-legend">
+            <span class="legend-item"><span class="legend-color" style="background:#10b981"></span> 自旋霍尔电导 σ_xy^s</span>
+            <span class="legend-item"><span class="legend-color" style="background:#f59e0b"></span> 当前工作费米能级 E_F</span>
+          </div>
+        </div>
+        <div class="info-callout">
+          当费米能级 E_F 位于绝缘带隙内部时，布里渊区积分得到完全本征的拓扑量子化或近量子化自旋霍尔平台。
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- 系统物理状态 ---
+    const STATE = {
+      efield: 25.0,        // 外加纵向电场 kV/cm
+      soc: 85.0,           // 自旋轨道耦合 meV
+      gap: 60.0,           // 狄拉克能隙 meV
+      ef: 0.0,             // 费米能级 meV
+      audioEnabled: false,
+      panX: 0,
+      panY: 0,
+      zoom: 1.0,
+      isDragging: false,
+      lastMouseX: 0,
+      lastMouseY: 0
+    };
+
+    let physics = {
+      omegaPeak: 142.5,    // 贝里曲率峰值 Å²
+      vAnom: 18.6,         // 反常速度 km/s
+      sigmaSH: 0.96,       // 自旋霍尔电导率 (e/4π)
+      spinPolUp: 78.4,     // 上边缘自旋极化度 %
+      spinPolDown: -78.4,  // 下边缘自旋极化度 %
+      hallAngle: 0.28      // 自旋霍尔角 rad
+    };
+
+    // --- Web Audio 声音合成 ---
+    let audioCtx = null;
+    let oscUp = null;
+    let oscDown = null;
+    let gainNode = null;
+
+    function initAudio() {
+      if (audioCtx) return;
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioContext();
+
+      // 双通道振荡器，分别对应自旋向上与自旋向下电子波包反向运动频率
+      oscUp = audioCtx.createOscillator();
+      oscDown = audioCtx.createOscillator();
+      oscUp.type = 'sine';
+      oscDown.type = 'triangle';
+
+      gainNode = audioCtx.createGain();
+      gainNode.gain.value = 0.05;
+
+      oscUp.connect(gainNode);
+      oscDown.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+
+      oscUp.start();
+      oscDown.start();
+    }
+
+    function updateAudio() {
+      if (!audioCtx || !STATE.audioEnabled) return;
+      const baseFreq = 260 + STATE.efield * 3.5;
+      const diffFreq = (physics.vAnom / 30.0) * 80.0;
+
+      oscUp.frequency.setTargetAtTime(baseFreq + diffFreq, audioCtx.currentTime, 0.05);
+      oscDown.frequency.setTargetAtTime(Math.max(60, baseFreq - diffFreq), audioCtx.currentTime, 0.05);
+      gainNode.gain.setTargetAtTime(0.06, audioCtx.currentTime, 0.05);
+    }
+
+    // --- 核心理论物理计算 ---
+    function updatePhysics() {
+      // 贝里曲率峰值计算：狄拉克模型 Ω_max = 2 v_F^2 / Δ^2
+      // 当 gap 变小或 soc 变大时峰值剧烈增大
+      const vFermi = 1.0e6; // m/s
+      const deltaEff = Math.max(8.0, STATE.gap); // meV
+      const socFactor = STATE.soc / 80.0;
+
+      physics.omegaPeak = (48000.0 / Math.pow(deltaEff, 1.4)) * Math.sqrt(socFactor);
+
+      // 反常漂移速度 v_anom = -(e/hbar) E_x * Omega_z
+      // 1 kV/cm = 1e5 V/m, hbar = 1.054e-34, e = 1.6e-19
+      const eFieldVm = STATE.efield * 1.0e5;
+      const omegaM2 = physics.omegaPeak * 1.0e-20; // 转换为 m²
+      const rawVanom = (1.602e-19 / 1.054e-34) * eFieldVm * omegaM2; // m/s
+      physics.vAnom = (rawVanom / 1000.0); // km/s
+
+      // 本征自旋霍尔电导率 σ_xy^s(E_F)
+      // 绝缘带隙内接近量子化平台，带隙外递减
+      const halfGap = deltaEff / 2.0;
+      if (Math.abs(STATE.ef) <= halfGap) {
+        physics.sigmaSH = 1.0 * Math.min(1.0, socFactor);
+      } else {
+        const excess = Math.abs(STATE.ef) - halfGap;
+        physics.sigmaSH = Math.max(0.08, (1.0 / (1.0 + Math.pow(excess / 35.0, 2))) * socFactor);
+      }
+
+      // 样品上下边缘自旋累积极化率
+      const driveFactor = Math.min(1.0, (STATE.efield / 35.0) * (physics.vAnom / 15.0));
+      physics.spinPolUp = Math.min(96.0, 85.0 * driveFactor * (STATE.soc / 90.0));
+      physics.spinPolDown = -physics.spinPolUp;
+
+      // 自旋霍尔角
+      physics.hallAngle = Math.atan2(physics.vAnom, 80.0 + STATE.efield * 1.2);
+
+      // 更新 HUD
+      document.getElementById('val-omega').textContent = physics.omegaPeak.toFixed(1) + ' Å²';
+      document.getElementById('val-vanom').textContent = physics.vAnom.toFixed(1) + ' km/s';
+      document.getElementById('val-sigmash').textContent = physics.sigmaSH.toFixed(2) + ' (e/4π)';
+      document.getElementById('val-pup').textContent = '+' + physics.spinPolUp.toFixed(1) + ' %';
+      document.getElementById('val-pdown').textContent = physics.spinPolDown.toFixed(1) + ' %';
+
+      const shePill = document.getElementById('she-pill');
+      const sheText = document.getElementById('she-text');
+      if (physics.sigmaSH > 0.8) {
+        shePill.style.background = 'rgba(168, 85, 247, 0.15)';
+        shePill.style.borderColor = 'rgba(168, 85, 247, 0.4)';
+        shePill.style.color = '#c084fc';
+        sheText.textContent = `量子化本征自旋霍尔区 (σ_s = ${physics.sigmaSH.toFixed(2)})`;
+      } else if (STATE.soc < 25.0) {
+        shePill.style.background = 'rgba(148, 163, 184, 0.15)';
+        shePill.style.borderColor = 'rgba(148, 163, 184, 0.4)';
+        shePill.style.color = '#cbd5e1';
+        sheText.textContent = '平庸弱自旋流态 (Weak SHE)';
+      } else {
+        shePill.style.background = 'rgba(56, 189, 248, 0.15)';
+        shePill.style.borderColor = 'rgba(56, 189, 248, 0.4)';
+        shePill.style.color = '#38bdf8';
+        sheText.textContent = '金属态带内自旋霍尔散射';
+      }
+
+      updateAudio();
+    }
+
+    // --- 主视口全息交互渲染 (Hall Bar Device & Spin-Split Trajectories) ---
+    const mainCanvas = document.getElementById('main-canvas');
+    const ctx = mainCanvas.getContext('2d');
+
+    // 载流子电子波包：自旋向上(红) 与 自旋向下(蓝)
+    const ELECTRONS = [];
+    const NUM_ELECTRONS = 160;
+    for (let i = 0; i < NUM_ELECTRONS; i++) {
+      const isUp = i % 2 === 0;
+      ELECTRONS.push({
+        x: (Math.random() - 0.5) * 500,
+        y: (Math.random() - 0.5) * 160,
+        spin: isUp ? 1 : -1,
+        vx0: 2.0 + Math.random() * 1.5,
+        phase: Math.random() * Math.PI * 2,
+        trail: []
+      });
+    }
+
+    function resizeCanvas() {
+      const rect = mainCanvas.parentElement.getBoundingClientRect();
+      mainCanvas.width = rect.width * window.devicePixelRatio;
+      mainCanvas.height = rect.height * window.devicePixelRatio;
+      ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    let animTime = 0;
+
+    function drawMainViewport() {
+      const width = mainCanvas.width / window.devicePixelRatio;
+      const height = mainCanvas.height / window.devicePixelRatio;
+      ctx.clearRect(0, 0, width, height);
+
+      ctx.save();
+      ctx.translate(width / 2 + STATE.panX, height / 2 + STATE.panY);
+      ctx.scale(STATE.zoom, STATE.zoom);
+
+      const barW = 540;
+      const barH = 220;
+
+      // 1. 霍尔微纳条带衬底 (Hall Bar Device Substrate)
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.35)';
+      ctx.lineWidth = 1.5;
+      ctx.fillRect(-barW/2, -barH/2, barW, barH);
+      ctx.strokeRect(-barW/2, -barH/2, barW, barH);
+
+      // 上下边缘自旋极化积累光晕渲染
+      // 顶边自旋向上 (Spin-Up Red 光晕)
+      const gradUp = ctx.createLinearGradient(0, -barH/2, 0, -barH/2 + 45);
+      gradUp.addColorStop(0, `rgba(239, 68, 68, ${0.15 + (physics.spinPolUp / 100) * 0.45})`);
+      gradUp.addColorStop(1, 'transparent');
+      ctx.fillStyle = gradUp;
+      ctx.fillRect(-barW/2, -barH/2, barW, 45);
+
+      // 底边自旋向下 (Spin-Down Blue 光晕)
+      const gradDown = ctx.createLinearGradient(0, barH/2, 0, barH/2 - 45);
+      gradDown.addColorStop(0, `rgba(59, 130, 246, ${0.15 + Math.abs(physics.spinPolDown / 100) * 0.45})`);
+      gradDown.addColorStop(1, 'transparent');
+      ctx.fillStyle = gradDown;
+      ctx.fillRect(-barW/2, barH/2 - 45, barW, 45);
+
+      // 2. 两侧金电极 (Source & Drain Contacts)
+      const contactW = 28;
+      ctx.fillStyle = 'rgba(245, 158, 11, 0.4)';
+      ctx.strokeStyle = '#f59e0b';
+      // 左电极 (Source)
+      ctx.fillRect(-barW/2 - contactW, -barH/2, contactW, barH);
+      ctx.strokeRect(-barW/2 - contactW, -barH/2, contactW, barH);
+      // 右电极 (Drain)
+      ctx.fillRect(barW/2, -barH/2, contactW, barH);
+      ctx.strokeRect(barW/2, -barH/2, contactW, barH);
+
+      ctx.fillStyle = '#f59e0b';
+      ctx.font = '11px JetBrains Mono';
+      ctx.fillText('Source (V+)', -barW/2 - contactW + 2, barH/2 + 20);
+      ctx.fillText('Drain (V-)', barW/2 - 15, barH/2 + 20);
+
+      // 3. 纵向电场 E_x 全息指示箭头
+      ctx.save();
+      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth = 2.0;
+      ctx.setLineDash([6, 4]);
+      ctx.beginPath();
+      ctx.moveTo(-160, -barH/2 - 25);
+      ctx.lineTo(160, -barH/2 - 25);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.fillStyle = '#f59e0b';
+      ctx.beginPath();
+      ctx.moveTo(160, -barH/2 - 30);
+      ctx.lineTo(175, -barH/2 - 25);
+      ctx.lineTo(160, -barH/2 - 20);
+      ctx.fill();
+
+      ctx.fillText(`驱动电场 E_x = ${STATE.efield.toFixed(1)} kV/cm`, -60, -barH/2 - 34);
+      ctx.restore();
+
+      // 4. 电子波包动力学模拟 (含有纵向漂移与横向反常速度)
+      const anomSpeedScale = (physics.vAnom / 20.0) * 1.8;
+      const driftVx = 1.2 + (STATE.efield / 25.0) * 2.2;
+
+      ELECTRONS.forEach(el => {
+        // 纵向推进
+        el.x += driftVx * (el.vx0 / 2.0);
+        // 反常横向偏折: v_anom 与自旋方向严格绑定
+        // spin = +1 (向上偏折 -y), spin = -1 (向下偏折 +y)
+        const vy = -el.spin * anomSpeedScale;
+        el.y += vy;
+
+        // 边界限制与反弹注入
+        if (el.x > barW/2) {
+          el.x = -barW/2;
+          el.y = (Math.random() - 0.5) * (barH * 0.7);
+          el.trail = [];
+        }
+
+        // 上下边界积累反射阻尼
+        if (el.y < -barH/2 + 6) el.y = -barH/2 + 6;
+        if (el.y > barH/2 - 6) el.y = barH/2 - 6;
+
+        // 记录轨迹
+        el.trail.push({ x: el.x, y: el.y });
+        if (el.trail.length > 12) el.trail.shift();
+
+        // 绘制轨迹拖尾
+        if (el.trail.length > 2) {
+          ctx.strokeStyle = el.spin === 1 ? 'rgba(239, 68, 68, 0.4)' : 'rgba(59, 130, 246, 0.4)';
+          ctx.lineWidth = 1.2;
+          ctx.beginPath();
+          ctx.moveTo(el.trail[0].x, el.trail[0].y);
+          for (let ti = 1; ti < el.trail.length; ti++) {
+            ctx.lineTo(el.trail[ti].x, el.trail[ti].y);
+          }
+          ctx.stroke();
+        }
+
+        // 绘制电子小球
+        ctx.fillStyle = el.spin === 1 ? '#ef4444' : '#3b82f6';
+        ctx.beginPath();
+        ctx.arc(el.x, el.y, 3.2, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 绘制自旋指示小箭头 (Up 或 Down)
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1.0;
+        ctx.beginPath();
+        ctx.moveTo(el.x, el.y);
+        ctx.lineTo(el.x, el.y - el.spin * 7);
+        ctx.stroke();
+      });
+
+      // 5. 光学克尔转角探测激光光斑 (MOKE Spin Detection Spot)
+      const mokeY = -barH/2 + 20;
+      ctx.save();
+      const mokeGrad = ctx.createRadialGradient(80, mokeY, 2, 80, mokeY, 24);
+      mokeGrad.addColorStop(0, 'rgba(168, 85, 247, 0.8)');
+      mokeGrad.addColorStop(1, 'transparent');
+      ctx.fillStyle = mokeGrad;
+      ctx.beginPath();
+      ctx.arc(80, mokeY, 24, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#e9d5ff';
+      ctx.font = '10px JetBrains Mono';
+      ctx.fillText('MOKE 探测激光', 110, mokeY + 4);
+      ctx.restore();
+
+      ctx.restore();
+    }
+
+    // --- 示波器 1: 动量空间贝里曲率三维奇异峰 ---
+    const scopeBerry = document.getElementById('scope-berry');
+    const ctxBerry = scopeBerry.getContext('2d');
+
+    function drawScopeBerry() {
+      const w = scopeBerry.width = scopeBerry.parentElement.clientWidth;
+      const h = scopeBerry.height = 135;
+      ctxBerry.clearRect(0, 0, w, h);
+
+      // 坐标轴
+      const midX = w / 2;
+      const baseY = h - 22;
+
+      ctxBerry.strokeStyle = 'rgba(255,255,255,0.1)';
+      ctxBerry.lineWidth = 1;
+      ctxBerry.beginPath();
+      ctxBerry.moveTo(20, baseY);
+      ctxBerry.lineTo(w - 20, baseY);
+      ctxBerry.stroke();
+
+      ctxBerry.fillStyle = 'rgba(255,255,255,0.4)';
+      ctxBerry.font = '9px JetBrains Mono';
+      ctxBerry.fillText('-K', 25, baseY + 12);
+      ctxBerry.fillText('Γ (k=0)', midX - 16, baseY + 12);
+      ctxBerry.fillText('+K', w - 40, baseY + 12);
+      ctxBerry.fillText('Ω_z(k)', 8, 16);
+
+      // 计算并绘制贝里曲率在动量截面上的发散峰
+      const peakHeight = Math.min(95, (physics.omegaPeak / 280.0) * 90);
+
+      // 1. 自旋向上态 Ω_↑(k) (红色正峰)
+      ctxBerry.strokeStyle = '#ef4444';
+      ctxBerry.lineWidth = 2.0;
+      ctxBerry.beginPath();
+      for (let px = 20; px < w - 20; px++) {
+        const kx = (px - midX) / (w * 0.28);
+        // 双谷 K 与 -K 处的高斯洛伦兹奇异峰
+        const peakK1 = Math.exp(-Math.pow(kx - 1.0, 2) / 0.12);
+        const peakK2 = Math.exp(-Math.pow(kx + 1.0, 2) / 0.12);
+        const val = (peakK1 + peakK2) * peakHeight;
+        const py = baseY - val;
+        if (px === 20) ctxBerry.moveTo(px, py);
+        else ctxBerry.lineTo(px, py);
+      }
+      ctxBerry.stroke();
+
+      // 2. 自旋向下态 Ω_↓(k) (蓝色相反负峰)
+      ctxBerry.strokeStyle = '#3b82f6';
+      ctxBerry.lineWidth = 1.8;
+      ctxBerry.setLineDash([3, 2]);
+      ctxBerry.beginPath();
+      for (let px = 20; px < w - 20; px++) {
+        const kx = (px - midX) / (w * 0.28);
+        const peakK1 = Math.exp(-Math.pow(kx - 1.0, 2) / 0.12);
+        const peakK2 = Math.exp(-Math.pow(kx + 1.0, 2) / 0.12);
+        const val = -(peakK1 + peakK2) * (peakHeight * 0.65);
+        const py = baseY - val;
+        if (px === 20) ctxBerry.moveTo(px, py);
+        else ctxBerry.lineTo(px, py);
+      }
+      ctxBerry.stroke();
+      ctxBerry.setLineDash([]);
+    }
+
+    // --- 示波器 2: 自旋霍尔电导率与费米能级扫描 ---
+    const scopeSigma = document.getElementById('scope-sigma');
+    const ctxSigma = scopeSigma.getContext('2d');
+
+    function drawScopeSigma() {
+      const w = scopeSigma.width = scopeSigma.parentElement.clientWidth;
+      const h = scopeSigma.height = 135;
+      ctxSigma.clearRect(0, 0, w, h);
+
+      const marginL = 30;
+      const marginB = 20;
+      const plotW = w - marginL - 15;
+      const plotH = h - marginB - 15;
+
+      ctxSigma.strokeStyle = 'rgba(255,255,255,0.12)';
+      ctxSigma.lineWidth = 1;
+      ctxSigma.beginPath();
+      ctxSigma.moveTo(marginL, h - marginB);
+      ctxSigma.lineTo(w - 10, h - marginB);
+      ctxSigma.moveTo(marginL, h - marginB);
+      ctxSigma.lineTo(marginL, 10);
+      ctxSigma.stroke();
+
+      ctxSigma.fillStyle = 'rgba(255,255,255,0.4)';
+      ctxSigma.font = '9px JetBrains Mono';
+      ctxSigma.fillText('-100', marginL - 6, h - 6);
+      ctxSigma.fillText('E_F (meV)', w * 0.44, h - 6);
+      ctxSigma.fillText('+100', w - 30, h - 6);
+      ctxSigma.fillText('1.0', 6, 20);
+      ctxSigma.fillText('0.0', 6, h - marginB);
+
+      // 绘制自旋霍尔电导率曲线 σ_xy^s
+      const halfGap = STATE.gap / 2.0;
+      const socFactor = STATE.soc / 80.0;
+
+      ctxSigma.strokeStyle = '#10b981';
+      ctxSigma.lineWidth = 2.2;
+      ctxSigma.beginPath();
+
+      for (let px = 0; px <= plotW; px++) {
+        const curEf = -120 + (px / plotW) * 240;
+        let sigmaVal = 0;
+        if (Math.abs(curEf) <= halfGap) {
+          sigmaVal = 1.0 * Math.min(1.0, socFactor);
+        } else {
+          const excess = Math.abs(curEf) - halfGap;
+          sigmaVal = Math.max(0.05, (1.0 / (1.0 + Math.pow(excess / 35.0, 2))) * socFactor);
+        }
+        const py = (h - marginB) - Math.min(1.0, sigmaVal) * plotH;
+        if (px === 0) ctxSigma.moveTo(marginL + px, py);
+        else ctxSigma.lineTo(marginL + px, py);
+      }
+      ctxSigma.stroke();
+
+      // 当前工作费米能级指示竖线
+      const curX = marginL + ((STATE.ef + 120) / 240) * plotW;
+      ctxSigma.strokeStyle = '#f59e0b';
+      ctxSigma.lineWidth = 1.5;
+      ctxSigma.setLineDash([3, 3]);
+      ctxSigma.beginPath();
+      ctxSigma.moveTo(curX, 10);
+      ctxSigma.lineTo(curX, h - marginB);
+      ctxSigma.stroke();
+      ctxSigma.setLineDash([]);
+
+      ctxSigma.fillStyle = '#f59e0b';
+      ctxSigma.fillText(`E_F = ${STATE.ef.toFixed(0)}`, curX + 4, 25);
+    }
+
+    // --- 动画循环 ---
+    function animate() {
+      animTime += 0.02;
+      drawMainViewport();
+      drawScopeBerry();
+      drawScopeSigma();
+      requestAnimationFrame(animate);
+    }
+
+    // --- 控件绑定与事件响应 ---
+    function bindInputs() {
+      const pE = document.getElementById('param-efield');
+      const pSOC = document.getElementById('param-soc');
+      const pGap = document.getElementById('param-gap');
+      const pEF = document.getElementById('param-ef');
+
+      const dE = document.getElementById('disp-efield');
+      const dSOC = document.getElementById('disp-soc');
+      const dGap = document.getElementById('disp-gap');
+      const dEF = document.getElementById('disp-ef');
+
+      pE.addEventListener('input', e => {
+        STATE.efield = parseFloat(e.target.value);
+        dE.textContent = STATE.efield.toFixed(1) + ' kV/cm';
+        updatePhysics();
+      });
+
+      pSOC.addEventListener('input', e => {
+        STATE.soc = parseFloat(e.target.value);
+        dSOC.textContent = STATE.soc.toFixed(1) + ' meV';
+        updatePhysics();
+      });
+
+      pGap.addEventListener('input', e => {
+        STATE.gap = parseFloat(e.target.value);
+        dGap.textContent = STATE.gap.toFixed(1) + ' meV';
+        updatePhysics();
+      });
+
+      pEF.addEventListener('input', e => {
+        STATE.ef = parseFloat(e.target.value);
+        dEF.textContent = STATE.ef.toFixed(1) + ' meV';
+        updatePhysics();
+      });
+
+      // 预设模式
+      const presets = [
+        document.getElementById('preset-intrinsic'),
+        document.getElementById('preset-valley'),
+        document.getElementById('preset-weaksoc'),
+        document.getElementById('preset-critical')
+      ];
+
+      function clearActivePreset() {
+        presets.forEach(p => p.classList.remove('active'));
+      }
+
+      document.getElementById('preset-intrinsic').addEventListener('click', () => {
+        clearActivePreset();
+        document.getElementById('preset-intrinsic').classList.add('active');
+        STATE.efield = 25.0;
+        STATE.soc = 85.0;
+        STATE.gap = 60.0;
+        STATE.ef = 0.0;
+        syncControls();
+      });
+
+      document.getElementById('preset-valley').addEventListener('click', () => {
+        clearActivePreset();
+        document.getElementById('preset-valley').classList.add('active');
+        STATE.efield = 38.0;
+        STATE.soc = 145.0;
+        STATE.gap = 120.0;
+        STATE.ef = 15.0;
+        syncControls();
+      });
+
+      document.getElementById('preset-weaksoc').addEventListener('click', () => {
+        clearActivePreset();
+        document.getElementById('preset-weaksoc').classList.add('active');
+        STATE.efield = 20.0;
+        STATE.soc = 10.0;
+        STATE.gap = 40.0;
+        STATE.ef = 30.0;
+        syncControls();
+      });
+
+      document.getElementById('preset-critical').addEventListener('click', () => {
+        clearActivePreset();
+        document.getElementById('preset-critical').classList.add('active');
+        STATE.efield = 45.0;
+        STATE.soc = 90.0;
+        STATE.gap = 12.0;
+        STATE.ef = 0.0;
+        syncControls();
+      });
+
+      function syncControls() {
+        pE.value = STATE.efield;
+        pSOC.value = STATE.soc;
+        pGap.value = STATE.gap;
+        pEF.value = STATE.ef;
+
+        dE.textContent = STATE.efield.toFixed(1) + ' kV/cm';
+        dSOC.textContent = STATE.soc.toFixed(1) + ' meV';
+        dGap.textContent = STATE.gap.toFixed(1) + ' meV';
+        dEF.textContent = STATE.ef.toFixed(1) + ' meV';
+        updatePhysics();
+      }
+
+      // 音频开关
+      const btnAudio = document.getElementById('btn-audio');
+      btnAudio.addEventListener('click', () => {
+        initAudio();
+        STATE.audioEnabled = !STATE.audioEnabled;
+        btnAudio.classList.toggle('active', STATE.audioEnabled);
+        document.getElementById('audio-icon').textContent = STATE.audioEnabled ? '🔊' : '🔇';
+        if (audioCtx && audioCtx.state === 'suspended') {
+          audioCtx.resume();
+        }
+        updateAudio();
+      });
+
+      // 重置视角
+      document.getElementById('btn-reset').addEventListener('click', () => {
+        STATE.panX = 0;
+        STATE.panY = 0;
+        STATE.zoom = 1.0;
+      });
+
+      // 拖拽与缩放交互
+      mainCanvas.addEventListener('mousedown', e => {
+        STATE.isDragging = true;
+        STATE.lastMouseX = e.clientX;
+        STATE.lastMouseY = e.clientY;
+      });
+
+      window.addEventListener('mousemove', e => {
+        if (!STATE.isDragging) return;
+        const dx = e.clientX - STATE.lastMouseX;
+        const dy = e.clientY - STATE.lastMouseY;
+        STATE.panX += dx;
+        STATE.panY += dy;
+        STATE.lastMouseX = e.clientX;
+        STATE.lastMouseY = e.clientY;
+      });
+
+      window.addEventListener('mouseup', () => {
+        STATE.isDragging = false;
+      });
+
+      mainCanvas.addEventListener('wheel', e => {
+        e.preventDefault();
+        const factor = e.deltaY < 0 ? 1.08 : 0.92;
+        STATE.zoom = Math.max(0.4, Math.min(3.0, STATE.zoom * factor));
+      }, { passive: false });
+    }
+
+    // 初始化启动
+    bindInputs();
+    updatePhysics();
+    animate();
+  </script>
+</body>
+</html>

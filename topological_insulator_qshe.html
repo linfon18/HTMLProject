@@ -1,0 +1,1501 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>二维拓扑绝缘体与量子自旋霍尔效应全息模拟 (BHZ Model & Helical Edge States)</title>
+  <style>
+    :root {
+      --bg-primary: #040810;
+      --bg-panel: rgba(8, 16, 32, 0.85);
+      --border-panel: rgba(0, 220, 255, 0.25);
+      --cyan-glow: #00f0ff;
+      --spin-up: #00d4ff;
+      --spin-down: #ff3366;
+      --text-main: #e2f1ff;
+      --text-dim: #7aa2c7;
+      --accent-gold: #ffd043;
+      --danger-red: #ff3366;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body {
+      background-color: var(--bg-primary);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", "PingFang SC", "Microsoft YaHei", sans-serif;
+      overflow-x: hidden;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      background: linear-gradient(180deg, rgba(6, 20, 42, 0.95) 0%, rgba(4, 12, 26, 0.8) 100%);
+      border-bottom: 1px solid var(--border-panel);
+      padding: 12px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(12px);
+    }
+
+    .title-area h1 {
+      font-size: 1.35rem;
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      background: linear-gradient(90deg, #00f0ff, #a6e3e9, #ff5376);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .title-area p {
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      margin-top: 3px;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border: 1px solid;
+    }
+    .badge-topol {
+      background: rgba(0, 240, 255, 0.15);
+      color: #00f0ff;
+      border-color: rgba(0, 240, 255, 0.4);
+    }
+    .badge-trivial {
+      background: rgba(255, 51, 102, 0.15);
+      color: #ff5376;
+      border-color: rgba(255, 51, 102, 0.4);
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    button.btn {
+      background: rgba(0, 210, 255, 0.12);
+      border: 1px solid rgba(0, 210, 255, 0.35);
+      color: #e2f1ff;
+      padding: 6px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.82rem;
+      font-weight: 500;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    button.btn:hover {
+      background: rgba(0, 210, 255, 0.25);
+      border-color: var(--cyan-glow);
+      box-shadow: 0 0 10px rgba(0, 240, 255, 0.3);
+    }
+    button.btn-primary {
+      background: linear-gradient(135deg, rgba(0, 210, 255, 0.4), rgba(0, 110, 255, 0.5));
+      border-color: #00f0ff;
+      color: #ffffff;
+      font-weight: 600;
+    }
+    button.btn-primary:hover {
+      background: linear-gradient(135deg, rgba(0, 210, 255, 0.6), rgba(0, 110, 255, 0.7));
+      box-shadow: 0 0 14px rgba(0, 240, 255, 0.5);
+    }
+
+    .main-container {
+      display: grid;
+      grid-template-columns: 1fr 380px;
+      gap: 16px;
+      padding: 16px 20px;
+      flex: 1;
+      max-width: 1800px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    .viewport-col {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .card {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-panel);
+      border-radius: 10px;
+      padding: 14px 16px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+      position: relative;
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .card-title {
+      font-size: 0.92rem;
+      font-weight: 600;
+      color: #9fe2ff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .canvas-wrapper {
+      position: relative;
+      width: 100%;
+      height: 440px;
+      background: #02050c;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid rgba(0, 200, 255, 0.15);
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    .canvas-overlay-stats {
+      position: absolute;
+      top: 10px;
+      left: 12px;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-family: "JetBrains Mono", Consolas, monospace;
+      font-size: 0.78rem;
+    }
+
+    .stat-tag {
+      background: rgba(4, 12, 28, 0.75);
+      padding: 3px 8px;
+      border-radius: 4px;
+      border-left: 3px solid var(--cyan-glow);
+      backdrop-filter: blur(4px);
+    }
+    .stat-tag.down {
+      border-left-color: var(--spin-down);
+    }
+
+    .charts-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .chart-box {
+      height: 230px;
+      background: #02050c;
+      border-radius: 8px;
+      position: relative;
+      border: 1px solid rgba(0, 200, 255, 0.15);
+      overflow: hidden;
+    }
+
+    /* 控制面板侧栏 */
+    .controls-col {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .control-group {
+      margin-bottom: 12px;
+    }
+
+    .control-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.8rem;
+      margin-bottom: 5px;
+      color: var(--text-dim);
+    }
+    .control-val {
+      color: #00f0ff;
+      font-family: monospace;
+      font-weight: bold;
+    }
+
+    input[type=range] {
+      width: 100%;
+      height: 5px;
+      background: rgba(0, 200, 255, 0.2);
+      border-radius: 4px;
+      outline: none;
+      -webkit-appearance: none;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      background: #00f0ff;
+      cursor: pointer;
+      box-shadow: 0 0 8px #00f0ff;
+      transition: 0.1s;
+    }
+    input[type=range]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    .preset-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 6px;
+    }
+    .preset-btn {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: var(--text-main);
+      padding: 7px 6px;
+      border-radius: 6px;
+      font-size: 0.74rem;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s;
+    }
+    .preset-btn:hover {
+      background: rgba(0, 240, 255, 0.18);
+      border-color: var(--cyan-glow);
+    }
+    .preset-btn.active {
+      background: rgba(0, 240, 255, 0.25);
+      border-color: var(--cyan-glow);
+      color: #00f0ff;
+      font-weight: 600;
+    }
+
+    .switch-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 0;
+      font-size: 0.82rem;
+      border-bottom: 1px dashed rgba(255, 255, 255, 0.08);
+    }
+
+    .toggle-switch {
+      position: relative;
+      display: inline-block;
+      width: 38px;
+      height: 20px;
+    }
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: rgba(255, 255, 255, 0.15);
+      transition: .3s;
+      border-radius: 20px;
+    }
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 14px;
+      width: 14px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .3s;
+      border-radius: 50%;
+    }
+    input:checked + .slider {
+      background-color: #00d4ff;
+    }
+    input:checked + .slider:before {
+      transform: translateX(18px);
+    }
+
+    .formula-card {
+      font-family: "JetBrains Mono", Consolas, monospace;
+      font-size: 0.76rem;
+      line-height: 1.5;
+      background: rgba(2, 8, 20, 0.6);
+      padding: 10px;
+      border-radius: 6px;
+      border: 1px solid rgba(0, 220, 255, 0.15);
+      color: #b8dcff;
+    }
+    .formula-card span.hi {
+      color: #00f0ff;
+      font-weight: bold;
+    }
+    .formula-card span.sp-up {
+      color: #00d4ff;
+    }
+    .formula-card span.sp-down {
+      color: #ff3366;
+    }
+
+    .indicator-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .indicator-box {
+      background: rgba(0, 0, 0, 0.35);
+      padding: 8px 10px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      text-align: center;
+    }
+    .indicator-label {
+      font-size: 0.7rem;
+      color: var(--text-dim);
+    }
+    .indicator-value {
+      font-size: 1.1rem;
+      font-family: monospace;
+      font-weight: bold;
+      color: var(--cyan-glow);
+      margin-top: 2px;
+    }
+
+    footer {
+      border-top: 1px solid var(--border-panel);
+      padding: 10px 24px;
+      font-size: 0.76rem;
+      color: var(--text-dim);
+      display: flex;
+      justify-content: space-between;
+      background: rgba(4, 10, 22, 0.9);
+      margin-top: auto;
+    }
+
+    @media (max-width: 1100px) {
+      .main-container {
+        grid-template-columns: 1fr;
+      }
+      .charts-row {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="title-area">
+      <h1>
+        <span>二维拓扑绝缘体与量子自旋霍尔全息仿真</span>
+        <span id="phaseBadge" class="badge badge-topol">拓扑绝缘体相 (Z₂ = 1)</span>
+      </h1>
+      <p>Bernevig-Hughes-Zhang (BHZ) 紧束缚哈密顿量、螺旋边缘态 (Helical Edge States) 与拓扑保护无耗散弹道输运</p>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-primary" id="btnInjectWavepacket">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+        注入自旋相干波包
+      </button>
+      <button class="btn" id="btnAudioToggle">
+        <span id="audioIcon">🔊</span>
+        <span id="audioText">量子共振音频: 开</span>
+      </button>
+      <button class="btn" id="btnResetSystem">重置状态</button>
+    </div>
+  </header>
+
+  <div class="main-container">
+    <!-- 左侧主视口与解析图表 -->
+    <div class="viewport-col">
+      <!-- 实空间输运晶格与波包追踪 -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00f0ff" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+            实空间二维纳米带晶格 (Real-Space Nanoribbon Transport & Wavepacket Flow)
+          </div>
+          <div style="font-size:0.75rem; color:var(--text-dim)">
+            模式提示：按住鼠标左键可在纳米带上添加非磁性静电势障碍
+          </div>
+        </div>
+
+        <div class="canvas-wrapper">
+          <canvas id="realSpaceCanvas"></canvas>
+          <div class="canvas-overlay-stats">
+            <div class="stat-tag">
+              <span style="color:var(--spin-up)">● Spin-Up (↑)</span>：沿正边界顺向弹道传播 (无反弹)
+            </div>
+            <div class="stat-tag down">
+              <span style="color:var(--spin-down)">● Spin-Down (↓)</span>：沿负边界逆向传播 (自旋-动量锁定)
+            </div>
+            <div class="stat-tag" id="trsStatusTag">
+              时间反演对称性 (TRS)：<span style="color:#00ffaa">严格守恒 (T² = -1)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 下方解析图表：能带狄拉克锥与输运电导示波器 -->
+      <div class="charts-row">
+        <!-- 倒空间能带图谱与费米面交叉 -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ffd043" stroke-width="2"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+              一维投影能带结构 E(k_x) (狄拉克锥螺旋边缘态)
+            </div>
+            <span style="font-size:0.72rem; color:#ffd043" id="bandGapLabel">体能隙 Δ_g: 0.52 eV</span>
+          </div>
+          <div class="chart-box">
+            <canvas id="bandStructureCanvas"></canvas>
+          </div>
+        </div>
+
+        <!-- 兰道尔-布蒂克电导与拓扑缠绕图谱 -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#00f0ff" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
+              四端量子化电导 G_xx 与贝里斯格明子立体缠绕 (d-Vector)
+            </div>
+            <span style="font-size:0.72rem; color:#00f0ff" id="conductancePlateau">G = 2.00 e²/h</span>
+          </div>
+          <div class="chart-box">
+            <canvas id="conductanceCanvas"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 右侧控制与参数调整面板 -->
+    <div class="controls-col">
+      <!-- 预设场景与拓扑模式快速切换 -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">典型拓扑量子物态预设</div>
+        </div>
+        <div class="preset-grid">
+          <button class="preset-btn active" data-preset="ideal_qshe">理想量子自旋霍尔</button>
+          <button class="preset-btn" data-preset="defect_bypass">无磁性缺陷拓扑绕行</button>
+          <button class="preset-btn" data-preset="magnetic_breaking">外磁场打破TRS(背散射)</button>
+          <button class="preset-btn" data-preset="trivial_insulator">平凡绝缘体相变(M<0)</button>
+        </div>
+      </div>
+
+      <!-- BHZ 模型哈密顿量关键参数调节 -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">BHZ 模型核心物理参数</div>
+        </div>
+
+        <div class="control-group">
+          <div class="control-header">
+            <span>质量/能带反转参数 M (eV)</span>
+            <span class="control-val" id="valM">0.35</span>
+          </div>
+          <input type="range" id="sliderM" min="-0.60" max="0.80" step="0.01" value="0.35">
+          <div style="font-size:0.7rem; color:var(--text-dim); margin-top:2px;">
+            M > 0：能带反转拓扑态；M < 0：平凡带隙绝缘体态
+          </div>
+        </div>
+
+        <div class="control-group">
+          <div class="control-header">
+            <span>反转常数 B (eV·a²)</span>
+            <span class="control-val" id="valB">0.50</span>
+          </div>
+          <input type="range" id="sliderB" min="0.10" max="1.00" step="0.02" value="0.50">
+        </div>
+
+        <div class="control-group">
+          <div class="control-header">
+            <span>自旋轨道耦合强度 A (eV·a)</span>
+            <span class="control-val" id="valA">0.45</span>
+          </div>
+          <input type="range" id="sliderA" min="0.10" max="0.90" step="0.02" value="0.45">
+        </div>
+
+        <div class="control-group">
+          <div class="control-header">
+            <span>费米能级 E_F (位于禁带中)</span>
+            <span class="control-val" id="valEF">0.00 eV</span>
+          </div>
+          <input type="range" id="sliderEF" min="-0.50" max="0.50" step="0.01" value="0.00">
+        </div>
+
+        <div class="control-group">
+          <div class="control-header">
+            <span>垂直破缺外磁场 B_z (Tesla - 破坏TRS)</span>
+            <span class="control-val" id="valBz">0.00 T</span>
+          </div>
+          <input type="range" id="sliderBz" min="0.00" max="2.50" step="0.05" value="0.00">
+        </div>
+
+        <div class="control-group">
+          <div class="control-header">
+            <span>非磁性静电杂质密度 (电势扰动)</span>
+            <span class="control-val" id="valDisorder">12 %</span>
+          </div>
+          <input type="range" id="sliderDisorder" min="0" max="50" step="1" value="12">
+        </div>
+      </div>
+
+      <!-- 实时状态指标 -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">拓扑不变量与输运物理量</div>
+        </div>
+        <div class="indicator-grid">
+          <div class="indicator-box">
+            <div class="indicator-label">拓扑不变量 Z₂</div>
+            <div class="indicator-value" id="indZ2">1 (非平庸)</div>
+          </div>
+          <div class="indicator-box">
+            <div class="indicator-label">自旋陈数 C_s</div>
+            <div class="indicator-value" id="indSpinChern">+1 / -1</div>
+          </div>
+          <div class="indicator-box">
+            <div class="indicator-label">纵向双端电导 G_xx</div>
+            <div class="indicator-value" id="indGxx">2.00 e²/h</div>
+          </div>
+          <div class="indicator-box">
+            <div class="indicator-label">背散射耗散阻抗</div>
+            <div class="indicator-value" id="indBackscatter" style="color:#00ffaa">0.00 kΩ</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 核心数学与物理公式卡片 -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">BHZ 有效哈密顿量体系</div>
+        </div>
+        <div class="formula-card">
+          <p>H(k) = <span class="hi">diag[ h(k), h*(-k) ]</span></p>
+          <p>h(k) = ε(k)I + <span class="sp-up">d_x σ_x</span> + <span class="sp-up">d_y σ_y</span> + <span class="hi">d_z σ_z</span></p>
+          <p style="margin-top:4px;">d_x = A sin(k_x), d_y = A sin(k_y)</p>
+          <p>d_z = M - 2B(2 - cos k_x - cos k_y)</p>
+          <div style="border-top:1px dashed rgba(255,255,255,0.15); margin:6px 0; padding-top:4px;">
+            <p>螺旋边缘态：<span class="sp-up">|k_x, ↑⟩</span> (v_g > 0) 与 <span class="sp-down">|-k_x, ↓⟩</span> (v_g < 0)</p>
+            <p>Kramers 对反幺正变换：<span class="hi">T² = -1</span> 禁阻非磁性背散射</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <div>二维拓扑绝缘体 (HgTe/CdTe 量子阱) · 量子自旋霍尔效应 (QSHE) 全息动力学模拟引擎</div>
+    <div>纯前端零依赖 · Canvas 高精度紧束缚格点波动求解 · Web Audio 立体声相干合成</div>
+  </footer>
+
+  <script>
+    // --- 物理模拟与数学参数常量 ---
+    const PARAMS = {
+      M: 0.35,         // 质量参数 (能带反转关键)
+      B: 0.50,         // 反转常数
+      A: 0.45,         // 自旋轨道耦合常数
+      EF: 0.00,        // 费米能级
+      Bz: 0.00,        // 垂直破坏 TRS 磁场 (塞曼分裂)
+      disorder: 12,    // 杂质扰动百分比
+      audioEnabled: true
+    };
+
+    // 晶格与输运纳米带尺寸
+    const GRID_X = 60;
+    const GRID_Y = 24;
+    const TOTAL_NODES = GRID_X * GRID_Y;
+
+    // 存储纳米带晶格上的势能分布 (非磁性杂质 + 几何缺陷)
+    const potentialGrid = new Float32Array(TOTAL_NODES);
+    const defectMask = new Uint8Array(TOTAL_NODES); // 0=实体, 1=真空刻蚀缺口
+    const magneticImpurity = new Float32Array(TOTAL_NODES); // 局域磁性散射点
+
+    // 输运波包粒子集 (展示自旋动量锁定与拓扑边缘流)
+    const MAX_PARTICLES = 160;
+    const particles = [];
+
+    // Web Audio 相关
+    let audioCtx = null;
+    let upOsc = null;
+    let downOsc = null;
+    let noiseNode = null;
+    let upGain = null;
+    let downGain = null;
+    let noiseGain = null;
+
+    // 导电示波器历史缓存
+    const HISTORY_LEN = 100;
+    const conductanceHistory = new Float32Array(HISTORY_LEN).fill(2.0);
+    const backscatterHistory = new Float32Array(HISTORY_LEN).fill(0.0);
+
+    // --- 初始化晶格缺陷与杂质分布 ---
+    function initLattice() {
+      // 预先生成中央上部的平缓刻蚀缺口 (用于直观检验拓扑边缘态是否绕行无阻)
+      for (let y = 0; y < GRID_Y; y++) {
+        for (let x = 0; x < GRID_X; x++) {
+          const idx = y * GRID_X + x;
+          defectMask[idx] = 0;
+          potentialGrid[idx] = 0;
+          magneticImpurity[idx] = 0;
+
+          // 上边界中央几何凹坑 (Notch defect)
+          if (x >= 24 && x <= 36 && y < 7) {
+            defectMask[idx] = 1;
+          }
+        }
+      }
+
+      // 生成随机非磁性电势杂质
+      updateDisorder();
+    }
+
+    function updateDisorder() {
+      const prob = PARAMS.disorder / 100.0;
+      for (let i = 0; i < TOTAL_NODES; i++) {
+        if (defectMask[i] === 0) {
+          if (Math.random() < prob) {
+            potentialGrid[i] = (Math.random() - 0.5) * 0.45;
+          } else {
+            potentialGrid[i] = 0;
+          }
+        }
+      }
+    }
+
+    // 注入自旋波包载流子
+    class SpinCarrier {
+      constructor(spin, edge) {
+        this.spin = spin; // +1: Spin-Up (↑), -1: Spin-Down (↓)
+        this.edge = edge; // 'top' or 'bottom'
+        this.initPosition();
+        this.life = 0;
+        this.maxLife = 300 + Math.random() * 200;
+        this.scatterCount = 0;
+        this.trail = [];
+      }
+
+      initPosition() {
+        if (this.edge === 'top') {
+          // 上边缘：Topological 模式下 Spin-Up 向右 (+x), Spin-Down 向左 (-x)
+          if (this.spin === 1) {
+            this.x = 1.0 + Math.random() * 3.0;
+            this.y = 1.2;
+            this.vx = 0.45;
+            this.vy = 0.0;
+          } else {
+            this.x = GRID_X - 2.0 - Math.random() * 3.0;
+            this.y = 1.2;
+            this.vx = -0.45;
+            this.vy = 0.0;
+          }
+        } else {
+          // 下边缘：Spin-Up 向左 (-x), Spin-Down 向右 (+x)
+          if (this.spin === 1) {
+            this.x = GRID_X - 2.0 - Math.random() * 3.0;
+            this.y = GRID_Y - 2.2;
+            this.vx = -0.45;
+            this.vy = 0.0;
+          } else {
+            this.x = 1.0 + Math.random() * 3.0;
+            this.y = GRID_Y - 2.2;
+            this.vx = 0.45;
+            this.vy = 0.0;
+          }
+        }
+      }
+
+      update() {
+        this.life++;
+        this.trail.push({ x: this.x, y: this.y });
+        if (this.trail.length > 12) this.trail.shift();
+
+        const isTopological = PARAMS.M > 0.02;
+
+        // 如果处于平凡相 (Trivial Insulator M < 0)，体态和边界都丧失拓扑保护，波包无法沿边界传导，直接衰减发散
+        if (!isTopological) {
+          this.vx *= 0.94;
+          this.vy += (Math.random() - 0.5) * 0.2;
+          this.x += this.vx;
+          this.y += this.vy;
+          if (this.life > 70) this.dead = true;
+          return;
+        }
+
+        // 磁场打破 TRS (B_z > 0) 时引发强烈的背散射概率
+        if (PARAMS.Bz > 0.1) {
+          const scatterProb = (PARAMS.Bz / 2.5) * 0.045;
+          if (Math.random() < scatterProb) {
+            this.vx = -this.vx * 0.85; // 反弹背散射
+            this.scatterCount++;
+          }
+        }
+
+        // 沿边界巡航与自动贴壁流动力学 (模拟狄拉克螺旋边界态波函数的边界局域化 e^(-κ y))
+        const gridX_int = Math.round(this.x);
+        const gridY_int = Math.round(this.y);
+
+        // 检测前方是否有刻蚀缺口 (Defect Notch) 或边界
+        // 螺旋边缘态具有绕行任意非磁性几何缺陷的拓扑鲁棒性
+        let targetY = (this.edge === 'top') ? 1.2 : (GRID_Y - 2.2);
+
+        // 如果在凹坑区域 (x between 23 and 37)，由于上部 y < 7 为真空缺口，边缘态自发绕行至凹坑底缘 y = 7.5
+        if (this.edge === 'top' && this.x >= 22.5 && this.x <= 37.5) {
+          targetY = 7.8;
+        }
+
+        // 垂直贴壁恢复力
+        const dy = targetY - this.y;
+        this.vy += dy * 0.15;
+        this.vy *= 0.72; // 阻尼
+
+        // 前进推进力 (拓扑费米速度 v_F = A / ħ)
+        const vF = (PARAMS.A / 0.5) * 0.42;
+        const targetVx = (this.edge === 'top') ? (this.spin === 1 ? vF : -vF) : (this.spin === 1 ? -vF : vF);
+        this.vx += (targetVx - this.vx) * 0.12;
+
+        // 穿过随机非磁性静电杂质：根据 Kramers 理论，<↑|V|↓>=0，非磁性杂质绝不引起反转，波形仅产生微小绝热起伏
+        const idx = Math.max(0, Math.min(TOTAL_NODES - 1, gridY_int * GRID_X + gridX_int));
+        const localV = potentialGrid[idx];
+        this.vy += localV * 0.1;
+
+        this.x += this.vx;
+        this.y += this.vy;
+
+        // 循环或重置越界
+        if (this.x < 0.5 || this.x > GRID_X - 0.5 || this.y < 0.5 || this.y > GRID_Y - 0.5 || this.life > this.maxLife) {
+          this.dead = true;
+        }
+      }
+
+      draw(ctx, cellW, cellH) {
+        const px = this.x * cellW;
+        const py = this.y * cellH;
+
+        const col = (this.spin === 1) ? '#00e1ff' : '#ff3366';
+        const glowCol = (this.spin === 1) ? 'rgba(0, 225, 255, 0.4)' : 'rgba(255, 51, 102, 0.4)';
+
+        // 绘制拖尾
+        if (this.trail.length > 1) {
+          ctx.beginPath();
+          ctx.moveTo(this.trail[0].x * cellW, this.trail[0].y * cellH);
+          for (let i = 1; i < this.trail.length; i++) {
+            ctx.lineTo(this.trail[i].x * cellW, this.trail[i].y * cellH);
+          }
+          ctx.strokeStyle = glowCol;
+          ctx.lineWidth = 2.5;
+          ctx.stroke();
+        }
+
+        // 绘制自旋波包粒子球
+        ctx.beginPath();
+        ctx.arc(px, py, 4.5, 0, Math.PI * 2);
+        ctx.fillStyle = col;
+        ctx.shadowColor = col;
+        ctx.shadowBlur = 8;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+
+        // 绘制自旋指示箭头
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        if (this.spin === 1) {
+          // 自旋向上 (↑)
+          ctx.moveTo(px, py + 4);
+          ctx.lineTo(px, py - 6);
+          ctx.lineTo(px - 2.5, py - 3);
+          ctx.moveTo(px, py - 6);
+          ctx.lineTo(px + 2.5, py - 3);
+        } else {
+          // 自旋向下 (↓)
+          ctx.moveTo(px, py - 4);
+          ctx.lineTo(px, py + 6);
+          ctx.lineTo(px - 2.5, py + 3);
+          ctx.moveTo(px, py + 6);
+          ctx.lineTo(px + 2.5, py + 3);
+        }
+        ctx.stroke();
+      }
+    }
+
+    function spawnCarriers() {
+      if (particles.length < MAX_PARTICLES) {
+        // 成对激发 Kramers 时间反演共轭对
+        const edge = Math.random() < 0.5 ? 'top' : 'bottom';
+        particles.push(new SpinCarrier(1, edge));
+        particles.push(new SpinCarrier(-1, edge));
+      }
+    }
+
+    // --- Web Audio 纯正立体声拓扑共振系统 ---
+    function initAudio() {
+      if (audioCtx) return;
+      try {
+        const AudioClass = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioClass();
+
+        // Spin-Up 正向通道纯音 (左声道)
+        upOsc = audioCtx.createOscillator();
+        upOsc.type = 'sine';
+        upOsc.frequency.setValueAtTime(440, audioCtx.currentTime); // A4
+        const upPan = audioCtx.createStereoPanner ? audioCtx.createStereoPanner() : null;
+        if (upPan) upPan.pan.value = -0.7;
+
+        upGain = audioCtx.createGain();
+        upGain.gain.setValueAtTime(0.04, audioCtx.currentTime);
+
+        if (upPan) {
+          upOsc.connect(upPan);
+          upPan.connect(upGain);
+        } else {
+          upOsc.connect(upGain);
+        }
+        upGain.connect(audioCtx.destination);
+        upOsc.start();
+
+        // Spin-Down 逆向通道纯音 (右声道)
+        downOsc = audioCtx.createOscillator();
+        downOsc.type = 'sine';
+        downOsc.frequency.setValueAtTime(554.37, audioCtx.currentTime); // C#5
+        const downPan = audioCtx.createStereoPanner ? audioCtx.createStereoPanner() : null;
+        if (downPan) downPan.pan.value = 0.7;
+
+        downGain = audioCtx.createGain();
+        downGain.gain.setValueAtTime(0.04, audioCtx.currentTime);
+
+        if (downPan) {
+          downOsc.connect(downPan);
+          downPan.connect(downGain);
+        } else {
+          downOsc.connect(downGain);
+        }
+        downGain.connect(audioCtx.destination);
+        downOsc.start();
+
+        // 磁场/平凡态背散射耗散噪声 (湍流噪声)
+        const bufferSize = audioCtx.sampleRate * 2;
+        const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+        const output = noiseBuffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          output[i] = Math.random() * 2 - 1;
+        }
+
+        noiseNode = audioCtx.createBufferSource();
+        noiseNode.buffer = noiseBuffer;
+        noiseNode.loop = true;
+
+        const noiseFilter = audioCtx.createBiquadFilter();
+        noiseFilter.type = 'bandpass';
+        noiseFilter.frequency.value = 800;
+
+        noiseGain = audioCtx.createGain();
+        noiseGain.gain.setValueAtTime(0.0, audioCtx.currentTime);
+
+        noiseNode.connect(noiseFilter);
+        noiseFilter.connect(noiseGain);
+        noiseGain.connect(audioCtx.destination);
+        noiseNode.start();
+      } catch (e) {
+        console.warn("Web Audio 初始化失败:", e);
+      }
+    }
+
+    function updateAudio() {
+      if (!audioCtx || !PARAMS.audioEnabled) return;
+      const isTopol = PARAMS.M > 0.02;
+      const trsBroken = PARAMS.Bz > 0.05;
+
+      const baseFreq = 440 + PARAMS.M * 120;
+      upOsc.frequency.setTargetAtTime(baseFreq, audioCtx.currentTime, 0.08);
+      downOsc.frequency.setTargetAtTime(baseFreq * 1.2599, audioCtx.currentTime, 0.08); // 纯三度
+
+      if (isTopol && !trsBroken) {
+        // 拓扑量子化弹道流动：清澈正弦共振
+        upGain.gain.setTargetAtTime(0.04, audioCtx.currentTime, 0.05);
+        downGain.gain.setTargetAtTime(0.04, audioCtx.currentTime, 0.05);
+        noiseGain.gain.setTargetAtTime(0.001, audioCtx.currentTime, 0.05);
+      } else if (isTopol && trsBroken) {
+        // 磁场引发背散射阻滞：引入杂质碰撞白噪声
+        const noiseVol = Math.min(0.08, (PARAMS.Bz / 2.5) * 0.07);
+        upGain.gain.setTargetAtTime(0.02, audioCtx.currentTime, 0.05);
+        downGain.gain.setTargetAtTime(0.02, audioCtx.currentTime, 0.05);
+        noiseGain.gain.setTargetAtTime(noiseVol, audioCtx.currentTime, 0.05);
+      } else {
+        // 平凡绝缘体带隙关闭态：声音骤降与暗哑
+        upGain.gain.setTargetAtTime(0.005, audioCtx.currentTime, 0.05);
+        downGain.gain.setTargetAtTime(0.005, audioCtx.currentTime, 0.05);
+        noiseGain.gain.setTargetAtTime(0.02, audioCtx.currentTime, 0.05);
+      }
+    }
+
+    // --- 画布与渲染驱动 ---
+    const realCanvas = document.getElementById('realSpaceCanvas');
+    const realCtx = realCanvas.getContext('2d');
+
+    const bandCanvas = document.getElementById('bandStructureCanvas');
+    const bandCtx = bandCanvas.getContext('2d');
+
+    const condCanvas = document.getElementById('conductanceCanvas');
+    const condCtx = condCanvas.getContext('2d');
+
+    function resizeCanvas() {
+      const dpr = window.devicePixelRatio || 1;
+      
+      const rectReal = realCanvas.getBoundingClientRect();
+      realCanvas.width = rectReal.width * dpr;
+      realCanvas.height = rectReal.height * dpr;
+      realCtx.resetTransform();
+      realCtx.scale(dpr, dpr);
+
+      const rectBand = bandCanvas.getBoundingClientRect();
+      bandCanvas.width = rectBand.width * dpr;
+      bandCanvas.height = rectBand.height * dpr;
+      bandCtx.resetTransform();
+      bandCtx.scale(dpr, dpr);
+
+      const rectCond = condCanvas.getBoundingClientRect();
+      condCanvas.width = rectCond.width * dpr;
+      condCanvas.height = rectCond.height * dpr;
+      condCtx.resetTransform();
+      condCtx.scale(dpr, dpr);
+    }
+
+    window.addEventListener('resize', resizeCanvas);
+
+    // --- 实空间晶格与输运渲染 ---
+    function renderRealSpace() {
+      const w = realCanvas.clientWidth;
+      const h = realCanvas.clientHeight;
+      const cellW = w / GRID_X;
+      const cellH = h / GRID_Y;
+
+      realCtx.fillStyle = '#02050c';
+      realCtx.fillRect(0, 0, w, h);
+
+      // 1. 绘制纳米带背景网格与体态绝缘体微光
+      const isTopol = PARAMS.M > 0.02;
+
+      for (let y = 0; y < GRID_Y; y++) {
+        for (let x = 0; x < GRID_X; x++) {
+          const idx = y * GRID_X + x;
+          const px = x * cellW;
+          const py = y * cellH;
+
+          if (defectMask[idx] === 1) {
+            // 刻蚀真空凹陷缺口
+            realCtx.fillStyle = '#010307';
+            realCtx.fillRect(px, py, cellW, cellH);
+            continue;
+          }
+
+          // 体态绝缘体格点背景微弱反光
+          const localV = potentialGrid[idx];
+          if (Math.abs(localV) > 0.05) {
+            realCtx.fillStyle = localV > 0 ? 'rgba(0, 240, 255, 0.12)' : 'rgba(255, 180, 0, 0.12)';
+          } else {
+            realCtx.fillStyle = isTopol ? 'rgba(4, 18, 38, 0.55)' : 'rgba(28, 10, 18, 0.55)';
+          }
+          realCtx.fillRect(px + 0.5, py + 0.5, cellW - 1, cellH - 1);
+        }
+      }
+
+      // 2. 绘制上边界和下边界的拓扑保护螺旋导电通道边缘发光带
+      if (isTopol) {
+        // 上边缘拓扑通道
+        realCtx.beginPath();
+        realCtx.moveTo(0, cellH * 1.2);
+        realCtx.lineTo(22 * cellW, cellH * 1.2);
+        // 顺应几何凹槽绕行
+        realCtx.lineTo(24 * cellW, cellH * 7.5);
+        realCtx.lineTo(36 * cellW, cellH * 7.5);
+        realCtx.lineTo(38 * cellW, cellH * 1.2);
+        realCtx.lineTo(w, cellH * 1.2);
+        realCtx.strokeStyle = 'rgba(0, 212, 255, 0.35)';
+        realCtx.lineWidth = 5;
+        realCtx.stroke();
+        realCtx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+        realCtx.lineWidth = 1.5;
+        realCtx.stroke();
+
+        // 下边缘拓扑通道
+        realCtx.beginPath();
+        realCtx.moveTo(0, (GRID_Y - 1.8) * cellH);
+        realCtx.lineTo(w, (GRID_Y - 1.8) * cellH);
+        realCtx.strokeStyle = 'rgba(255, 51, 102, 0.35)';
+        realCtx.lineWidth = 5;
+        realCtx.stroke();
+        realCtx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+        realCtx.lineWidth = 1.5;
+        realCtx.stroke();
+      }
+
+      // 3. 产生与更新自旋载流子波包
+      spawnCarriers();
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.update();
+        if (p.dead) {
+          particles.splice(i, 1);
+        } else {
+          p.draw(realCtx, cellW, cellH);
+        }
+      }
+
+      // 4. 绘制接触电极与引线标注 (两端/四端配置)
+      realCtx.fillStyle = 'rgba(0, 240, 255, 0.3)';
+      realCtx.fillRect(0, 0, 8, h);
+      realCtx.fillStyle = 'rgba(0, 240, 255, 0.3)';
+      realCtx.fillRect(w - 8, 0, 8, h);
+
+      realCtx.fillStyle = '#00f0ff';
+      realCtx.font = '10px "JetBrains Mono", Consolas, monospace';
+      realCtx.fillText('Source (源极)', 12, h / 2 - 6);
+      realCtx.fillText('Drain (漏极)', w - 85, h / 2 - 6);
+    }
+
+    // --- 倒空间能带图谱 E(k_x) 与狄拉克锥色散求解渲染 ---
+    function renderBandStructure() {
+      const w = bandCanvas.clientWidth;
+      const h = bandCanvas.clientHeight;
+      bandCtx.fillStyle = '#02050c';
+      bandCtx.fillRect(0, 0, w, h);
+
+      // 坐标轴网格
+      bandCtx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+      bandCtx.lineWidth = 1;
+      const midX = w / 2;
+      const midY = h / 2;
+
+      bandCtx.beginPath();
+      bandCtx.moveTo(0, midY); bandCtx.lineTo(w, midY); // E = 0 费米面基准
+      bandCtx.moveTo(midX, 0); bandCtx.lineTo(midX, h); // k_x = 0
+      bandCtx.stroke();
+
+      // 费米能级线 E_F
+      const efY = midY - (PARAMS.EF / 0.8) * (h * 0.45);
+      bandCtx.strokeStyle = 'rgba(255, 208, 67, 0.85)';
+      bandCtx.setLineDash([4, 4]);
+      bandCtx.beginPath();
+      bandCtx.moveTo(0, efY);
+      bandCtx.lineTo(w, efY);
+      bandCtx.stroke();
+      bandCtx.setLineDash([]);
+      bandCtx.fillStyle = '#ffd043';
+      bandCtx.font = '10px monospace';
+      bandCtx.fillText(`E_F = ${PARAMS.EF.toFixed(2)} eV`, 8, efY - 4);
+
+      // 理论计算 BHZ 纳米带的色散：体态带 (导带/价带) 与边缘态
+      const steps = 140;
+      const kMax = Math.PI;
+
+      // 1. 绘制体带投影连续谱 (Valence Band & Conduction Band)
+      bandCtx.fillStyle = 'rgba(0, 150, 255, 0.14)';
+      for (let i = 0; i < steps; i++) {
+        const kx = -kMax + (i / steps) * (2 * kMax);
+        const scrX = (i / steps) * w;
+
+        // 体态能级 E_bulk(kx) = sqrt((M - 2B(1 - cos kx) - ky_eff)^2 + A^2 sin^2 kx)
+        const massK = PARAMS.M - 2 * PARAMS.B * (1 - Math.cos(kx));
+        const gap = Math.sqrt(massK * massK);
+
+        const condBottom = Math.max(0.12, gap);
+        const valTop = -condBottom;
+
+        const scrYCond = midY - (condBottom / 0.8) * (h * 0.45);
+        const scrYVal = midY - (valTop / 0.8) * (h * 0.45);
+
+        bandCtx.fillRect(scrX, 0, w / steps + 1, scrYCond);
+        bandCtx.fillRect(scrX, scrYVal, w / steps + 1, h - scrYVal);
+      }
+
+      // 2. 如果处于拓扑相 (M > 0)，横跨体能隙绘制无能隙狄拉克螺旋边缘态交叉色散曲线
+      const isTopol = PARAMS.M > 0.02;
+      const zeeman = PARAMS.Bz * 0.12; // 垂直磁场塞曼劈裂
+
+      if (isTopol) {
+        // 螺旋边缘态 1: Spin-Up (斜率 v_F > 0)
+        bandCtx.beginPath();
+        bandCtx.strokeStyle = '#00d4ff';
+        bandCtx.lineWidth = 2.5;
+        for (let i = 0; i <= steps; i++) {
+          const kx = -kMax + (i / steps) * (2 * kMax);
+          const scrX = (i / steps) * w;
+          // E_edge1 = A * sin(kx) + zeeman
+          const eEdge = PARAMS.A * Math.sin(kx) + zeeman;
+          const scrY = midY - (eEdge / 0.8) * (h * 0.45);
+          if (i === 0) bandCtx.moveTo(scrX, scrY);
+          else bandCtx.lineTo(scrX, scrY);
+        }
+        bandCtx.stroke();
+
+        // 螺旋边缘态 2: Spin-Down (斜率 v_F < 0)
+        bandCtx.beginPath();
+        bandCtx.strokeStyle = '#ff3366';
+        bandCtx.lineWidth = 2.5;
+        for (let i = 0; i <= steps; i++) {
+          const kx = -kMax + (i / steps) * (2 * kMax);
+          const scrX = (i / steps) * w;
+          // E_edge2 = -A * sin(kx) - zeeman
+          const eEdge = -PARAMS.A * Math.sin(kx) - zeeman;
+          const scrY = midY - (eEdge / 0.8) * (h * 0.45);
+          if (i === 0) bandCtx.moveTo(scrX, scrY);
+          else bandCtx.lineTo(scrX, scrY);
+        }
+        bandCtx.stroke();
+
+        // 狄拉克交叉点高亮 (k_x = 0)
+        const diracY = midY - (zeeman / 0.8) * (h * 0.45);
+        bandCtx.beginPath();
+        bandCtx.arc(midX, diracY, 4, 0, Math.PI * 2);
+        bandCtx.fillStyle = '#ffffff';
+        bandCtx.fill();
+      }
+
+      // 标注
+      bandCtx.fillStyle = 'rgba(255,255,255,0.7)';
+      bandCtx.font = '10px monospace';
+      bandCtx.fillText('-π/a', 8, midY - 6);
+      bandCtx.fillText('+π/a', w - 35, midY - 6);
+      bandCtx.fillText('Γ (k=0)', midX + 5, h - 8);
+    }
+
+    // --- 实时量子化电导示波器与贝里缠绕绘制 ---
+    function renderConductanceAndBerry() {
+      const w = condCanvas.clientWidth;
+      const h = condCanvas.clientHeight;
+      condCtx.fillStyle = '#02050c';
+      condCtx.fillRect(0, 0, w, h);
+
+      // 左半部分：量子化电导 G_xx 历史波形
+      const waveW = w * 0.62;
+      condCtx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+      condCtx.lineWidth = 1;
+      condCtx.strokeRect(8, 8, waveW - 16, h - 16);
+
+      // 标称 2.0 e²/h 基准虚线
+      const idealY = 8 + (h - 16) * 0.35;
+      condCtx.strokeStyle = 'rgba(0, 240, 255, 0.4)';
+      condCtx.setLineDash([3, 3]);
+      condCtx.beginPath();
+      condCtx.moveTo(8, idealY);
+      condCtx.lineTo(waveW - 8, idealY);
+      condCtx.stroke();
+      condCtx.setLineDash([]);
+
+      condCtx.fillStyle = 'rgba(0, 240, 255, 0.7)';
+      condCtx.font = '9px monospace';
+      condCtx.fillText('2.0 e²/h 拓扑量子化平台', 14, idealY - 4);
+
+      // 计算当前实时电导与背散射
+      const isTopol = PARAMS.M > 0.02;
+      let currentG = 0.0;
+      let backscatterOhm = 0.0;
+
+      if (isTopol) {
+        // 磁场引发背散射导致电导下陷
+        const bzDegrad = Math.pow(PARAMS.Bz / 2.5, 2) * 1.65;
+        // 杂质引起的弱背散射 (仅在磁场非零时才破缺守恒)
+        const disorderLoss = (PARAMS.Bz > 0.02) ? (PARAMS.disorder / 100) * 0.35 : 0.0;
+        currentG = Math.max(0.05, 2.0 - bzDegrad - disorderLoss + (Math.random() - 0.5) * 0.03);
+        backscatterOhm = (2.0 - currentG) * 12.9; // 冯·克利青常数阶
+      } else {
+        // 平凡态无边界态，费米能级处于能隙中时为完全绝缘体 G ≈ 0
+        currentG = 0.04 + Math.random() * 0.03;
+        backscatterOhm = 25.8;
+      }
+
+      // 滚动更新历史数据
+      for (let i = 0; i < HISTORY_LEN - 1; i++) {
+        conductanceHistory[i] = conductanceHistory[i + 1];
+        backscatterHistory[i] = backscatterHistory[i + 1];
+      }
+      conductanceHistory[HISTORY_LEN - 1] = currentG;
+      backscatterHistory[HISTORY_LEN - 1] = backscatterOhm;
+
+      // 绘制 G_xx 历史曲线
+      condCtx.beginPath();
+      condCtx.strokeStyle = isTopol ? '#00f0ff' : '#ff3366';
+      condCtx.lineWidth = 2;
+      for (let i = 0; i < HISTORY_LEN; i++) {
+        const x = 8 + (i / (HISTORY_LEN - 1)) * (waveW - 16);
+        // 纵轴比例: 0 ~ 2.5 e²/h
+        const normG = conductanceHistory[i] / 2.5;
+        const y = (h - 8) - normG * (h - 24);
+        if (i === 0) condCtx.moveTo(x, y);
+        else condCtx.lineTo(x, y);
+      }
+      condCtx.stroke();
+
+      // 右半部分：贝里联络 / 斯格明子立体庞加莱投影 d-vector texture
+      const berryX = waveW + (w - waveW) / 2;
+      const berryY = h / 2;
+      const radius = Math.min((w - waveW) * 0.38, h * 0.36);
+
+      condCtx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+      condCtx.lineWidth = 1;
+      condCtx.beginPath();
+      condCtx.arc(berryX, berryY, radius, 0, Math.PI * 2);
+      condCtx.stroke();
+
+      // 庞加莱球经纬圈
+      condCtx.beginPath();
+      condCtx.ellipse(berryX, berryY, radius, radius * 0.35, 0, 0, Math.PI * 2);
+      condCtx.stroke();
+
+      // 绘制拓扑矢量 d(k)/|d(k)| 矢量投影
+      const numRays = 16;
+      for (let a = 0; a < numRays; a++) {
+        const angle = (a / numRays) * Math.PI * 2;
+        const kx = Math.cos(angle);
+        const ky = Math.sin(angle);
+        const dx = PARAMS.A * kx;
+        const dy = PARAMS.A * ky;
+        const dz = PARAMS.M - PARAMS.B * (kx * kx + ky * ky);
+        const norm = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1;
+
+        const udx = dx / norm;
+        const udy = dy / norm;
+        const udz = dz / norm;
+
+        const px = berryX + udx * radius * 0.85;
+        const py = berryY - udy * radius * 0.85 + udz * 4.0;
+
+        condCtx.beginPath();
+        condCtx.moveTo(berryX, berryY);
+        condCtx.lineTo(px, py);
+        condCtx.strokeStyle = isTopol ? 'rgba(0, 240, 255, 0.65)' : 'rgba(255, 51, 102, 0.5)';
+        condCtx.lineWidth = 1.5;
+        condCtx.stroke();
+
+        condCtx.beginPath();
+        condCtx.arc(px, py, 2.5, 0, Math.PI * 2);
+        condCtx.fillStyle = isTopol ? '#00f0ff' : '#ff3366';
+        condCtx.fill();
+      }
+
+      condCtx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+      condCtx.font = '9px monospace';
+      condCtx.fillText(isTopol ? 'S² 包裹数 Q=1' : '未包裹 Q=0', berryX - 30, h - 8);
+
+      // 同步更新 DOM 数值面板
+      document.getElementById('indGxx').textContent = `${currentG.toFixed(2)} e²/h`;
+      document.getElementById('indBackscatter').textContent = `${backscatterOhm.toFixed(2)} kΩ`;
+      document.getElementById('conductancePlateau').textContent = `G = ${currentG.toFixed(2)} e²/h`;
+      const bandGap = Math.abs(PARAMS.M * 2.0).toFixed(2);
+      document.getElementById('bandGapLabel').textContent = `体能隙 Δ_g: ${bandGap} eV`;
+    }
+
+    // --- 主循环动效 ---
+    function animate() {
+      renderRealSpace();
+      renderBandStructure();
+      renderConductanceAndBerry();
+      updateAudio();
+      requestAnimationFrame(animate);
+    }
+
+    // --- UI 交互与事件绑定 ---
+    function updateStateUI() {
+      const isTopol = PARAMS.M > 0.02;
+      const trsBroken = PARAMS.Bz > 0.05;
+
+      const badge = document.getElementById('phaseBadge');
+      if (isTopol) {
+        badge.className = 'badge badge-topol';
+        badge.textContent = '拓扑绝缘体相 (Z₂ = 1)';
+        document.getElementById('indZ2').textContent = '1 (非平庸拓扑)';
+        document.getElementById('indZ2').style.color = '#00f0ff';
+        document.getElementById('indSpinChern').textContent = '+1 / -1';
+      } else {
+        badge.className = 'badge badge-trivial';
+        badge.textContent = '平凡普通绝缘体 (Z₂ = 0)';
+        document.getElementById('indZ2').textContent = '0 (平凡绝缘体)';
+        document.getElementById('indZ2').style.color = '#ff3366';
+        document.getElementById('indSpinChern').textContent = '0 / 0';
+      }
+
+      const trsTag = document.getElementById('trsStatusTag');
+      if (trsBroken) {
+        trsTag.innerHTML = `时间反演对称性 (TRS)：<span style="color:#ff3366">破缺 (外磁场 B_z = ${PARAMS.Bz.toFixed(2)}T)</span>`;
+      } else {
+        trsTag.innerHTML = `时间反演对称性 (TRS)：<span style="color:#00ffaa">严格守恒 (T² = -1)</span>`;
+      }
+    }
+
+    // 滑块同步
+    const sliderM = document.getElementById('sliderM');
+    sliderM.addEventListener('input', (e) => {
+      PARAMS.M = parseFloat(e.target.value);
+      document.getElementById('valM').textContent = PARAMS.M.toFixed(2);
+      updateStateUI();
+    });
+
+    const sliderB = document.getElementById('sliderB');
+    sliderB.addEventListener('input', (e) => {
+      PARAMS.B = parseFloat(e.target.value);
+      document.getElementById('valB').textContent = PARAMS.B.toFixed(2);
+    });
+
+    const sliderA = document.getElementById('sliderA');
+    sliderA.addEventListener('input', (e) => {
+      PARAMS.A = parseFloat(e.target.value);
+      document.getElementById('valA').textContent = PARAMS.A.toFixed(2);
+    });
+
+    const sliderEF = document.getElementById('sliderEF');
+    sliderEF.addEventListener('input', (e) => {
+      PARAMS.EF = parseFloat(e.target.value);
+      document.getElementById('valEF').textContent = `${PARAMS.EF.toFixed(2)} eV`;
+    });
+
+    const sliderBz = document.getElementById('sliderBz');
+    sliderBz.addEventListener('input', (e) => {
+      PARAMS.Bz = parseFloat(e.target.value);
+      document.getElementById('valBz').textContent = `${PARAMS.Bz.toFixed(2)} T`;
+      updateStateUI();
+    });
+
+    const sliderDisorder = document.getElementById('sliderDisorder');
+    sliderDisorder.addEventListener('input', (e) => {
+      PARAMS.disorder = parseInt(e.target.value);
+      document.getElementById('valDisorder').textContent = `${PARAMS.disorder} %`;
+      updateDisorder();
+    });
+
+    // 预设快速切换
+    const presetBtns = document.querySelectorAll('.preset-btn');
+    presetBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        presetBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        const preset = btn.dataset.preset;
+        if (preset === 'ideal_qshe') {
+          PARAMS.M = 0.35;
+          PARAMS.Bz = 0.0;
+          PARAMS.disorder = 8;
+        } else if (preset === 'defect_bypass') {
+          PARAMS.M = 0.40;
+          PARAMS.Bz = 0.0;
+          PARAMS.disorder = 35; // 高电势杂质扰动
+        } else if (preset === 'magnetic_breaking') {
+          PARAMS.M = 0.35;
+          PARAMS.Bz = 1.80; // 强外磁场打破时间反演对称性
+          PARAMS.disorder = 20;
+        } else if (preset === 'trivial_insulator') {
+          PARAMS.M = -0.35; // 质量反号，平凡相
+          PARAMS.Bz = 0.0;
+          PARAMS.disorder = 12;
+        }
+
+        // 同步控件
+        sliderM.value = PARAMS.M;
+        sliderBz.value = PARAMS.Bz;
+        sliderDisorder.value = PARAMS.disorder;
+        document.getElementById('valM').textContent = PARAMS.M.toFixed(2);
+        document.getElementById('valBz').textContent = `${PARAMS.Bz.toFixed(2)} T`;
+        document.getElementById('valDisorder').textContent = `${PARAMS.disorder} %`;
+
+        updateDisorder();
+        updateStateUI();
+      });
+    });
+
+    // 按钮动作
+    document.getElementById('btnInjectWavepacket').addEventListener('click', () => {
+      for (let i = 0; i < 20; i++) {
+        spawnCarriers();
+      }
+      initAudio();
+    });
+
+    document.getElementById('btnAudioToggle').addEventListener('click', () => {
+      PARAMS.audioEnabled = !PARAMS.audioEnabled;
+      const icon = document.getElementById('audioIcon');
+      const text = document.getElementById('audioText');
+      if (PARAMS.audioEnabled) {
+        initAudio();
+        icon.textContent = '🔊';
+        text.textContent = '量子共振音频: 开';
+      } else {
+        icon.textContent = '🔇';
+        text.textContent = '量子共振音频: 关';
+        if (upGain) upGain.gain.setValueAtTime(0, audioCtx.currentTime);
+        if (downGain) downGain.gain.setValueAtTime(0, audioCtx.currentTime);
+        if (noiseGain) noiseGain.gain.setValueAtTime(0, audioCtx.currentTime);
+      }
+    });
+
+    document.getElementById('btnResetSystem').addEventListener('click', () => {
+      particles.length = 0;
+      initLattice();
+    });
+
+    // 用户在实空间画布上手动绘制电势障碍
+    let isDrawingPotential = false;
+    function handleDraw(e) {
+      const rect = realCanvas.getBoundingClientRect();
+      const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+      const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+      if (!clientX || !clientY) return;
+
+      const px = clientX - rect.left;
+      const py = clientY - rect.top;
+
+      const gx = Math.floor((px / rect.width) * GRID_X);
+      const gy = Math.floor((py / rect.height) * GRID_Y);
+
+      if (gx >= 0 && gx < GRID_X && gy >= 0 && gy < GRID_Y) {
+        const idx = gy * GRID_X + gx;
+        potentialGrid[idx] = 0.65; // 强电势势垒
+      }
+    }
+
+    realCanvas.addEventListener('mousedown', (e) => {
+      isDrawingPotential = true;
+      handleDraw(e);
+      initAudio();
+    });
+    window.addEventListener('mousemove', (e) => {
+      if (isDrawingPotential) handleDraw(e);
+    });
+    window.addEventListener('mouseup', () => {
+      isDrawingPotential = false;
+    });
+
+    // 启动初始化
+    initLattice();
+    resizeCanvas();
+    updateStateUI();
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>

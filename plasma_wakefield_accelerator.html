@@ -1,0 +1,1269 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>等离子体尾波场超高梯度粒子加速全息模拟 - Plasma Wakefield Acceleration</title>
+  <style>
+    :root {
+      --bg-dark: #060810;
+      --panel-bg: rgba(12, 17, 30, 0.82);
+      --panel-border: rgba(56, 189, 248, 0.22);
+      --accent-cyan: #38bdf8;
+      --accent-laser: #f43f5e;
+      --accent-electron: #a855f7;
+      --accent-energy: #22c55e;
+      --accent-gold: #fbbf24;
+      --text-main: #f1f5f9;
+      --text-dim: #94a3b8;
+      --font-code: 'JetBrains Mono', 'Fira Code', monospace;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      background: rgba(8, 12, 22, 0.95);
+      border-bottom: 1px solid var(--panel-border);
+      padding: 10px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 20;
+    }
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .back-btn {
+      text-decoration: none;
+      color: var(--accent-cyan);
+      background: rgba(56, 189, 248, 0.12);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      transition: all 0.25s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .back-btn:hover {
+      background: rgba(56, 189, 248, 0.25);
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.4);
+    }
+    .title-group h1 {
+      font-size: 17px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .title-group p {
+      font-size: 11px;
+      color: var(--text-dim);
+      font-family: var(--font-code);
+      margin-top: 2px;
+    }
+    .status-badges {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .badge {
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 4px 10px;
+      border-radius: 5px;
+      font-size: 11px;
+      font-family: var(--font-code);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .badge-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--accent-cyan);
+      box-shadow: 0 0 8px var(--accent-cyan);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 0.4; }
+      50% { opacity: 1; }
+    }
+    .main-workspace {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 390px;
+      overflow: hidden;
+      position: relative;
+    }
+    .viewport-container {
+      position: relative;
+      background: radial-gradient(circle at 45% 50%, #0d1527 0%, #05070f 100%);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    canvas#mainCanvas {
+      width: 100%;
+      flex: 1;
+      display: block;
+      cursor: crosshair;
+    }
+    .viewport-overlay {
+      position: absolute;
+      top: 14px;
+      left: 16px;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .hud-stat {
+      background: rgba(10, 15, 28, 0.75);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(56, 189, 248, 0.2);
+      border-left: 3px solid var(--accent-cyan);
+      padding: 5px 12px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-family: var(--font-code);
+      color: #e2e8f0;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+    }
+    .hud-stat span.val {
+      font-weight: 700;
+      color: var(--accent-cyan);
+    }
+    .hud-stat.danger {
+      border-left-color: var(--accent-laser);
+    }
+    .hud-stat.danger span.val {
+      color: var(--accent-laser);
+    }
+    .hud-stat.success {
+      border-left-color: var(--accent-energy);
+    }
+    .hud-stat.success span.val {
+      color: var(--accent-energy);
+    }
+
+    /* 右侧控制面板与示波器 */
+    .control-sidebar {
+      background: var(--panel-bg);
+      backdrop-filter: blur(14px);
+      border-left: 1px solid var(--panel-border);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      z-index: 10;
+    }
+    .control-sidebar::-webkit-scrollbar {
+      width: 5px;
+    }
+    .control-sidebar::-webkit-scrollbar-thumb {
+      background: rgba(56, 189, 248, 0.25);
+      border-radius: 3px;
+    }
+    .section-block {
+      padding: 14px 18px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .section-title {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--accent-cyan);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .section-title::before {
+      content: '';
+      display: inline-block;
+      width: 4px;
+      height: 12px;
+      background: var(--accent-cyan);
+      border-radius: 2px;
+    }
+    .param-group {
+      margin-bottom: 12px;
+    }
+    .param-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--text-dim);
+      margin-bottom: 5px;
+      font-family: var(--font-code);
+    }
+    .param-label span.num {
+      color: #fff;
+      font-weight: 600;
+    }
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 5px;
+      background: rgba(255, 255, 255, 0.12);
+      border-radius: 3px;
+      outline: none;
+      transition: background 0.2s;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      background: var(--accent-cyan);
+      box-shadow: 0 0 10px var(--accent-cyan);
+      cursor: pointer;
+    }
+    .btn-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      margin-top: 6px;
+    }
+    .btn {
+      background: rgba(30, 41, 59, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: #cbd5e1;
+      padding: 7px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: center;
+    }
+    .btn:hover {
+      background: rgba(56, 189, 248, 0.18);
+      border-color: rgba(56, 189, 248, 0.4);
+      color: #fff;
+    }
+    .btn.active {
+      background: rgba(56, 189, 248, 0.28);
+      border-color: var(--accent-cyan);
+      color: #fff;
+      font-weight: 600;
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.25);
+    }
+    .btn.primary {
+      background: linear-gradient(135deg, rgba(56, 189, 248, 0.3), rgba(168, 85, 247, 0.3));
+      border-color: rgba(56, 189, 248, 0.6);
+      color: #fff;
+    }
+    .btn.primary:hover {
+      background: linear-gradient(135deg, rgba(56, 189, 248, 0.45), rgba(168, 85, 247, 0.45));
+      box-shadow: 0 0 15px rgba(56, 189, 248, 0.4);
+    }
+
+    /* 示波器容器 */
+    .scope-box {
+      background: rgba(6, 10, 18, 0.85);
+      border: 1px solid rgba(56, 189, 248, 0.18);
+      border-radius: 6px;
+      padding: 8px;
+      margin-top: 8px;
+      position: relative;
+    }
+    .scope-header {
+      font-size: 11px;
+      color: var(--text-dim);
+      font-family: var(--font-code);
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 4px;
+    }
+    canvas.scope-canvas {
+      width: 100%;
+      height: 95px;
+      display: block;
+      background: #040711;
+      border-radius: 4px;
+    }
+    .legend-row {
+      display: flex;
+      gap: 12px;
+      font-size: 10px;
+      font-family: var(--font-code);
+      margin-top: 5px;
+      color: var(--text-dim);
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .legend-color {
+      width: 8px;
+      height: 8px;
+      border-radius: 2px;
+    }
+
+    /* 物理原理卡片 */
+    .physics-tip {
+      font-size: 11.5px;
+      line-height: 1.6;
+      color: #94a3b8;
+      background: rgba(15, 23, 42, 0.6);
+      padding: 10px 12px;
+      border-radius: 6px;
+      border-left: 2px solid var(--accent-gold);
+    }
+    .physics-tip strong {
+      color: #e2e8f0;
+    }
+
+    /* 底部操作条 */
+    .bottom-bar {
+      display: flex;
+      gap: 8px;
+      padding: 12px 18px;
+      background: rgba(8, 12, 22, 0.95);
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .action-btn {
+      flex: 1;
+      padding: 9px;
+      font-size: 12px;
+      font-weight: 600;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      background: rgba(30, 41, 59, 0.6);
+      color: #fff;
+      cursor: pointer;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+    .action-btn:hover {
+      background: rgba(56, 189, 248, 0.2);
+      border-color: var(--accent-cyan);
+    }
+    .action-btn.active-pulse {
+      background: rgba(244, 63, 94, 0.25);
+      border-color: var(--accent-laser);
+      animation: pulse-border 1.5s infinite;
+    }
+    @keyframes pulse-border {
+      0%, 100% { box-shadow: 0 0 5px rgba(244, 63, 94, 0.3); }
+      50% { box-shadow: 0 0 16px rgba(244, 63, 94, 0.7); }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-left">
+      <a href="index.html" class="back-btn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+        返回展厅
+      </a>
+      <div class="title-group">
+        <h1>等离子体尾波场超高梯度粒子加速全息模拟 <span style="font-size:12px; color:var(--accent-cyan); font-weight:normal;">[LWFA / PWFA]</span></h1>
+        <p>100 GV/m 相对论非线性空泡破波、自注入捕获与准单能电子束团相空间动力学</p>
+      </div>
+    </div>
+    <div class="status-badges">
+      <div class="badge"><div class="badge-dot"></div>共动坐标系 (c≈v_g)</div>
+      <div class="badge" style="border-color: rgba(244,63,94,0.4);"><span style="color:var(--accent-laser);">E_peak:</span> <span id="hdrEpeak">142 GV/m</span></div>
+      <div class="badge" style="border-color: rgba(34,197,94,0.4);"><span style="color:var(--accent-energy);">Energy:</span> <span id="hdrMaxEnergy">845 MeV</span></div>
+    </div>
+  </header>
+
+  <div class="main-workspace">
+    <!-- 主物理仿真视口 -->
+    <div class="viewport-container" id="viewContainer">
+      <canvas id="mainCanvas"></canvas>
+      <div class="viewport-overlay">
+        <div class="hud-stat danger">
+          加速梯度 E_z 峰值: <span class="val" id="hudEz">142.6 GV/m</span> (传统RF腔 1000×)
+        </div>
+        <div class="hud-stat success">
+          束团峰值能量 E_max: <span class="val" id="hudEnergy">845.2 MeV</span> (γ ≈ 1654)
+        </div>
+        <div class="hud-stat">
+          加速距离 z_acc: <span class="val" id="hudDist">3.42 mm</span> / 散相长度: <span class="val" id="hudLd">4.80 mm</span>
+        </div>
+        <div class="hud-stat">
+          空泡半径 R_b: <span class="val" id="hudRb">18.4 μm</span> | 捕获电子数: <span class="val" id="hudCount">1,240 pcs</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 右侧科学分析与调控系统 -->
+    <div class="control-sidebar">
+      <!-- 预设场景 -->
+      <div class="section-block">
+        <div class="section-title">典型物理加速工况 (Presets)</div>
+        <div class="btn-grid">
+          <button class="btn active" id="p1Btn" onclick="applyPreset(1)">深空泡非线性自注入</button>
+          <button class="btn" id="p2Btn" onclick="applyPreset(2)">亚GeV高准单能态</button>
+          <button class="btn" id="p3Btn" onclick="applyPreset(3)">线性微扰尾波共振</button>
+          <button class="btn" id="p4Btn" onclick="applyPreset(4)">陡阶跃密度注入机制</button>
+        </div>
+      </div>
+
+      <!-- 激光与等离子体核心参数 -->
+      <div class="section-block">
+        <div class="section-title">驱动源与等离子体参数</div>
+        <div class="param-group">
+          <div class="param-label">
+            <span>激光无量纲振幅 a₀ = eA/m_e c</span>
+            <span class="num" id="valA0">3.50</span>
+          </div>
+          <input type="range" id="slA0" min="0.8" max="5.5" step="0.1" value="3.5" oninput="updateParam('a0', this.value)">
+        </div>
+        <div class="param-group">
+          <div class="param-label">
+            <span>等离子体电子密度 n₀ (10¹⁸ cm⁻³)</span>
+            <span class="num" id="valN0">2.00</span>
+          </div>
+          <input type="range" id="slN0" min="0.5" max="8.0" step="0.2" value="2.0" oninput="updateParam('n0', this.value)">
+        </div>
+        <div class="param-group">
+          <div class="param-label">
+            <span>激光脉宽 τ_FWHM (飞秒 fs)</span>
+            <span class="num" id="valTau">28 fs</span>
+          </div>
+          <input type="range" id="slTau" min="15" max="60" step="1" value="28" oninput="updateParam('tau', this.value)">
+        </div>
+        <div class="param-group">
+          <div class="param-label">
+            <span>注入模式 (Injection Regime)</span>
+          </div>
+          <div class="btn-grid" style="grid-template-columns: repeat(3, 1fr);">
+            <button class="btn active" id="injSelf" onclick="setInjMode('self')">波破自注入</button>
+            <button class="btn" id="injExt" onclick="setInjMode('external')">外束注入</button>
+            <button class="btn" id="injRamp" onclick="setInjMode('ramp')">密度陡跌</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 示波器 1：纵向电场 Ez 与横向聚焦力 Fr -->
+      <div class="section-block">
+        <div class="section-title">空间电磁场剖面 E_z(ξ) & F_r(r)</div>
+        <div class="scope-box">
+          <div class="scope-header">
+            <span>纵向加速场 E_z (GV/m)</span>
+            <span id="scopeEzMax" style="color:var(--accent-cyan);">±145 GV/m</span>
+          </div>
+          <canvas id="scopeEzCanvas" class="scope-canvas"></canvas>
+          <div class="legend-row">
+            <div class="legend-item"><div class="legend-color" style="background:var(--accent-cyan);"></div>纵向电场 E_z</div>
+            <div class="legend-item"><div class="legend-color" style="background:var(--accent-laser);"></div>激光包络 I(ξ)</div>
+            <div class="legend-item"><div class="legend-color" style="background:var(--accent-gold);"></div>束团电荷密度 ρ</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 示波器 2：电子束能谱 dN/dE 与相空间 (ξ, pz) -->
+      <div class="section-block">
+        <div class="section-title">电子束能谱 dN/dE & 准单能性</div>
+        <div class="scope-box">
+          <div class="scope-header">
+            <span>能谱分布 (MeV)</span>
+            <span id="scopeFwhm" style="color:var(--accent-energy);">ΔE/E ≈ 2.8%</span>
+          </div>
+          <canvas id="scopeEnergyCanvas" class="scope-canvas"></canvas>
+          <div class="legend-row">
+            <div class="legend-item"><div class="legend-color" style="background:var(--accent-energy);"></div>高能聚束峰</div>
+            <div class="legend-item"><div class="legend-color" style="background:rgba(255,255,255,0.3);"></div>连续低能背景</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 物理原理注解 -->
+      <div class="section-block">
+        <div class="physics-tip">
+          <strong>非线性空泡机制 (Bubble Regime)</strong>：强激光有质动力将背景电子完全推开，形成球形离子空穴。在空泡末端，回流电子在离子恢复力作用下剧烈汇聚发生横向与纵向波破（Wave Breaking），注入并经历高达 <strong>100+ GV/m</strong> 的巨大纵向加速电场，在毫米量级即可获得GeV级能量！
+        </div>
+      </div>
+
+      <!-- 底部控制按钮 -->
+      <div class="bottom-bar">
+        <button class="action-btn" id="btnPlay" onclick="togglePlay()">
+          <span id="playIcon">⏸</span> <span id="playText">暂停仿真</span>
+        </button>
+        <button class="action-btn" onclick="triggerManualInjection()">
+          ⚡ 触发脉冲注入
+        </button>
+        <button class="action-btn" onclick="resetSim()">
+          🔄 重置腔态
+        </button>
+        <button class="action-btn" id="btnAudio" onclick="toggleAudio()">
+          🔊 音效: 开
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // -------------------------------------------------------------
+    // 全局物理常量与系统配置
+    // -------------------------------------------------------------
+    const PARAMS = {
+      a0: 3.5,            // 激光无量纲强度
+      n0: 2.0,            // 等离子体密度 (10^18 cm^-3)
+      tau: 28,            // 脉宽 (fs)
+      injMode: 'self',    // 'self', 'external', 'ramp'
+      paused: false,
+      audioEnabled: true,
+      time: 0,
+      zAccMm: 0,          // 累积加速距离 (mm)
+      laserX: 0.65        // 激光在共动视口中的归一化横坐标
+    };
+
+    // 音频上下文
+    let audioCtx = null;
+    let plasmaSynth = null;
+    let chirpGain = null;
+
+    function initAudio() {
+      if (audioCtx) return;
+      try {
+        const AudioClass = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioClass();
+        
+        // 连续等离子体谐振低频轰鸣
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(65, audioCtx.currentTime);
+        
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(320, audioCtx.currentTime);
+
+        osc.connect(filter);
+        filter.connect(gain);
+        gain.connect(audioCtx.destination);
+        gain.gain.setValueAtTime(0.04, audioCtx.currentTime);
+        osc.start();
+
+        plasmaSynth = { osc, filter, gain };
+      } catch(e) {
+        console.warn('AudioContext not supported');
+      }
+    }
+
+    function playInjectionSound(energyVal) {
+      if (!PARAMS.audioEnabled || !audioCtx) return;
+      try {
+        const now = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        osc.type = 'sine';
+        // 频率随获得能量提升
+        const baseFreq = 400 + Math.min(1800, energyVal * 1.5);
+        osc.frequency.setValueAtTime(baseFreq, now);
+        osc.frequency.exponentialRampToValueAtTime(baseFreq * 1.8, now + 0.15);
+
+        g.gain.setValueAtTime(0.08, now);
+        g.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+
+        osc.connect(g);
+        g.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.2);
+      } catch(e){}
+    }
+
+    function toggleAudio() {
+      PARAMS.audioEnabled = !PARAMS.audioEnabled;
+      const btn = document.getElementById('btnAudio');
+      if (PARAMS.audioEnabled) {
+        initAudio();
+        if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+        btn.textContent = '🔊 音效: 开';
+        if (plasmaSynth) plasmaSynth.gain.gain.setValueAtTime(0.04, audioCtx.currentTime);
+      } else {
+        btn.textContent = '🔇 音效: 关';
+        if (plasmaSynth && audioCtx) plasmaSynth.gain.gain.setValueAtTime(0.0, audioCtx.currentTime);
+      }
+    }
+
+    // -------------------------------------------------------------
+    // 等离子体物理模型与推导方程
+    // -------------------------------------------------------------
+    // 计算等离子体波长 lambda_p (um)、波破场 E0 (GV/m)、散相长度 Ld (mm)
+    function calcPhysicsConstants() {
+      const n0 = Math.max(0.2, PARAMS.n0); // in 10^18 cm^-3
+      // 等离子体频率常数 ~ 5.64e4 * sqrt(n_cm-3)
+      // lambda_p(um) ≈ 33.4 / sqrt(n0_18)
+      const lambda_p = 33.4 / Math.sqrt(n0);
+      // 波破场极限 E0 (GV/m) ≈ 96 * sqrt(n0_18)
+      const E0 = 96.0 * Math.sqrt(n0);
+      // 气泡半径 Rb (um) ≈ 2 * sqrt(a0) * (c/wp) ≈ 0.32 * sqrt(a0) * lambda_p
+      const Rb = 0.38 * Math.sqrt(Math.max(0.5, PARAMS.a0)) * lambda_p;
+      // 散相长度 Ld (mm) ≈ 4/3 * (omega0/wp)^2 * Rb 比例关系
+      const Ld = (4.0 / 3.0) * (180.0 / Math.pow(n0, 1.25)) * 0.035;
+      // 峰值加速场 Ez_peak (GV/m) ~ sqrt(a0) * E0 在非线性空泡后壁
+      const Ez_peak = Math.sqrt(PARAMS.a0) * E0 * (PARAMS.a0 > 2.0 ? 1.15 : 0.65);
+      
+      return { lambda_p, E0, Rb, Ld, Ez_peak };
+    }
+
+    // -------------------------------------------------------------
+    // 粒子模拟数据结构：背景流体宏电子 & 捕获高能电子束
+    // -------------------------------------------------------------
+    const NUM_BACKGROUND = 2800; // 背景流动等离子体宏电子
+    let bgElectrons = [];
+    let witnessElectrons = [];   // 捕获加速的束团电子
+
+    function initParticles() {
+      bgElectrons = [];
+      witnessElectrons = [];
+      const canvas = document.getElementById('mainCanvas');
+      const w = canvas.width || 1000;
+      const h = canvas.height || 600;
+
+      for (let i = 0; i < NUM_BACKGROUND; i++) {
+        bgElectrons.push({
+          x: Math.random() * w,
+          y: (Math.random() - 0.5) * (h * 0.88),
+          vx: 0,
+          vy: 0,
+          origY: (Math.random() - 0.5) * (h * 0.88),
+          phase: Math.random() * Math.PI * 2
+        });
+      }
+
+      // 如果是外束注入预设，初始化一小撮已注入电子
+      if (PARAMS.injMode === 'external') {
+        spawnWitnessBunch(80, 50);
+      }
+    }
+
+    function spawnWitnessBunch(count = 90, initialEnergy = 35) {
+      const canvas = document.getElementById('mainCanvas');
+      const w = canvas.width;
+      const centerY = 0;
+      const { Rb } = calcPhysicsConstants();
+      const scaleX = w / 160; // 160 um 全屏宽度
+      const bubbleCenterNorm = PARAMS.laserX - 0.22;
+      const bubbleCenterPix = bubbleCenterNorm * w;
+
+      // 注入在空泡加速相区后壁 (bubbleCenterPix - Rb*0.8)
+      const injectX = bubbleCenterPix - Rb * scaleX * 0.72;
+
+      for (let i = 0; i < count; i++) {
+        const spreadX = (Math.random() - 0.5) * 8.0;
+        const spreadY = (Math.random() - 0.5) * 5.0;
+        witnessElectrons.push({
+          x: injectX + spreadX,
+          y: centerY + spreadY,
+          px: initialEnergy * (1.0 + (Math.random() - 0.5) * 0.08), // MeV
+          py: (Math.random() - 0.5) * 0.8,
+          gamma: initialEnergy / 0.511,
+          charge: 1.0,
+          id: Math.random()
+        });
+      }
+      playInjectionSound(initialEnergy);
+    }
+
+    // -------------------------------------------------------------
+    // 画布与渲染上下文
+    // -------------------------------------------------------------
+    const mainCanvas = document.getElementById('mainCanvas');
+    const ctx = mainCanvas.getContext('2d');
+    const scopeEzCanvas = document.getElementById('scopeEzCanvas');
+    const ctxEz = scopeEzCanvas.getContext('2d');
+    const scopeEnergyCanvas = document.getElementById('scopeEnergyCanvas');
+    const ctxEnergy = scopeEnergyCanvas.getContext('2d');
+
+    function resizeCanvases() {
+      const container = document.getElementById('viewContainer');
+      mainCanvas.width = container.clientWidth * window.devicePixelRatio;
+      mainCanvas.height = container.clientHeight * window.devicePixelRatio;
+      ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+      scopeEzCanvas.width = scopeEzCanvas.clientWidth * window.devicePixelRatio;
+      scopeEzCanvas.height = scopeEzCanvas.clientHeight * window.devicePixelRatio;
+      ctxEz.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+      scopeEnergyCanvas.width = scopeEnergyCanvas.clientWidth * window.devicePixelRatio;
+      scopeEnergyCanvas.height = scopeEnergyCanvas.clientHeight * window.devicePixelRatio;
+      ctxEnergy.scale(window.devicePixelRatio, window.devicePixelRatio);
+    }
+
+    window.addEventListener('resize', () => {
+      resizeCanvases();
+      initParticles();
+    });
+
+    // -------------------------------------------------------------
+    // 物理演化迭代步进
+    // -------------------------------------------------------------
+    let lastTime = performance.now();
+    let autoInjectionCooldown = 0;
+
+    function updateSimulation(dt) {
+      if (PARAMS.paused) return;
+
+      const w = mainCanvas.width / window.devicePixelRatio;
+      const h = mainCanvas.height / window.devicePixelRatio;
+      const centerY = h / 2;
+
+      const phys = calcPhysicsConstants();
+      const scaleUmToPix = w / 140.0; // 视口代表 140 微米宽度
+      const Rb_pix = phys.Rb * scaleUmToPix;
+
+      // 激光驱动中心位置
+      const laserX = PARAMS.laserX * w;
+      const bubbleCenterPix = laserX - Rb_pix * 0.95;
+
+      // 累积推进物理加速距离 (mm)
+      // 速度接近 c，1 毫秒演化代表实际飞秒激光穿行微米量级
+      PARAMS.zAccMm += dt * 0.85;
+      if (PARAMS.zAccMm > 8.0) {
+        PARAMS.zAccMm = 0.05; // 重新进入等离子体通道循环
+        witnessElectrons = [];
+      }
+
+      // 1. 背景等离子体宏粒子流线求解 (有质动力排开与空泡回流)
+      const flowSpeed = w * 0.65; // 背景电子在共动坐标系中以群速度 -vg 流过
+      const isBubbleRegime = PARAMS.a0 >= 1.8;
+
+      for (let i = 0; i < bgElectrons.length; i++) {
+        const p = bgElectrons[i];
+        p.x -= flowSpeed * dt;
+
+        // 循环进入新电子
+        if (p.x < -40) {
+          p.x = w + Math.random() * 60;
+          p.y = (Math.random() - 0.5) * (h * 0.85);
+          p.origY = p.y;
+          p.vx = 0;
+          p.vy = 0;
+        }
+
+        // 计算与激光脉冲/空泡中心的距离
+        const dx = p.x - bubbleCenterPix;
+        const dy = p.y; // 相对中心轴
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        if (isBubbleRegime) {
+          // 非线性空泡排斥力 (Blowout Force)：将内部电子全部推出空泡半径外
+          if (dist < Rb_pix) {
+            const pushFactor = (Rb_pix - dist) / Rb_pix;
+            const angle = Math.atan2(dy, dx);
+            // 径向向外推开
+            p.vy += Math.sin(angle) * pushFactor * 1400 * dt;
+            p.vx += Math.cos(angle) * pushFactor * 600 * dt;
+          } else if (dist < Rb_pix * 1.55) {
+            // 在空泡边缘处的强离子恢复力：向内拉向中心回流
+            const pullFactor = (Rb_pix * 1.55 - dist) / (Rb_pix * 0.55);
+            // 后壁汇聚
+            if (dx < 0) {
+              p.vy -= Math.sign(p.y) * pullFactor * 1100 * dt;
+            }
+          }
+        } else {
+          // 线性尾波振荡模式 (正弦波波动)
+          const k_p = (2 * Math.PI) / (phys.lambda_p * scaleUmToPix);
+          const phase = k_p * (p.x - laserX);
+          if (p.x < laserX) {
+            const waveAmp = PARAMS.a0 * 18.0;
+            p.vy += -Math.sign(p.origY) * Math.sin(phase) * waveAmp * 35.0 * dt;
+          }
+        }
+
+        // 弹性恢复力与粘滞衰减，保持流体边界
+        p.vy -= (p.y - p.origY) * 6.5 * dt;
+        p.vy *= 0.94;
+        p.vx *= 0.92;
+
+        p.y += p.vy * dt;
+      }
+
+      // 2. 自注入与波破逻辑 (Self-Injection / Wave-breaking)
+      autoInjectionCooldown += dt;
+      if (PARAMS.injMode === 'self' && PARAMS.a0 >= 2.6 && autoInjectionCooldown > 0.45) {
+        // 在空泡后壁处触发电子自注入
+        if (witnessElectrons.length < 240) {
+          spawnWitnessBunch(24, 25.0 + PARAMS.a0 * 12.0);
+          autoInjectionCooldown = 0;
+        }
+      } else if (PARAMS.injMode === 'ramp') {
+        // 陡阶跃密度注入机制 (在密度下降沿受控注入超单能束)
+        if (witnessElectrons.length < 180 && Math.sin(PARAMS.time * 2.5) > 0.8) {
+          spawnWitnessBunch(35, 60.0);
+        }
+      }
+
+      // 3. 高能束团电子动力学演化 (加速电场 Ez 与聚焦力 Fr)
+      const Ez_normMax = phys.Ez_peak; // GV/m
+      for (let i = witnessElectrons.length - 1; i >= 0; i--) {
+        const e = witnessElectrons[i];
+        const xi_pix = e.x - bubbleCenterPix; // 相对于空泡中心的位置
+        const r_pix = e.y;
+
+        // 归一化空泡坐标 xi_norm in [-1, 1]
+        const xi_norm = xi_pix / Rb_pix;
+        const r_norm = r_pix / Rb_pix;
+
+        // 纵向加速电场 Ez：在空泡内部，Ez 从前部的负值（减速）线性变化到后部的正值（强加速）
+        // Ez(xi) = - Ez_peak * (xi / Rb)  => 在后部 (xi < 0) 时 Ez > 0，为电子施加巨大向前推力
+        let localEz = 0;
+        if (Math.abs(xi_norm) <= 1.05 && Math.abs(r_norm) <= 0.85) {
+          localEz = -Ez_normMax * xi_norm; // xi < 0 时为正加速场
+        } else {
+          localEz = -Ez_normMax * 0.15; // 溢出空泡区域减速
+        }
+
+        // 径向线性聚焦力 Fr = - (1/2) * m_e * wp^2 * r
+        const localFr = -r_norm * 450.0;
+
+        // 加速增益 dE = e * Ez * dz
+        const dEnergy = localEz * (dt * 15.0); // 映射到 MeV 变化
+        e.px += dEnergy;
+        e.py += localFr * dt;
+
+        // 横向束散角自然小幅度阻尼 (Adiabatic Damping of Emittance)
+        e.y += e.py * dt * 0.4;
+        e.y *= 0.985;
+
+        // 相对论微小相位漂移 (Dephasing Slip: 超相对论电子速度稍大于群速 vg)
+        // 电子在空泡内慢慢向前漂移 (xi 变大，走向减速区)
+        const slipSpeed = 12.0 * (1.0 - 1.0 / Math.pow(Math.max(1.1, e.px / 15.0), 2));
+        e.x += slipSpeed * dt;
+
+        // 淘汰离开视口或严重减速的粒子
+        if (e.x > laserX + 20 || e.px < 5.0) {
+          witnessElectrons.splice(i, 1);
+        }
+      }
+
+      PARAMS.time += dt;
+    }
+
+    // -------------------------------------------------------------
+    // 主视口图形渲染：非线性空泡、等离子体云、激光波包、束团发光
+    // -------------------------------------------------------------
+    function renderMainView() {
+      const w = mainCanvas.width / window.devicePixelRatio;
+      const h = mainCanvas.height / window.devicePixelRatio;
+      const centerY = h / 2;
+
+      ctx.clearRect(0, 0, w, h);
+
+      const phys = calcPhysicsConstants();
+      const scaleUmToPix = w / 140.0;
+      const Rb_pix = phys.Rb * scaleUmToPix;
+      const laserX = PARAMS.laserX * w;
+      const bubbleCenterPix = laserX - Rb_pix * 0.95;
+
+      // 1. 绘制网格线与空间刻度 (微米坐标)
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.07)';
+      ctx.lineWidth = 1;
+      const gridStep = 20 * scaleUmToPix;
+      for (let x = 0; x < w; x += gridStep) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, h);
+        ctx.stroke();
+      }
+      ctx.beginPath();
+      ctx.moveTo(0, centerY);
+      ctx.lineTo(w, centerY);
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.2)';
+      ctx.setLineDash([4, 4]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // 2. 绘制离子背景辉光 (Ion Background Core)
+      // 空泡内正离子净空间电荷形成的柔和紫金色光晕
+      const bubbleGrad = ctx.createRadialGradient(
+        bubbleCenterPix, centerY, Rb_pix * 0.15,
+        bubbleCenterPix, centerY, Rb_pix * 1.15
+      );
+      bubbleGrad.addColorStop(0, 'rgba(168, 85, 247, 0.18)');
+      bubbleGrad.addColorStop(0.6, 'rgba(56, 189, 248, 0.08)');
+      bubbleGrad.addColorStop(0.95, 'rgba(6, 182, 212, 0.25)');
+      bubbleGrad.addColorStop(1, 'rgba(6, 182, 212, 0.0)');
+
+      ctx.fillStyle = bubbleGrad;
+      ctx.beginPath();
+      ctx.ellipse(bubbleCenterPix, centerY, Rb_pix, Rb_pix * 0.88, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 空泡鞘层边界线条 (Bubble Sheath)
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.45)';
+      ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      ctx.ellipse(bubbleCenterPix, centerY, Rb_pix, Rb_pix * 0.88, 0, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // 如果波破机制被激发，空泡后壁绘制汇聚交错辉光 (Sheath Crossing / Wavebreaking Glow)
+      if (PARAMS.a0 >= 2.2) {
+        ctx.save();
+        ctx.shadowColor = '#38bdf8';
+        ctx.shadowBlur = 18;
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.75)';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        const cuspX = bubbleCenterPix - Rb_pix;
+        ctx.arc(cuspX, centerY, Rb_pix * 0.35, -Math.PI * 0.5, Math.PI * 0.5);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // 3. 绘制飞秒激光超短超强光脉冲 (Laser Pulse Wavepacket)
+      const laserWidthPix = (PARAMS.tau * 0.3) * scaleUmToPix * 1.2;
+      const laserHeightPix = Rb_pix * 0.95;
+
+      const laserGrad = ctx.createRadialGradient(
+        laserX, centerY, 4,
+        laserX, centerY, laserWidthPix * 1.4
+      );
+      laserGrad.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
+      laserGrad.addColorStop(0.3, 'rgba(244, 63, 94, 0.75)');
+      laserGrad.addColorStop(0.7, 'rgba(244, 63, 94, 0.25)');
+      laserGrad.addColorStop(1, 'transparent');
+
+      ctx.fillStyle = laserGrad;
+      ctx.beginPath();
+      ctx.ellipse(laserX, centerY, laserWidthPix, laserHeightPix, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 激光内部微波干涉条纹 (Phase Carrier Wavefronts)
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.65)';
+      ctx.lineWidth = 1.2;
+      const numFringes = 6;
+      for (let i = -numFringes; i <= numFringes; i++) {
+        const fx = laserX + (i * laserWidthPix) / (numFringes * 1.1);
+        const ySpan = Math.sqrt(Math.max(0, 1 - Math.pow((fx - laserX) / laserWidthPix, 2))) * laserHeightPix * 0.85;
+        if (ySpan > 2) {
+          ctx.beginPath();
+          ctx.moveTo(fx, centerY - ySpan);
+          ctx.lineTo(fx, centerY + ySpan);
+          ctx.stroke();
+        }
+      }
+
+      // 4. 绘制背景等离子体电子流 (流线宏电子点阵)
+      ctx.fillStyle = 'rgba(56, 189, 248, 0.42)';
+      for (let i = 0; i < bgElectrons.length; i++) {
+        const p = bgElectrons[i];
+        const screenY = centerY + p.y;
+        // 如果在空泡边缘的高密度鞘层处，加大亮度和大小
+        const dx = p.x - bubbleCenterPix;
+        const dy = p.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const isSheath = Math.abs(dist - Rb_pix) < 14;
+
+        if (isSheath) {
+          ctx.fillStyle = 'rgba(168, 85, 247, 0.85)';
+          ctx.fillRect(p.x, screenY, 2.2, 2.2);
+        } else {
+          ctx.fillStyle = 'rgba(56, 189, 248, 0.35)';
+          ctx.fillRect(p.x, screenY, 1.4, 1.4);
+        }
+      }
+
+      // 5. 绘制捕获的高能粒子束团 (Witness Electron Bunch)
+      // 按照能量渲染白-绿-金热图发光
+      let maxEnergy = 0;
+      let sumEnergy = 0;
+
+      for (let i = 0; i < witnessElectrons.length; i++) {
+        const e = witnessElectrons[i];
+        if (e.px > maxEnergy) maxEnergy = e.px;
+        sumEnergy += e.px;
+
+        const screenY = centerY + e.y;
+        // 相对论能量着色
+        const hue = Math.min(140, (e.px / 800) * 140); // 0(红) -> 120(绿) -> 180(青蓝)
+        
+        ctx.save();
+        ctx.shadowColor = `hsl(${hue + 60}, 100%, 70%)`;
+        ctx.shadowBlur = 10;
+        ctx.fillStyle = `hsl(${hue + 60}, 100%, 80%)`;
+        
+        ctx.beginPath();
+        ctx.arc(e.x, screenY, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      // 6. 束团前方加速电场箭头与等高线指示
+      ctx.strokeStyle = 'rgba(34, 197, 94, 0.3)';
+      ctx.lineWidth = 1.2;
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath();
+      ctx.moveTo(bubbleCenterPix - Rb_pix, centerY - Rb_pix * 0.7);
+      ctx.lineTo(bubbleCenterPix - Rb_pix, centerY + Rb_pix * 0.7);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // 实时更新头部与 HUD 标签
+      document.getElementById('hudEz').textContent = `${phys.Ez_peak.toFixed(1)} GV/m`;
+      document.getElementById('hdrEpeak').textContent = `${phys.Ez_peak.toFixed(0)} GV/m`;
+      document.getElementById('hudEnergy').textContent = `${maxEnergy.toFixed(1)} MeV`;
+      document.getElementById('hdrMaxEnergy').textContent = `${maxEnergy.toFixed(0)} MeV`;
+      document.getElementById('hudDist').textContent = `${PARAMS.zAccMm.toFixed(2)} mm`;
+      document.getElementById('hudLd').textContent = `${phys.Ld.toFixed(2)} mm`;
+      document.getElementById('hudRb').textContent = `${phys.Rb.toFixed(1)} μm`;
+      document.getElementById('hudCount').textContent = `${witnessElectrons.length * 12} pcs`;
+    }
+
+    // -------------------------------------------------------------
+    // 示波器 1 渲染：纵向电场 Ez 与激光包络
+    // -------------------------------------------------------------
+    function renderScopeEz() {
+      const w = scopeEzCanvas.width / window.devicePixelRatio;
+      const h = scopeEzCanvas.height / window.devicePixelRatio;
+      ctxEz.clearRect(0, 0, w, h);
+
+      // 零轴
+      const midY = h / 2;
+      ctxEz.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+      ctxEz.lineWidth = 1;
+      ctxEz.beginPath();
+      ctxEz.moveTo(0, midY);
+      ctxEz.lineTo(w, midY);
+      ctxEz.stroke();
+
+      const phys = calcPhysicsConstants();
+      const Rb_norm = 0.35; // 空泡宽度占示波器比例
+      const centerNorm = PARAMS.laserX - 0.22;
+
+      // 绘制激光包络 I(xi)
+      ctxEz.strokeStyle = 'var(--accent-laser)';
+      ctxEz.lineWidth = 1.5;
+      ctxEz.beginPath();
+      for (let x = 0; x < w; x++) {
+        const normX = x / w;
+        const dLaser = (normX - PARAMS.laserX) / 0.05;
+        const laserEnv = Math.exp(-dLaser * dLaser);
+        const y = midY - laserEnv * (h * 0.42);
+        if (x === 0) ctxEz.moveTo(x, y);
+        else ctxEz.lineTo(x, y);
+      }
+      ctxEz.stroke();
+
+      // 绘制纵向电场 Ez(xi) 锯齿状强加速波形
+      ctxEz.strokeStyle = 'var(--accent-cyan)';
+      ctxEz.lineWidth = 2.0;
+      ctxEz.beginPath();
+      for (let x = 0; x < w; x++) {
+        const normX = x / w;
+        const dBubble = (normX - centerNorm) / Rb_norm;
+        let ezVal = 0;
+        if (Math.abs(dBubble) <= 1.0) {
+          // 空泡内部线性斜率 Ez(xi) = - Ez_peak * xi
+          ezVal = -dBubble * (h * 0.42);
+        } else if (dBubble < -1.0) {
+          // 空泡后壁交界处的高阶阻尼正弦衰减
+          const tail = -(normX - (centerNorm - Rb_norm)) / 0.15;
+          ezVal = (h * 0.42) * Math.cos(tail * Math.PI * 3.5) * Math.exp(-tail * 1.5);
+        }
+        const y = midY - ezVal;
+        if (x === 0) ctxEz.moveTo(x, y);
+        else ctxEz.lineTo(x, y);
+      }
+      ctxEz.stroke();
+
+      // 绘制捕获束团电荷密度分布峰
+      if (witnessElectrons.length > 0) {
+        ctxEz.fillStyle = 'rgba(251, 191, 36, 0.35)';
+        ctxEz.strokeStyle = 'var(--accent-gold)';
+        ctxEz.lineWidth = 1.5;
+        ctxEz.beginPath();
+        for (let x = 0; x < w; x++) {
+          const normX = x / w;
+          const cuspX = centerNorm - Rb_norm * 0.72;
+          const dist = (normX - cuspX) / 0.025;
+          const bunchDensity = Math.exp(-dist * dist) * (h * 0.35);
+          const y = midY - bunchDensity;
+          if (x === 0) ctxEz.moveTo(x, y);
+          else ctxEz.lineTo(x, y);
+        }
+        ctxEz.stroke();
+      }
+    }
+
+    // -------------------------------------------------------------
+    // 示波器 2 渲染：电子束能谱 dN/dE
+    // -------------------------------------------------------------
+    function renderScopeEnergy() {
+      const w = scopeEnergyCanvas.width / window.devicePixelRatio;
+      const h = scopeEnergyCanvas.height / window.devicePixelRatio;
+      ctxEnergy.clearRect(0, 0, w, h);
+
+      const numBins = 48;
+      const bins = new Float32Array(numBins);
+      const maxRangeMeV = 1200.0;
+
+      // 统计粒子能谱直方图
+      let peakBin = 0;
+      let peakVal = 0;
+      for (let i = 0; i < witnessElectrons.length; i++) {
+        const e = witnessElectrons[i];
+        const binIdx = Math.min(numBins - 1, Math.max(0, Math.floor((e.px / maxRangeMeV) * numBins)));
+        bins[binIdx]++;
+        if (bins[binIdx] > peakVal) {
+          peakVal = bins[binIdx];
+          peakBin = binIdx;
+        }
+      }
+
+      // 绘制能谱柱状图
+      const barW = w / numBins;
+      const scaleH = peakVal > 0 ? (h * 0.85) / peakVal : 1;
+
+      for (let i = 0; i < numBins; i++) {
+        const count = bins[i];
+        if (count > 0) {
+          const barH = count * scaleH;
+          const x = i * barW;
+          const y = h - barH;
+          
+          // 峰值附近突出显示
+          if (Math.abs(i - peakBin) <= 1 && peakVal >= 6) {
+            ctxEnergy.fillStyle = 'var(--accent-energy)';
+          } else {
+            ctxEnergy.fillStyle = 'rgba(56, 189, 248, 0.45)';
+          }
+          ctxEnergy.fillRect(x + 1, y, barW - 1, barH);
+        }
+      }
+
+      // 基线
+      ctxEnergy.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+      ctxEnergy.beginPath();
+      ctxEnergy.moveTo(0, h - 1);
+      ctxEnergy.lineTo(w, h - 1);
+      ctxEnergy.stroke();
+
+      // 计算能散 FWHM
+      if (peakVal >= 5) {
+        const peakEnergy = (peakBin / numBins) * maxRangeMeV;
+        const spreadPercent = Math.max(1.5, (35.0 / Math.max(50, peakEnergy)) * 100);
+        document.getElementById('scopeFwhm').textContent = `E_peak: ${peakEnergy.toFixed(0)} MeV | ΔE/E ≈ ${spreadPercent.toFixed(1)}%`;
+      } else {
+        document.getElementById('scopeFwhm').textContent = '等待稳定束团注入聚束...';
+      }
+    }
+
+    // -------------------------------------------------------------
+    // 控制与预设交互
+    // -------------------------------------------------------------
+    function updateParam(key, val) {
+      PARAMS[key] = parseFloat(val);
+      if (key === 'a0') document.getElementById('valA0').textContent = PARAMS.a0.toFixed(2);
+      if (key === 'n0') document.getElementById('valN0').textContent = PARAMS.n0.toFixed(2);
+      if (key === 'tau') document.getElementById('valTau').textContent = `${PARAMS.tau} fs`;
+    }
+
+    function setInjMode(mode) {
+      PARAMS.injMode = mode;
+      document.querySelectorAll('#injSelf, #injExt, #injRamp').forEach(b => b.classList.remove('active'));
+      if (mode === 'self') document.getElementById('injSelf').classList.add('active');
+      if (mode === 'external') document.getElementById('injExt').classList.add('active');
+      if (mode === 'ramp') document.getElementById('injRamp').classList.add('active');
+      witnessElectrons = [];
+      if (mode === 'external') spawnWitnessBunch(80, 50);
+    }
+
+    function applyPreset(id) {
+      document.querySelectorAll('.btn-grid button').forEach(b => b.classList.remove('active'));
+      if (id === 1) {
+        document.getElementById('p1Btn').classList.add('active');
+        PARAMS.a0 = 3.5;
+        PARAMS.n0 = 2.0;
+        PARAMS.tau = 28;
+        setInjMode('self');
+      } else if (id === 2) {
+        document.getElementById('p2Btn').classList.add('active');
+        PARAMS.a0 = 4.8;
+        PARAMS.n0 = 1.2;
+        PARAMS.tau = 24;
+        setInjMode('external');
+      } else if (id === 3) {
+        document.getElementById('p3Btn').classList.add('active');
+        PARAMS.a0 = 0.9;
+        PARAMS.n0 = 3.5;
+        PARAMS.tau = 45;
+        setInjMode('external');
+      } else if (id === 4) {
+        document.getElementById('p4Btn').classList.add('active');
+        PARAMS.a0 = 2.8;
+        PARAMS.n0 = 2.4;
+        PARAMS.tau = 30;
+        setInjMode('ramp');
+      }
+
+      document.getElementById('slA0').value = PARAMS.a0;
+      document.getElementById('slN0').value = PARAMS.n0;
+      document.getElementById('slTau').value = PARAMS.tau;
+      updateParam('a0', PARAMS.a0);
+      updateParam('n0', PARAMS.n0);
+      updateParam('tau', PARAMS.tau);
+    }
+
+    function togglePlay() {
+      PARAMS.paused = !PARAMS.paused;
+      document.getElementById('playIcon').textContent = PARAMS.paused ? '▶' : '⏸';
+      document.getElementById('playText').textContent = PARAMS.paused ? '继续仿真' : '暂停仿真';
+    }
+
+    function triggerManualInjection() {
+      spawnWitnessBunch(75, 45.0 + Math.random() * 20.0);
+    }
+
+    function resetSim() {
+      PARAMS.zAccMm = 0;
+      initParticles();
+    }
+
+    // -------------------------------------------------------------
+    // 主循环运行管线
+    // -------------------------------------------------------------
+    function mainLoop(now) {
+      const dt = Math.min(0.04, (now - lastTime) / 1000.0);
+      lastTime = now;
+
+      updateSimulation(dt);
+      renderMainView();
+      renderScopeEz();
+      renderScopeEnergy();
+
+      requestAnimationFrame(mainLoop);
+    }
+
+    // 初始化启动
+    window.addEventListener('DOMContentLoaded', () => {
+      resizeCanvases();
+      initParticles();
+      requestAnimationFrame(mainLoop);
+    });
+  </script>
+</body>
+</html>

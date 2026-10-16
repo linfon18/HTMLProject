@@ -1,0 +1,884 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>电介质击穿与分形闪电拉普拉斯全息模拟器 (NPW DBM)</title>
+<style>
+  :root {
+    --bg-primary: #05060f;
+    --panel-bg: rgba(11, 15, 32, 0.78);
+    --panel-border: rgba(147, 51, 234, 0.3);
+    --accent-purple: #c084fc;
+    --accent-blue: #38bdf8;
+    --accent-glow: #e879f9;
+    --text-primary: #f8fafc;
+    --text-dim: #94a3b8;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    overflow: hidden;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    user-select: none;
+  }
+
+  /* 主模拟视口 */
+  #viewport-container {
+    flex: 1;
+    position: relative;
+    height: 100vh;
+    background: #020208;
+    overflow: hidden;
+  }
+  canvas#breakdownCanvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    cursor: crosshair;
+  }
+
+  /* 顶部科幻微遥测条 */
+  #telemetry-bar {
+    position: absolute;
+    top: 20px;
+    left: 24px;
+    display: flex;
+    gap: 12px;
+    z-index: 10;
+  }
+  .telemetry-chip {
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    backdrop-filter: blur(12px);
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-family: monospace;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+  }
+  .chip-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--accent-glow);
+    box-shadow: 0 0 8px var(--accent-glow);
+    animation: pulse 1.5s infinite ease-in-out;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 0.5; transform: scale(0.9); }
+    50% { opacity: 1; transform: scale(1.3); }
+  }
+
+  /* 悬浮分形维数估算 HUD */
+  #fractal-overlay {
+    position: absolute;
+    bottom: 24px;
+    left: 24px;
+    width: 340px;
+    height: 150px;
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    backdrop-filter: blur(16px);
+    box-shadow: 0 12px 36px rgba(0,0,0,0.6);
+    padding: 10px 14px;
+    display: flex;
+    flex-direction: column;
+    pointer-events: none;
+  }
+  .overlay-title {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--accent-glow);
+    margin-bottom: 6px;
+    display: flex;
+    justify-content: space-between;
+  }
+  canvas#fractalCanvas {
+    width: 100%;
+    height: 110px;
+    border-radius: 6px;
+    background: rgba(0,0,0,0.4);
+  }
+
+  /* 右侧控制面板 */
+  #control-panel {
+    width: 360px;
+    height: 100vh;
+    background: var(--panel-bg);
+    border-left: 1px solid var(--panel-border);
+    backdrop-filter: blur(20px);
+    overflow-y: auto;
+    padding: 24px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    box-shadow: -10px 0 30px rgba(0,0,0,0.6);
+    z-index: 20;
+  }
+  #control-panel::-webkit-scrollbar { width: 4px; }
+  #control-panel::-webkit-scrollbar-thumb { background: rgba(147, 51, 234, 0.4); border-radius: 4px; }
+
+  .header-group h1 {
+    font-size: 18px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .header-group h1 span {
+    background: linear-gradient(135deg, var(--accent-glow), var(--accent-blue));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .header-group p {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-top: 4px;
+    line-height: 1.4;
+  }
+
+  .section-card {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 10px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .section-card h2 {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--accent-glow);
+    font-weight: 600;
+  }
+
+  /* 按钮与网格 */
+  .btn-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .preset-btn, .action-btn {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: var(--text-primary);
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: center;
+  }
+  .preset-btn:hover, .action-btn:hover {
+    background: rgba(147, 51, 234, 0.25);
+    border-color: var(--accent-glow);
+    color: #fff;
+  }
+  .preset-btn.active, .action-btn.active {
+    background: linear-gradient(135deg, rgba(192, 132, 252, 0.25), rgba(56, 189, 248, 0.2));
+    border-color: var(--accent-glow);
+    box-shadow: 0 0 12px rgba(232, 121, 249, 0.35);
+    color: #fff;
+    font-weight: 600;
+  }
+
+  /* 控制滑块 */
+  .slider-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .slider-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+  .slider-header span.val {
+    color: var(--accent-glow);
+    font-family: monospace;
+  }
+  input[type=range] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 4px;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.15);
+    outline: none;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--accent-glow);
+    cursor: pointer;
+    box-shadow: 0 0 8px var(--accent-glow);
+    transition: transform 0.1s;
+  }
+  input[type=range]::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+  }
+
+  .tip-text {
+    font-size: 11px;
+    line-height: 1.5;
+    color: var(--text-dim);
+  }
+  .tip-text b { color: #fff; }
+</style>
+</head>
+<body>
+
+<!-- 主视口 -->
+<div id="viewport-container">
+  <canvas id="breakdownCanvas"></canvas>
+
+  <!-- 顶部状态遥测 -->
+  <div id="telemetry-bar">
+    <div class="telemetry-chip">
+      <div class="chip-dot"></div>
+      <span>击穿节点数: <span id="stat-nodes" style="color:var(--accent-glow)">1</span></span>
+    </div>
+    <div class="telemetry-chip">
+      <span>分形维数 D_f: <span id="stat-df" style="color:var(--accent-blue)">1.72</span></span>
+    </div>
+    <div class="telemetry-chip">
+      <span>主放电状态: <span id="stat-stroke" style="color:#fbbf24">先导发展中</span></span>
+    </div>
+    <div class="telemetry-chip">
+      <span>FPS: <span id="stat-fps" style="color:#fff">60</span></span>
+    </div>
+  </div>
+
+  <!-- 悬浮分形尺度分析图表 -->
+  <div id="fractal-overlay">
+    <div class="overlay-title">
+      <span>分形盒计数标度律 (Box-Counting Dimension)</span>
+      <span style="color:var(--accent-blue)">ln N(r) vs ln(1/r)</span>
+    </div>
+    <canvas id="fractalCanvas" width="310" height="110"></canvas>
+  </div>
+</div>
+
+<!-- 右侧控制坞 -->
+<div id="control-panel">
+  <div class="header-group">
+    <h1><span>DIELECTRIC</span> FRACTAL</h1>
+    <p>拉普拉斯电介质击穿模型 (NPW DBM) 与雷电分形离子化系统</p>
+  </div>
+
+  <!-- 放电拓扑场景预设 -->
+  <div class="section-card">
+    <h2>放电几何拓扑预设 (Electrode Preset)</h2>
+    <div class="btn-grid">
+      <button class="preset-btn active" data-preset="ground">云地雷击放电</button>
+      <button class="preset-btn" data-preset="lichtenberg">利希滕贝格点极</button>
+      <button class="preset-btn" data-preset="point_plate">针-板间隙击穿</button>
+      <button class="preset-btn" data-preset="bipolar">双向先导对接</button>
+    </div>
+  </div>
+
+  <!-- NPW 物理动力学参数 -->
+  <div class="section-card">
+    <h2>分形动力学生长参数 (NPW Parameters)</h2>
+    <div class="slider-row">
+      <div class="slider-header">
+        <span>分形指数 η (Field Exponent)</span>
+        <span class="val" id="val-eta">2.0</span>
+      </div>
+      <input type="range" id="param-eta" min="0.5" max="4.5" step="0.1" value="2.0">
+    </div>
+
+    <div class="slider-row">
+      <div class="slider-header">
+        <span>每帧生长步数 (Growth Rate)</span>
+        <span class="val" id="val-growth">8</span>
+      </div>
+      <input type="range" id="param-growth" min="1" max="25" step="1" value="8">
+    </div>
+
+    <div class="slider-row">
+      <div class="slider-header">
+        <span>SOR 势场松弛迭代次数</span>
+        <span class="val" id="val-sor">12</span>
+      </div>
+      <input type="range" id="param-sor" min="4" max="30" step="2" value="12">
+    </div>
+  </div>
+
+  <!-- 视效与背景电场 -->
+  <div class="section-card">
+    <h2>视效与电场渲染 (Visualization)</h2>
+    <div class="btn-grid">
+      <button class="action-btn" id="btn-show-pot">显示背景静电势场</button>
+      <button class="action-btn active" id="btn-sound">开启雷电声学音景</button>
+    </div>
+    <div class="btn-grid" style="margin-top:4px;">
+      <button class="action-btn" id="btn-reset">重置放电通道</button>
+      <button class="action-btn" id="btn-trigger-stroke">强制主回击放电</button>
+    </div>
+  </div>
+
+  <!-- 交互说明卡 -->
+  <div class="tip-text">
+    💡 <b>NPW 模型物理原理与交互：</b><br>
+    • <b>拉普拉斯击穿机制：</b> 空气等离子体通道为等电位体 ($\Phi = 0$)，外围未击穿空气满足 $\nabla^2 \Phi = 0$。候选节点击穿概率正比于局部电场强度的 $\eta$ 次方：$P_i \propto (\Delta \Phi_i)^\eta$。<br>
+    • <b>主回击 (Return Stroke)：</b> 当树枝先导触碰到接地电极边界时，电荷发生剧烈中和回击，电离通道瞬间耀眼暴闪并伴随重低音雷暴震颤！<br>
+    • <b>鼠标交互：</b> 点击画布任意位置可瞬时种植新的高压放电种子源。
+  </div>
+</div>
+
+<script>
+/**
+ * Niemeyer-Pietronero-Wiesmann (NPW) 电介质击穿分形模型
+ * 网格尺度: NX x NY
+ */
+const NX = 180;
+const NY = 140;
+
+// 网格数据
+let pot = new Float32Array(NX * NY);        // 静电势场 [0.0, 1.0]
+let breakdown = new Uint8Array(NX * NY);    // 击穿通道标记 (1: 已电离, 0: 未击穿)
+let boundary = new Uint8Array(NX * NY);     // 边界接地标记 (1: 接地固定势 1.0)
+let candidates = [];                        // 候选击穿边缘节点索引集
+
+// 控制参数
+let eta = 2.0;                              // 场强生长幂指数
+let growthPerFrame = 8;
+let sorIterations = 12;
+let showPotential = false;
+let currentPreset = 'ground';
+let isDischarged = false;                   // 是否已经完成主回击
+let strokeAlpha = 0.0;                      // 主回击闪白强度
+let nodeCount = 0;
+
+// 画布上下文
+const bdCanvas = document.getElementById('breakdownCanvas');
+const bdCtx = bdCanvas.getContext('2d');
+const fracCanvas = document.getElementById('fractalCanvas');
+const fracCtx = fracCanvas.getContext('2d');
+
+// 离屏渲染缓冲区
+let offCanvas = document.createElement('canvas');
+offCanvas.width = NX;
+offCanvas.height = NY;
+let offCtx = offCanvas.getContext('2d');
+let imgData = offCtx.createImageData(NX, NY);
+
+// Web Audio API 雷电与先导电晕声效
+let audioCtx = null;
+let coronaOsc = null;
+let coronaGain = null;
+let isAudioActive = false;
+
+// 帧率
+let lastTime = performance.now();
+let frameCount = 0;
+
+/**
+ * 初始化与重置场景
+ */
+function resetSimulation() {
+  pot.fill(1.0);
+  breakdown.fill(0);
+  boundary.fill(0);
+  candidates = [];
+  isDischarged = false;
+  strokeAlpha = 0.0;
+  nodeCount = 0;
+  document.getElementById('stat-stroke').innerText = '先导发展中';
+  document.getElementById('stat-stroke').style.color = '#fbbf24';
+
+  const midX = Math.floor(NX * 0.5);
+
+  switch (currentPreset) {
+    case 'ground': {
+      // 云地雷击：顶部云层发射先导，底部地面为接地电极 (pot=1.0)
+      for (let x = 0; x < NX; x++) {
+        boundary[(NY - 1) * NX + x] = 1; // 底部地面
+      }
+      // 顶部中心种子放电
+      addBreakdownNode(midX, 4);
+      break;
+    }
+    case 'lichtenberg': {
+      // 利希滕贝格树形：中心注入负电极，四周圆环边界接地
+      const R = Math.floor(NY * 0.46);
+      const cy = Math.floor(NY * 0.5);
+      for (let y = 0; y < NY; y++) {
+        for (let x = 0; x < NX; x++) {
+          if (Math.hypot(x - midX, y - cy) >= R) {
+            boundary[y * NX + x] = 1;
+          }
+        }
+      }
+      addBreakdownNode(midX, cy);
+      break;
+    }
+    case 'point_plate': {
+      // 针-板击穿：左侧针极，右侧垂直极板
+      for (let y = 0; y < NY; y++) {
+        boundary[y * NX + (NX - 8)] = 1;
+      }
+      addBreakdownNode(12, Math.floor(NY * 0.5));
+      break;
+    }
+    case 'bipolar': {
+      // 双向先导：上下双电极同时相向生长
+      for (let x = 0; x < NX; x++) {
+        boundary[0 * NX + x] = 1;
+        boundary[(NY - 1) * NX + x] = 1;
+      }
+      addBreakdownNode(midX, Math.floor(NY * 0.2));
+      addBreakdownNode(midX + 10, Math.floor(NY * 0.8));
+      break;
+    }
+  }
+
+  // 初始松弛势场
+  solveLaplace(40);
+  updateCandidateProbabilities();
+}
+
+/**
+ * 标记击穿新节点并更新外围候选集
+ */
+function addBreakdownNode(x, y) {
+  const idx = y * NX + x;
+  if (breakdown[idx]) return;
+
+  breakdown[idx] = 1;
+  pot[idx] = 0.0; // 导体等电位
+  nodeCount++;
+
+  // 从候选集中移除当前节点
+  const cIndex = candidates.indexOf(idx);
+  if (cIndex !== -1) candidates.splice(cIndex, 1);
+
+  // 检查是否击穿触碰到接地边界 (触发主回击)
+  if (boundary[idx]) {
+    triggerReturnStroke();
+  }
+
+  // 搜寻 4 邻域未击穿节点加入候选
+  const dirs = [-1, 1, -NX, NX];
+  for (let d of dirs) {
+    const nIdx = idx + d;
+    const nx = nIdx % NX;
+    const ny = Math.floor(nIdx / NX);
+
+    if (nx >= 0 && nx < NX && ny >= 0 && ny < NY) {
+      if (!breakdown[nIdx] && candidates.indexOf(nIdx) === -1) {
+        candidates.push(nIdx);
+      }
+    }
+  }
+}
+
+/**
+ * SOR 超松弛迭代求解静电势场 nabla^2(Phi) = 0
+ */
+function solveLaplace(iters) {
+  const omega = 1.45; // 超松弛优化因子
+
+  for (let it = 0; it < iters; it++) {
+    for (let y = 1; y < NY - 1; y++) {
+      const row = y * NX;
+      for (let x = 1; x < NX - 1; x++) {
+        const idx = row + x;
+
+        // 固定边界与等电位导体不更新
+        if (breakdown[idx]) {
+          pot[idx] = 0.0;
+          continue;
+        }
+        if (boundary[idx]) {
+          pot[idx] = 1.0;
+          continue;
+        }
+
+        const avg = 0.25 * (pot[idx - 1] + pot[idx + 1] + pot[idx - NX] + pot[idx + NX]);
+        pot[idx] += omega * (avg - pot[idx]);
+      }
+    }
+  }
+}
+
+/**
+ * 依据 NPW 模型轮盘赌抽取下一个击穿节点
+ */
+function stepGrowth() {
+  if (candidates.length === 0 || isDischarged) return;
+
+  // 1. 计算所有候选节点的局部梯度势能差 Delta Phi 与概率 P_i ~ (Delta Phi)^eta
+  let cumSum = 0;
+  const probs = new Float32Array(candidates.length);
+
+  for (let i = 0; i < candidates.length; i++) {
+    const idx = candidates[i];
+    // 电势越高，与放电树 (Phi=0) 的电场梯度越大
+    const electricField = Math.max(0.001, pot[idx]);
+    const weight = Math.pow(electricField, eta);
+    cumSum += weight;
+    probs[i] = cumSum;
+  }
+
+  if (cumSum <= 0) return;
+
+  // 2. 轮盘赌随机采样
+  const r = Math.random() * cumSum;
+  let chosenIdx = candidates[0];
+
+  for (let i = 0; i < probs.length; i++) {
+    if (r <= probs[i]) {
+      chosenIdx = candidates[i];
+      break;
+    }
+  }
+
+  const cx = chosenIdx % NX;
+  const cy = Math.floor(chosenIdx / NX);
+  addBreakdownNode(cx, cy);
+
+  // 微弱电晕杂音
+  triggerCoronaBuzz();
+}
+
+/**
+ * 触发主回击强放电 (Return Stroke)
+ */
+function triggerReturnStroke() {
+  if (isDischarged) return;
+  isDischarged = true;
+  strokeAlpha = 1.0;
+  document.getElementById('stat-stroke').innerText = '主回击贯通 (RETURN STROKE)';
+  document.getElementById('stat-stroke').style.color = '#e879f9';
+
+  // 播放超重低音雷暴震撼声
+  triggerThunderAudio();
+}
+
+/**
+ * 绘制渲染电离通道与静电势场
+ */
+function renderSimulation() {
+  const data = imgData.data;
+
+  for (let y = 0; y < NY; y++) {
+    const row = y * NX;
+    for (let x = 0; x < NX; x++) {
+      const idx = row + x;
+      const pIdx = idx * 4;
+
+      if (breakdown[idx]) {
+        // 电离闪电通道：高亮核心白，外层电离紫
+        data[pIdx] = 255;
+        data[pIdx + 1] = 230;
+        data[pIdx + 2] = 255;
+      } else if (boundary[idx]) {
+        // 接地电极发光
+        data[pIdx] = 30;
+        data[pIdx + 1] = 60;
+        data[pIdx + 2] = 110;
+      } else if (showPotential) {
+        // 渲染等电位场背景
+        const v = pot[idx];
+        data[pIdx] = Math.floor(v * 45);
+        data[pIdx + 1] = Math.floor(v * 25);
+        data[pIdx + 2] = Math.floor(v * 90);
+      } else {
+        data[pIdx] = 3;
+        data[pIdx + 1] = 3;
+        data[pIdx + 2] = 8;
+      }
+      data[pIdx + 3] = 255;
+    }
+  }
+
+  offCtx.putImageData(imgData, 0, 0);
+
+  // 绘制至主视口并平滑缩放
+  bdCtx.imageSmoothingEnabled = true;
+  bdCtx.drawImage(offCanvas, 0, 0, bdCanvas.width, bdCanvas.height);
+
+  // 叠加高斯发光光晕层
+  bdCtx.save();
+  bdCtx.globalCompositeOperation = 'screen';
+  bdCtx.filter = 'blur(6px)';
+  bdCtx.drawImage(offCanvas, 0, 0, bdCanvas.width, bdCanvas.height);
+  bdCtx.restore();
+
+  // 主回击闪白震颤
+  if (strokeAlpha > 0.01) {
+    bdCtx.fillStyle = `rgba(240, 200, 255, ${strokeAlpha * 0.75})`;
+    bdCtx.fillRect(0, 0, bdCanvas.width, bdCanvas.height);
+    strokeAlpha *= 0.88; // 衰减
+  }
+
+  // 更新遥测数据
+  document.getElementById('stat-nodes').innerText = nodeCount;
+  updateFractalBoxCount();
+}
+
+/**
+ * 简易盒计数算法估计分形维数 D_f
+ */
+function updateFractalBoxCount() {
+  if (nodeCount < 20) return;
+
+  const boxSizes = [4, 8, 16, 32];
+  const counts = [];
+
+  for (let b of boxSizes) {
+    let activeBoxes = 0;
+    const cols = Math.ceil(NX / b);
+    const rows = Math.ceil(NY / b);
+
+    for (let ry = 0; ry < rows; ry++) {
+      for (let rx = 0; rx < cols; rx++) {
+        let hasNode = false;
+        for (let dy = 0; dy < b; dy++) {
+          for (let dx = 0; dx < b; dx++) {
+            const px = rx * b + dx;
+            const py = ry * b + dy;
+            if (px < NX && py < NY && breakdown[py * NX + px]) {
+              hasNode = true;
+              break;
+            }
+          }
+          if (hasNode) break;
+        }
+        if (hasNode) activeBoxes++;
+      }
+    }
+    counts.push(activeBoxes);
+  }
+
+  // 拟合斜率 D_f = - (ln N2 - ln N1) / (ln r2 - ln r1)
+  const lnN1 = Math.log(counts[0]);
+  const lnN2 = Math.log(counts[counts.length - 1]);
+  const lnR1 = Math.log(boxSizes[0]);
+  const lnR2 = Math.log(boxSizes[boxSizes.length - 1]);
+
+  const df = Math.abs((lnN2 - lnN1) / (lnR2 - lnR1));
+  document.getElementById('stat-df').innerText = df.toFixed(2);
+
+  // 绘制分形标度散点图
+  drawFractalHUD(boxSizes, counts);
+}
+
+function drawFractalHUD(sizes, counts) {
+  const w = fracCanvas.width;
+  const h = fracCanvas.height;
+  fracCtx.clearRect(0, 0, w, h);
+
+  fracCtx.strokeStyle = 'rgba(255,255,255,0.1)';
+  fracCtx.beginPath();
+  fracCtx.moveTo(20, h - 20);
+  fracCtx.lineTo(w - 10, h - 20);
+  fracCtx.lineTo(w - 10, 10);
+  fracCtx.stroke();
+
+  fracCtx.strokeStyle = 'var(--accent-glow)';
+  fracCtx.fillStyle = 'var(--accent-blue)';
+  fracCtx.lineWidth = 2;
+  fracCtx.beginPath();
+
+  for (let i = 0; i < sizes.length; i++) {
+    const px = 30 + (i / (sizes.length - 1)) * (w - 60);
+    const py = (h - 25) - (Math.log(counts[i]) / Math.log(counts[0] + 1)) * (h - 45);
+
+    if (i === 0) fracCtx.moveTo(px, py);
+    else fracCtx.lineTo(px, py);
+
+    fracCtx.fillRect(px - 3, py - 3, 6, 6);
+  }
+  fracCtx.stroke();
+}
+
+/**
+ * Web Audio API 电晕滋滋声与震撼雷暴
+ */
+function initAudio() {
+  if (audioCtx) return;
+  const AudioContext = window.AudioContext || window.webkitAudioContext;
+  audioCtx = new AudioContext();
+
+  // 电晕高频噪声
+  coronaOsc = audioCtx.createOscillator();
+  coronaGain = audioCtx.createGain();
+  coronaOsc.type = 'sawtooth';
+  coronaOsc.frequency.setValueAtTime(320, audioCtx.currentTime);
+  coronaGain.gain.setValueAtTime(0.001, audioCtx.currentTime);
+
+  coronaOsc.connect(coronaGain);
+  coronaGain.connect(audioCtx.destination);
+  coronaOsc.start();
+  isAudioActive = true;
+}
+
+function triggerCoronaBuzz() {
+  if (!isAudioActive || !audioCtx) return;
+  coronaGain.gain.setValueAtTime(0.015, audioCtx.currentTime);
+  coronaGain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.05);
+}
+
+function triggerThunderAudio() {
+  if (!isAudioActive || !audioCtx) return;
+  // 雷击瞬时重低音冲击脉冲与滚雷
+  const now = audioCtx.currentTime;
+
+  const thunOsc = audioCtx.createOscillator();
+  const thunGain = audioCtx.createGain();
+  thunOsc.type = 'triangle';
+  thunOsc.frequency.setValueAtTime(95, now);
+  thunOsc.frequency.exponentialRampToValueAtTime(28, now + 1.2);
+
+  thunGain.gain.setValueAtTime(0.35, now);
+  thunGain.gain.exponentialRampToValueAtTime(0.001, now + 1.5);
+
+  thunOsc.connect(thunGain);
+  thunGain.connect(audioCtx.destination);
+  thunOsc.start(now);
+  thunOsc.stop(now + 1.6);
+}
+
+/**
+ * 视口与交互响应
+ */
+function handleResize() {
+  const container = document.getElementById('viewport-container');
+  bdCanvas.width = container.clientWidth;
+  bdCanvas.height = container.clientHeight;
+}
+window.addEventListener('resize', handleResize);
+
+// 点击画布任意位置注入新电极种子
+bdCanvas.addEventListener('mousedown', e => {
+  const rect = bdCanvas.getBoundingClientRect();
+  const gx = Math.floor(((e.clientX - rect.left) / rect.width) * NX);
+  const gy = Math.floor(((e.clientY - rect.top) / rect.height) * NY);
+  if (gx >= 0 && gx < NX && gy >= 0 && gy < NY) {
+    addBreakdownNode(gx, gy);
+  }
+});
+
+/**
+ * UI 按钮与滑块绑定
+ */
+// 预设切换
+document.querySelectorAll('.preset-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentPreset = btn.dataset.preset;
+    resetSimulation();
+  });
+});
+
+// 分形指数滑块
+document.getElementById('param-eta').addEventListener('input', e => {
+  eta = parseFloat(e.target.value);
+  document.getElementById('val-eta').innerText = eta.toFixed(1);
+});
+
+// 生长速率滑块
+document.getElementById('param-growth').addEventListener('input', e => {
+  growthPerFrame = parseInt(e.target.value);
+  document.getElementById('val-growth').innerText = growthPerFrame;
+});
+
+// 松弛次数滑块
+document.getElementById('param-sor').addEventListener('input', e => {
+  sorIterations = parseInt(e.target.value);
+  document.getElementById('val-sor').innerText = sorIterations;
+});
+
+// 显示势场切换
+const btnShowPot = document.getElementById('btn-show-pot');
+btnShowPot.addEventListener('click', () => {
+  showPotential = !showPotential;
+  btnShowPot.classList.toggle('active', showPotential);
+});
+
+// 重置按钮
+document.getElementById('btn-reset').addEventListener('click', () => {
+  resetSimulation();
+});
+
+// 强制主回击
+document.getElementById('btn-trigger-stroke').addEventListener('click', () => {
+  triggerReturnStroke();
+});
+
+// 开启声效
+const btnSound = document.getElementById('btn-sound');
+btnSound.addEventListener('click', () => {
+  if (!audioCtx) {
+    initAudio();
+    btnSound.innerText = '雷电声学: 运行中';
+    btnSound.style.background = 'rgba(147, 51, 234, 0.25)';
+    btnSound.style.borderColor = 'var(--accent-glow)';
+  } else {
+    if (audioCtx.state === 'running') {
+      audioCtx.suspend();
+      btnSound.innerText = '开启雷电声学音景';
+      btnSound.style.background = 'rgba(255, 255, 255, 0.06)';
+      btnSound.style.borderColor = 'rgba(255, 255, 255, 0.12)';
+    } else {
+      audioCtx.resume();
+      btnSound.innerText = '雷电声学: 运行中';
+      btnSound.style.background = 'rgba(147, 51, 234, 0.25)';
+      btnSound.style.borderColor = 'var(--accent-glow)';
+    }
+  }
+});
+
+/**
+ * 主循环动画驱动
+ */
+function animate() {
+  if (!isDischarged) {
+    for (let g = 0; g < growthPerFrame; g++) {
+      solveLaplace(sorIterations);
+      stepGrowth();
+    }
+  }
+
+  renderSimulation();
+
+  frameCount++;
+  const now = performance.now();
+  if (now - lastTime >= 500) {
+    const fps = Math.round((frameCount * 1000) / (now - lastTime));
+    document.getElementById('stat-fps').innerText = fps;
+    frameCount = 0;
+    lastTime = now;
+  }
+
+  requestAnimationFrame(animate);
+}
+
+// 启动
+handleResize();
+resetSimulation();
+requestAnimationFrame(animate);
+</script>
+</body>
+</html>

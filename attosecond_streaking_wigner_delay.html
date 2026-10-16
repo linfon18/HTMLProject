@@ -1,0 +1,1169 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>超快阿秒光电发射与维格纳时间延迟全息模拟 - Attosecond Photoemission & Wigner Time Delay</title>
+  <style>
+    :root {
+      --bg-dark: #020617;
+      --panel-bg: rgba(10, 16, 32, 0.88);
+      --panel-border: rgba(6, 182, 212, 0.28);
+      --accent-atto: #06b6d4;
+      --accent-xuv: #38bdf8;
+      --accent-ir: #ef4444;
+      --accent-2s: #f59e0b;
+      --accent-2p: #a855f7;
+      --accent-emerald: #10b981;
+      --text-main: #f8fafc;
+      --text-dim: #94a3b8;
+      --font-code: 'JetBrains Mono', 'Fira Code', monospace;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      background: rgba(8, 13, 27, 0.96);
+      border-bottom: 1px solid var(--panel-border);
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 10;
+      flex-shrink: 0;
+    }
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .back-link {
+      color: var(--accent-atto);
+      text-decoration: none;
+      font-size: 13px;
+      font-family: var(--font-code);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      border: 1px solid rgba(6, 182, 212, 0.35);
+      border-radius: 4px;
+      transition: all 0.2s ease;
+      background: rgba(6, 182, 212, 0.08);
+    }
+    .back-link:hover {
+      background: rgba(6, 182, 212, 0.25);
+      box-shadow: 0 0 10px rgba(6, 182, 212, 0.4);
+    }
+    h1 {
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .badge {
+      font-size: 10px;
+      padding: 2px 7px;
+      border-radius: 10px;
+      font-family: var(--font-code);
+      font-weight: normal;
+      background: rgba(6, 182, 212, 0.15);
+      border: 1px solid var(--accent-atto);
+      color: var(--accent-atto);
+    }
+    .badge-gold {
+      background: rgba(245, 158, 11, 0.15);
+      border-color: var(--accent-2s);
+      color: var(--accent-2s);
+    }
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .btn-action {
+      background: rgba(30, 41, 59, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: var(--text-main);
+      padding: 5px 12px;
+      border-radius: 4px;
+      font-size: 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+      font-family: var(--font-code);
+    }
+    .btn-action:hover {
+      background: rgba(6, 182, 212, 0.2);
+      border-color: var(--accent-atto);
+      color: #fff;
+    }
+    .btn-action.active {
+      background: rgba(6, 182, 212, 0.3);
+      border-color: var(--accent-atto);
+      color: var(--accent-atto);
+      box-shadow: 0 0 8px rgba(6, 182, 212, 0.3);
+    }
+
+    /* 主视口布局 */
+    .app-body {
+      display: flex;
+      flex: 1;
+      height: calc(100vh - 53px);
+      position: relative;
+      overflow: hidden;
+    }
+    .viewport-container {
+      flex: 1;
+      position: relative;
+      background: radial-gradient(circle at 50% 50%, #06152d 0%, #020617 100%);
+      overflow: hidden;
+    }
+    #mainCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      cursor: crosshair;
+    }
+    .hud-overlay {
+      position: absolute;
+      top: 15px;
+      left: 15px;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .hud-card {
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: 6px;
+      padding: 10px 14px;
+      backdrop-filter: blur(8px);
+      min-width: 260px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    }
+    .hud-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--accent-atto);
+      font-family: var(--font-code);
+      margin-bottom: 6px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .hud-stat-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+    .hud-stat {
+      display: flex;
+      flex-direction: column;
+    }
+    .hud-stat-label {
+      font-size: 10px;
+      color: var(--text-dim);
+    }
+    .hud-stat-val {
+      font-size: 13px;
+      font-family: var(--font-code);
+      font-weight: 600;
+      color: #fff;
+    }
+
+    .hud-bottom-hint {
+      position: absolute;
+      bottom: 15px;
+      left: 15px;
+      background: var(--panel-bg);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+      padding: 6px 12px;
+      font-size: 11px;
+      color: var(--text-dim);
+      pointer-events: none;
+      font-family: var(--font-code);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .hint-tag {
+      color: var(--accent-2s);
+      font-weight: bold;
+    }
+
+    /* 侧边控制面板 */
+    .sidebar {
+      width: 440px;
+      background: var(--panel-bg);
+      border-left: 1px solid var(--panel-border);
+      display: flex;
+      flex-direction: column;
+      backdrop-filter: blur(12px);
+      z-index: 5;
+      overflow-y: auto;
+      flex-shrink: 0;
+    }
+    .sidebar-section {
+      padding: 14px 18px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .section-title {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--accent-atto);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-family: var(--font-code);
+    }
+
+    /* 预设按钮网格 */
+    .presets-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .preset-btn {
+      background: rgba(30, 41, 59, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+      padding: 8px 10px;
+      color: #e2e8f0;
+      font-size: 11px;
+      cursor: pointer;
+      text-align: left;
+      transition: all 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .preset-btn:hover {
+      background: rgba(6, 182, 212, 0.15);
+      border-color: var(--accent-atto);
+    }
+    .preset-btn.active {
+      background: rgba(6, 182, 212, 0.22);
+      border-color: var(--accent-atto);
+      box-shadow: 0 0 10px rgba(6, 182, 212, 0.25);
+    }
+    .preset-name {
+      font-weight: 600;
+      color: #fff;
+    }
+    .preset-desc {
+      font-size: 10px;
+      color: var(--text-dim);
+    }
+
+    /* 控制滑块 */
+    .control-group {
+      margin-bottom: 12px;
+    }
+    .control-group:last-child {
+      margin-bottom: 0;
+    }
+    .control-label-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 5px;
+      font-size: 11px;
+    }
+    .control-name {
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .control-val {
+      font-family: var(--font-code);
+      color: var(--accent-2s);
+      font-weight: 600;
+    }
+    input[type=range] {
+      width: 100%;
+      height: 5px;
+      -webkit-appearance: none;
+      background: rgba(255, 255, 255, 0.12);
+      border-radius: 3px;
+      outline: none;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--accent-atto);
+      cursor: pointer;
+      box-shadow: 0 0 6px rgba(6, 182, 212, 0.8);
+      transition: transform 0.1s;
+    }
+    input[type=range]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    /* 示波器容器 */
+    .scope-box {
+      background: #01040f;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 4px;
+      margin-top: 8px;
+      position: relative;
+      overflow: hidden;
+    }
+    .scope-canvas {
+      width: 100%;
+      height: 140px;
+      display: block;
+    }
+    .scope-legend {
+      position: absolute;
+      top: 6px;
+      right: 8px;
+      display: flex;
+      gap: 8px;
+      font-size: 9px;
+      font-family: var(--font-code);
+      pointer-events: none;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .legend-color {
+      width: 7px;
+      height: 7px;
+      border-radius: 2px;
+    }
+
+    /* 激发与扫描按钮 */
+    .btn-fire-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .btn-fire {
+      flex: 1;
+      padding: 7px 10px;
+      background: rgba(6, 182, 212, 0.15);
+      border: 1px solid rgba(6, 182, 212, 0.4);
+      color: #67e8f9;
+      border-radius: 4px;
+      font-size: 11px;
+      cursor: pointer;
+      font-family: var(--font-code);
+      text-align: center;
+      transition: all 0.2s ease;
+    }
+    .btn-fire:hover {
+      background: rgba(6, 182, 212, 0.3);
+      box-shadow: 0 0 8px rgba(6, 182, 212, 0.4);
+    }
+    .btn-fire.active {
+      background: rgba(6, 182, 212, 0.45);
+      color: #fff;
+    }
+
+    /* 滚动条定制 */
+    .sidebar::-webkit-scrollbar {
+      width: 5px;
+    }
+    .sidebar::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .sidebar::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 3px;
+    }
+    .sidebar::-webkit-scrollbar-thumb:hover {
+      background: rgba(6, 182, 212, 0.5);
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="header-left">
+      <a href="index.html" class="back-link">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        <span>返回展厅</span>
+      </a>
+      <h1>
+        超快阿秒光电发射与维格纳时间延迟
+        <span class="badge">2023 Nobel Physics</span>
+        <span class="badge badge-gold">Wigner Time Delay</span>
+      </h1>
+    </div>
+    <div class="header-right">
+      <button class="btn-action" id="audioToggleBtn">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+        <span id="audioText">声音: 关</span>
+      </button>
+      <button class="btn-action" id="autoScanBtn">自动延迟扫描: 关</button>
+      <button class="btn-action" id="fullscreenBtn">全屏视口</button>
+    </div>
+  </header>
+
+  <div class="app-body">
+    <!-- 主全息视口 -->
+    <div class="viewport-container" id="viewportContainer">
+      <canvas id="mainCanvas"></canvas>
+
+      <!-- HUD 悬浮参数板 -->
+      <div class="hud-overlay">
+        <div class="hud-card">
+          <div class="hud-title">
+            <span>阿秒条纹相空间状态</span>
+            <span style="color:var(--accent-atto);" id="hudStateName">Ne 2s/2p 发射时延 (Δτ = 21 as)</span>
+          </div>
+          <div class="hud-stat-grid">
+            <div class="hud-stat">
+              <span class="hud-stat-label">XUV-IR 延迟 t_delay</span>
+              <span class="hud-stat-val" id="hudDelay" style="color:var(--accent-atto);">+0.45 fs</span>
+            </div>
+            <div class="hud-stat">
+              <span class="hud-stat-label">维格纳时间延迟差 Δτ_W</span>
+              <span class="hud-stat-val" id="hudDeltaTau" style="color:var(--accent-2s);">21.0 as (2s - 2p)</span>
+            </div>
+            <div class="hud-stat">
+              <span class="hud-stat-label">2p 电子动能 E_kin(2p)</span>
+              <span class="hud-stat-val" id="hudEkin2p" style="color:var(--accent-2p);">72.5 eV</span>
+            </div>
+            <div class="hud-stat">
+              <span class="hud-stat-label">2s 电子动能 E_kin(2s)</span>
+              <span class="hud-stat-val" id="hudEkin2s" style="color:var(--accent-2s);">45.8 eV</span>
+            </div>
+            <div class="hud-stat">
+              <span class="hud-stat-label">红外激光电场 E_IR(t)</span>
+              <span class="hud-stat-val" id="hudEirField" style="color:var(--accent-ir);">+1.24 × 10⁸ V/cm</span>
+            </div>
+            <div class="hud-stat">
+              <span class="hud-stat-label">库仑-激光耦合修正 τ_CLC</span>
+              <span class="hud-stat-val" id="hudTauClc" style="color:var(--accent-emerald);">8.4 as</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="hud-bottom-hint">
+        <span class="hint-tag">物理机制:</span>
+        <span>光电效应并非瞬时完成！电子波包穿透原子核长程库仑势垒积累相位梯度，产生阿秒级 (1 as = 10⁻¹⁸ s) 维格纳时间延迟 τ_W = ℏ dδ/dE</span>
+      </div>
+    </div>
+
+    <!-- 侧边科学控制面板与双示波器 -->
+    <div class="sidebar">
+      <!-- 预设场景 -->
+      <div class="sidebar-section">
+        <div class="section-title">
+          <span>诺奖经典与前沿阿秒实验</span>
+          <span style="font-size:10px; color:var(--text-dim);">PRESETS</span>
+        </div>
+        <div class="presets-grid">
+          <button class="preset-btn active" data-preset="neon_classic">
+            <span class="preset-name">氖原子 Ne 2s-2p 时延</span>
+            <span class="preset-desc">经典诺奖基准实验 (Δτ = 21 as)</span>
+          </button>
+          <button class="preset-btn" data-preset="helium_fast">
+            <span class="preset-name">氦原子 He 1s 单通道</span>
+            <span class="preset-desc">超快微小维格纳延迟 (τ_W ≈ 5 as)</span>
+          </button>
+          <button class="preset-btn" data-preset="argon_cooper">
+            <span class="preset-name">氩原子 Ar Cooper 极小</span>
+            <span class="preset-desc">多体库仑关联强延迟跃变</span>
+          </button>
+          <button class="preset-btn" data-preset="zero_ir_field">
+            <span class="preset-name">零红外场纯光电离</span>
+            <span class="preset-desc">未加红外条纹场自由球状扩散</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 科学示波器 1: 阿秒条纹相机动量调制谱 -->
+      <div class="sidebar-section">
+        <div class="section-title">
+          <span>光电子动能条纹调制曲线</span>
+          <span style="font-size:10px; color:var(--accent-atto);">Streaking E(t_d)</span>
+        </div>
+        <div class="scope-box">
+          <canvas class="scope-canvas" id="streakingScope"></canvas>
+          <div class="scope-legend">
+            <div class="legend-item"><div class="legend-color" style="background:var(--accent-2p);"></div><span>2p 电子 (高能)</span></div>
+            <div class="legend-item"><div class="legend-color" style="background:var(--accent-2s);"></div><span>2s 电子 (相移 21as)</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 科学示波器 2: 维格纳时间延迟与库仑耦合能谱谱线 -->
+      <div class="sidebar-section">
+        <div class="section-title">
+          <span>光电发射延迟随能量色散曲线</span>
+          <span style="font-size:10px; color:var(--accent-2s);">τ_W(E) & τ_CLC</span>
+        </div>
+        <div class="scope-box">
+          <canvas class="scope-canvas" id="wignerScope"></canvas>
+          <div class="scope-legend">
+            <div class="legend-item"><div class="legend-color" style="background:var(--accent-2s);"></div><span>τ_W (维格纳延迟)</span></div>
+            <div class="legend-item"><div class="legend-color" style="background:var(--accent-emerald);"></div><span>τ_CLC (库仑修正)</span></div>
+          </div>
+        </div>
+        <div class="btn-fire-row">
+          <button class="btn-fire" id="btnFirePulse">发射单阿秒 XUV 激光脉冲</button>
+        </div>
+      </div>
+
+      <!-- 参数调节 -->
+      <div class="sidebar-section">
+        <div class="section-title">
+          <span>激光脉冲与原子参数调控</span>
+          <span style="font-size:10px; color:var(--text-dim);">TUNING</span>
+        </div>
+
+        <div class="control-group">
+          <div class="control-label-row">
+            <span class="control-name">XUV-IR 时间延迟 t_delay</span>
+            <span class="control-val" id="valDelay">+0.45 fs</span>
+          </div>
+          <input type="range" id="paramDelay" min="-3.5" max="3.5" step="0.05" value="0.45">
+        </div>
+
+        <div class="control-group">
+          <div class="control-label-row">
+            <span class="control-name">极紫外 XUV 光子能量 ℏω_XUV</span>
+            <span class="control-val" id="valPhotonE">95.0 eV</span>
+          </div>
+          <input type="range" id="paramPhotonE" min="40" max="120" step="1" value="95">
+        </div>
+
+        <div class="control-group">
+          <div class="control-label-row">
+            <span class="control-name">红外激光条纹场强度 I_IR</span>
+            <span class="control-val" id="valIrIntensity">1.2 × 10¹² W/cm²</span>
+          </div>
+          <input type="range" id="paramIrIntensity" min="0.0" max="3.0" step="0.1" value="1.2">
+        </div>
+
+        <div class="control-group">
+          <div class="control-label-row">
+            <span class="control-name">红外载波包络相位 φ_CEP</span>
+            <span class="control-val" id="valCep">0.00 π</span>
+          </div>
+          <input type="range" id="paramCep" min="0.0" max="2.0" step="0.05" value="0.0">
+        </div>
+
+        <div class="control-group">
+          <div class="control-label-row">
+            <span class="control-name">红外激光中心波长 λ_IR</span>
+            <span class="control-val" id="valWavelength">800 nm (2.67 fs/T)</span>
+          </div>
+          <input type="range" id="paramWavelength" min="700" max="1000" step="10" value="800">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 物理参数全局状态
+    const PARAMS = {
+      tDelay: 0.45,       // fs (-3.5 ~ +3.5)
+      photonE: 95.0,      // eV
+      irIntensity: 1.2,   // 10^12 W/cm^2
+      cepPhase: 0.0,      // * pi
+      wavelengthIR: 800,  // nm (800nm 对应光周期 T = 2.67 fs)
+      autoScan: false,
+      atomType: 'neon',
+      deltaTauAs: 21.0,   // as
+      time: 0.0
+    };
+
+    // 音频合成引擎 (Web Audio API)
+    class AttosecondAudioEngine {
+      constructor() {
+        this.ctx = null;
+        this.enabled = false;
+        this.irHumOsc = null;
+        this.irHumGain = null;
+      }
+
+      init() {
+        if (this.ctx) return;
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        this.ctx = new AudioCtx();
+
+        // 红外飞秒少周期光场载波嗡鸣
+        this.irHumOsc = this.ctx.createOscillator();
+        this.irHumOsc.type = 'sine';
+        this.irHumOsc.frequency.setValueAtTime(180, this.ctx.currentTime);
+
+        this.irHumGain = this.ctx.createGain();
+        this.irHumGain.gain.setValueAtTime(0.0001, this.ctx.currentTime);
+
+        this.irHumOsc.connect(this.irHumGain);
+        this.irHumGain.connect(this.ctx.destination);
+        this.irHumOsc.start();
+      }
+
+      toggle() {
+        if (!this.ctx) this.init();
+        if (this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+        this.enabled = !this.enabled;
+        if (this.enabled) {
+          this.irHumGain.gain.setTargetAtTime(0.035, this.ctx.currentTime, 0.1);
+        } else {
+          this.irHumGain.gain.setTargetAtTime(0.0001, this.ctx.currentTime, 0.1);
+        }
+        return this.enabled;
+      }
+
+      update(intensity, delay) {
+        if (!this.enabled || !this.ctx) return;
+        const now = this.ctx.currentTime;
+        const baseFreq = 160 + intensity * 40 + Math.sin(delay * 2) * 15;
+        this.irHumOsc.frequency.setTargetAtTime(baseFreq, now, 0.05);
+      }
+
+      playXuvChirp() {
+        if (!this.enabled || !this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        // 超快阿秒光电脉冲啁啾向下扫频
+        osc.frequency.setValueAtTime(1400, now);
+        osc.frequency.exponentialRampToValueAtTime(320, now + 0.12);
+        gain.gain.setValueAtTime(0.08, now);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.2);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.22);
+      }
+    }
+
+    const audio = new AttosecondAudioEngine();
+
+    // 核心物理计算
+    function calculateAttosecondPhysics(params) {
+      // 氖原子结合能: Ne 2p (21.6 eV), Ne 2s (48.5 eV)
+      const ip2p = 21.6;
+      const ip2s = 48.5;
+
+      const eKin2p0 = Math.max(5.0, params.photonE - ip2p);
+      const eKin2s0 = Math.max(5.0, params.photonE - ip2s);
+
+      // 红外条纹矢势 A_IR(t) 调制振幅
+      const omegaIR = (2 * Math.PI * 3e8) / (params.wavelengthIR * 1e-9) * 1e-15; // rad/fs
+      const periodFs = (params.wavelengthIR / 800.0) * 2.67; // fs
+      const aAmplitude = Math.sqrt(params.irIntensity) * 8.5; // eV 动能平移尺度
+
+      // 瞬时红外激光电场与矢势
+      const tD = params.tDelay;
+      const cepRad = params.cepPhase * Math.PI;
+      const envelope = Math.exp(-Math.pow(tD / 1.8, 2)); // 飞秒脉冲高斯包络
+      const eFieldInstant = -envelope * Math.sin(omegaIR * tD + cepRad) * Math.sqrt(params.irIntensity);
+      const aFieldInstant = envelope * Math.cos(omegaIR * tD + cepRad) * aAmplitude;
+
+      // 维格纳时间延迟 (2s 与 2p 轨道)
+      // 库仑-激光耦合修正 tau_CLC ∝ - (Z / p^3) * ln(...)
+      const tauClc = 8.4 * Math.pow(60.0 / Math.max(20.0, eKin2p0), 1.5);
+      const deltaTauTotal = params.deltaTauAs; // 经典 21 as
+
+      // 调制后的光电子瞬时末动能
+      // 2s 电子带有 deltaTauTotal 的时间延迟相移！
+      const phase2p = omegaIR * tD + cepRad;
+      const phase2s = omegaIR * (tD - deltaTauTotal * 1e-3) + cepRad;
+
+      const modEkin2p = eKin2p0 + envelope * aAmplitude * Math.cos(phase2p);
+      const modEkin2s = eKin2s0 + envelope * aAmplitude * Math.cos(phase2s);
+
+      return {
+        eKin2p0,
+        eKin2s0,
+        modEkin2p,
+        modEkin2s,
+        eFieldInstant,
+        aFieldInstant,
+        tauClc,
+        deltaTauTotal,
+        omegaIR,
+        periodFs,
+        aAmplitude
+      };
+    }
+
+    // 画布初始化
+    const mainCanvas = document.getElementById('mainCanvas');
+    const ctx = mainCanvas.getContext('2d');
+    const streakingScope = document.getElementById('streakingScope');
+    const ctxStreaking = streakingScope.getContext('2d');
+    const wignerScope = document.getElementById('wignerScope');
+    const ctxWigner = wignerScope.getContext('2d');
+
+    let width = 0, height = 0;
+    function resizeCanvas() {
+      const container = document.getElementById('viewportContainer');
+      width = mainCanvas.width = container.clientWidth;
+      height = mainCanvas.height = container.clientHeight;
+
+      streakingScope.width = streakingScope.clientWidth * window.devicePixelRatio || 380;
+      streakingScope.height = streakingScope.clientHeight * window.devicePixelRatio || 140;
+
+      wignerScope.width = wignerScope.clientWidth * window.devicePixelRatio || 380;
+      wignerScope.height = wignerScope.clientHeight * window.devicePixelRatio || 140;
+    }
+    window.addEventListener('resize', resizeCanvas);
+
+    // 动态光电子波包扩散环系统
+    const wavepackets = [];
+    function spawnWavepacket() {
+      wavepackets.push({
+        radius2s: 6,
+        radius2p: 6,
+        timeDelayAs: PARAMS.deltaTauAs,
+        age: 0.0,
+        opacity: 1.0,
+        stretchFactor: 1.0
+      });
+      audio.playXuvChirp();
+    }
+
+    // 预设配置
+    const PRESETS = {
+      neon_classic: { delay: 0.45, photonE: 95, intensity: 1.2, cep: 0.0, deltaTau: 21.0, desc: '氖原子 Ne 2s-2p 21as 延迟' },
+      helium_fast: { delay: 0.20, photonE: 80, intensity: 1.0, cep: 0.2, deltaTau: 5.2, desc: '氦原子 He 1s 5.2as 极限' },
+      argon_cooper: { delay: -0.35, photonE: 65, intensity: 1.5, cep: 0.5, deltaTau: 45.0, desc: '氩原子 Ar Cooper 跃变' },
+      zero_ir_field: { delay: 0.00, photonE: 95, intensity: 0.0, cep: 0.0, deltaTau: 21.0, desc: '零红外场自由电离' }
+    };
+
+    document.querySelectorAll('.preset-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const p = PRESETS[btn.dataset.preset];
+        if (p) {
+          PARAMS.tDelay = p.delay;
+          PARAMS.photonE = p.photonE;
+          PARAMS.irIntensity = p.intensity;
+          PARAMS.cepPhase = p.cep;
+          PARAMS.deltaTauAs = p.deltaTau;
+
+          document.getElementById('paramDelay').value = p.delay;
+          document.getElementById('paramPhotonE').value = p.photonE;
+          document.getElementById('paramIrIntensity').value = p.intensity;
+          document.getElementById('paramCep').value = p.cep;
+
+          document.getElementById('valDelay').innerText = (p.delay >= 0 ? '+' : '') + p.delay.toFixed(2) + ' fs';
+          document.getElementById('valPhotonE').innerText = p.photonE.toFixed(1) + ' eV';
+          document.getElementById('valIrIntensity').innerText = p.intensity.toFixed(1) + ' × 10¹² W/cm²';
+          document.getElementById('valCep').innerText = p.cep.toFixed(2) + ' π';
+
+          spawnWavepacket();
+        }
+      });
+    });
+
+    // 滑块联动
+    document.getElementById('paramDelay').addEventListener('input', (e) => {
+      PARAMS.tDelay = parseFloat(e.target.value);
+      document.getElementById('valDelay').innerText = (PARAMS.tDelay >= 0 ? '+' : '') + PARAMS.tDelay.toFixed(2) + ' fs';
+    });
+    document.getElementById('paramPhotonE').addEventListener('input', (e) => {
+      PARAMS.photonE = parseFloat(e.target.value);
+      document.getElementById('valPhotonE').innerText = PARAMS.photonE.toFixed(1) + ' eV';
+    });
+    document.getElementById('paramIrIntensity').addEventListener('input', (e) => {
+      PARAMS.irIntensity = parseFloat(e.target.value);
+      document.getElementById('valIrIntensity').innerText = PARAMS.irIntensity.toFixed(1) + ' × 10¹² W/cm²';
+    });
+    document.getElementById('paramCep').addEventListener('input', (e) => {
+      PARAMS.cepPhase = parseFloat(e.target.value);
+      document.getElementById('valCep').innerText = PARAMS.cepPhase.toFixed(2) + ' π';
+    });
+    document.getElementById('paramWavelength').addEventListener('input', (e) => {
+      PARAMS.wavelengthIR = parseFloat(e.target.value);
+      document.getElementById('valWavelength').innerText = PARAMS.wavelengthIR + ` nm (${((PARAMS.wavelengthIR / 800) * 2.67).toFixed(2)} fs/T)`;
+    });
+
+    // 按钮交互
+    document.getElementById('audioToggleBtn').addEventListener('click', () => {
+      const isOn = audio.toggle();
+      const btn = document.getElementById('audioToggleBtn');
+      const txt = document.getElementById('audioText');
+      if (isOn) {
+        btn.classList.add('active');
+        txt.innerText = '声音: 开';
+      } else {
+        btn.classList.remove('active');
+        txt.innerText = '声音: 关';
+      }
+    });
+
+    const autoScanBtn = document.getElementById('autoScanBtn');
+    autoScanBtn.addEventListener('click', () => {
+      PARAMS.autoScan = !PARAMS.autoScan;
+      if (PARAMS.autoScan) {
+        autoScanBtn.classList.add('active');
+        autoScanBtn.innerText = '自动延迟扫描: 开';
+      } else {
+        autoScanBtn.classList.remove('active');
+        autoScanBtn.innerText = '自动延迟扫描: 关';
+      }
+    });
+
+    document.getElementById('btnFirePulse').addEventListener('click', () => {
+      spawnWavepacket();
+    });
+
+    document.getElementById('fullscreenBtn').addEventListener('click', () => {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      } else {
+        document.exitFullscreen().catch(() => {});
+      }
+    });
+
+    // 自动连续发射阿秒脉冲计时
+    let pulseTimer = 0;
+
+    // 主仿真循环
+    let lastTime = performance.now();
+    function animate(currentTime) {
+      const dt = Math.min(0.05, (currentTime - lastTime) / 1000);
+      lastTime = currentTime;
+      PARAMS.time += dt;
+
+      if (width === 0) resizeCanvas();
+
+      // 自动延迟扫描
+      if (PARAMS.autoScan) {
+        PARAMS.tDelay += 0.8 * dt;
+        if (PARAMS.tDelay > 3.5) PARAMS.tDelay = -3.5;
+        document.getElementById('paramDelay').value = PARAMS.tDelay;
+        document.getElementById('valDelay').innerText = (PARAMS.tDelay >= 0 ? '+' : '') + PARAMS.tDelay.toFixed(2) + ' fs';
+      }
+
+      // 周期性发射电子波包
+      pulseTimer += dt;
+      if (pulseTimer > 1.2) {
+        spawnWavepacket();
+        pulseTimer = 0;
+      }
+
+      ctx.clearRect(0, 0, width, height);
+      const cx = width / 2;
+      const cy = height / 2;
+
+      // 1. 物理计算
+      const atto = calculateAttosecondPhysics(PARAMS);
+
+      // 更新 HUD
+      document.getElementById('hudDelay').innerText = (PARAMS.tDelay >= 0 ? '+' : '') + PARAMS.tDelay.toFixed(2) + ' fs';
+      document.getElementById('hudDeltaTau').innerText = atto.deltaTauTotal.toFixed(1) + ' as (2s - 2p 延迟)';
+      document.getElementById('hudEkin2p').innerText = atto.modEkin2p.toFixed(1) + ' eV';
+      document.getElementById('hudEkin2s').innerText = atto.modEkin2s.toFixed(1) + ' eV';
+      document.getElementById('hudEirField').innerText = (atto.eFieldInstant >= 0 ? '+' : '') + (atto.eFieldInstant * 1.5).toFixed(2) + ' × 10⁸ V/cm';
+      document.getElementById('hudTauClc').innerText = atto.tauClc.toFixed(1) + ' as';
+
+      audio.update(PARAMS.irIntensity, PARAMS.tDelay);
+
+      // 2. 绘制原子势阱与束缚轨道云图 (Neon Core, 2s & 2p)
+      ctx.save();
+      // 中心原子核库仑光芒
+      const coreGrad = ctx.createRadialGradient(cx, cy, 2, cx, cy, 32);
+      coreGrad.addColorStop(0, '#ffffff');
+      coreGrad.addColorStop(0.3, 'rgba(6, 182, 212, 0.6)');
+      coreGrad.addColorStop(1, 'transparent');
+      ctx.fillStyle = coreGrad;
+      ctx.beginPath();
+      ctx.arc(cx, cy, 32, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 2s 球对称轨道 (黄色虚线圆)
+      ctx.strokeStyle = 'rgba(245, 158, 11, 0.55)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.arc(cx, cy, 45, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // 2p 双哑铃型电子轨道云 (紫色)
+      ctx.strokeStyle = 'rgba(168, 85, 247, 0.45)';
+      ctx.beginPath();
+      ctx.ellipse(cx, cy - 35, 22, 35, 0, 0, Math.PI * 2);
+      ctx.ellipse(cx, cy + 35, 22, 35, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+
+      // 3. 绘制红外激光强场与阿秒 XUV 射束光路
+      ctx.save();
+      // 垂直偏振红外激光波前背景辉光
+      const irGrad = ctx.createLinearGradient(0, cy - 220, 0, cy + 220);
+      const irAlpha = Math.min(0.25, PARAMS.irIntensity * 0.08);
+      irGrad.addColorStop(0, `rgba(239, 68, 68, ${irAlpha})`);
+      irGrad.addColorStop(0.5, 'transparent');
+      irGrad.addColorStop(1, `rgba(239, 68, 68, ${irAlpha})`);
+      ctx.fillStyle = irGrad;
+      ctx.fillRect(cx - 280, cy - 220, 560, 440);
+
+      // XUV 阿秒脉冲入射光束 (从左向右聚焦至原子核)
+      const xuvGrad = ctx.createLinearGradient(cx - 320, cy, cx, cy);
+      xuvGrad.addColorStop(0, 'transparent');
+      xuvGrad.addColorStop(1, 'rgba(56, 189, 248, 0.7)');
+      ctx.strokeStyle = xuvGrad;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(cx - 320, cy);
+      ctx.lineTo(cx, cy);
+      ctx.stroke();
+      ctx.restore();
+
+      // 4. 模拟光电子波包膨胀与维格纳时间延迟 (Wavepacket Expansions)
+      ctx.save();
+      for (let i = wavepackets.length - 1; i >= 0; i--) {
+        const wp = wavepackets[i];
+        wp.age += dt;
+        wp.opacity = Math.max(0, 1.0 - wp.age / 2.2);
+
+        // 2p 波包速度更快、发射更早 (出射半径更大)
+        const v2p = Math.sqrt(atto.eKin2p0) * 16.0;
+        const v2s = Math.sqrt(atto.eKin2s0) * 15.0;
+
+        wp.radius2p += v2p * dt;
+        // 2s 波包存在微观维格纳时间差 (21 as) 使得其出射略滞后
+        const delayLag = (wp.timeDelayAs / 21.0) * 6.0;
+        wp.radius2s += v2s * dt;
+
+        // 受红外强场 E_IR 的纵向动量拉伸 (条纹效应 Streaking)
+        const stretchY = 1.0 + (atto.aFieldInstant / 18.0) * 0.45;
+
+        // 绘制 2p 电子波包 (紫色外层光环)
+        ctx.strokeStyle = `rgba(168, 85, 247, ${wp.opacity * 0.8})`;
+        ctx.lineWidth = 2.5;
+        ctx.shadowColor = '#a855f7';
+        ctx.shadowBlur = 8;
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, wp.radius2p, wp.radius2p * stretchY, 0, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // 绘制 2s 电子波包 (黄色内层光环，具有 21 as 延迟滞后)
+        const effectiveR2s = Math.max(5, wp.radius2s - delayLag);
+        ctx.strokeStyle = `rgba(245, 158, 11, ${wp.opacity * 0.85})`;
+        ctx.lineWidth = 2;
+        ctx.shadowColor = '#f59e0b';
+        ctx.shadowBlur = 8;
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, effectiveR2s, effectiveR2s * stretchY, 0, 0, Math.PI * 2);
+        ctx.stroke();
+
+        if (wp.opacity <= 0.01) {
+          wavepackets.splice(i, 1);
+        }
+      }
+      ctx.restore();
+
+      // 5. 底部实时红外光周期电场波形与延迟光标 HUD
+      drawIrWaveformHUD(cx, cy + height * 0.32, atto);
+
+      // 6. 渲染双科学示波器
+      renderStreakingScope(atto);
+      renderWignerScope(atto);
+
+      requestAnimationFrame(animate);
+    }
+
+    // 绘制视口底部红外波形与时延对准光标
+    function drawIrWaveformHUD(x, y, atto) {
+      const boxW = Math.min(width * 0.65, 520);
+      const boxH = 55;
+      ctx.save();
+      ctx.translate(x - boxW / 2, y);
+
+      // 背景底板
+      ctx.fillStyle = 'rgba(10, 16, 32, 0.75)';
+      ctx.strokeStyle = 'rgba(6, 182, 212, 0.3)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.roundRect(0, 0, boxW, boxH, 4);
+      ctx.fill();
+      ctx.stroke();
+
+      // 零电平参考线
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+      ctx.beginPath();
+      ctx.moveTo(10, boxH / 2); ctx.lineTo(boxW - 10, boxH / 2);
+      ctx.stroke();
+
+      // 绘制红外飞秒脉冲电场 E_IR(t) 正弦高斯波形 (红色)
+      ctx.strokeStyle = '#ef4444';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      const numPts = 120;
+      for (let i = 0; i <= numPts; i++) {
+        const t = -3.5 + (i / numPts) * 7.0; // fs
+        const env = Math.exp(-Math.pow(t / 1.8, 2));
+        const ef = -env * Math.sin(atto.omegaIR * t + PARAMS.cepPhase * Math.PI) * Math.sqrt(PARAMS.irIntensity);
+        const px = (i / numPts) * (boxW - 20) + 10;
+        const py = boxH / 2 - (ef / 1.8) * (boxH * 0.38);
+        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+
+      // 当前 XUV 阿秒脉冲延迟位置指示光标 (天蓝色垂直发光线)
+      const curX = ((PARAMS.tDelay + 3.5) / 7.0) * (boxW - 20) + 10;
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 2.5;
+      ctx.shadowColor = '#38bdf8';
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.moveTo(curX, 4); ctx.lineTo(curX, boxH - 4);
+      ctx.stroke();
+
+      // 文字
+      ctx.fillStyle = '#38bdf8';
+      ctx.font = '9px JetBrains Mono, monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('XUV 触发时刻', curX, -6);
+
+      ctx.restore();
+    }
+
+    // 示波器 1: 阿秒条纹相机动量调制谱与 21as 相位微小错位
+    function renderStreakingScope(atto) {
+      const sw = streakingScope.width;
+      const sh = streakingScope.height;
+      ctxStreaking.clearRect(0, 0, sw, sh);
+
+      // 网格
+      ctxStreaking.strokeStyle = 'rgba(255, 255, 255, 0.06)';
+      ctxStreaking.lineWidth = 1;
+      ctxStreaking.beginPath();
+      ctxStreaking.moveTo(sw / 2, 0); ctxStreaking.lineTo(sw / 2, sh);
+      ctxStreaking.moveTo(0, sh / 2); ctxStreaking.lineTo(sw, sh / 2);
+      ctxStreaking.stroke();
+
+      const numPts = 120;
+      const maxE = 110; // eV
+      const cepRad = PARAMS.cepPhase * Math.PI;
+
+      // 绘制 2p 电子条纹曲线 (紫色)
+      ctxStreaking.strokeStyle = '#a855f7';
+      ctxStreaking.lineWidth = 2;
+      ctxStreaking.beginPath();
+      for (let i = 0; i <= numPts; i++) {
+        const td = -3.5 + (i / numPts) * 7.0;
+        const env = Math.exp(-Math.pow(td / 1.8, 2));
+        const eVal = atto.eKin2p0 + env * atto.aAmplitude * Math.cos(atto.omegaIR * td + cepRad);
+        const px = (i / numPts) * sw;
+        const py = sh - (eVal / maxE) * (sh * 0.85) - 6;
+        if (i === 0) ctxStreaking.moveTo(px, py); else ctxStreaking.lineTo(px, py);
+      }
+      ctxStreaking.stroke();
+
+      // 绘制 2s 电子条纹曲线 (黄色, 带有 21as 时间相移差)
+      ctxStreaking.strokeStyle = '#f59e0b';
+      ctxStreaking.lineWidth = 2;
+      ctxStreaking.beginPath();
+      for (let i = 0; i <= numPts; i++) {
+        const td = -3.5 + (i / numPts) * 7.0;
+        const env = Math.exp(-Math.pow(td / 1.8, 2));
+        const phase2s = atto.omegaIR * (td - atto.deltaTauTotal * 1e-3) + cepRad;
+        const eVal = atto.eKin2s0 + env * atto.aAmplitude * Math.cos(phase2s);
+        const px = (i / numPts) * sw;
+        const py = sh - (eVal / maxE) * (sh * 0.85) - 6;
+        if (i === 0) ctxStreaking.moveTo(px, py); else ctxStreaking.lineTo(px, py);
+      }
+      ctxStreaking.stroke();
+
+      // 当前延迟测量光标
+      const curX = ((PARAMS.tDelay + 3.5) / 7.0) * sw;
+      ctxStreaking.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+      ctxStreaking.setLineDash([2, 2]);
+      ctxStreaking.beginPath();
+      ctxStreaking.moveTo(curX, 0); ctxStreaking.lineTo(curX, sh);
+      ctxStreaking.stroke();
+      ctxStreaking.setLineDash([]);
+    }
+
+    // 示波器 2: 维格纳延迟与库仑-激光耦合修正谱
+    function renderWignerScope(atto) {
+      const sw = wignerScope.width;
+      const sh = wignerScope.height;
+      ctxWigner.clearRect(0, 0, sw, sh);
+
+      // 网格
+      ctxWigner.strokeStyle = 'rgba(255, 255, 255, 0.06)';
+      ctxWigner.lineWidth = 1;
+      ctxWigner.beginPath();
+      for (let x = 0; x <= sw; x += sw / 4) {
+        ctxWigner.moveTo(x, 0); ctxWigner.lineTo(x, sh);
+      }
+      for (let y = 0; y <= sh; y += sh / 4) {
+        ctxWigner.moveTo(0, y); ctxWigner.lineTo(sw, y);
+      }
+      ctxWigner.stroke();
+
+      const numPts = 100;
+      // 绘制理论维格纳延迟 τ_W(E) (黄色)
+      ctxWigner.strokeStyle = '#f59e0b';
+      ctxWigner.lineWidth = 2;
+      ctxWigner.beginPath();
+      for (let i = 0; i <= numPts; i++) {
+        const eKin = 10 + (i / numPts) * 80; // 10 ~ 90 eV
+        // 库仑势相移梯度：低能处发散，高能处平滑
+        const tauW = (PARAMS.deltaTauAs * 0.8) * Math.pow(40.0 / eKin, 0.65);
+        const px = (i / numPts) * sw;
+        const py = sh - (tauW / 50.0) * (sh * 0.78) - 10;
+        if (i === 0) ctxWigner.moveTo(px, py); else ctxWigner.lineTo(px, py);
+      }
+      ctxWigner.stroke();
+
+      // 绘制库仑-激光耦合修正 τ_CLC(E) (绿色)
+      ctxWigner.strokeStyle = '#10b981';
+      ctxWigner.lineWidth = 1.8;
+      ctxWigner.beginPath();
+      for (let i = 0; i <= numPts; i++) {
+        const eKin = 10 + (i / numPts) * 80;
+        const tauC = 8.4 * Math.pow(60.0 / eKin, 1.5);
+        const px = (i / numPts) * sw;
+        const py = sh - (tauC / 50.0) * (sh * 0.78) - 10;
+        if (i === 0) ctxWigner.moveTo(px, py); else ctxWigner.lineTo(px, py);
+      }
+      ctxWigner.stroke();
+    }
+
+    // 启动
+    resizeCanvas();
+    spawnWavepacket();
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>

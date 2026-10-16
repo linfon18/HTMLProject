@@ -1,0 +1,1236 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>拓扑外尔声子与声子热霍尔效应全息模拟器</title>
+  <style>
+    :root {
+      --bg: #030712;
+      --card-bg: rgba(15, 23, 42, 0.78);
+      --card-border: rgba(56, 189, 248, 0.22);
+      --accent-cyan: #38bdf8;
+      --accent-amber: #fbbf24;
+      --accent-rose: #f43f5e;
+      --accent-purple: #c084fc;
+      --accent-emerald: #10b981;
+      --text-main: #f8fafc;
+      --text-sub: #94a3b8;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+    body {
+      background-color: var(--bg);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      padding: 1rem 1.5rem;
+      background: linear-gradient(180deg, rgba(30, 41, 59, 0.7) 0%, rgba(3, 7, 18, 0) 100%);
+      border-bottom: 1px solid var(--card-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+    .header-titles h1 {
+      font-size: 1.4rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #fbbf24, #f43f5e, #38bdf8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: -0.01em;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .header-titles p {
+      font-size: 0.85rem;
+      color: var(--text-sub);
+      margin-top: 0.2rem;
+    }
+    .top-badges {
+      display: flex;
+      gap: 0.6rem;
+      align-items: center;
+    }
+    .badge {
+      font-size: 0.75rem;
+      padding: 0.25rem 0.65rem;
+      border-radius: 9999px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      border: 1px solid;
+    }
+    .badge-amber { background: rgba(251, 191, 36, 0.1); border-color: rgba(251, 191, 36, 0.35); color: #fde68a; }
+    .badge-rose { background: rgba(244, 63, 94, 0.1); border-color: rgba(244, 63, 94, 0.35); color: #fda4af; }
+    .badge-cyan { background: rgba(56, 189, 248, 0.1); border-color: rgba(56, 189, 248, 0.35); color: #7dd3fc; }
+
+    main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 380px;
+      gap: 1rem;
+      padding: 1rem 1.5rem;
+      max-width: 1780px;
+      margin: 0 auto;
+      width: 100%;
+    }
+    @media (max-width: 1120px) {
+      main {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .viewport-col {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    .canvas-container {
+      position: relative;
+      background: radial-gradient(circle at 50% 50%, rgba(30, 41, 59, 0.35) 0%, rgba(3, 7, 18, 0.95) 100%);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      overflow: hidden;
+      aspect-ratio: 16 / 9;
+      min-height: 480px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+    }
+    canvas#mainCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      cursor: grab;
+    }
+    canvas#mainCanvas:active {
+      cursor: grabbing;
+    }
+
+    .canvas-overlay-hud {
+      position: absolute;
+      top: 1rem;
+      left: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      pointer-events: none;
+    }
+    .hud-box {
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      backdrop-filter: blur(8px);
+      padding: 0.55rem 0.85rem;
+      border-radius: 8px;
+      font-size: 0.75rem;
+      line-height: 1.4;
+      color: var(--text-sub);
+    }
+    .hud-val {
+      font-weight: 700;
+      color: #38bdf8;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+    .hud-val-amber { color: #fbbf24; font-weight: 700; font-family: ui-monospace, monospace; }
+    .hud-val-rose { color: #f43f5e; font-weight: 700; font-family: ui-monospace, monospace; }
+    .hud-val-emerald { color: #10b981; font-weight: 700; font-family: ui-monospace, monospace; }
+
+    .view-controls {
+      position: absolute;
+      bottom: 1rem;
+      left: 1rem;
+      display: flex;
+      gap: 0.5rem;
+      z-index: 10;
+    }
+    .btn-view {
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      color: var(--text-main);
+      padding: 0.4rem 0.8rem;
+      font-size: 0.75rem;
+      border-radius: 6px;
+      cursor: pointer;
+      backdrop-filter: blur(8px);
+      transition: all 0.2s;
+    }
+    .btn-view:hover {
+      background: rgba(56, 189, 248, 0.2);
+      border-color: var(--accent-cyan);
+    }
+    .btn-view.active {
+      background: rgba(56, 189, 248, 0.25);
+      border-color: var(--accent-cyan);
+      color: #38bdf8;
+      font-weight: 600;
+    }
+
+    .scopes-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+    @media (max-width: 720px) {
+      .scopes-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+    .scope-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 0.9rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    }
+    .scope-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .scope-title {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--accent-cyan);
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .scope-tag {
+      font-size: 0.7rem;
+      color: var(--text-sub);
+      background: rgba(255, 255, 255, 0.05);
+      padding: 0.15rem 0.45rem;
+      border-radius: 4px;
+    }
+    .scope-canvas-wrap {
+      width: 100%;
+      height: 155px;
+      position: relative;
+      background: rgba(3, 7, 18, 0.6);
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .scope-canvas-wrap canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    .control-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+    }
+    .card-title {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding-bottom: 0.5rem;
+    }
+    .preset-group {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.5rem;
+    }
+    .btn-preset {
+      background: rgba(30, 41, 59, 0.6);
+      border: 1px solid rgba(56, 189, 248, 0.2);
+      color: var(--text-main);
+      padding: 0.5rem 0.6rem;
+      font-size: 0.72rem;
+      border-radius: 6px;
+      cursor: pointer;
+      text-align: left;
+      line-height: 1.3;
+      transition: all 0.2s;
+    }
+    .btn-preset:hover {
+      background: rgba(56, 189, 248, 0.15);
+      border-color: rgba(56, 189, 248, 0.4);
+    }
+    .btn-preset.active {
+      background: rgba(56, 189, 248, 0.25);
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.2);
+    }
+    .btn-preset span {
+      display: block;
+      color: var(--text-sub);
+      font-size: 0.65rem;
+      margin-top: 0.15rem;
+    }
+
+    .slider-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.8rem;
+    }
+    .slider-row {
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+    }
+    .slider-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.75rem;
+      color: var(--text-sub);
+    }
+    .slider-label b {
+      color: var(--text-main);
+      font-family: ui-monospace, monospace;
+    }
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 2px;
+      outline: none;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--accent-cyan);
+      cursor: pointer;
+      box-shadow: 0 0 8px var(--accent-cyan);
+      transition: transform 0.1s;
+    }
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    .switch-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.75rem;
+      color: var(--text-sub);
+    }
+    .toggle-btn {
+      background: rgba(30, 41, 59, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      width: 36px;
+      height: 18px;
+      border-radius: 9px;
+      position: relative;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .toggle-btn.active {
+      background: var(--accent-cyan);
+      border-color: var(--accent-cyan);
+    }
+    .toggle-btn::after {
+      content: '';
+      position: absolute;
+      top: 1px;
+      left: 1px;
+      width: 14px;
+      height: 14px;
+      background: #fff;
+      border-radius: 50%;
+      transition: transform 0.2s;
+    }
+    .toggle-btn.active::after {
+      transform: translateX(18px);
+    }
+
+    .audio-panel {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.6rem 0.8rem;
+      background: rgba(3, 7, 18, 0.5);
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .btn-audio {
+      background: rgba(56, 189, 248, 0.15);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      color: #7dd3fc;
+      padding: 0.35rem 0.8rem;
+      font-size: 0.72rem;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-audio:hover {
+      background: rgba(56, 189, 248, 0.3);
+    }
+    .btn-audio.active {
+      background: var(--accent-cyan);
+      color: #030712;
+      font-weight: 600;
+    }
+
+    .info-box {
+      font-size: 0.72rem;
+      color: var(--text-sub);
+      line-height: 1.5;
+      background: rgba(30, 41, 59, 0.4);
+      padding: 0.8rem;
+      border-radius: 8px;
+      border-left: 3px solid var(--accent-amber);
+    }
+    .info-box b {
+      color: var(--text-main);
+    }
+    .formula {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      color: #fde68a;
+      margin: 0.2rem 0;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="header-titles">
+      <h1>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/>
+          <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/>
+          <path d="M2 12h20"/>
+          <path d="M7 7l10 10M17 7l-10 10"/>
+        </svg>
+        拓扑外尔声子与声子热霍尔效应全息模拟器
+      </h1>
+      <p>手征晶体动力学矩阵拓扑简并、原子圆偏振手征声子角动量、开放表面声子弧与横向热霍尔流</p>
+    </div>
+    <div class="top-badges">
+      <span class="badge badge-amber">TOPOLOGICAL WEYL PHONONS</span>
+      <span class="badge badge-rose">CHIRAL PHONON MOMENTUM</span>
+      <span class="badge badge-cyan">THERMAL HALL EFFECT κ_xy</span>
+    </div>
+  </header>
+
+  <main>
+    <div class="viewport-col">
+      <div class="canvas-container" id="canvasContainer">
+        <canvas id="mainCanvas"></canvas>
+
+        <div class="canvas-overlay-hud">
+          <div class="hud-box">
+            <div>声子热霍尔电导率 <span class="hud-val-amber" id="hudKappaXY">κ_xy = 18.4 μW/(K·m)</span></div>
+            <div>手征声子内禀角动量 <span class="hud-val" id="hudPhononL">L_z = ±0.82 ħ/atom</span></div>
+          </div>
+          <div class="hud-box">
+            <div>外尔声子简并中心频 <span class="hud-val-rose" id="hudOmega0">ω₀ = 12.8 THz</span></div>
+            <div>声子霍尔横向偏角 <span class="hud-val-emerald" id="hudHallAngle">θ_Hall = 4.65 °</span></div>
+          </div>
+        </div>
+
+        <div class="view-controls">
+          <button class="btn-view active" data-mode="weyl_dispersion">动量空间外尔双锥与贝里单极子</button>
+          <button class="btn-view" data-mode="chiral_atoms">实空间晶格原子手征圆偏振回旋</button>
+          <button class="btn-view" data-mode="surface_heat">表面声子弧与横向热流偏折</button>
+        </div>
+      </div>
+
+      <div class="scopes-grid">
+        <div class="scope-card">
+          <div class="scope-header">
+            <span class="scope-title">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+              </svg>
+              声子热霍尔电导率 κ_xy(T) 随温度演化
+            </span>
+            <span class="scope-tag" id="scope1Tag">Thermal Hall κ_xy</span>
+          </div>
+          <div class="scope-canvas-wrap">
+            <canvas id="scope1"></canvas>
+          </div>
+        </div>
+
+        <div class="scope-card">
+          <div class="scope-header">
+            <span class="scope-title">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M12 6v6l4 2"/>
+              </svg>
+              手征声子塞曼分裂能谱 ω_±(B)
+            </span>
+            <span class="scope-tag" id="scope2Tag">Phonon Zeeman Splitting</span>
+          </div>
+          <div class="scope-canvas-wrap">
+            <canvas id="scope2"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sidebar">
+      <div class="control-card">
+        <div class="card-title">
+          <span>经典工况预设 (Presets)</span>
+          <span style="font-size:0.7rem;color:var(--text-sub)">点击快速重载</span>
+        </div>
+        <div class="preset-group">
+          <button class="btn-preset active" data-preset="quartz_weyl">
+            手征石英单晶
+            <span>手性晶格反转破缺, B = 8 T</span>
+          </button>
+          <button class="btn-preset" data-preset="strong_magnetic">
+            磁性绝缘体强霍尔态
+            <span>自旋-声子强耦合, 高 κ_xy</span>
+          </button>
+          <button class="btn-preset" data-preset="zero_field">
+            零场时间反演简并
+            <span>B = 0, 热霍尔抵消消失</span>
+          </button>
+          <button class="btn-preset" data-preset="surface_waveguide">
+            表面拓扑声波导
+            <span>单向表面声子弧抗散射</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="control-card">
+        <div class="card-title">
+          <span>外场与晶格声子参数微调</span>
+          <span style="font-size:0.7rem;color:var(--accent-cyan)">实时响应</span>
+        </div>
+        <div class="slider-group">
+          <div class="slider-row">
+            <div class="slider-label">外加磁场 B <b><span id="valB">8.0</span> T</b></div>
+            <input type="range" id="slB" min="0" max="15" step="0.5" value="8.0">
+          </div>
+          <div class="slider-row">
+            <div class="slider-label">晶格温度 T <b><span id="valT">45</span> K</b></div>
+            <input type="range" id="slT" min="5" max="150" step="2" value="45">
+          </div>
+          <div class="slider-row">
+            <div class="slider-label">自旋-声子自旋轨道耦合 λ_sp <b><span id="valLsp">3.5</span> meV</b></div>
+            <input type="range" id="slLsp" min="0.5" max="8.0" step="0.2" value="3.5">
+          </div>
+          <div class="slider-row">
+            <div class="slider-label">外尔声子动量分离度 Δq <b><span id="valDq">0.42</span> Å⁻¹</b></div>
+            <input type="range" id="slDq" min="0.1" max="0.9" step="0.02" value="0.42">
+          </div>
+        </div>
+
+        <div class="switch-row">
+          <span>显示动量空间贝里曲率单极子矢量流</span>
+          <div class="toggle-btn active" id="toggleBerry"></div>
+        </div>
+        <div class="switch-row">
+          <span>原子圆偏振回旋相位轨迹动画</span>
+          <div class="toggle-btn active" id="toggleAtomicAnim"></div>
+        </div>
+      </div>
+
+      <div class="control-card">
+        <div class="card-title">
+          <span>太赫兹声子谐波声学模拟 (Web Audio)</span>
+        </div>
+        <div class="audio-panel">
+          <div>
+            <div style="font-size:0.75rem;font-weight:600;color:var(--text-main)">声子格波双通道纯音</div>
+            <div style="font-size:0.65rem;color:var(--text-sub)">频率由外尔声子频散与霍尔偏角调制</div>
+          </div>
+          <button class="btn-audio" id="btnAudioToggle">开启声音</button>
+        </div>
+      </div>
+
+      <div class="info-box">
+        <b>拓扑声子与热霍尔效应物理核心：</b>
+        在手征空间反演破缺与磁场时间反演破缺晶体中，晶格振动动力学矩阵在布里渊区形成线性能带交叉的<b>外尔声子单极子</b>。
+        声子波包运动具有反常横向速度 <span class="formula">v_y = -(∇_x T / T) Ω_z(q)</span>，产生不依赖电子的本征纯声子横向热霍尔流 <span class="formula">κ_{xy} ∝ (1/T) ∫ d³q c(q) Ω_z(q)</span>。
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // --- 全局物理与仿真参数状态 ---
+    const STATE = {
+      B: 8.0,           // 外加磁场 (Tesla)
+      T: 45,            // 晶格温度 (K)
+      lsp: 3.5,         // 自旋-声子耦合强度 (meV)
+      dq: 0.42,         // 外尔节点动量分离 (Å^-1)
+      showBerry: true,
+      showAtomicAnim: true,
+      viewMode: 'weyl_dispersion', // 'weyl_dispersion', 'chiral_atoms', 'surface_heat'
+      rotX: 0.45,
+      rotY: 0.55,
+      isDragging: false,
+      lastMouseX: 0,
+      lastMouseY: 0
+    };
+
+    const PHYSICS = {
+      kappaXY: 18.4,    // 热霍尔电导 (μW/(K·m))
+      phononLz: 0.82,   // 声子内禀角动量 (ħ)
+      omega0: 12.8,     // 外尔节点频率 (THz)
+      hallAngle: 4.65,  // 霍尔偏转角 (度)
+      historyKappa: [],
+      historyZeeman: [],
+      simTime: 0
+    };
+
+    // --- Web Audio 声音合成系统 ---
+    let audioCtx = null;
+    let oscL = null;
+    let oscR = null;
+    let gainNode = null;
+    let isAudioActive = false;
+
+    function initAudio() {
+      if (audioCtx) return;
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioContext();
+
+      oscL = audioCtx.createOscillator();
+      oscL.type = 'sine';
+      oscL.frequency.setValueAtTime(260, audioCtx.currentTime);
+
+      oscR = audioCtx.createOscillator();
+      oscR.type = 'triangle';
+      oscR.frequency.setValueAtTime(265, audioCtx.currentTime);
+
+      gainNode = audioCtx.createGain();
+      gainNode.gain.setValueAtTime(0.03, audioCtx.currentTime);
+
+      const filter = audioCtx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(1200, audioCtx.currentTime);
+
+      oscL.connect(filter);
+      oscR.connect(filter);
+      filter.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+
+      oscL.start();
+      oscR.start();
+    }
+
+    function updateAudio() {
+      if (!audioCtx || !isAudioActive) return;
+      // 左右旋手征声子塞曼分裂差拍频率
+      const fBase = 240 + (STATE.B * 12) + (STATE.T * 0.8);
+      const split = STATE.B * 3.5;
+
+      oscL.frequency.setTargetAtTime(Math.min(1400, fBase - split), audioCtx.currentTime, 0.05);
+      oscR.frequency.setTargetAtTime(Math.min(1600, fBase + split), audioCtx.currentTime, 0.05);
+
+      const targetGain = isAudioActive ? 0.025 + Math.min(0.04, (PHYSICS.kappaXY / 40.0) * 0.03) : 0;
+      gainNode.gain.setTargetAtTime(targetGain, audioCtx.currentTime, 0.05);
+    }
+
+    // --- 主 Canvas 与双示波器 DOM 初始化 ---
+    const canvas = document.getElementById('mainCanvas');
+    const ctx = canvas.getContext('2d');
+    const scope1Canvas = document.getElementById('scope1');
+    const ctxScope1 = scope1Canvas.getContext('2d');
+    const scope2Canvas = document.getElementById('scope2');
+    const ctxScope2 = scope2Canvas.getContext('2d');
+
+    function resizeCanvases() {
+      const container = document.getElementById('canvasContainer');
+      canvas.width = container.clientWidth * window.devicePixelRatio;
+      canvas.height = container.clientHeight * window.devicePixelRatio;
+
+      const p1 = scope1Canvas.parentElement;
+      scope1Canvas.width = p1.clientWidth * window.devicePixelRatio;
+      scope1Canvas.height = p1.clientHeight * window.devicePixelRatio;
+
+      const p2 = scope2Canvas.parentElement;
+      scope2Canvas.width = p2.clientWidth * window.devicePixelRatio;
+      scope2Canvas.height = p2.clientHeight * window.devicePixelRatio;
+    }
+    window.addEventListener('resize', resizeCanvases);
+
+    // --- 3D 鼠标拖拽控制 ---
+    canvas.addEventListener('mousedown', (e) => {
+      STATE.isDragging = true;
+      STATE.lastMouseX = e.clientX;
+      STATE.lastMouseY = e.clientY;
+    });
+    window.addEventListener('mouseup', () => { STATE.isDragging = false; });
+    window.addEventListener('mousemove', (e) => {
+      if (!STATE.isDragging) return;
+      const dx = e.clientX - STATE.lastMouseX;
+      const dy = e.clientY - STATE.lastMouseY;
+      STATE.rotY += dx * 0.006;
+      STATE.rotX += dy * 0.006;
+      STATE.rotX = Math.max(-Math.PI / 2 + 0.05, Math.min(Math.PI / 2 - 0.05, STATE.rotX));
+      STATE.lastMouseX = e.clientX;
+      STATE.lastMouseY = e.clientY;
+    });
+
+    // --- 侧边栏控件绑定 ---
+    const slB = document.getElementById('slB');
+    const slT = document.getElementById('slT');
+    const slLsp = document.getElementById('slLsp');
+    const slDq = document.getElementById('slDq');
+
+    const valB = document.getElementById('valB');
+    const valT = document.getElementById('valT');
+    const valLsp = document.getElementById('valLsp');
+    const valDq = document.getElementById('valDq');
+
+    slB.addEventListener('input', (e) => { STATE.B = parseFloat(e.target.value); valB.textContent = STATE.B.toFixed(1); });
+    slT.addEventListener('input', (e) => { STATE.T = parseInt(e.target.value); valT.textContent = STATE.T; });
+    slLsp.addEventListener('input', (e) => { STATE.lsp = parseFloat(e.target.value); valLsp.textContent = STATE.lsp.toFixed(1); });
+    slDq.addEventListener('input', (e) => { STATE.dq = parseFloat(e.target.value); valDq.textContent = STATE.dq.toFixed(2); });
+
+    // 开关
+    const toggleBerry = document.getElementById('toggleBerry');
+    toggleBerry.addEventListener('click', () => {
+      STATE.showBerry = !STATE.showBerry;
+      toggleBerry.classList.toggle('active', STATE.showBerry);
+    });
+    const toggleAtomicAnim = document.getElementById('toggleAtomicAnim');
+    toggleAtomicAnim.addEventListener('click', () => {
+      STATE.showAtomicAnim = !STATE.showAtomicAnim;
+      toggleAtomicAnim.classList.toggle('active', STATE.showAtomicAnim);
+    });
+
+    // 声音按钮
+    const btnAudioToggle = document.getElementById('btnAudioToggle');
+    btnAudioToggle.addEventListener('click', () => {
+      initAudio();
+      isAudioActive = !isAudioActive;
+      btnAudioToggle.classList.toggle('active', isAudioActive);
+      btnAudioToggle.textContent = isAudioActive ? '静音' : '开启声音';
+    });
+
+    // 视角模式按钮
+    const viewButtons = document.querySelectorAll('.btn-view');
+    viewButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        viewButtons.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        STATE.viewMode = btn.getAttribute('data-mode');
+      });
+    });
+
+    // 预设工况按钮
+    const presetButtons = document.querySelectorAll('.btn-preset');
+    presetButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        presetButtons.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const p = btn.getAttribute('data-preset');
+        if (p === 'quartz_weyl') {
+          STATE.B = 8.0; STATE.T = 45; STATE.lsp = 3.5; STATE.dq = 0.42;
+        } else if (p === 'strong_magnetic') {
+          STATE.B = 14.0; STATE.T = 60; STATE.lsp = 6.5; STATE.dq = 0.55;
+        } else if (p === 'zero_field') {
+          STATE.B = 0.0; STATE.T = 45; STATE.lsp = 3.5; STATE.dq = 0.42;
+        } else if (p === 'surface_waveguide') {
+          STATE.B = 9.5; STATE.T = 30; STATE.lsp = 4.0; STATE.dq = 0.65;
+        }
+        slB.value = STATE.B; valB.textContent = STATE.B.toFixed(1);
+        slT.value = STATE.T; valT.textContent = STATE.T;
+        slLsp.value = STATE.lsp; valLsp.textContent = STATE.lsp.toFixed(1);
+        slDq.value = STATE.dq; valDq.textContent = STATE.dq.toFixed(2);
+      });
+    });
+
+    // --- 3D 几何投影变换 ---
+    function project3D(x, y, z, cx, cy, scale) {
+      const cosY = Math.cos(STATE.rotY);
+      const sinY = Math.sin(STATE.rotY);
+      const x1 = x * cosY - z * sinY;
+      const z1 = x * sinY + z * cosY;
+
+      const cosX = Math.cos(STATE.rotX);
+      const sinX = Math.sin(STATE.rotX);
+      const y2 = y * cosX - z1 * sinX;
+      const z2 = y * sinX + z1 * cosX;
+
+      const fov = 400;
+      const dist = 320;
+      const pScale = fov / (fov + z2 + dist);
+
+      return {
+        px: cx + x1 * scale * pScale,
+        py: cy - y2 * scale * pScale,
+        depth: z2,
+        scale: pScale
+      };
+    }
+
+    // --- 物理计算模型 ---
+    function computePhysics(dt) {
+      PHYSICS.simTime += dt;
+
+      // 声子热霍尔电导率: 随 T 呈现低温玻色激活峰，随 B 线性并饱和
+      const bFactor = STATE.B / Math.sqrt(STATE.B * STATE.B + 4.0);
+      const tNorm = STATE.T / 40.0;
+      const tPeakFactor = (tNorm * tNorm * tNorm) * Math.exp(-tNorm * 1.5) * 8.5;
+      PHYSICS.kappaXY = 28.5 * bFactor * tPeakFactor * (STATE.lsp / 3.5);
+
+      // 声子内禀角动量 Lz
+      PHYSICS.phononLz = (STATE.B > 0.1 ? 0.85 * bFactor : 0.0);
+
+      // 霍尔偏转角 (度)
+      PHYSICS.hallAngle = Math.atan(PHYSICS.kappaXY / 120.0) * (180.0 / Math.PI);
+
+      // 更新 HUD
+      document.getElementById('hudKappaXY').textContent = `κ_xy = ${PHYSICS.kappaXY.toFixed(1)} μW/(K·m)`;
+      document.getElementById('hudPhononL').textContent = `L_z = ±${PHYSICS.phononLz.toFixed(2)} ħ/atom`;
+      document.getElementById('hudOmega0').textContent = `ω₀ = ${(12.0 + STATE.lsp * 0.25).toFixed(1)} THz`;
+      document.getElementById('hudHallAngle').textContent = `θ_Hall = ${PHYSICS.hallAngle.toFixed(2)} °`;
+
+      updateAudio();
+    }
+
+    // --- 渲染：动量空间外尔双锥与贝里单极子 ---
+    function renderWeylDispersion(cx, cy, dpr, simTime) {
+      const qSep = STATE.dq * 170; // 外尔声子节点间距
+      const nodeP = { x: qSep, y: 0, z: 0 };  // 手征 C = +1 单极子源
+      const nodeM = { x: -qSep, y: 0, z: 0 }; // 手征 C = -1 单极子汇
+
+      // 坐标轴
+      const axes = [
+        { x1: -180, y1: 0, z1: 0, x2: 180, y2: 0, z2: 0, color: 'rgba(251, 191, 36, 0.4)', label: 'q_z' },
+        { x1: 0, y1: -110, z1: 0, x2: 0, y2: 110, z2: 0, color: 'rgba(255, 255, 255, 0.25)', label: 'Frequency ω' },
+        { x1: 0, y1: 0, z1: -130, x2: 0, y2: 0, z2: 130, color: 'rgba(56, 189, 248, 0.3)', label: 'q_⊥' }
+      ];
+
+      axes.forEach(ax => {
+        const p1 = project3D(ax.x1, ax.y1, ax.z1, cx, cy, dpr);
+        const p2 = project3D(ax.x2, ax.y2, ax.z2, cx, cy, dpr);
+        ctx.strokeStyle = ax.color;
+        ctx.lineWidth = 1.2 * dpr;
+        ctx.setLineDash([4 * dpr, 4 * dpr]);
+        ctx.beginPath();
+        ctx.moveTo(p1.px, p1.py);
+        ctx.lineTo(p2.px, p2.py);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      });
+
+      // 绘制声子外尔双锥
+      const cones = [
+        { center: nodeP, color: '#fbbf24', chi: +1, name: 'Weyl Phonon (C = +1)' },
+        { center: nodeM, color: '#f43f5e', chi: -1, name: 'Weyl Phonon (C = -1)' }
+      ];
+
+      cones.forEach(c => {
+        const rings = 5;
+        const maxR = 55;
+        const maxH = 75;
+
+        for (let sign = -1; sign <= 1; sign += 2) {
+          for (let r = 1; r <= rings; r++) {
+            const rad = (r / rings) * maxR;
+            const h = sign * (r / rings) * maxH;
+            ctx.strokeStyle = c.color;
+            ctx.lineWidth = 1 * dpr;
+            ctx.beginPath();
+
+            const segs = 20;
+            for (let i = 0; i <= segs; i++) {
+              const ang = (i / segs) * Math.PI * 2;
+              const x = c.center.x + rad * Math.cos(ang);
+              const z = c.center.z + rad * Math.sin(ang);
+              const y = c.center.y + h;
+              const p = project3D(x, y, z, cx, cy, dpr);
+              if (i === 0) ctx.moveTo(p.px, p.py);
+              else ctx.lineTo(p.px, p.py);
+            }
+            ctx.stroke();
+          }
+        }
+
+        // 简并中心奇异点
+        const apex = project3D(c.center.x, c.center.y, c.center.z, cx, cy, dpr);
+        ctx.fillStyle = c.color;
+        ctx.shadowColor = c.color;
+        ctx.shadowBlur = 12 * dpr;
+        ctx.beginPath();
+        ctx.arc(apex.px, apex.py, 5 * dpr, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+
+        ctx.fillStyle = '#f8fafc';
+        ctx.font = `${10 * dpr}px sans-serif`;
+        ctx.fillText(c.name, apex.px + 8 * dpr, apex.py - 8 * dpr);
+      });
+
+      // 贝里曲率流线场 (从 +q0 发散到 -q0)
+      if (STATE.showBerry) {
+        const numLines = 12;
+        for (let i = 0; i < numLines; i++) {
+          const ang = (i / numLines) * Math.PI * 2;
+          ctx.strokeStyle = 'rgba(56, 189, 248, 0.4)';
+          ctx.lineWidth = 1.2 * dpr;
+          ctx.beginPath();
+
+          const pts = 16;
+          for (let s = 0; s <= pts; s++) {
+            const u = s / pts;
+            const x = nodeP.x * (1 - 2 * u);
+            const arcH = Math.sin(u * Math.PI) * 45;
+            const y = arcH * Math.cos(ang);
+            const z = arcH * Math.sin(ang);
+            const p = project3D(x, y, z, cx, cy, dpr);
+            if (s === 0) ctx.moveTo(p.px, p.py);
+            else ctx.lineTo(p.px, p.py);
+          }
+          ctx.stroke();
+
+          // 粒子沿贝里力线流动
+          const uAnim = (simTime * 1.5 + i * 0.3) % 1.0;
+          const xA = nodeP.x * (1 - 2 * uAnim);
+          const arcHA = Math.sin(uAnim * Math.PI) * 45;
+          const yA = arcHA * Math.cos(ang);
+          const zA = arcHA * Math.sin(ang);
+          const pA = project3D(xA, yA, zA, cx, cy, dpr);
+
+          ctx.fillStyle = '#38bdf8';
+          ctx.beginPath();
+          ctx.arc(pA.px, pA.py, 2.2 * dpr, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    }
+
+    // --- 渲染：实空间晶格原子手征圆偏振回旋 ---
+    function renderChiralAtoms(cx, cy, dpr, simTime) {
+      const gridSize = 3;
+      const spacing = 55;
+      const rotRadius = 14; // 原子位移回旋振幅
+
+      for (let ix = -gridSize; ix <= gridSize; ix++) {
+        for (let iz = -gridSize; iz <= gridSize; iz++) {
+          const baseX = ix * spacing;
+          const baseZ = iz * spacing;
+
+          // 手征旋转方向 (受手征声子极化符号控制)
+          const sign = (ix + iz) % 2 === 0 ? +1 : -1;
+          const phase = simTime * 5.0 * sign + (ix + iz) * 0.4;
+          const curX = baseX + Math.cos(phase) * rotRadius;
+          const curZ = baseZ + Math.sin(phase) * rotRadius;
+
+          // 绘制原子平衡位置参考点
+          const pBase = project3D(baseX, 0, baseZ, cx, cy, dpr);
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+          ctx.beginPath();
+          ctx.arc(pBase.px, pBase.py, 2 * dpr, 0, Math.PI * 2);
+          ctx.fill();
+
+          // 绘制圆偏振回旋轨道轨迹圆
+          ctx.strokeStyle = sign > 0 ? 'rgba(251, 191, 36, 0.25)' : 'rgba(244, 63, 94, 0.25)';
+          ctx.lineWidth = 1 * dpr;
+          ctx.beginPath();
+          const segs = 18;
+          for (let k = 0; k <= segs; k++) {
+            const ang = (k / segs) * Math.PI * 2;
+            const px = baseX + Math.cos(ang) * rotRadius;
+            const pz = baseZ + Math.sin(ang) * rotRadius;
+            const pRing = project3D(px, 0, pz, cx, cy, dpr);
+            if (k === 0) ctx.moveTo(pRing.px, pRing.py);
+            else ctx.lineTo(pRing.px, pRing.py);
+          }
+          ctx.stroke();
+
+          // 晶格弹性弹簧恢复力连线
+          if (ix < gridSize) {
+            const nextBaseX = (ix + 1) * spacing;
+            const pNext = project3D(nextBaseX, 0, baseZ, cx, cy, dpr);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+            ctx.beginPath();
+            ctx.moveTo(pBase.px, pBase.py); ctx.lineTo(pNext.px, pNext.py);
+            ctx.stroke();
+          }
+
+          // 运动中的晶格原子小球
+          const pAtom = project3D(curX, 0, curZ, cx, cy, dpr);
+          ctx.fillStyle = sign > 0 ? '#fbbf24' : '#f43f5e';
+          ctx.shadowColor = ctx.fillStyle;
+          ctx.shadowBlur = 6 * dpr;
+          ctx.beginPath();
+          ctx.arc(pAtom.px, pAtom.py, 4.5 * dpr, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.shadowBlur = 0;
+        }
+      }
+
+      ctx.fillStyle = '#fbbf24';
+      ctx.font = `${11 * dpr}px sans-serif`;
+      ctx.fillText('原子圆偏振椭圆振动 (手征声子角动量 L_z ≠ 0)', cx - 110 * dpr, cy + 140 * dpr);
+    }
+
+    // --- 渲染：表面声子弧与横向热流偏折 ---
+    function renderSurfaceHeat(cx, cy, dpr, simTime) {
+      // 样品平板
+      const sizeX = 160;
+      const sizeZ = 120;
+      const heightY = 60;
+
+      // 样品晶体框
+      const boxEdges = [
+        [[-sizeX, -heightY, -sizeZ], [sizeX, -heightY, -sizeZ]],
+        [[sizeX, -heightY, -sizeZ], [sizeX, -heightY, sizeZ]],
+        [[sizeX, -heightY, sizeZ], [-sizeX, -heightY, sizeZ]],
+        [[-sizeX, -heightY, sizeZ], [-sizeX, -heightY, -sizeZ]],
+
+        [[-sizeX, heightY, -sizeZ], [sizeX, heightY, -sizeZ]],
+        [[sizeX, heightY, -sizeZ], [sizeX, heightY, sizeZ]],
+        [[sizeX, heightY, sizeZ], [-sizeX, heightY, sizeZ]],
+        [[-sizeX, heightY, sizeZ], [-sizeX, heightY, -sizeZ]],
+
+        [[-sizeX, -heightY, -sizeZ], [-sizeX, heightY, -sizeZ]],
+        [[sizeX, -heightY, -sizeZ], [[sizeX, heightY, -sizeZ]][0]],
+        [[sizeX, -heightY, sizeZ], [[sizeX, heightY, sizeZ]][0]],
+        [[-sizeX, -heightY, sizeZ], [[-sizeX, heightY, sizeZ]][0]]
+      ];
+
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+      ctx.lineWidth = 1 * dpr;
+      boxEdges.forEach(e => {
+        const p1 = project3D(e[0][0], e[0][1], e[0][2], cx, cy, dpr);
+        const p2 = project3D(e[1][0], e[1][1], e[1][2], cx, cy, dpr);
+        ctx.beginPath();
+        ctx.moveTo(p1.px, p1.py); ctx.lineTo(p2.px, p2.py);
+        ctx.stroke();
+      });
+
+      // 纵向温度梯度指示 (左热 - 右冷)
+      const pHot = project3D(-sizeX, 0, 0, cx, cy, dpr);
+      const pCold = project3D(sizeX, 0, 0, cx, cy, dpr);
+
+      ctx.fillStyle = '#f43f5e';
+      ctx.font = `${11 * dpr}px sans-serif`;
+      ctx.fillText('Hot 端 (T + ΔT)', pHot.px - 60 * dpr, pHot.py);
+      ctx.fillStyle = '#38bdf8';
+      ctx.fillText('Cold 端 (T)', pCold.px + 10 * dpr, pCold.py);
+
+      // 横向声子热霍尔流线 (偏折流动)
+      const numFlows = 10;
+      const hallRad = (PHYSICS.hallAngle * Math.PI) / 180;
+
+      for (let i = 0; i < numFlows; i++) {
+        const startZ = -sizeZ * 0.7 + (i / (numFlows - 1)) * (sizeZ * 1.4);
+
+        ctx.strokeStyle = 'rgba(251, 191, 36, 0.6)';
+        ctx.lineWidth = 1.8 * dpr;
+        ctx.beginPath();
+
+        const pts = 20;
+        for (let s = 0; s <= pts; s++) {
+          const u = s / pts;
+          const x = -sizeX + u * (2 * sizeX);
+          // 纵向流动叠加横向热霍尔偏折
+          const z = startZ + Math.sin(u * Math.PI) * (sizeZ * 0.45 * Math.sin(hallRad * 4.0));
+          const p = project3D(x, 15, z, cx, cy, dpr);
+          if (s === 0) ctx.moveTo(p.px, p.py);
+          else ctx.lineTo(p.px, p.py);
+        }
+        ctx.stroke();
+
+        // 热流粒子动画
+        const phase = (simTime * 1.2 + i * 0.25) % 1.0;
+        const xAnim = -sizeX + phase * (2 * sizeX);
+        const zAnim = startZ + Math.sin(phase * Math.PI) * (sizeZ * 0.45 * Math.sin(hallRad * 4.0));
+        const pP = project3D(xAnim, 15, zAnim, cx, cy, dpr);
+
+        ctx.fillStyle = '#fbbf24';
+        ctx.shadowColor = '#fbbf24';
+        ctx.shadowBlur = 6 * dpr;
+        ctx.beginPath();
+        ctx.arc(pP.px, pP.py, 2.8 * dpr, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+
+      ctx.fillStyle = '#fbbf24';
+      ctx.font = `${11 * dpr}px sans-serif`;
+      ctx.fillText(`横向声子热霍尔效应偏折 (θ_Hall = ${PHYSICS.hallAngle.toFixed(2)}°)`, cx - 110 * dpr, cy + 140 * dpr);
+    }
+
+    // --- 示波器 1：声子热霍尔电导率曲线 ---
+    function renderScope1(dpr) {
+      const w = scope1Canvas.width;
+      const h = scope1Canvas.height;
+      ctxScope1.clearRect(0, 0, w, h);
+
+      // 网格
+      ctxScope1.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+      ctxScope1.lineWidth = 1 * dpr;
+      for (let x = 30 * dpr; x < w; x += 40 * dpr) {
+        ctxScope1.beginPath();
+        ctxScope1.moveTo(x, 0); ctxScope1.lineTo(x, h);
+        ctxScope1.stroke();
+      }
+      for (let y = 20 * dpr; y < h; y += 30 * dpr) {
+        ctxScope1.beginPath();
+        ctxScope1.moveTo(0, y); ctxScope1.lineTo(w, y);
+        ctxScope1.stroke();
+      }
+
+      const padLeft = 35 * dpr;
+      const padBottom = 22 * dpr;
+      const plotW = w - padLeft - 15 * dpr;
+      const plotH = h - padBottom - 15 * dpr;
+
+      // 绘制理论曲线: κ_xy(T) 随 T 从 5 到 150 K
+      ctxScope1.strokeStyle = '#fbbf24';
+      ctxScope1.lineWidth = 2 * dpr;
+      ctxScope1.beginPath();
+
+      const bFactor = STATE.B / Math.sqrt(STATE.B * STATE.B + 4.0);
+      for (let i = 0; i <= 60; i++) {
+        const tSim = 5 + (i / 60) * 145;
+        const tNorm = tSim / 40.0;
+        const val = 28.5 * bFactor * (tNorm * tNorm * tNorm) * Math.exp(-tNorm * 1.5) * 8.5 * (STATE.lsp / 3.5);
+
+        const px = padLeft + (i / 60) * plotW;
+        const py = (h - padBottom) - (val / 35.0) * plotH;
+        if (i === 0) ctxScope1.moveTo(px, py);
+        else ctxScope1.lineTo(px, py);
+      }
+      ctxScope1.stroke();
+
+      // 当前状态点
+      const curFrac = (STATE.T - 5) / 145.0;
+      const curPx = padLeft + curFrac * plotW;
+      const curPy = (h - padBottom) - (PHYSICS.kappaXY / 35.0) * plotH;
+
+      ctxScope1.fillStyle = '#f43f5e';
+      ctxScope1.shadowColor = '#f43f5e';
+      ctxScope1.shadowBlur = 8 * dpr;
+      ctxScope1.beginPath();
+      ctxScope1.arc(curPx, curPy, 4.5 * dpr, 0, Math.PI * 2);
+      ctxScope1.fill();
+      ctxScope1.shadowBlur = 0;
+
+      // 标尺文字
+      ctxScope1.fillStyle = '#94a3b8';
+      ctxScope1.font = `${8.5 * dpr}px sans-serif`;
+      ctxScope1.fillText('5 K', padLeft, h - 6 * dpr);
+      ctxScope1.fillText('150 K (T)', w - 45 * dpr, h - 6 * dpr);
+      ctxScope1.fillText(`κ_xy = ${PHYSICS.kappaXY.toFixed(1)} μW/(K·m)`, curPx - 20 * dpr, curPy - 8 * dpr);
+    }
+
+    // --- 示波器 2：手征声子塞曼分裂能谱 ---
+    function renderScope2(dpr) {
+      const w = scope2Canvas.width;
+      const h = scope2Canvas.height;
+      ctxScope2.clearRect(0, 0, w, h);
+
+      const midY = h / 2;
+      ctxScope2.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+      ctxScope2.setLineDash([3 * dpr, 3 * dpr]);
+      ctxScope2.beginPath();
+      ctxScope2.moveTo(0, midY); ctxScope2.lineTo(w, midY);
+      ctxScope2.stroke();
+      ctxScope2.setLineDash([]);
+
+      const padLeft = 32 * dpr;
+      const padBottom = 22 * dpr;
+      const plotW = w - padLeft - 15 * dpr;
+      const plotH = h - padBottom - 15 * dpr;
+
+      // 绘制 ω_+(B) (黄) 和 ω_-(B) (红) 随磁场分裂
+      ctxScope2.lineWidth = 1.8 * dpr;
+
+      // ω_+
+      ctxScope2.strokeStyle = '#fbbf24';
+      ctxScope2.beginPath();
+      for (let i = 0; i <= 50; i++) {
+        const bSim = (i / 50) * 15;
+        const split = bSim * 0.12 * (STATE.lsp / 3.5);
+        const px = padLeft + (i / 50) * plotW;
+        const py = midY - split * 30 * dpr;
+        if (i === 0) ctxScope2.moveTo(px, py);
+        else ctxScope2.lineTo(px, py);
+      }
+      ctxScope2.stroke();
+
+      // ω_-
+      ctxScope2.strokeStyle = '#f43f5e';
+      ctxScope2.beginPath();
+      for (let i = 0; i <= 50; i++) {
+        const bSim = (i / 50) * 15;
+        const split = bSim * 0.12 * (STATE.lsp / 3.5);
+        const px = padLeft + (i / 50) * plotW;
+        const py = midY + split * 30 * dpr;
+        if (i === 0) ctxScope2.moveTo(px, py);
+        else ctxScope2.lineTo(px, py);
+      }
+      ctxScope2.stroke();
+
+      ctxScope2.fillStyle = '#fbbf24';
+      ctxScope2.font = `${8.5 * dpr}px sans-serif`;
+      ctxScope2.fillText('ω_+ (Right-Chiral Phonon)', 10 * dpr, 18 * dpr);
+      ctxScope2.fillStyle = '#f43f5e';
+      ctxScope2.fillText('ω_- (Left-Chiral Phonon)', 10 * dpr, h - 8 * dpr);
+    }
+
+    // --- 主动画循环 ---
+    let lastTime = performance.now();
+
+    function animate(currentTime) {
+      const dt = Math.min(0.05, (currentTime - lastTime) / 1000);
+      lastTime = currentTime;
+
+      computePhysics(dt);
+
+      const dpr = window.devicePixelRatio || 1;
+      const w = canvas.width;
+      const h = canvas.height;
+      const cx = w / 2;
+      const cy = h / 2;
+
+      ctx.clearRect(0, 0, w, h);
+
+      if (STATE.viewMode === 'weyl_dispersion') {
+        renderWeylDispersion(cx, cy, dpr, PHYSICS.simTime);
+      } else if (STATE.viewMode === 'chiral_atoms') {
+        renderChiralAtoms(cx, cy, dpr, PHYSICS.simTime);
+      } else if (STATE.viewMode === 'surface_heat') {
+        renderSurfaceHeat(cx, cy, dpr, PHYSICS.simTime);
+      }
+
+      renderScope1(dpr);
+      renderScope2(dpr);
+
+      requestAnimationFrame(animate);
+    }
+
+    // 启动监听
+    window.addEventListener('DOMContentLoaded', () => {
+      resizeCanvases();
+      requestAnimationFrame(animate);
+    });
+    setTimeout(resizeCanvases, 100);
+  </script>
+</body>
+</html>

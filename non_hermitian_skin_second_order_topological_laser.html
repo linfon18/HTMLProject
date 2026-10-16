@@ -1,0 +1,1160 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>非厄米二阶高阶拓扑激光微腔与广义布里渊区多极角模全息模拟器</title>
+  <style>
+    :root {
+      --bg: #030712;
+      --panel-bg: rgba(15, 23, 42, 0.78);
+      --panel-border: rgba(56, 189, 248, 0.22);
+      --cyan: #38bdf8;
+      --gold: #fbbf24;
+      --rose: #f43f5e;
+      --emerald: #10b981;
+      --purple: #c084fc;
+      --text-main: #f8fafc;
+      --text-sub: #94a3b8;
+      --font-mono: "Fira Code", "JetBrains Mono", Consolas, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", sans-serif;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+    }
+
+    #app-container {
+      display: grid;
+      grid-template-columns: 1fr 420px;
+      width: 100%;
+      height: 100%;
+      position: relative;
+    }
+
+    #visual-area {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      background: radial-gradient(circle at 50% 50%, #091a38 0%, #020617 100%);
+      overflow: hidden;
+    }
+
+    #main-canvas-wrap {
+      flex: 1;
+      position: relative;
+      width: 100%;
+      height: 58%;
+    }
+
+    #mainCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    #scopes-wrap {
+      height: 42%;
+      border-top: 1px solid var(--panel-border);
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      background: rgba(3, 7, 18, 0.88);
+      position: relative;
+    }
+
+    .scope-box {
+      position: relative;
+      border-right: 1px solid rgba(56, 189, 248, 0.12);
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .scope-box:last-child {
+      border-right: none;
+    }
+
+    .scope-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+      font-size: 12px;
+      font-family: var(--font-mono);
+      color: var(--cyan);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .scope-canvas-wrap {
+      flex: 1;
+      position: relative;
+      width: 100%;
+      min-height: 0;
+    }
+
+    .scope-canvas-wrap canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    #ctrl-panel {
+      background: var(--panel-bg);
+      border-left: 1px solid var(--panel-border);
+      backdrop-filter: blur(16px);
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      z-index: 10;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: var(--panel-border) transparent;
+    }
+
+    .panel-header {
+      padding: 18px 20px 14px;
+      border-bottom: 1px solid var(--panel-border);
+    }
+
+    .badge {
+      display: inline-block;
+      font-size: 10px;
+      font-family: var(--font-mono);
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--cyan);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+
+    h1 {
+      font-size: 16px;
+      font-weight: 700;
+      line-height: 1.35;
+      letter-spacing: -0.2px;
+      color: #fff;
+    }
+
+    .subtitle {
+      font-size: 12px;
+      color: var(--text-sub);
+      margin-top: 4px;
+      line-height: 1.4;
+    }
+
+    .section {
+      padding: 16px 20px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .section-title {
+      font-size: 11px;
+      font-family: var(--font-mono);
+      color: var(--cyan);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .section-title::before {
+      content: "";
+      width: 4px;
+      height: 12px;
+      background: var(--cyan);
+      border-radius: 2px;
+    }
+
+    .preset-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .btn-preset {
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(56, 189, 248, 0.2);
+      color: var(--text-main);
+      padding: 9px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      cursor: pointer;
+      text-align: left;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      line-height: 1.3;
+    }
+
+    .btn-preset:hover {
+      background: rgba(56, 189, 248, 0.15);
+      border-color: var(--cyan);
+      transform: translateY(-1px);
+    }
+
+    .btn-preset.active {
+      background: linear-gradient(135deg, rgba(56, 189, 248, 0.25), rgba(192, 132, 252, 0.25));
+      border-color: var(--cyan);
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.3);
+      color: #fff;
+      font-weight: 600;
+    }
+
+    .control-group {
+      margin-bottom: 14px;
+    }
+
+    .control-group:last-child {
+      margin-bottom: 0;
+    }
+
+    .control-label {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+      margin-bottom: 6px;
+      color: var(--text-sub);
+    }
+
+    .control-val {
+      font-family: var(--font-mono);
+      color: var(--cyan);
+      font-weight: 600;
+    }
+
+    input[type=range] {
+      width: 100%;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 2px;
+      outline: none;
+      -webkit-appearance: none;
+      cursor: pointer;
+    }
+
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--cyan);
+      border: 2px solid #0f172a;
+      box-shadow: 0 0 8px rgba(56, 189, 248, 0.8);
+      cursor: pointer;
+      transition: transform 0.1s ease;
+    }
+
+    input[type=range]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    .telemetry-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .telem-card {
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      padding: 8px 10px;
+      border-radius: 6px;
+    }
+
+    .telem-name {
+      font-size: 10px;
+      color: var(--text-sub);
+      margin-bottom: 2px;
+    }
+
+    .telem-value {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: 600;
+      color: #fff;
+    }
+
+    .action-row {
+      display: flex;
+      gap: 10px;
+      margin-top: 6px;
+    }
+
+    .btn-action {
+      flex: 1;
+      padding: 9px;
+      font-size: 11px;
+      font-family: var(--font-mono);
+      border-radius: 6px;
+      cursor: pointer;
+      border: 1px solid var(--panel-border);
+      background: rgba(30, 41, 59, 0.6);
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+
+    .btn-action:hover {
+      background: rgba(56, 189, 248, 0.2);
+      border-color: var(--cyan);
+    }
+
+    .btn-action.active {
+      background: rgba(16, 185, 129, 0.2);
+      border-color: var(--emerald);
+      color: var(--emerald);
+    }
+
+    .info-card {
+      background: rgba(56, 189, 248, 0.06);
+      border-left: 2px solid var(--cyan);
+      padding: 10px 12px;
+      border-radius: 0 6px 6px 0;
+      font-size: 11px;
+      line-height: 1.5;
+      color: var(--text-sub);
+    }
+
+    .info-card strong {
+      color: var(--text-main);
+    }
+
+    .hud-overlay {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .hud-tag {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--cyan);
+      background: rgba(3, 7, 18, 0.7);
+      padding: 3px 8px;
+      border-radius: 3px;
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      backdrop-filter: blur(4px);
+      width: fit-content;
+    }
+  </style>
+</head>
+<body>
+
+<div id="app-container">
+  <div id="visual-area">
+    <div id="main-canvas-wrap">
+      <canvas id="mainCanvas"></canvas>
+      <div class="hud-overlay">
+        <div class="hud-tag">NON-HERMITIAN HIGHER-ORDER TOPOLOGICAL LASER [BBH QUADRUPOLE Q_xy = 1/2]</div>
+        <div class="hud-tag" id="hudStatus">CORNER LASING ACTIVE | POINT-GAP WINDING W = 1</div>
+      </div>
+    </div>
+
+    <div id="scopes-wrap">
+      <div class="scope-box">
+        <div class="scope-header">
+          <span>复能谱分布 (Re E vs Im E) 与点能隙涡度</span>
+          <span style="color: var(--gold)" id="telem-maxgain">Max Im(E): +0.420</span>
+        </div>
+        <div class="scope-canvas-wrap">
+          <canvas id="complexEnergyScope"></canvas>
+        </div>
+      </div>
+
+      <div class="scope-box">
+        <div class="scope-header">
+          <span>激射输入-输出特性 (L-I Curve) 与对数趋肤剖面</span>
+          <span style="color: var(--rose)" id="telem-laserpower">P_out: 14.8 mW</span>
+        </div>
+        <div class="scope-canvas-wrap">
+          <canvas id="lasingProfileScope"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="ctrl-panel">
+    <div class="panel-header">
+      <div class="badge">PROJECT #286 · FRONTIER OPTICAL TOPOLOGY</div>
+      <h1>非厄米二阶高阶拓扑激光微腔与广义布里渊区多极角模全息模拟器</h1>
+      <div class="subtitle">Non-Hermitian Second-Order Topological Laser & GBZ Corner Mode Simulator</div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">典型物理构型 (Topological Regimes)</div>
+      <div class="preset-grid">
+        <button class="btn-preset active" id="btn-pre-1" onclick="applyPreset('cornerLaser')">
+          ① 四极角模单频激射<br><span style="color:var(--text-sub);font-size:10px;">Quadrupole Laser</span>
+        </button>
+        <button class="btn-preset" id="btn-pre-2" onclick="applyPreset('skinCollapse')">
+          ② 非厄米角态极化趋肤<br><span style="color:var(--text-sub);font-size:10px;">Corner Skin Effect</span>
+        </button>
+        <button class="btn-preset" id="btn-pre-3" onclick="applyPreset('subThreshold')">
+          ③ 亚阈值放大与相干延迟<br><span style="color:var(--text-sub);font-size:10px;">Sub-Threshold Gain</span>
+        </button>
+        <button class="btn-preset" id="btn-pre-4" onclick="applyPreset('defectImmunity')">
+          ④ 局域缺陷容错鲁棒性<br><span style="color:var(--text-sub);font-size:10px;">Disorder Immunity</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">非厄米微腔微观控制 (Hamiltonian Controls)</div>
+
+      <div class="control-group">
+        <div class="control-label">
+          <span>光泵浦增益强度 P_pump (Net Optical Gain)</span>
+          <span class="control-val" id="val-pump">1.25</span>
+        </div>
+        <input type="range" id="param-pump" min="0.00" max="2.50" step="0.05" value="1.25">
+      </div>
+
+      <div class="control-group">
+        <div class="control-label">
+          <span>拓扑二聚化跃迁比 γ_in / γ_out</span>
+          <span class="control-val" id="val-dimer">0.35</span>
+        </div>
+        <input type="range" id="param-dimer" min="0.10" max="1.50" step="0.02" value="0.35">
+      </div>
+
+      <div class="control-group">
+        <div class="control-label">
+          <span>非互易趋肤耦合因子 α_nh (Non-reciprocity)</span>
+          <span class="control-val" id="val-skin">0.45</span>
+        </div>
+        <input type="range" id="param-skin" min="0.00" max="1.20" step="0.02" value="0.45">
+      </div>
+
+      <div class="control-group">
+        <div class="control-label">
+          <span>腔内固有非辐射衰减损耗 Γ_loss</span>
+          <span class="control-val" id="val-loss">0.30</span>
+        </div>
+        <input type="range" id="param-loss" min="0.05" max="1.00" step="0.02" value="0.30">
+      </div>
+
+      <div class="control-group">
+        <div class="control-label">
+          <span>随机微腔结构无序扰动 δW</span>
+          <span class="control-val" id="val-disorder">0.00</span>
+        </div>
+        <input type="range" id="param-disorder" min="0.00" max="0.80" step="0.02" value="0.00">
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">实时量子激射遥测 (Laser Telemetry)</div>
+      <div class="telemetry-grid">
+        <div class="telem-card">
+          <div class="telem-name">四极拓扑不变量 Q_xy</div>
+          <div class="telem-value" id="telem-qxy" style="color: var(--emerald);">1/2 (量子化)</div>
+        </div>
+        <div class="telem-card">
+          <div class="telem-name">激射阈值 P_th</div>
+          <div class="telem-value" id="telem-pth">0.48 mW</div>
+        </div>
+        <div class="telem-card">
+          <div class="telem-name">微腔品质因子 Q_factor</div>
+          <div class="telem-value" id="telem-qfac">2.84 × 10⁵</div>
+        </div>
+        <div class="telem-card">
+          <div class="telem-name">多极角模局域化长度 ξ</div>
+          <div class="telem-value" id="telem-xi">0.82 a₀</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">光相干合成与操作 (Laser Operation)</div>
+      <div class="action-row">
+        <button class="btn-action" id="btn-audio" onclick="toggleAudio()">
+          <span id="audio-icon">🔇</span> 激光锁模声频: 关
+        </button>
+        <button class="btn-action" onclick="injectDefectPerturbation()">
+          ⚡ 注入中心微腔点缺陷
+        </button>
+      </div>
+    </div>
+
+    <div class="section" style="border-bottom: none;">
+      <div class="info-card">
+        <strong>高阶物理机制要点：</strong><br>
+        本系统实现基于广义布里渊区 (GBZ) 的非厄米 Benalcazar-Bernevig-Hughes (BBH) 四极矩微腔光子晶格。胞内负跳跃赋予每个原胞 $\pi$ 磁通量，形成非平庸体四极矩 $Q_{xy} = 1/2$。由于非互易跃迁破坏微观厄米性，产生体-边缘-角三级多重非厄米趋肤效应。当泵浦增益 $P_{\text{pump}}$ 突破阈值时，四个角模因具有最高的净增益 $\text{Im}(E)$ 首当其冲激射，形成单模相干多极拓扑激光。
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/**
+ * 尖端前沿物理引擎：非厄米二阶高阶拓扑激光微腔与广义布里渊区多极角模全息模拟器
+ * Zero Dependencies, Vanilla HTML5 Canvas + Web Audio API
+ */
+
+const STATE = {
+  pump: 1.25,        // 光泵浦增益
+  dimer: 0.35,       // 胞内/胞外跃迁比
+  skinFactor: 0.45,  // 非互易趋肤参数
+  loss: 0.30,        // 固有损耗
+  disorder: 0.0,     // 结构无序
+  gridSize: 6,       // 6x6 原胞，每个原胞 4 个微腔 (24x24 晶格)
+  time: 0,
+  dt: 0.02,
+  isAudioOn: false,
+  preset: 'cornerLaser',
+  defectActive: false,
+  cavityIntensity: [], // 存储微腔光场强
+  photons: []
+};
+
+// 初始化微腔阵列光子态
+function initCavities() {
+  const N = STATE.gridSize * 2;
+  STATE.cavityIntensity = new Float32Array(N * N);
+  STATE.photons = [];
+  for (let i = 0; i < 60; i++) {
+    STATE.photons.push({
+      x: Math.random() * N,
+      y: Math.random() * N,
+      vx: (Math.random() - 0.5) * 0.1,
+      vy: (Math.random() - 0.5) * 0.1,
+      life: Math.random()
+    });
+  }
+}
+
+const mainCanvas = document.getElementById('mainCanvas');
+const mainCtx = mainCanvas.getContext('2d');
+const energyScope = document.getElementById('complexEnergyScope');
+const energyCtx = energyScope.getContext('2d');
+const lasingScope = document.getElementById('lasingProfileScope');
+const lasingCtx = lasingScope.getContext('2d');
+
+let dpr = window.devicePixelRatio || 1;
+
+function resizeAll() {
+  dpr = window.devicePixelRatio || 1;
+
+  const mRect = mainCanvas.parentElement.getBoundingClientRect();
+  mainCanvas.width = mRect.width * dpr;
+  mainCanvas.height = mRect.height * dpr;
+
+  const eRect = energyScope.parentElement.getBoundingClientRect();
+  energyScope.width = eRect.width * dpr;
+  energyScope.height = eRect.height * dpr;
+
+  const lRect = lasingScope.parentElement.getBoundingClientRect();
+  lasingScope.width = lRect.width * dpr;
+  lasingScope.height = lRect.height * dpr;
+}
+
+window.addEventListener('resize', resizeAll);
+window.addEventListener('DOMContentLoaded', () => {
+  resizeAll();
+  initCavities();
+  requestAnimationFrame(loop);
+});
+
+// Web Audio 激光谐振与锁模声频合成
+let audioCtx = null;
+let oscLaser = null;
+let oscBeat = null;
+let gainLaser = null;
+
+function initAudio() {
+  if (audioCtx) return;
+  const AudioContext = window.AudioContext || window.webkitAudioContext;
+  audioCtx = new AudioContext();
+
+  oscLaser = audioCtx.createOscillator();
+  oscBeat = audioCtx.createOscillator();
+  gainLaser = audioCtx.createGain();
+
+  oscLaser.type = 'sawtooth';
+  oscBeat.type = 'sine';
+
+  const beatGain = audioCtx.createGain();
+  beatGain.gain.value = 0.25;
+  oscBeat.connect(beatGain);
+  beatGain.connect(gainLaser);
+  oscLaser.connect(gainLaser);
+
+  gainLaser.gain.setValueAtTime(0.05, audioCtx.currentTime);
+  gainLaser.connect(audioCtx.destination);
+
+  oscLaser.start();
+  oscBeat.start();
+}
+
+function updateAudio() {
+  if (!STATE.isAudioOn || !audioCtx) return;
+  const pOut = calcLaserOutput(STATE.pump);
+  const freqLaser = 220 + pOut * 38;
+  const beatFreq = 8 + (STATE.skinFactor) * 24;
+
+  oscLaser.frequency.setTargetAtTime(freqLaser, audioCtx.currentTime, 0.05);
+  oscBeat.frequency.setTargetAtTime(beatFreq, audioCtx.currentTime, 0.05);
+
+  const targetVol = pOut > 0.1 ? 0.06 : 0.01;
+  gainLaser.gain.setTargetAtTime(targetVol, audioCtx.currentTime, 0.05);
+}
+
+function toggleAudio() {
+  STATE.isAudioOn = !STATE.isAudioOn;
+  const btn = document.getElementById('btn-audio');
+
+  if (STATE.isAudioOn) {
+    initAudio();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    btn.classList.add('active');
+    btn.innerHTML = '<span>🔊</span> 激光锁模声频: 开';
+  } else {
+    if (audioCtx) {
+      gainLaser.gain.setTargetAtTime(0, audioCtx.currentTime, 0.05);
+      setTimeout(() => {
+        if (!STATE.isAudioOn && audioCtx) audioCtx.suspend();
+      }, 60);
+    }
+    btn.classList.remove('active');
+    btn.innerHTML = '<span>🔇</span> 激光锁模声频: 关';
+  }
+}
+
+// 物理核心：计算激射光输出功率 P_out
+function calcLaserOutput(pump) {
+  const pTh = 0.48 * (STATE.loss / 0.3) * (1 + STATE.disorder * 0.5);
+  if (pump <= pTh) {
+    return pump * 0.08; // 自发辐射荧光背景
+  }
+  // 激光斜率效率与饱和输出
+  const slope = 14.5 * (1 + STATE.skinFactor * 0.4);
+  return slope * (pump - pTh);
+}
+
+// 预设配置
+function applyPreset(name) {
+  STATE.preset = name;
+  document.querySelectorAll('.btn-preset').forEach(b => b.classList.remove('active'));
+
+  const pPump = document.getElementById('param-pump');
+  const pDimer = document.getElementById('param-dimer');
+  const pSkin = document.getElementById('param-skin');
+  const pLoss = document.getElementById('param-loss');
+  const pDisorder = document.getElementById('param-disorder');
+
+  if (name === 'cornerLaser') {
+    document.getElementById('btn-pre-1').classList.add('active');
+    STATE.pump = 1.35;
+    STATE.dimer = 0.28;
+    STATE.skinFactor = 0.35;
+    STATE.loss = 0.28;
+    STATE.disorder = 0.0;
+    STATE.defectActive = false;
+  } else if (name === 'skinCollapse') {
+    document.getElementById('btn-pre-2').classList.add('active');
+    STATE.pump = 1.65;
+    STATE.dimer = 0.45;
+    STATE.skinFactor = 0.95; // 极端非厄米趋肤效应，所有角模坍缩至单角
+    STATE.loss = 0.35;
+    STATE.disorder = 0.0;
+    STATE.defectActive = false;
+  } else if (name === 'subThreshold') {
+    document.getElementById('btn-pre-3').classList.add('active');
+    STATE.pump = 0.38; // 低于阈值
+    STATE.dimer = 0.35;
+    STATE.skinFactor = 0.30;
+    STATE.loss = 0.40;
+    STATE.disorder = 0.0;
+    STATE.defectActive = false;
+  } else if (name === 'defectImmunity') {
+    document.getElementById('btn-pre-4').classList.add('active');
+    STATE.pump = 1.45;
+    STATE.dimer = 0.25;
+    STATE.skinFactor = 0.40;
+    STATE.loss = 0.30;
+    STATE.disorder = 0.55; // 强无序结构
+    STATE.defectActive = true;
+  }
+
+  pPump.value = STATE.pump;
+  pDimer.value = STATE.dimer;
+  pSkin.value = STATE.skinFactor;
+  pLoss.value = STATE.loss;
+  pDisorder.value = STATE.disorder;
+
+  syncInputs();
+}
+
+function syncInputs() {
+  document.getElementById('val-pump').textContent = STATE.pump.toFixed(2);
+  document.getElementById('val-dimer').textContent = STATE.dimer.toFixed(2);
+  document.getElementById('val-skin').textContent = STATE.skinFactor.toFixed(2);
+  document.getElementById('val-loss').textContent = STATE.loss.toFixed(2);
+  document.getElementById('val-disorder').textContent = STATE.disorder.toFixed(2);
+}
+
+// 监听参数滑块
+document.getElementById('param-pump').addEventListener('input', (e) => {
+  STATE.pump = parseFloat(e.target.value);
+  syncInputs();
+});
+document.getElementById('param-dimer').addEventListener('input', (e) => {
+  STATE.dimer = parseFloat(e.target.value);
+  syncInputs();
+});
+document.getElementById('param-skin').addEventListener('input', (e) => {
+  STATE.skinFactor = parseFloat(e.target.value);
+  syncInputs();
+});
+document.getElementById('param-loss').addEventListener('input', (e) => {
+  STATE.loss = parseFloat(e.target.value);
+  syncInputs();
+});
+document.getElementById('param-disorder').addEventListener('input', (e) => {
+  STATE.disorder = parseFloat(e.target.value);
+  syncInputs();
+});
+
+// 手动注入中心缺陷
+function injectDefectPerturbation() {
+  STATE.defectActive = !STATE.defectActive;
+  if (STATE.isAudioOn && audioCtx) {
+    const oscP = audioCtx.createOscillator();
+    const gP = audioCtx.createGain();
+    oscP.type = 'triangle';
+    oscP.frequency.setValueAtTime(640, audioCtx.currentTime);
+    oscP.frequency.exponentialRampToValueAtTime(160, audioCtx.currentTime + 0.15);
+    gP.gain.setValueAtTime(0.2, audioCtx.currentTime);
+    gP.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
+    oscP.connect(gP);
+    gP.connect(audioCtx.destination);
+    oscP.start();
+    oscP.stop(audioCtx.currentTime + 0.16);
+  }
+}
+
+// 主渲染动力学循环
+function loop() {
+  STATE.time += STATE.dt;
+  const t = STATE.time;
+
+  // 微观微腔光场强演化计算
+  updateCavityFields();
+
+  // 遥测数据刷新
+  updateTelemetry();
+
+  // 渲染视口
+  renderMainViewport();
+  renderComplexEnergyScope();
+  renderLasingProfileScope();
+
+  // 音频调制
+  updateAudio();
+
+  requestAnimationFrame(loop);
+}
+
+// 更新微腔光场分布
+function updateCavityFields() {
+  const N = STATE.gridSize * 2;
+  const decayLen = Math.max(0.3, STATE.dimer * 2.2);
+  const skinAlpha = STATE.skinFactor * 1.8;
+  const isLasing = STATE.pump > (0.48 * (STATE.loss / 0.3));
+
+  for (let y = 0; y < N; y++) {
+    for (let x = 0; x < N; x++) {
+      const idx = y * N + x;
+      // 计算到 4 个角落的曼哈顿/欧氏距离
+      const d1 = Math.hypot(x, y);                   // 左上 (Top-Left)
+      const d2 = Math.hypot(N - 1 - x, y);           // 右上 (Top-Right)
+      const d3 = Math.hypot(x, N - 1 - y);           // 左下 (Bottom-Left)
+      const d4 = Math.hypot(N - 1 - x, N - 1 - y);   // 右下 (Bottom-Right)
+
+      // 非厄米趋肤效应：赋予右上或右下方向偏向增益
+      const skinBias1 = Math.exp(-x * skinAlpha * 0.3 - y * skinAlpha * 0.3);
+      const skinBias2 = Math.exp((x - N) * skinAlpha * 0.3 - y * skinAlpha * 0.3);
+      const skinBias3 = Math.exp(-x * skinAlpha * 0.3 + (y - N) * skinAlpha * 0.3);
+      const skinBias4 = Math.exp((x - N) * skinAlpha * 0.5 + (y - N) * skinAlpha * 0.5);
+
+      let cornerAmp = Math.exp(-d1 / decayLen) * skinBias1 +
+                      Math.exp(-d2 / decayLen) * skinBias2 +
+                      Math.exp(-d3 / decayLen) * skinBias3 +
+                      Math.exp(-d4 / decayLen) * (1.0 + skinAlpha * 2.2); // 右下显著由于趋肤聚集
+
+      // 无序扰动
+      if (STATE.disorder > 0) {
+        const hash = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
+        const noise = (hash - Math.floor(hash) - 0.5) * STATE.disorder;
+        cornerAmp = Math.max(0, cornerAmp * (1 + noise));
+      }
+
+      // 中心缺陷消光测试
+      if (STATE.defectActive && Math.abs(x - N / 2) < 2 && Math.abs(y - N / 2) < 2) {
+        cornerAmp *= 0.05;
+      }
+
+      const baseIntensity = isLasing ? (cornerAmp * (STATE.pump * 1.8)) : (cornerAmp * 0.15 + 0.02);
+      STATE.cavityIntensity[idx] = baseIntensity;
+    }
+  }
+}
+
+// 遥测数据 HUD 刷新
+function updateTelemetry() {
+  const isLasing = STATE.pump > (0.48 * (STATE.loss / 0.3));
+  const pOut = calcLaserOutput(STATE.pump);
+  const maxGain = Math.max(0, STATE.pump - STATE.loss).toFixed(3);
+  const qFactor = Math.floor((2.84 / (STATE.loss + 0.05)) * 100000);
+  const xi = (0.5 + STATE.dimer * 1.1).toFixed(2);
+
+  document.getElementById('telem-maxgain').textContent = `Max Im(E): +${maxGain}`;
+  document.getElementById('telem-laserpower').textContent = `P_out: ${pOut.toFixed(1)} mW`;
+  document.getElementById('telem-qxy').textContent = STATE.dimer < 1.0 ? '1/2 (量子化四极矩)' : '0 (平庸绝缘态)';
+  document.getElementById('telem-qxy').style.color = STATE.dimer < 1.0 ? 'var(--emerald)' : 'var(--rose)';
+  document.getElementById('telem-pth').textContent = `${(0.48 * (STATE.loss / 0.3)).toFixed(2)} mW`;
+  document.getElementById('telem-qfac').textContent = `${(qFactor / 10000).toFixed(1)} × 10⁴`;
+  document.getElementById('telem-xi').textContent = `${xi} a₀`;
+
+  const statusElem = document.getElementById('hudStatus');
+  if (isLasing) {
+    statusElem.textContent = 'CORNER LASING ACTIVE | SINGLE-MODE QUADRUPOLE EMISSION';
+    statusElem.style.color = 'var(--cyan)';
+    statusElem.style.borderColor = 'rgba(56, 189, 248, 0.4)';
+  } else {
+    statusElem.textContent = 'SUB-THRESHOLD | SPONTANEOUS EMISSION FLUORESCENCE';
+    statusElem.style.color = 'var(--text-sub)';
+    statusElem.style.borderColor = 'rgba(255, 255, 255, 0.15)';
+  }
+}
+
+// 1. 主全息视口渲染：微腔光子晶格与角态激光辐射
+function renderMainViewport() {
+  const w = mainCanvas.width;
+  const h = mainCanvas.height;
+  const c = mainCtx;
+  const t = STATE.time;
+
+  c.save();
+  c.clearRect(0, 0, w, h);
+
+  // 背景场
+  const gradBg = c.createRadialGradient(w * 0.5, h * 0.5, 10, w * 0.5, h * 0.5, Math.hypot(w, h) * 0.65);
+  gradBg.addColorStop(0, '#0d1f42');
+  gradBg.addColorStop(0.6, '#040b1a');
+  gradBg.addColorStop(1, '#01040a');
+  c.fillStyle = gradBg;
+  c.fillRect(0, 0, w, h);
+
+  // 晶格几何布局
+  const N = STATE.gridSize * 2;
+  const margin = Math.min(w, h) * 0.12;
+  const latticeSpan = Math.min(w, h) - margin * 2;
+  const step = latticeSpan / (N - 1);
+  const startX = (w - latticeSpan) * 0.5;
+  const startY = (h - latticeSpan) * 0.5;
+
+  // 1.1 绘制原胞间耦合键网络 (Coupling Waveguides)
+  for (let y = 0; y < N; y++) {
+    for (let x = 0; x < N; x++) {
+      const cx = startX + x * step;
+      const cy = startY + y * step;
+
+      // 水平耦合
+      if (x < N - 1) {
+        const isInterCell = (x % 2 === 1);
+        const couplingStrength = isInterCell ? 1.0 : STATE.dimer;
+        const nx = cx + step;
+        c.strokeStyle = isInterCell ? 'rgba(56, 189, 248, 0.45)' : 'rgba(192, 132, 252, 0.25)';
+        c.lineWidth = (couplingStrength * 2.2 + 0.5) * dpr;
+        c.beginPath();
+        c.moveTo(cx, cy);
+        c.lineTo(nx, cy);
+        c.stroke();
+
+        // 绘制非互易单向指示箭头
+        if (STATE.skinFactor > 0.15 && isInterCell) {
+          drawSkinArrow(c, (cx + nx) * 0.5, cy, 1, 0, 'rgba(56, 189, 248, 0.7)');
+        }
+      }
+
+      // 垂直耦合 (含 BBH π 磁通负跃迁)
+      if (y < N - 1) {
+        const isInterCell = (y % 2 === 1);
+        const isPiFluxBond = (x % 2 === 1 && isInterCell); // 赋予 π 相位翻转
+        const ny = cy + step;
+
+        c.strokeStyle = isPiFluxBond ? 'rgba(244, 63, 94, 0.55)' : (isInterCell ? 'rgba(56, 189, 248, 0.45)' : 'rgba(192, 132, 252, 0.25)');
+        if (isPiFluxBond) c.setLineDash([3 * dpr, 3 * dpr]);
+        c.lineWidth = (isInterCell ? 1.0 : STATE.dimer) * 2.2 * dpr;
+        c.beginPath();
+        c.moveTo(cx, cy);
+        c.lineTo(cx, ny);
+        c.stroke();
+        c.setLineDash([]);
+      }
+    }
+  }
+
+  // 1.2 绘制微柱谐振腔 (Microcavity Pillars) 与发光辐射光晕
+  for (let y = 0; y < N; y++) {
+    for (let x = 0; x < N; x++) {
+      const idx = y * N + x;
+      const intensity = STATE.cavityIntensity[idx] || 0.01;
+      const cx = startX + x * step;
+      const cy = startY + y * step;
+
+      const baseR = 4.2 * dpr;
+      const glowR = baseR + Math.min(26 * dpr, intensity * 18 * dpr);
+
+      // 角落激光发射产生极强外散相干光环
+      if (intensity > 0.8) {
+        const laserGrad = c.createRadialGradient(cx, cy, 0, cx, cy, glowR * 2.5);
+        laserGrad.addColorStop(0, 'rgba(56, 189, 248, 0.85)');
+        laserGrad.addColorStop(0.3, 'rgba(192, 132, 252, 0.5)');
+        laserGrad.addColorStop(1, 'rgba(56, 189, 248, 0)');
+        c.fillStyle = laserGrad;
+        c.beginPath();
+        c.arc(cx, cy, glowR * 2.5, 0, Math.PI * 2);
+        c.fill();
+      }
+
+      // 微柱实体
+      c.fillStyle = intensity > 0.5 ? '#fff' : 'rgba(148, 163, 184, 0.6)';
+      c.beginPath();
+      c.arc(cx, cy, baseR, 0, Math.PI * 2);
+      c.fill();
+    }
+  }
+
+  // 1.3 四角高阶拓扑激光耀斑脉冲动画 (Corner Laser Spots)
+  if (STATE.pump > (0.48 * (STATE.loss / 0.3))) {
+    const corners = [
+      { x: startX, y: startY },
+      { x: startX + (N - 1) * step, y: startY },
+      { x: startX, y: startY + (N - 1) * step },
+      { x: startX + (N - 1) * step, y: startY + (N - 1) * step }
+    ];
+
+    corners.forEach((corn, idx) => {
+      const pulse = 1.0 + 0.22 * Math.sin(t * 8 + idx * Math.PI * 0.5);
+      const rad = 28 * dpr * pulse;
+
+      c.strokeStyle = '#38bdf8';
+      c.lineWidth = 1.5 * dpr;
+      c.beginPath();
+      c.arc(corn.x, corn.y, rad, 0, Math.PI * 2);
+      c.stroke();
+
+      // 相干光锥标示
+      c.fillStyle = '#38bdf8';
+      c.font = `bold ${10 * dpr}px ${getComputedStyle(document.body).getPropertyValue('--font-mono')}`;
+      c.fillText(`CORNER LASER #${idx + 1}`, corn.x - 30 * dpr, corn.y - rad - 6 * dpr);
+    });
+  }
+
+  c.restore();
+}
+
+function drawSkinArrow(c, x, y, dx, dy, color) {
+  c.fillStyle = color;
+  c.beginPath();
+  c.moveTo(x + dx * 6 * dpr, y + dy * 6 * dpr);
+  c.lineTo(x - dx * 4 * dpr - dy * 4 * dpr, y - dy * 4 * dpr + dx * 4 * dpr);
+  c.lineTo(x - dx * 4 * dpr + dy * 4 * dpr, y - dy * 4 * dpr - dx * 4 * dpr);
+  c.closePath();
+  c.fill();
+}
+
+// 2. 示波器 1：复能量分布 (Re E vs Im E) 与点能隙涡度
+function renderComplexEnergyScope() {
+  const w = energyScope.width;
+  const h = energyScope.height;
+  const c = energyCtx;
+  const t = STATE.time;
+
+  c.save();
+  c.clearRect(0, 0, w, h);
+
+  const padL = 40 * dpr;
+  const padR = 20 * dpr;
+  const padT = 20 * dpr;
+  const padB = 26 * dpr;
+  const plotW = w - padL - padR;
+  const plotH = h - padT - padB;
+  const midX = padL + plotW * 0.5;
+  const midY = padT + plotH * 0.5;
+
+  // 坐标轴
+  c.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+  c.lineWidth = 1 * dpr;
+
+  c.beginPath();
+  c.moveTo(padL, midY);
+  c.lineTo(padL + plotW, midY); // 实轴 Re(E)
+  c.moveTo(midX, padT);
+  c.lineTo(midX, padT + plotH); // 虚轴 Im(E) (净增益/损耗)
+  c.stroke();
+
+  // 阈值虚线 (Im E = 0 激射临界线)
+  c.strokeStyle = 'rgba(244, 63, 94, 0.4)';
+  c.setLineDash([4 * dpr, 4 * dpr]);
+  c.beginPath();
+  c.moveTo(padL, midY);
+  c.lineTo(padL + plotW, midY);
+  c.stroke();
+  c.setLineDash([]);
+
+  c.font = `${9 * dpr}px ${getComputedStyle(document.body).getPropertyValue('--font-mono')}`;
+  c.fillStyle = 'rgba(255, 255, 255, 0.4)';
+  c.textAlign = 'right';
+  c.fillText('Gain > 0', padL + plotW, midY - 6 * dpr);
+  c.fillText('Loss < 0', padL + plotW, midY + 14 * dpr);
+  c.fillText('Re(E)', padL + plotW, midY + 24 * dpr);
+  c.textAlign = 'left';
+  c.fillText('Im(E)', midX + 6 * dpr, padT + 10 * dpr);
+
+  // 2.1 绘制连续体态能谱闭合环 (PBC Point-Gap Loop)
+  const nPts = 64;
+  c.strokeStyle = 'rgba(192, 132, 252, 0.4)';
+  c.lineWidth = 1.2 * dpr;
+  c.beginPath();
+
+  for (let i = 0; i <= nPts; i++) {
+    const theta = (i / nPts) * Math.PI * 2;
+    // 非厄米 BBH 点能隙环
+    const reE = Math.cos(theta) * (plotW * 0.35);
+    const imE = -STATE.loss * (plotH * 0.4) + Math.sin(theta) * (STATE.skinFactor * plotH * 0.3);
+    const px = midX + reE;
+    const py = midY - imE;
+
+    if (i === 0) c.moveTo(px, py);
+    else c.lineTo(px, py);
+  }
+  c.stroke();
+
+  // 2.2 绘制高阶拓扑角模能级 (Corner State Eigenvalues)
+  const netGain = (STATE.pump - STATE.loss);
+  const cornerY = midY - netGain * (plotH * 0.45);
+
+  // 4 个角模在复平面孤立出现于虚轴正半区
+  c.fillStyle = netGain > 0 ? '#38bdf8' : '#fbbf24';
+  c.shadowColor = c.fillStyle;
+  c.shadowBlur = 8 * dpr;
+
+  const cornerXs = [-12 * dpr, -4 * dpr, 4 * dpr, 12 * dpr];
+  cornerXs.forEach(cx => {
+    c.beginPath();
+    c.arc(midX + cx, cornerY, 4 * dpr, 0, Math.PI * 2);
+    c.fill();
+  });
+  c.shadowBlur = 0;
+
+  c.fillStyle = '#38bdf8';
+  c.textAlign = 'center';
+  c.fillText('TOPOLOGICAL CORNER MODES', midX, cornerY - 8 * dpr);
+
+  c.restore();
+}
+
+// 3. 示波器 2：激射输入-输出特性 (L-I Curve) 与对数趋肤剖面
+function renderLasingProfileScope() {
+  const w = lasingScope.width;
+  const h = lasingScope.height;
+  const c = lasingCtx;
+
+  c.save();
+  c.clearRect(0, 0, w, h);
+
+  const padL = 40 * dpr;
+  const padR = 20 * dpr;
+  const padT = 20 * dpr;
+  const padB = 26 * dpr;
+  const plotW = w - padL - padR;
+  const plotH = h - padT - padB;
+  const midY = padT + plotH * 0.5;
+
+  // 3.1 上半部：L-I 输入输出激射曲线
+  const liH = plotH * 0.45;
+  c.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+  c.strokeRect(padL, padT, plotW, liH);
+
+  c.font = `${9 * dpr}px ${getComputedStyle(document.body).getPropertyValue('--font-mono')}`;
+  c.fillStyle = 'rgba(255, 255, 255, 0.4)';
+  c.fillText('L-I CHAR: P_out vs P_pump', padL + 6 * dpr, padT + 12 * dpr);
+
+  // 绘制 L-I 折线
+  c.strokeStyle = '#10b981';
+  c.lineWidth = 1.8 * dpr;
+  c.beginPath();
+  for (let px = 0; px <= plotW; px += 2 * dpr) {
+    const pumpVal = (px / plotW) * 2.5;
+    const pOut = calcLaserOutput(pumpVal);
+    const py = padT + liH - (pOut / 32) * liH;
+    if (px === 0) c.moveTo(padL + px, py);
+    else c.lineTo(padL + px, py);
+  }
+  c.stroke();
+
+  // 当前工作点
+  const curPx = padL + (STATE.pump / 2.5) * plotW;
+  const curPout = calcLaserOutput(STATE.pump);
+  const curPy = padT + liH - (curPout / 32) * liH;
+
+  c.fillStyle = '#10b981';
+  c.beginPath();
+  c.arc(curPx, curPy, 4 * dpr, 0, Math.PI * 2);
+  c.fill();
+
+  // 3.2 下半部：空间角态局域化对数剖面 log|ψ(r)|
+  const profT = padT + liH + 14 * dpr;
+  const profH = plotH - liH - 14 * dpr;
+
+  c.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+  c.strokeRect(padL, profT, plotW, profH);
+
+  c.fillStyle = 'rgba(255, 255, 255, 0.4)';
+  c.fillText('CORNER LOCALIZATION log|ψ(x)|', padL + 6 * dpr, profT + 12 * dpr);
+
+  c.strokeStyle = '#f43f5e';
+  c.lineWidth = 1.8 * dpr;
+  c.beginPath();
+  for (let px = 0; px <= plotW; px += 2 * dpr) {
+    const xNorm = px / plotW;
+    // 指数型局域化对数曲线 (呈现两头翘或趋肤单侧偏折)
+    const logAmp = Math.log(Math.exp(-xNorm * 4) + Math.exp(-(1 - xNorm) * (4 - STATE.skinFactor * 2.5)) + 1e-4);
+    const py = profT + profH - ((logAmp + 5) / 5) * profH;
+    if (px === 0) c.moveTo(padL + px, py);
+    else c.lineTo(padL + px, py);
+  }
+  c.stroke();
+
+  c.restore();
+}
+</script>
+</body>
+</html>

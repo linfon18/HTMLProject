@@ -1,0 +1,1340 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>光镊技术与单分子纳米操控全息模拟 (Arthur Ashkin Optical Tweezers & WLC Dynamics)</title>
+  <style>
+    :root {
+      --bg-primary: #030712;
+      --bg-panel: rgba(9, 18, 36, 0.85);
+      --border-panel: rgba(255, 170, 0, 0.25);
+      --laser-beam: #ffaa00;
+      --laser-glow: rgba(255, 170, 0, 0.45);
+      --bead-color: #00f0ff;
+      --dna-color: #38ef7d;
+      --text-main: #f0f6fc;
+      --text-dim: #8b9bb4;
+      --accent-cyan: #00e1ff;
+      --danger-red: #ff3366;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body {
+      background-color: var(--bg-primary);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", "PingFang SC", "Microsoft YaHei", sans-serif;
+      overflow-x: hidden;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      background: linear-gradient(180deg, rgba(16, 26, 48, 0.95) 0%, rgba(6, 14, 28, 0.8) 100%);
+      border-bottom: 1px solid var(--border-panel);
+      padding: 12px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(12px);
+    }
+
+    .title-area h1 {
+      font-size: 1.35rem;
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      background: linear-gradient(90deg, #ffaa00, #ffd043, #00f0ff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .title-area p {
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      margin-top: 3px;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border: 1px solid;
+    }
+    .badge-nobel {
+      background: rgba(255, 170, 0, 0.15);
+      color: #ffaa00;
+      border-color: rgba(255, 170, 0, 0.4);
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    button.btn {
+      background: rgba(255, 170, 0, 0.12);
+      border: 1px solid rgba(255, 170, 0, 0.35);
+      color: #f0f6fc;
+      padding: 6px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.82rem;
+      font-weight: 500;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    button.btn:hover {
+      background: rgba(255, 170, 0, 0.25);
+      border-color: #ffd043;
+      box-shadow: 0 0 10px rgba(255, 170, 0, 0.3);
+    }
+    button.btn-primary {
+      background: linear-gradient(135deg, rgba(255, 170, 0, 0.45), rgba(255, 90, 0, 0.55));
+      border-color: #ffaa00;
+      color: #ffffff;
+      font-weight: 600;
+    }
+    button.btn-primary:hover {
+      background: linear-gradient(135deg, rgba(255, 170, 0, 0.65), rgba(255, 90, 0, 0.75));
+      box-shadow: 0 0 14px rgba(255, 170, 0, 0.5);
+    }
+
+    .main-container {
+      display: grid;
+      grid-template-columns: 1fr 390px;
+      gap: 16px;
+      padding: 16px 20px;
+      flex: 1;
+      max-width: 1800px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    .viewport-col {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .card {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-panel);
+      border-radius: 10px;
+      padding: 14px 16px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+      position: relative;
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .card-title {
+      font-size: 0.92rem;
+      font-weight: 600;
+      color: #ffd043;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .canvas-wrapper {
+      position: relative;
+      width: 100%;
+      height: 460px;
+      background: #01040a;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 170, 0, 0.15);
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    .canvas-overlay-stats {
+      position: absolute;
+      top: 10px;
+      left: 12px;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-family: "JetBrains Mono", Consolas, monospace;
+      font-size: 0.78rem;
+    }
+
+    .stat-tag {
+      background: rgba(3, 9, 22, 0.8);
+      padding: 4px 10px;
+      border-radius: 4px;
+      border-left: 3px solid #ffaa00;
+      backdrop-filter: blur(4px);
+    }
+    .stat-tag.cyan {
+      border-left-color: #00f0ff;
+    }
+    .stat-tag.green {
+      border-left-color: #38ef7d;
+    }
+
+    .charts-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .chart-box {
+      height: 230px;
+      background: #01040a;
+      border-radius: 8px;
+      position: relative;
+      border: 1px solid rgba(255, 170, 0, 0.15);
+      overflow: hidden;
+    }
+
+    /* 右侧控制面板 */
+    .controls-col {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .control-group {
+      margin-bottom: 12px;
+    }
+
+    .control-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.8rem;
+      margin-bottom: 5px;
+      color: var(--text-dim);
+    }
+    .control-val {
+      color: #ffd043;
+      font-family: monospace;
+      font-weight: bold;
+    }
+
+    input[type=range] {
+      width: 100%;
+      height: 5px;
+      background: rgba(255, 170, 0, 0.2);
+      border-radius: 4px;
+      outline: none;
+      -webkit-appearance: none;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      background: #ffaa00;
+      cursor: pointer;
+      box-shadow: 0 0 8px #ffaa00;
+      transition: 0.1s;
+    }
+    input[type=range]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    .preset-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 6px;
+    }
+    .preset-btn {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: var(--text-main);
+      padding: 7px 6px;
+      border-radius: 6px;
+      font-size: 0.74rem;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s;
+    }
+    .preset-btn:hover {
+      background: rgba(255, 170, 0, 0.18);
+      border-color: #ffaa00;
+    }
+    .preset-btn.active {
+      background: rgba(255, 170, 0, 0.28);
+      border-color: #ffaa00;
+      color: #ffd043;
+      font-weight: 600;
+    }
+
+    .indicator-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .indicator-box {
+      background: rgba(0, 0, 0, 0.35);
+      padding: 8px 10px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      text-align: center;
+    }
+    .indicator-label {
+      font-size: 0.7rem;
+      color: var(--text-dim);
+    }
+    .indicator-value {
+      font-size: 1.1rem;
+      font-family: monospace;
+      font-weight: bold;
+      color: #ffd043;
+      margin-top: 2px;
+    }
+
+    .formula-card {
+      font-family: "JetBrains Mono", Consolas, monospace;
+      font-size: 0.76rem;
+      line-height: 1.5;
+      background: rgba(3, 9, 22, 0.6);
+      padding: 10px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 170, 0, 0.15);
+      color: #ffd899;
+    }
+    .formula-card span.hi {
+      color: #ffd043;
+      font-weight: bold;
+    }
+    .formula-card span.cyan {
+      color: #00f0ff;
+    }
+    .formula-card span.green {
+      color: #38ef7d;
+    }
+
+    footer {
+      border-top: 1px solid var(--border-panel);
+      padding: 10px 24px;
+      font-size: 0.76rem;
+      color: var(--text-dim);
+      display: flex;
+      justify-content: space-between;
+      background: rgba(4, 10, 22, 0.9);
+      margin-top: auto;
+    }
+
+    @media (max-width: 1100px) {
+      .main-container {
+        grid-template-columns: 1fr;
+      }
+      .charts-row {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="title-area">
+      <h1>
+        <span>阿什金光镊与单分子纳米操控全息仿真</span>
+        <span class="badge badge-nobel">2018 诺贝尔物理学奖</span>
+      </h1>
+      <p>高斯激光聚焦梯度力、低雷诺数朗之万布朗热运动与 DNA 蠕虫链 (WLC) 超拉伸相变</p>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-primary" id="btnReleaseTrap">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+        瞬态脉冲光束
+      </button>
+      <button class="btn" id="btnAudioToggle">
+        <span id="audioIcon">🔊</span>
+        <span id="audioText">激光谐振音频: 开</span>
+      </button>
+      <button class="btn" id="btnResetSimulation">复位微球与链</button>
+    </div>
+  </header>
+
+  <div class="main-container">
+    <!-- 左侧实空间显微视口与双物理曲线 -->
+    <div class="viewport-col">
+      <!-- 主画布：光学显微聚焦光阱与单分子拉伸 -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffaa00" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3M5 5l2 2m10 10 2 2M5 19l2-2m10-10 2-2"/></svg>
+            显微流控视口 (Microfluidic Chamber & High-NA Optical Trap)
+          </div>
+          <div style="font-size:0.75rem; color:var(--text-dim)">
+            操作：鼠标直接拖拽橙色光斑移动光阱，捕获并拉伸绿色 DNA 链绑定的纳米微球
+          </div>
+        </div>
+
+        <div class="canvas-wrapper">
+          <canvas id="microscopeCanvas"></canvas>
+          <div class="canvas-overlay-stats">
+            <div class="stat-tag">
+              <span style="color:#ffaa00">● 光梯度力 F_grad</span>：指向束腰光强极大值点 (三维势阱回拉)
+            </div>
+            <div class="stat-tag cyan">
+              <span style="color:#00f0ff">● 介电微球 (PS Bead)</span>：直径 1.5 μm，热力学布朗随机位移
+            </div>
+            <div class="stat-tag green" id="dnaStatusTag">
+              <span style="color:#38ef7d">● 单分子 DNA 状态</span>：处于 B-DNA 弹性蠕虫链区间 (伸长率 72%)
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 下方解析图表：光阱势阱断面与 DNA WLC 力-伸长量曲线 -->
+      <div class="charts-row">
+        <!-- 图表 1：三维谐振子光阱势能断面 U(x) -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ffd043" stroke-width="2"><path d="M2 12c4 8 16 8 20 0"/></svg>
+              光阱谐振势能面 U(x) & 恢复力曲线
+            </div>
+            <span style="font-size:0.72rem; color:#ffd043" id="stiffnessLabel">光阱刚度 κ: 0.14 pN/nm</span>
+          </div>
+          <div class="chart-box">
+            <canvas id="trapPotentialCanvas"></canvas>
+          </div>
+        </div>
+
+        <!-- 图表 2：DNA 单分子拉伸 WLC 实验曲线示波器 -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#38ef7d" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+              DNA 力-伸长量曲线 (Marko-Siggia 蠕虫链模型)
+            </div>
+            <span style="font-size:0.72rem; color:#38ef7d" id="dnaForceLabel">拉伸张力 F: 12.4 pN</span>
+          </div>
+          <div class="chart-box">
+            <canvas id="dnaExtensionCanvas"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 右侧控制与参数调整面板 -->
+    <div class="controls-col">
+      <!-- 预设操作场景 -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">实验工况快捷预设</div>
+        </div>
+        <div class="preset-grid">
+          <button class="preset-btn active" data-preset="single_trap">单光束稳定捕获</button>
+          <button class="preset-btn" data-preset="dna_stretch">DNA蠕虫链拉伸测试</button>
+          <button class="preset-btn" data-preset="overstretching">65 pN 超拉伸相变</button>
+          <button class="preset-btn" data-preset="hydrodynamic_drag">微流控剪切逃逸</button>
+        </div>
+      </div>
+
+      <!-- 核心激光物理与流体参数调节 -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">光镊与微流控物理参数</div>
+        </div>
+
+        <div class="control-group">
+          <div class="control-header">
+            <span>激光功率 P_laser (mW)</span>
+            <span class="control-val" id="valLaserPower">120 mW</span>
+          </div>
+          <input type="range" id="sliderLaserPower" min="10" max="300" step="5" value="120">
+          <div style="font-size:0.7rem; color:var(--text-dim); margin-top:2px;">
+            光强正比于势阱深度与刚度 κ (提高功率可抵抗更大热骚动与外力)
+          </div>
+        </div>
+
+        <div class="control-group">
+          <div class="control-header">
+            <span>显微物镜数值孔径 NA (大角度聚焦)</span>
+            <span class="control-val" id="valNA">1.30</span>
+          </div>
+          <input type="range" id="sliderNA" min="0.80" max="1.45" step="0.05" value="1.30">
+          <div style="font-size:0.7rem; color:var(--text-dim); margin-top:2px;">
+            NA > 1.0 为浸油物镜，大孔径角方可提供足够的轴向梯度回拉力
+          </div>
+        </div>
+
+        <div class="control-group">
+          <div class="control-header">
+            <span>微球直径 2a (μm)</span>
+            <span class="control-val" id="valBeadSize">1.50 μm</span>
+          </div>
+          <input type="range" id="sliderBeadSize" min="0.50" max="3.00" step="0.10" value="1.50">
+        </div>
+
+        <div class="control-group">
+          <div class="control-header">
+            <span>环境流体温度 T (Kelvin - 布朗热噪声)</span>
+            <span class="control-val" id="valTemp">298 K</span>
+          </div>
+          <input type="range" id="sliderTemp" min="273" max="350" step="1" value="298">
+        </div>
+
+        <div class="control-group">
+          <div class="control-header">
+            <span>流动腔微流速 v_flow (μm/s - 斯托克斯阻力)</span>
+            <span class="control-val" id="valFlowSpeed">0.0 μm/s</span>
+          </div>
+          <input type="range" id="sliderFlowSpeed" min="-150.0" max="150.0" step="5.0" value="0.0">
+        </div>
+      </div>
+
+      <!-- 实时状态指标 -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">纳米测量学实时指标</div>
+        </div>
+        <div class="indicator-grid">
+          <div class="indicator-box">
+            <div class="indicator-label">光梯度力 F_grad</div>
+            <div class="indicator-value" id="indFgrad">18.2 pN</div>
+          </div>
+          <div class="indicator-box">
+            <div class="indicator-label">DNA 伸长量 x</div>
+            <div class="indicator-value" id="indDnaExt" style="color:#38ef7d">12.8 μm</div>
+          </div>
+          <div class="indicator-box">
+            <div class="indicator-label">束腰光斑半径 w₀</div>
+            <div class="indicator-value" id="indWaist">260 nm</div>
+          </div>
+          <div class="indicator-box">
+            <div class="indicator-label">微球热振动振幅</div>
+            <div class="indicator-value" id="indThermalRms" style="color:#00f0ff">8.4 nm</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 核心数学与物理公式卡片 -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">光镊动力学与 Marko-Siggia WLC</div>
+        </div>
+        <div class="formula-card">
+          <p>梯度力：<span class="hi">F_grad = ½ α_p ∇⟨E²⟩</span> ∝ ∇I(r,z)</p>
+          <p>散射力：<span class="hi">F_scat = (n_m σ_s / c) ⟨S⟩ ẑ</span></p>
+          <p style="margin-top:4px;">过阻尼朗之万：γ dx/dt = -κ x + F_ext + <span class="cyan">ξ_thermal</span></p>
+          <div style="border-top:1px dashed rgba(255,170,0,0.25); margin:6px 0; padding-top:4px;">
+            <p>DNA蠕虫链模型 (Marko-Siggia)：</p>
+            <p><span class="green">F(x) = (k_B T / P) [ ¼(1 - x/L₀)⁻² - ¼ + x/L₀ ]</span></p>
+            <p>持续长度 P ≈ 50 nm，轮廓长度 L₀ ≈ 16.5 μm</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <div>阿什金光镊 (Optical Tweezers) · 单分子生物物理力学全息动力学模拟引擎</div>
+    <div>高斯光束梯度势阱 · 朗之万过阻尼布朗热运动 · DNA 蠕虫链 (WLC) 超拉伸相变 · Web Audio 物理声学</div>
+  </footer>
+
+  <script>
+    // --- 物理常数与仿真参数 ---
+    const KB = 1.380649e-23; // 玻尔兹曼常数 J/K
+    const C_LIGHT = 2.99792458e8;
+    const ETA_WATER = 0.001; // 水粘滞系数 Pa·s (20℃)
+
+    const PARAMS = {
+      powerMw: 120,       // 激光功率 mW
+      na: 1.30,           // 物镜数值孔径
+      beadDiameterUm: 1.5,// 微球直径 μm
+      tempK: 298,         // 温度 K
+      flowSpeedUmS: 0.0,  // 微流流速 μm/s
+      audioEnabled: true,
+      activeMode: 'single_trap'
+    };
+
+    // DNA 物理参数 (λ-phage DNA)
+    const DNA_PROPS = {
+      contourLengthUm: 16.5, // 轮廓长度 L0 (μm)
+      persistenceNm: 50.0,   // 持续长度 P (nm)
+      overstretchForcePn: 65.0, // 超拉伸跃迁力 (pN)
+      anchorX: 120,          // 玻璃盖玻片锚定基座 X (像素)
+      anchorY: 230           // 玻璃盖玻片锚定基座 Y (像素)
+    };
+
+    // 显微视口内对象实体
+    const trap = {
+      x: 480,
+      y: 230,
+      vx: 0,
+      vy: 0,
+      isDragging: false,
+      active: true
+    };
+
+    const bead = {
+      x: 480,
+      y: 230,
+      vx: 0,
+      vy: 0,
+      radiusPx: 22,
+      thermalHist: []
+    };
+
+    // 历史测量数据
+    const HISTORY_LEN = 120;
+    const dnaForceHistory = [];
+    const dnaExtHistory = [];
+
+    // Web Audio 节点
+    let audioCtx = null;
+    let laserHumOsc = null;
+    let brownianNoise = null;
+    let laserGain = null;
+    let noiseGain = null;
+
+    // --- Web Audio 真实微观谐振环境 ---
+    function initAudio() {
+      if (audioCtx) return;
+      try {
+        const AudioClass = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioClass();
+
+        // 激光微腔 120Hz/240Hz 谐振蜂鸣基频
+        laserHumOsc = audioCtx.createOscillator();
+        laserHumOsc.type = 'sine';
+        laserHumOsc.frequency.setValueAtTime(240, audioCtx.currentTime);
+
+        laserGain = audioCtx.createGain();
+        laserGain.gain.setValueAtTime(0.02, audioCtx.currentTime);
+
+        laserHumOsc.connect(laserGain);
+        laserGain.connect(audioCtx.destination);
+        laserHumOsc.start();
+
+        // 微球布朗热运动撞击粉红噪声
+        const bufferSize = audioCtx.sampleRate * 2;
+        const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+        const data = noiseBuffer.getChannelData(0);
+        let b0 = 0, b1 = 0, b2 = 0;
+        for (let i = 0; i < bufferSize; i++) {
+          const white = Math.random() * 2 - 1;
+          b0 = 0.99886 * b0 + white * 0.0555179;
+          b1 = 0.99332 * b1 + white * 0.0750759;
+          b2 = 0.96900 * b2 + white * 0.1538520;
+          data[i] = (b0 + b1 + b2) * 0.12;
+        }
+
+        brownianNoise = audioCtx.createBufferSource();
+        brownianNoise.buffer = noiseBuffer;
+        brownianNoise.loop = true;
+
+        const noiseFilter = audioCtx.createBiquadFilter();
+        noiseFilter.type = 'lowpass';
+        noiseFilter.frequency.value = 450;
+
+        noiseGain = audioCtx.createGain();
+        noiseGain.gain.setValueAtTime(0.03, audioCtx.currentTime);
+
+        brownianNoise.connect(noiseFilter);
+        noiseFilter.connect(noiseGain);
+        noiseGain.connect(audioCtx.destination);
+        brownianNoise.start();
+      } catch (e) {
+        console.warn("Web Audio 异常:", e);
+      }
+    }
+
+    function updateAudio(forcePn, distFromTrap) {
+      if (!audioCtx || !PARAMS.audioEnabled) return;
+
+      // 激光声根据功率与光强微调基频
+      const freq = 200 + (PARAMS.powerMw / 300) * 120 + Math.min(100, forcePn * 2);
+      laserHumOsc.frequency.setTargetAtTime(freq, audioCtx.currentTime, 0.08);
+
+      // 当微球偏离光阱或 DNA 处于高拉力区时，热噪声和湍流声变大
+      const noiseVol = Math.min(0.08, 0.015 + (distFromTrap / 80) * 0.04 + (forcePn / 80) * 0.03);
+      noiseGain.gain.setTargetAtTime(noiseVol, audioCtx.currentTime, 0.08);
+    }
+
+    // --- 物理计算与动力学步进 ---
+    // 计算光阱刚度 κ (pN/nm)
+    function calcTrapStiffness() {
+      // 刚度正比于功率 P，反比于束腰截面积 w0^2，依赖 NA^3
+      const scale = (PARAMS.powerMw / 100.0) * Math.pow(PARAMS.na / 1.2, 3);
+      return 0.12 * scale; // pN/nm
+    }
+
+    // 标定像素与物理微米 (1 像素 = 40 nm = 0.04 μm)
+    const PIXEL_TO_UM = 0.04;
+    const UM_TO_PIXEL = 25.0;
+
+    // Marko-Siggia WLC 蠕虫状链力学公式计算 DNA 张力 (pN)
+    function calcWlcForce(extUm) {
+      const L0 = DNA_PROPS.contourLengthUm;
+      const P_nm = DNA_PROPS.persistenceNm;
+      const P_um = P_nm * 1e-3;
+
+      let r = extUm / L0;
+      if (r <= 0.01) return 0.0;
+
+      // 超拉伸相变 (Overstretching Transition at ~65 pN)
+      if (r >= 0.985) {
+        // 发生 B-to-S 相变平台：张力在 65 pN 附近平缓跃迁，随后陡峭上升
+        const plateau = DNA_PROPS.overstretchForcePn;
+        const overstretchingDist = (extUm - L0 * 0.985);
+        if (overstretchingDist < 1.7) {
+          return plateau + overstretchingDist * 3.5;
+        } else {
+          return plateau + 1.7 * 3.5 + Math.pow((overstretchingDist - 1.7) * 4.0, 2);
+        }
+      }
+
+      // 经典 Marko-Siggia 公式
+      // F = (kB*T / P) * [ 1/(4*(1-r)^2) - 1/4 + r ]
+      const kBT_pN_um = 4.114e-3 * (PARAMS.tempK / 298.0); // pN·μm
+      const oneMinusR = Math.max(0.005, 1.0 - r);
+      const term1 = 1.0 / (4.0 * oneMinusR * oneMinusR);
+      const term2 = -0.25;
+      const term3 = r;
+      const forcePn = (kBT_pN_um / P_um) * (term1 + term2 + term3);
+
+      return Math.max(0.0, forcePn);
+    }
+
+    // 朗之万过阻尼物理步进
+    function physicsStep(dt) {
+      // 1. 光阱恢复力 (高斯势阱，近中心近似谐振子，远距离梯度力衰减)
+      const dxPx = trap.x - bead.x;
+      const dyPx = trap.y - bead.y;
+      const distPx = Math.hypot(dxPx, dyPx);
+      const distNm = distPx * 40.0; // nm
+
+      const kappa = calcTrapStiffness(); // pN/nm
+      let fTrapPn = 0;
+      let fTrapX = 0;
+      let fTrapY = 0;
+
+      if (trap.active && distNm > 0.1) {
+        // 高斯势阱截断：F_opt(r) = -κ r * exp(-2 (r/w0)^2)
+        const w0_nm = 260.0; // 束腰半径
+        const rNorm = distNm / w0_nm;
+        fTrapPn = kappa * distNm * Math.exp(-1.5 * rNorm * rNorm);
+
+        fTrapX = fTrapPn * (dxPx / distPx);
+        fTrapY = fTrapPn * (dyPx / distPx);
+      }
+
+      // 2. DNA 单分子拉伸张力
+      const dnaDxPx = bead.x - DNA_PROPS.anchorX;
+      const dnaDyPx = bead.y - DNA_PROPS.anchorY;
+      const dnaExtPx = Math.hypot(dnaDxPx, dnaDyPx);
+      const dnaExtUm = dnaExtPx * PIXEL_TO_UM;
+
+      const fDnaPn = calcWlcForce(dnaExtUm);
+      let fDnaX = 0;
+      let fDnaY = 0;
+      if (dnaExtPx > 1.0) {
+        fDnaX = -fDnaPn * (dnaDxPx / dnaExtPx);
+        fDnaY = -fDnaPn * (dnaDyPx / dnaExtPx);
+      }
+
+      // 3. 微流控微流剪切力 (斯托克斯拖曳力 F_drag = 6π η a v)
+      const beadRadiusM = (PARAMS.beadDiameterUm * 0.5) * 1e-6;
+      const gamma = 6.0 * Math.PI * ETA_WATER * beadRadiusM; // N·s/m
+      // 换算至 pN
+      const vFlowM_s = (PARAMS.flowSpeedUmS * 1e-6);
+      const fFlowX = (gamma * vFlowM_s) * 1e12; // pN
+
+      // 4. 布朗热噪声 (满足涨落耗散定理 σ = sqrt(2 * gamma * kB * T / dt))
+      const kBT = KB * PARAMS.tempK;
+      const thermalAmp = Math.sqrt((2.0 * gamma * kBT) / Math.max(1e-4, dt)) * 1e12; // pN
+      const randAngle = Math.random() * Math.PI * 2;
+      const randMag = (Math.random() + Math.random() - 1.0) * thermalAmp * 0.08;
+      const fBrownianX = Math.cos(randAngle) * randMag;
+      const fBrownianY = Math.sin(randAngle) * randMag;
+
+      // 5. 过阻尼运动方程 v = F_total / γ
+      const fTotalX = fTrapX + fDnaX + fFlowX + fBrownianX;
+      const fTotalY = fTrapY + fDnaY + fBrownianY;
+
+      // 速度 (μm/s) 转换至 像素/s
+      const vxUmS = (fTotalX * 1e-12) / gamma * 1e6;
+      const vyUmS = (fTotalY * 1e-12) / gamma * 1e6;
+
+      const vxPx = vxUmS * UM_TO_PIXEL;
+      const vyPx = vyUmS * UM_TO_PIXEL;
+
+      bead.x += vxPx * dt;
+      bead.y += vyPx * dt;
+
+      // 记录微球热振动历史
+      bead.thermalHist.push({ x: bead.x, y: bead.y });
+      if (bead.thermalHist.length > 35) bead.thermalHist.shift();
+
+      // 记录示波器历史
+      dnaForceHistory.push(fDnaPn);
+      dnaExtHistory.push(dnaExtUm);
+      if (dnaForceHistory.length > HISTORY_LEN) {
+        dnaForceHistory.shift();
+        dnaExtHistory.shift();
+      }
+
+      // 音频与 DOM 指标更新
+      updateAudio(fDnaPn, distPx);
+
+      document.getElementById('indFgrad').textContent = `${fTrapPn.toFixed(1)} pN`;
+      document.getElementById('indDnaExt').textContent = `${dnaExtUm.toFixed(2)} μm`;
+      document.getElementById('dnaForceLabel').textContent = `拉伸张力 F: ${fDnaPn.toFixed(1)} pN`;
+      document.getElementById('stiffnessLabel').textContent = `光阱刚度 κ: ${kappa.toFixed(2)} pN/nm`;
+
+      const rmsThermal = (Math.sqrt(kBT / (kappa * 1e-3 || 1e-6)) * 1e9).toFixed(1);
+      document.getElementById('indThermalRms').textContent = `${rmsThermal} nm`;
+
+      // DNA 状态标签
+      const dnaTag = document.getElementById('dnaStatusTag');
+      const extRatio = (dnaExtUm / DNA_PROPS.contourLengthUm) * 100;
+      if (fDnaPn >= DNA_PROPS.overstretchForcePn - 2.0) {
+        dnaTag.innerHTML = `<span style="color:#ff3366">● 单分子 DNA 状态</span>：进入 65 pN 超拉伸相变区 (B-to-S 变性解旋)`;
+      } else {
+        dnaTag.innerHTML = `<span style="color:#38ef7d">● 单分子 DNA 状态</span>：处于 B-DNA 弹性蠕虫链区间 (伸长率 ${extRatio.toFixed(0)}%)`;
+      }
+    }
+
+    // --- 画布与渲染系统 ---
+    const micCanvas = document.getElementById('microscopeCanvas');
+    const micCtx = micCanvas.getContext('2d');
+
+    const trapCanvas = document.getElementById('trapPotentialCanvas');
+    const trapCtx = trapCanvas.getContext('2d');
+
+    const dnaCanvas = document.getElementById('dnaExtensionCanvas');
+    const dnaCtx = dnaCanvas.getContext('2d');
+
+    function resizeCanvas() {
+      const dpr = window.devicePixelRatio || 1;
+
+      const rectMic = micCanvas.getBoundingClientRect();
+      micCanvas.width = rectMic.width * dpr;
+      micCanvas.height = rectMic.height * dpr;
+      micCtx.resetTransform();
+      micCtx.scale(dpr, dpr);
+
+      const rectTrap = trapCanvas.getBoundingClientRect();
+      trapCanvas.width = rectTrap.width * dpr;
+      trapCanvas.height = rectTrap.height * dpr;
+      trapCtx.resetTransform();
+      trapCtx.scale(dpr, dpr);
+
+      const rectDna = dnaCanvas.getBoundingClientRect();
+      dnaCanvas.width = rectDna.width * dpr;
+      dnaCanvas.height = rectDna.height * dpr;
+      dnaCtx.resetTransform();
+      dnaCtx.scale(dpr, dpr);
+    }
+
+    window.addEventListener('resize', resizeCanvas);
+
+    // --- 显微流控视口渲染 (光束光线、微球与 DNA 螺旋链) ---
+    function renderMicroscope() {
+      const w = micCanvas.clientWidth;
+      const h = micCanvas.clientHeight;
+
+      micCtx.fillStyle = '#01040a';
+      micCtx.fillRect(0, 0, w, h);
+
+      // 1. 显微网格与流体背景指示箭头
+      micCtx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
+      micCtx.lineWidth = 1;
+      const gridSize = 30;
+      for (let x = 0; x < w; x += gridSize) {
+        micCtx.beginPath(); micCtx.moveTo(x, 0); micCtx.lineTo(x, h); micCtx.stroke();
+      }
+      for (let y = 0; y < h; y += gridSize) {
+        micCtx.beginPath(); micCtx.moveTo(0, y); micCtx.lineTo(w, y); micCtx.stroke();
+      }
+
+      // 如果有微流流动，绘制流速流动虚线
+      if (Math.abs(PARAMS.flowSpeedUmS) > 1.0) {
+        micCtx.strokeStyle = 'rgba(0, 240, 255, 0.15)';
+        micCtx.setLineDash([6, 12]);
+        const flowY = 40;
+        micCtx.beginPath();
+        micCtx.moveTo(0, flowY); micCtx.lineTo(w, flowY);
+        micCtx.moveTo(0, h - flowY); micCtx.lineTo(w, h - flowY);
+        micCtx.stroke();
+        micCtx.setLineDash([]);
+      }
+
+      // 2. 玻璃盖玻片基底与化学锚定基座 (Glass Coverslip Anchor)
+      const ancX = DNA_PROPS.anchorX;
+      const ancY = DNA_PROPS.anchorY;
+
+      micCtx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+      micCtx.fillRect(0, ancY - 25, ancX - 10, 50);
+      micCtx.strokeStyle = '#8b9bb4';
+      micCtx.lineWidth = 2;
+      micCtx.strokeRect(0, ancY - 25, ancX - 10, 50);
+
+      micCtx.fillStyle = '#ffaa00';
+      micCtx.beginPath();
+      micCtx.arc(ancX, ancY, 7, 0, Math.PI * 2);
+      micCtx.fill();
+
+      micCtx.fillStyle = '#8b9bb4';
+      micCtx.font = '10px "JetBrains Mono", Consolas, monospace';
+      micCtx.fillText('盖玻片基底锚点', 15, ancY - 10);
+
+      // 3. 绘制单分子 DNA 纳米双螺旋链 (带节点与碱基对结构)
+      const dx = bead.x - ancX;
+      const dy = bead.y - ancY;
+      const chainDist = Math.hypot(dx, dy);
+      const numSegments = 36;
+
+      micCtx.beginPath();
+      for (let i = 0; i <= numSegments; i++) {
+        const t = i / numSegments;
+        const baseX = ancX + dx * t;
+        const baseY = ancY + dy * t;
+
+        // 沿链生成高频双螺旋波动 (随张力增大而拉紧变细)
+        const tensionForce = calcWlcForce(chainDist * PIXEL_TO_UM);
+        const waveAmp = Math.max(1.2, 8.0 - tensionForce * 0.12);
+        const perpX = -dy / (chainDist || 1);
+        const perpY = dx / (chainDist || 1);
+
+        const sinWave = Math.sin(t * 38.0) * waveAmp;
+        const px = baseX + perpX * sinWave;
+        const py = baseY + perpY * sinWave;
+
+        if (i === 0) micCtx.moveTo(px, py);
+        else micCtx.lineTo(px, py);
+      }
+      const isOverstretched = calcWlcForce(chainDist * PIXEL_TO_UM) >= DNA_PROPS.overstretchForcePn - 2.0;
+      micCtx.strokeStyle = isOverstretched ? '#ff3366' : '#38ef7d';
+      micCtx.lineWidth = isOverstretched ? 1.8 : 2.5;
+      micCtx.shadowColor = isOverstretched ? '#ff3366' : '#38ef7d';
+      micCtx.shadowBlur = 8;
+      micCtx.stroke();
+      micCtx.shadowBlur = 0;
+
+      // 4. 绘制高数值孔径高斯激光光束 (焦锥与束腰)
+      if (trap.active) {
+        const tx = trap.x;
+        const ty = trap.y;
+
+        // 顶底双向高斯聚焦点光锥
+        const coneH = 180;
+        const coneW = (coneH / Math.tan(Math.asin(Math.min(0.98, PARAMS.na / 1.33)))) * 0.85;
+
+        const gradTop = micCtx.createRadialGradient(tx, ty, 6, tx, ty, coneH);
+        gradTop.addColorStop(0, 'rgba(255, 170, 0, 0.7)');
+        gradTop.addColorStop(0.35, 'rgba(255, 140, 0, 0.25)');
+        gradTop.addColorStop(1, 'rgba(255, 90, 0, 0.0)');
+
+        // 绘制聚焦双光锥
+        micCtx.beginPath();
+        micCtx.moveTo(tx - coneW, ty - coneH);
+        micCtx.lineTo(tx + coneW, ty - coneH);
+        micCtx.lineTo(tx, ty);
+        micCtx.closePath();
+        micCtx.fillStyle = gradTop;
+        micCtx.fill();
+
+        micCtx.beginPath();
+        micCtx.moveTo(tx - coneW, ty + coneH);
+        micCtx.lineTo(tx + coneW, ty + coneH);
+        micCtx.lineTo(tx, ty);
+        micCtx.closePath();
+        micCtx.fillStyle = gradTop;
+        micCtx.fill();
+
+        // 束腰中心光强极大斑 (Trap Waist Focus)
+        micCtx.beginPath();
+        micCtx.arc(tx, ty, 8, 0, Math.PI * 2);
+        micCtx.fillStyle = '#ffffff';
+        micCtx.shadowColor = '#ffaa00';
+        micCtx.shadowBlur = 18;
+        micCtx.fill();
+        micCtx.shadowBlur = 0;
+
+        // 光阱操纵圆环
+        micCtx.strokeStyle = 'rgba(255, 200, 0, 0.6)';
+        micCtx.setLineDash([4, 4]);
+        micCtx.lineWidth = 1.5;
+        micCtx.beginPath();
+        micCtx.arc(tx, ty, 32, 0, Math.PI * 2);
+        micCtx.stroke();
+        micCtx.setLineDash([]);
+      }
+
+      // 5. 绘制微球热振动拖尾与微球本尊 (Dielectric Polystyrene Bead)
+      if (bead.thermalHist.length > 1) {
+        micCtx.beginPath();
+        micCtx.moveTo(bead.thermalHist[0].x, bead.thermalHist[0].y);
+        for (let i = 1; i < bead.thermalHist.length; i++) {
+          micCtx.lineTo(bead.thermalHist[i].x, bead.thermalHist[i].y);
+        }
+        micCtx.strokeStyle = 'rgba(0, 240, 255, 0.25)';
+        micCtx.lineWidth = 1.5;
+        micCtx.stroke();
+      }
+
+      const beadR = (PARAMS.beadDiameterUm * 0.5) * UM_TO_PIXEL;
+      const beadGrad = micCtx.createRadialGradient(bead.x - beadR * 0.35, bead.y - beadR * 0.35, 2, bead.x, bead.y, beadR);
+      beadGrad.addColorStop(0, '#e0ffff');
+      beadGrad.addColorStop(0.5, '#00d4ff');
+      beadGrad.addColorStop(1, '#005588');
+
+      micCtx.beginPath();
+      micCtx.arc(bead.x, bead.y, beadR, 0, Math.PI * 2);
+      micCtx.fillStyle = beadGrad;
+      micCtx.shadowColor = '#00f0ff';
+      micCtx.shadowBlur = 12;
+      micCtx.fill();
+      micCtx.shadowBlur = 0;
+
+      micCtx.strokeStyle = '#ffffff';
+      micCtx.lineWidth = 1.5;
+      micCtx.stroke();
+
+      // 微球中心交点与标签
+      micCtx.fillStyle = '#ffffff';
+      micCtx.font = '10px monospace';
+      micCtx.fillText(`Bead (ø${PARAMS.beadDiameterUm}μm)`, bead.x - 30, bead.y + beadR + 14);
+    }
+
+    // --- 图表 1：光阱势阱断面 U(x) 与恢复力渲染 ---
+    function renderTrapPotential() {
+      const w = trapCanvas.clientWidth;
+      const h = trapCanvas.clientHeight;
+      trapCtx.fillStyle = '#01040a';
+      trapCtx.fillRect(0, 0, w, h);
+
+      // 坐标轴
+      trapCtx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+      trapCtx.lineWidth = 1;
+      const midX = w / 2;
+      const groundY = h - 25;
+
+      trapCtx.beginPath();
+      trapCtx.moveTo(20, groundY); trapCtx.lineTo(w - 20, groundY);
+      trapCtx.moveTo(midX, 15); trapCtx.lineTo(midX, groundY);
+      trapCtx.stroke();
+
+      // 绘制谐振高斯势阱 U(x) = -U0 * exp(-2 (x/w0)^2)
+      const kappa = calcTrapStiffness();
+      const points = 100;
+      const spanNm = 600; // ±300nm
+
+      trapCtx.beginPath();
+      trapCtx.strokeStyle = '#ffaa00';
+      trapCtx.lineWidth = 2.5;
+
+      for (let i = 0; i <= points; i++) {
+        const xNm = -spanNm * 0.5 + (i / points) * spanNm;
+        const scrX = midX + (xNm / (spanNm * 0.5)) * (w * 0.42);
+
+        // 势能高度 (以 k_B T 为单位归一化)
+        const uKbT = -0.5 * kappa * (xNm * xNm) * 0.008; // 谐振势底
+        const scrY = groundY + Math.max(-h * 0.75, uKbT);
+
+        if (i === 0) trapCtx.moveTo(scrX, scrY);
+        else trapCtx.lineTo(scrX, scrY);
+      }
+      trapCtx.stroke();
+
+      // 标出当前微球在势阱中的相对位移位置
+      const curDispNm = (bead.x - trap.x) * 40.0;
+      const beadScrX = midX + Math.max(-w * 0.42, Math.min(w * 0.42, (curDispNm / (spanNm * 0.5)) * (w * 0.42)));
+      const beadUKbT = -0.5 * kappa * (curDispNm * curDispNm) * 0.008;
+      const beadScrY = groundY + Math.max(-h * 0.75, beadUKbT);
+
+      trapCtx.beginPath();
+      trapCtx.arc(beadScrX, beadScrY, 5, 0, Math.PI * 2);
+      trapCtx.fillStyle = '#00f0ff';
+      trapCtx.shadowColor = '#00f0ff';
+      trapCtx.shadowBlur = 8;
+      trapCtx.fill();
+      trapCtx.shadowBlur = 0;
+
+      trapCtx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+      trapCtx.font = '9px monospace';
+      trapCtx.fillText('-300 nm', 25, groundY + 14);
+      trapCtx.fillText('+300 nm', w - 65, groundY + 14);
+      trapCtx.fillText('势阱中心 x=0', midX - 28, groundY + 14);
+      trapCtx.fillText(`微球偏离: ${curDispNm.toFixed(0)} nm`, beadScrX - 35, beadScrY - 10);
+    }
+
+    // --- 图表 2：DNA 单分子拉伸 WLC 实验曲线示波器 ---
+    function renderDnaExtension() {
+      const w = dnaCanvas.clientWidth;
+      const h = dnaCanvas.clientHeight;
+      dnaCtx.fillStyle = '#01040a';
+      dnaCtx.fillRect(0, 0, w, h);
+
+      // 坐标轴
+      const padL = 35;
+      const padB = 25;
+      const plotW = w - padL - 15;
+      const plotH = h - padB - 15;
+
+      dnaCtx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+      dnaCtx.lineWidth = 1;
+      dnaCtx.strokeRect(padL, 15, plotW, plotH);
+
+      // 65 pN 超拉伸相变平台虚线
+      const overstretchNormY = (65.0 / 85.0);
+      const platY = 15 + plotH * (1.0 - overstretchNormY);
+      dnaCtx.strokeStyle = 'rgba(255, 51, 102, 0.5)';
+      dnaCtx.setLineDash([3, 3]);
+      dnaCtx.beginPath();
+      dnaCtx.moveTo(padL, platY);
+      dnaCtx.lineTo(padL + plotW, platY);
+      dnaCtx.stroke();
+      dnaCtx.setLineDash([]);
+
+      dnaCtx.fillStyle = '#ff5376';
+      dnaCtx.font = '9px monospace';
+      dnaCtx.fillText('65 pN 超拉伸相变平台', padL + 8, platY - 4);
+
+      // 绘制理论 WLC 曲线背景参考
+      dnaCtx.beginPath();
+      dnaCtx.strokeStyle = 'rgba(56, 239, 125, 0.3)';
+      dnaCtx.lineWidth = 1.5;
+      const refSteps = 80;
+      for (let i = 0; i <= refSteps; i++) {
+        const ext = (i / refSteps) * 18.5; // μm
+        const force = calcWlcForce(ext);
+        const x = padL + (ext / 18.5) * plotW;
+        const y = 15 + plotH * (1.0 - Math.min(1.0, force / 85.0));
+        if (i === 0) dnaCtx.moveTo(x, y);
+        else dnaCtx.lineTo(x, y);
+      }
+      dnaCtx.stroke();
+
+      // 绘制实时追踪点历史轨迹
+      if (dnaExtHistory.length > 1) {
+        dnaCtx.beginPath();
+        dnaCtx.strokeStyle = '#38ef7d';
+        dnaCtx.lineWidth = 2.5;
+        for (let i = 0; i < dnaExtHistory.length; i++) {
+          const ext = dnaExtHistory[i];
+          const force = dnaForceHistory[i];
+          const x = padL + (ext / 18.5) * plotW;
+          const y = 15 + plotH * (1.0 - Math.min(1.0, force / 85.0));
+          if (i === 0) dnaCtx.moveTo(x, y);
+          else dnaCtx.lineTo(x, y);
+        }
+        dnaCtx.stroke();
+
+        // 当前工作点高亮
+        const lastExt = dnaExtHistory[dnaExtHistory.length - 1];
+        const lastForce = dnaForceHistory[dnaForceHistory.length - 1];
+        const curX = padL + (lastExt / 18.5) * plotW;
+        const curY = 15 + plotH * (1.0 - Math.min(1.0, lastForce / 85.0));
+
+        dnaCtx.beginPath();
+        dnaCtx.arc(curX, curY, 4.5, 0, Math.PI * 2);
+        dnaCtx.fillStyle = '#ffffff';
+        dnaCtx.shadowColor = '#38ef7d';
+        dnaCtx.shadowBlur = 8;
+        dnaCtx.fill();
+        dnaCtx.shadowBlur = 0;
+      }
+
+      // 坐标轴标注
+      dnaCtx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+      dnaCtx.font = '9px monospace';
+      dnaCtx.fillText('0', padL - 12, 15 + plotH + 4);
+      dnaCtx.fillText('85 pN', 5, 24);
+      dnaCtx.fillText('18.5 μm', padL + plotW - 35, 15 + plotH + 14);
+      dnaCtx.fillText('伸长量 (μm)', padL + plotW / 2 - 25, 15 + plotH + 14);
+    }
+
+    // --- 主循环动效 ---
+    let lastTime = performance.now();
+    function animate(now) {
+      const dt = Math.min(0.04, (now - lastTime) / 1000.0);
+      lastTime = now;
+
+      // 细分多次物理子步以保持刚性积分高稳定性
+      const subSteps = 4;
+      for (let s = 0; s < subSteps; s++) {
+        physicsStep(dt / subSteps);
+      }
+
+      renderMicroscope();
+      renderTrapPotential();
+      renderDnaExtension();
+
+      requestAnimationFrame(animate);
+    }
+
+    // --- 交互控制与事件处理 ---
+    // 滑块同步
+    const sliderPower = document.getElementById('sliderLaserPower');
+    sliderPower.addEventListener('input', (e) => {
+      PARAMS.powerMw = parseInt(e.target.value);
+      document.getElementById('valLaserPower').textContent = `${PARAMS.powerMw} mW`;
+    });
+
+    const sliderNA = document.getElementById('sliderNA');
+    sliderNA.addEventListener('input', (e) => {
+      PARAMS.na = parseFloat(e.target.value);
+      document.getElementById('valNA').textContent = PARAMS.na.toFixed(2);
+      const w0Nm = Math.round((532 / (Math.PI * PARAMS.na)));
+      document.getElementById('indWaist').textContent = `${w0Nm} nm`;
+    });
+
+    const sliderBead = document.getElementById('sliderBeadSize');
+    sliderBead.addEventListener('input', (e) => {
+      PARAMS.beadDiameterUm = parseFloat(e.target.value);
+      document.getElementById('valBeadSize').textContent = `${PARAMS.beadDiameterUm.toFixed(2)} μm`;
+    });
+
+    const sliderTemp = document.getElementById('sliderTemp');
+    sliderTemp.addEventListener('input', (e) => {
+      PARAMS.tempK = parseInt(e.target.value);
+      document.getElementById('valTemp').textContent = `${PARAMS.tempK} K`;
+    });
+
+    const sliderFlow = document.getElementById('sliderFlowSpeed');
+    sliderFlow.addEventListener('input', (e) => {
+      PARAMS.flowSpeedUmS = parseFloat(e.target.value);
+      document.getElementById('valFlowSpeed').textContent = `${PARAMS.flowSpeedUmS.toFixed(1)} μm/s`;
+    });
+
+    // 鼠标在显微视口内拖拽光阱光斑
+    function getCanvasCoords(e) {
+      const rect = micCanvas.getBoundingClientRect();
+      const cx = e.clientX || (e.touches && e.touches[0].clientX);
+      const cy = e.clientY || (e.touches && e.touches[0].clientY);
+      return {
+        x: cx - rect.left,
+        y: cy - rect.top
+      };
+    }
+
+    micCanvas.addEventListener('mousedown', (e) => {
+      initAudio();
+      const pt = getCanvasCoords(e);
+      const dist = Math.hypot(pt.x - trap.x, pt.y - trap.y);
+      if (dist < 45) {
+        trap.isDragging = true;
+      }
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (trap.isDragging) {
+        const pt = getCanvasCoords(e);
+        trap.x = Math.max(50, Math.min(micCanvas.clientWidth - 50, pt.x));
+        trap.y = Math.max(50, Math.min(micCanvas.clientHeight - 50, pt.y));
+      }
+    });
+
+    window.addEventListener('mouseup', () => {
+      trap.isDragging = false;
+    });
+
+    // 预设快速切换
+    const presetBtns = document.querySelectorAll('.preset-btn');
+    presetBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        presetBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        const preset = btn.dataset.preset;
+        PARAMS.activeMode = preset;
+
+        if (preset === 'single_trap') {
+          PARAMS.powerMw = 120;
+          PARAMS.flowSpeedUmS = 0.0;
+          trap.x = 420; trap.y = 230;
+          bead.x = 420; bead.y = 230;
+        } else if (preset === 'dna_stretch') {
+          PARAMS.powerMw = 160;
+          PARAMS.flowSpeedUmS = 0.0;
+          trap.x = 520; trap.y = 230; // 适度拉伸
+        } else if (preset === 'overstretching') {
+          PARAMS.powerMw = 260; // 强光阱
+          PARAMS.flowSpeedUmS = 0.0;
+          trap.x = 565; trap.y = 230; // 强制拉入 65 pN 相变区
+        } else if (preset === 'hydrodynamic_drag') {
+          PARAMS.powerMw = 60;  // 弱阱
+          PARAMS.flowSpeedUmS = 120.0; // 强流动拖拽微球逃逸
+        }
+
+        sliderPower.value = PARAMS.powerMw;
+        sliderFlow.value = PARAMS.flowSpeedUmS;
+        document.getElementById('valLaserPower').textContent = `${PARAMS.powerMw} mW`;
+        document.getElementById('valFlowSpeed').textContent = `${PARAMS.flowSpeedUmS.toFixed(1)} μm/s`;
+      });
+    });
+
+    // 顶部按钮事件
+    document.getElementById('btnReleaseTrap').addEventListener('click', () => {
+      initAudio();
+      trap.active = false;
+      setTimeout(() => { trap.active = true; }, 350);
+    });
+
+    document.getElementById('btnAudioToggle').addEventListener('click', () => {
+      PARAMS.audioEnabled = !PARAMS.audioEnabled;
+      const icon = document.getElementById('audioIcon');
+      const text = document.getElementById('audioText');
+      if (PARAMS.audioEnabled) {
+        initAudio();
+        icon.textContent = '🔊';
+        text.textContent = '激光谐振音频: 开';
+      } else {
+        icon.textContent = '🔇';
+        text.textContent = '激光谐振音频: 关';
+        if (laserGain) laserGain.gain.setValueAtTime(0, audioCtx.currentTime);
+        if (noiseGain) noiseGain.gain.setValueAtTime(0, audioCtx.currentTime);
+      }
+    });
+
+    document.getElementById('btnResetSimulation').addEventListener('click', () => {
+      trap.x = 450;
+      trap.y = 230;
+      bead.x = 450;
+      bead.y = 230;
+      bead.thermalHist.length = 0;
+      dnaForceHistory.length = 0;
+      dnaExtHistory.length = 0;
+    });
+
+    // 初始化启动
+    resizeCanvas();
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>

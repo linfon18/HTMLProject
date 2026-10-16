@@ -1,0 +1,1002 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>手征外尔半金属反常轴子极化激元光学双稳态与皮秒全光开关全息模拟器</title>
+  <style>
+    :root {
+      --bg-base: #030712;
+      --panel-bg: rgba(15, 23, 42, 0.78);
+      --panel-border: rgba(244, 63, 94, 0.28);
+      --accent-rose: #f43f5e;
+      --accent-cyan: #38bdf8;
+      --accent-gold: #fbbf24;
+      --accent-purple: #c084fc;
+      --accent-emerald: #34d399;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+    body {
+      background: var(--bg-base);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      overflow: hidden;
+    }
+    #viewport-container {
+      position: relative;
+      flex: 1;
+      height: 100%;
+      background: radial-gradient(circle at 50% 50%, #170d1e 0%, #030712 100%);
+    }
+    canvas#holo-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    /* Side Control Dashboard */
+    #sidebar {
+      width: 440px;
+      height: 100%;
+      background: var(--panel-bg);
+      backdrop-filter: blur(20px);
+      border-left: 1px solid var(--panel-border);
+      display: flex;
+      flex-direction: column;
+      z-index: 10;
+      box-shadow: -10px 0 35px rgba(0,0,0,0.65);
+      overflow-y: auto;
+    }
+    #sidebar::-webkit-scrollbar {
+      width: 5px;
+    }
+    #sidebar::-webkit-scrollbar-thumb {
+      background: rgba(244, 63, 94, 0.35);
+      border-radius: 4px;
+    }
+    .header-box {
+      padding: 20px 24px 16px;
+      border-bottom: 1px solid rgba(244, 63, 94, 0.15);
+      background: linear-gradient(180deg, rgba(244, 63, 94, 0.08) 0%, transparent 100%);
+    }
+    .badge-tag {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--accent-rose);
+      background: rgba(244, 63, 94, 0.14);
+      border: 1px solid rgba(244, 63, 94, 0.35);
+      padding: 3px 8px;
+      border-radius: 4px;
+      margin-bottom: 8px;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+    }
+    h1 {
+      font-size: 18px;
+      font-weight: 700;
+      line-height: 1.4;
+      color: #fff;
+      letter-spacing: -0.2px;
+    }
+    .sub-title {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 5px;
+      font-family: var(--font-mono);
+    }
+    .content-box {
+      padding: 18px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+    .section-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--accent-rose);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+    .section-title::before {
+      content: '';
+      display: inline-block;
+      width: 4px;
+      height: 12px;
+      background: var(--accent-rose);
+      border-radius: 2px;
+    }
+    /* Scope Card */
+    .scope-panel {
+      background: rgba(2, 6, 23, 0.65);
+      border: 1px solid rgba(244, 63, 94, 0.2);
+      border-radius: 8px;
+      padding: 12px;
+    }
+    .scope-title {
+      font-size: 11px;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    .scope-canvas-wrap {
+      width: 100%;
+      height: 115px;
+      position: relative;
+    }
+    canvas.scope-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      background: #020617;
+      border-radius: 4px;
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+    /* Readout Grid */
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+    .metric-item {
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 6px;
+      padding: 8px 12px;
+    }
+    .metric-lbl {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    .metric-val {
+      font-family: var(--font-mono);
+      font-size: 15px;
+      font-weight: 700;
+      margin-top: 2px;
+      color: #fff;
+    }
+    /* Sliders */
+    .slider-group {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .control-row {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .control-label-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--text-main);
+    }
+    .control-val {
+      font-family: var(--font-mono);
+      color: var(--accent-rose);
+    }
+    input[type=range] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.12);
+      border-radius: 2px;
+      outline: none;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--accent-rose);
+      cursor: pointer;
+      box-shadow: 0 0 8px var(--accent-rose);
+      transition: transform 0.1s;
+    }
+    input[type=range]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+    /* Buttons */
+    .btn-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+    .btn {
+      background: rgba(30, 41, 59, 0.7);
+      border: 1px solid rgba(244, 63, 94, 0.25);
+      color: #e2e8f0;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 8px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s;
+    }
+    .btn:hover {
+      background: rgba(244, 63, 94, 0.2);
+      border-color: var(--accent-rose);
+      color: #fff;
+      box-shadow: 0 0 10px rgba(244, 63, 94, 0.25);
+    }
+    .btn-active {
+      background: rgba(244, 63, 94, 0.35);
+      border-color: var(--accent-rose);
+      color: #fff;
+    }
+    .action-btn {
+      width: 100%;
+      background: linear-gradient(135deg, rgba(244, 63, 94, 0.25), rgba(56, 189, 248, 0.25));
+      border: 1px solid rgba(244, 63, 94, 0.4);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .action-btn:hover {
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 14px rgba(56, 189, 248, 0.35);
+      transform: translateY(-1px);
+    }
+    /* Theory Box */
+    .theory-box {
+      font-size: 11px;
+      color: var(--text-muted);
+      line-height: 1.6;
+      background: rgba(2, 6, 23, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      border-radius: 6px;
+      padding: 10px 12px;
+    }
+    .theory-box b {
+      color: var(--accent-gold);
+    }
+    /* Overlay HUD */
+    #hud-overlay {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .hud-chip {
+      background: rgba(3, 7, 18, 0.82);
+      border: 1px solid rgba(244, 63, 94, 0.25);
+      backdrop-filter: blur(10px);
+      padding: 8px 14px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-family: var(--font-mono);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .dot-live {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent-rose);
+      box-shadow: 0 0 8px var(--accent-rose);
+      animation: pulse 1.8s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+    #back-btn {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid var(--panel-border);
+      color: var(--text-main);
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      text-decoration: none;
+      backdrop-filter: blur(10px);
+      transition: all 0.2s;
+      z-index: 20;
+    }
+    #back-btn:hover {
+      background: var(--accent-rose);
+      color: #000;
+      box-shadow: 0 0 15px rgba(244, 63, 94, 0.5);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 3D Holographic Canvas -->
+  <div id="viewport-container">
+    <canvas id="holo-canvas"></canvas>
+    
+    <div id="hud-overlay">
+      <div class="hud-chip">
+        <span class="dot-live"></span>
+        <span>WEYL AXION POLARITON SIMULATOR [v321.0]</span>
+      </div>
+      <div class="hud-chip">
+        <span style="color:var(--accent-rose);">OPTICAL BISTABILITY:</span>
+        <span id="hud-bistable-txt" style="color:var(--accent-emerald);font-weight:bold;">HIGH TRANSMISSION (ON STATE)</span>
+      </div>
+      <div class="hud-chip">
+        <span style="color:var(--accent-cyan);">EXTINCTION RATIO:</span>
+        <span id="hud-ext-txt" style="color:var(--accent-gold);font-weight:bold;">R_ext = 36.8 dB (Picosecond Switch)</span>
+      </div>
+    </div>
+
+    <a href="index.html" id="back-btn">← 返回中央展厅 (321)</a>
+  </div>
+
+  <!-- Sidebar Controls -->
+  <div id="sidebar">
+    <div class="header-box">
+      <span class="badge-tag">Axion Electrodynamics</span>
+      <h1>手征外尔半金属反常轴子极化激元光学双稳态与全光开关全息模拟器</h1>
+      <div class="sub-title">Chiral Weyl Axion-Polariton Bistability &amp; Ultrafast Switch</div>
+    </div>
+
+    <div class="content-box">
+      <!-- Readout Grid -->
+      <div class="metric-grid">
+        <div class="metric-item">
+          <div class="metric-lbl">腔内透射光强 I_out</div>
+          <div class="metric-val" id="val-iout" style="color:var(--accent-rose);">0.842 I₀</div>
+        </div>
+        <div class="metric-item">
+          <div class="metric-lbl">消光比 Extinction</div>
+          <div class="metric-val" id="val-ext" style="color:var(--accent-gold);">36.8 dB</div>
+        </div>
+        <div class="metric-item">
+          <div class="metric-lbl">拉比反交叉劈裂 Ω_R</div>
+          <div class="metric-val" id="val-rabi" style="color:var(--accent-cyan);">18.4 meV</div>
+        </div>
+        <div class="metric-item">
+          <div class="metric-lbl">皮秒开关时间 τ_sw</div>
+          <div class="metric-val" id="val-tau" style="color:var(--accent-purple);">72 fs</div>
+        </div>
+      </div>
+
+      <!-- Scopes -->
+      <div class="scope-panel">
+        <div class="scope-title">
+          <span>OPTICAL BISTABILITY HYSTERESIS I_out(I_pump)</span>
+          <span style="color:var(--accent-rose);">S-Curve Hysteresis</span>
+        </div>
+        <div class="scope-canvas-wrap">
+          <canvas class="scope-canvas" id="scope-hysteresis"></canvas>
+        </div>
+      </div>
+
+      <div class="scope-panel">
+        <div class="scope-title">
+          <span>ULTRAFAST TRANSIENT DYNAMICS I(t)</span>
+          <span style="color:var(--accent-cyan);">Femtosecond Pulse</span>
+        </div>
+        <div class="scope-canvas-wrap">
+          <canvas class="scope-canvas" id="scope-transient"></canvas>
+        </div>
+      </div>
+
+      <!-- Action Button -->
+      <div>
+        <button class="action-btn" id="btn-trigger-pulse">注入 50 fs 阿秒激光脉冲强制翻转 (Trigger Pulse)</button>
+      </div>
+
+      <!-- Sliders -->
+      <div>
+        <div class="section-title">微腔与外尔轴子参数调控</div>
+        <div class="slider-group">
+          <div class="control-row">
+            <div class="control-label-row">
+              <span>泵浦光强 I_pump</span>
+              <span class="control-val" id="lbl-ipump">0.55 I₀</span>
+            </div>
+            <input type="range" id="sl-ipump" min="0.05" max="1.2" step="0.01" value="0.55">
+          </div>
+
+          <div class="control-row">
+            <div class="control-label-row">
+              <span>腔光子-外尔失谐量 δ_cav</span>
+              <span class="control-val" id="lbl-detuning">-1.8 meV</span>
+            </div>
+            <input type="range" id="sl-detuning" min="-6.0" max="6.0" step="0.1" value="-1.8">
+          </div>
+
+          <div class="control-row">
+            <div class="control-label-row">
+              <span>轴子极化激元耦合强度 g_ax</span>
+              <span class="control-val" id="lbl-gax">12.5 meV</span>
+            </div>
+            <input type="range" id="sl-gax" min="2.0" max="25.0" step="0.5" value="12.5">
+          </div>
+
+          <div class="control-row">
+            <div class="control-label-row">
+              <span>外尔节点动量分离 2b_z</span>
+              <span class="control-val" id="lbl-bz">0.42 Å⁻¹</span>
+            </div>
+            <input type="range" id="sl-bz" min="0.1" max="0.9" step="0.01" value="0.42">
+          </div>
+
+          <div class="control-row">
+            <div class="control-label-row">
+              <span>微腔品质因子 Q-Factor</span>
+              <span class="control-val" id="lbl-qfac">4500</span>
+            </div>
+            <input type="range" id="sl-qfac" min="1000" max="10000" step="200" value="4500">
+          </div>
+        </div>
+      </div>
+
+      <!-- Presets -->
+      <div>
+        <div class="section-title">典型工作工况与预设模式</div>
+        <div class="btn-grid">
+          <button class="btn btn-active" id="pre-bistable">双稳态磁滞回线相</button>
+          <button class="btn" id="pre-on">全光开态 (High-ON)</button>
+          <button class="btn" id="pre-off">全光关态 (Low-OFF)</button>
+          <button class="btn" id="pre-soliton">孤子极化激元共振</button>
+        </div>
+      </div>
+
+      <!-- Theory Box -->
+      <div class="theory-box">
+        <b>麦克斯韦-轴子方程与双稳态机制：</b><br>
+        1. <b>反常拓扑轴子流：</b> 外尔半金属在破缺反演或时间反演下，外尔单极子对诱导动态轴子项 $\theta(\mathbf{r}, t)$。麦克斯韦电流增加拓扑反常项 $\mathbf{j}_{\text{topo}} = \frac{e^2}{2\pi^2\hbar} (\nabla\theta \times \mathbf{E} + \dot{\theta}\mathbf{B})$。<br>
+        2. <b>光学双稳态磁滞：</b> 微腔克尔非线性与轴子激元自陷相互作用使腔透射光强呈现 S 型滞回曲线。控制光脉冲可在 $<80\text{ fs}$ 内实现低-高态超快全光开关，开关比 $>35\text{ dB}$。
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    // --- Audio Engine (Resonant Cavity Synthesizer) ---
+    class AudioEngine {
+      constructor() {
+        this.ctx = null;
+        this.enabled = false;
+      }
+      init() {
+        if (!this.ctx) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          this.ctx = new AudioContext();
+          this.enabled = true;
+        }
+        if (this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      }
+      playSwitchSound(toHigh) {
+        if (!this.enabled || !this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = toHigh ? 'triangle' : 'sine';
+        const startFreq = toHigh ? 440 : 880;
+        const endFreq = toHigh ? 1320 : 220;
+
+        osc.frequency.setValueAtTime(startFreq, now);
+        osc.frequency.exponentialRampToValueAtTime(endFreq, now + 0.12);
+
+        gain.gain.setValueAtTime(0.08, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.18);
+      }
+    }
+    const audio = new AudioEngine();
+    window.addEventListener('click', () => audio.init(), { once: true });
+
+    // --- State Object ---
+    const STATE = {
+      iPump: 0.55,       // Pump intensity (I0)
+      detuning: -1.8,    // Cavity detuning (meV)
+      gAx: 12.5,         // Axion-polariton coupling (meV)
+      bz: 0.42,          // Weyl node separation (Angstrom^-1)
+      qFac: 4500,        // Cavity Q factor
+
+      // Computed Physics
+      isHighBranch: true,
+      iOut: 0.842,
+      extinctionDB: 36.8,
+      rabiSplitting: 18.4,
+      switchTimeFs: 72,
+
+      // Transient Pulse Injection
+      pulseActive: false,
+      pulseTime: 0,
+      transientHistory: new Array(60).fill(0.842),
+
+      // Viewport 3D
+      rotX: 20 * Math.PI / 180,
+      rotY: -35 * Math.PI / 180,
+      zoom: 1.0,
+      isDragging: false,
+      lastMouseX: 0,
+      lastMouseY: 0,
+      time: 0
+    };
+
+    // --- Canvases ---
+    const holoCanvas = document.getElementById('holo-canvas');
+    const holoCtx = holoCanvas.getContext('2d');
+    const scopeHyst = document.getElementById('scope-hysteresis');
+    const hystCtx = scopeHyst.getContext('2d');
+    const scopeTrans = document.getElementById('scope-transient');
+    const transCtx = scopeTrans.getContext('2d');
+
+    function resizeCanvases() {
+      const container = document.getElementById('viewport-container');
+      holoCanvas.width = container.clientWidth * window.devicePixelRatio;
+      holoCanvas.height = container.clientHeight * window.devicePixelRatio;
+      
+      scopeHyst.width = scopeHyst.clientWidth * window.devicePixelRatio;
+      scopeHyst.height = scopeHyst.clientHeight * window.devicePixelRatio;
+      
+      scopeTrans.width = scopeTrans.clientWidth * window.devicePixelRatio;
+      scopeTrans.height = scopeTrans.clientHeight * window.devicePixelRatio;
+    }
+    window.addEventListener('resize', resizeCanvases);
+
+    // --- Mouse Listeners ---
+    holoCanvas.addEventListener('mousedown', e => {
+      STATE.isDragging = true;
+      STATE.lastMouseX = e.clientX;
+      STATE.lastMouseY = e.clientY;
+      audio.init();
+    });
+    window.addEventListener('mouseup', () => STATE.isDragging = false);
+    holoCanvas.addEventListener('mousemove', e => {
+      if (!STATE.isDragging) return;
+      const dx = e.clientX - STATE.lastMouseX;
+      const dy = e.clientY - STATE.lastMouseY;
+      STATE.rotY += dx * 0.006;
+      STATE.rotX += dy * 0.006;
+      STATE.lastMouseX = e.clientX;
+      STATE.lastMouseY = e.clientY;
+    });
+    holoCanvas.addEventListener('wheel', e => {
+      e.preventDefault();
+      STATE.zoom *= (e.deltaY > 0 ? 0.94 : 1.06);
+      STATE.zoom = Math.max(0.4, Math.min(2.8, STATE.zoom));
+    }, { passive: false });
+
+    // --- UI Controls Binding ---
+    const slIpump = document.getElementById('sl-ipump');
+    const slDetuning = document.getElementById('sl-detuning');
+    const slGax = document.getElementById('sl-gax');
+    const slBz = document.getElementById('sl-bz');
+    const slQfac = document.getElementById('sl-qfac');
+
+    slIpump.addEventListener('input', e => {
+      STATE.iPump = parseFloat(e.target.value);
+      document.getElementById('lbl-ipump').innerText = STATE.iPump.toFixed(2) + ' I₀';
+      updatePhysics();
+    });
+    slDetuning.addEventListener('input', e => {
+      STATE.detuning = parseFloat(e.target.value);
+      document.getElementById('lbl-detuning').innerText = STATE.detuning.toFixed(1) + ' meV';
+      updatePhysics();
+    });
+    slGax.addEventListener('input', e => {
+      STATE.gAx = parseFloat(e.target.value);
+      document.getElementById('lbl-gax').innerText = STATE.gAx.toFixed(1) + ' meV';
+      updatePhysics();
+    });
+    slBz.addEventListener('input', e => {
+      STATE.bz = parseFloat(e.target.value);
+      document.getElementById('lbl-bz').innerText = STATE.bz.toFixed(2) + ' Å⁻¹';
+      updatePhysics();
+    });
+    slQfac.addEventListener('input', e => {
+      STATE.qFac = parseInt(e.target.value);
+      document.getElementById('lbl-qfac').innerText = STATE.qFac;
+      updatePhysics();
+    });
+
+    document.getElementById('btn-trigger-pulse').addEventListener('click', () => {
+      audio.init();
+      STATE.isHighBranch = !STATE.isHighBranch;
+      audio.playSwitchSound(STATE.isHighBranch);
+      STATE.pulseActive = true;
+      STATE.pulseTime = 0;
+      updatePhysics();
+    });
+
+    // Presets
+    const presets = [
+      { id: 'pre-bistable', ipump: 0.55, det: -1.8, gax: 12.5, bz: 0.42, qfac: 4500, branch: true },
+      { id: 'pre-on', ipump: 0.85, det: -1.0, gax: 16.0, bz: 0.55, qfac: 6000, branch: true },
+      { id: 'pre-off', ipump: 0.25, det: -2.5, gax: 9.0, bz: 0.35, qfac: 3500, branch: false },
+      { id: 'pre-soliton', ipump: 0.65, det: 0.2, gax: 20.0, bz: 0.65, qfac: 8000, branch: true }
+    ];
+    presets.forEach(p => {
+      document.getElementById(p.id).addEventListener('click', () => {
+        presets.forEach(o => document.getElementById(o.id).classList.remove('btn-active'));
+        document.getElementById(p.id).classList.add('btn-active');
+
+        STATE.iPump = p.ipump; slIpump.value = p.ipump; document.getElementById('lbl-ipump').innerText = p.ipump.toFixed(2) + ' I₀';
+        STATE.detuning = p.det; slDetuning.value = p.det; document.getElementById('lbl-detuning').innerText = p.det.toFixed(1) + ' meV';
+        STATE.gAx = p.gax; slGax.value = p.gax; document.getElementById('lbl-gax').innerText = p.gax.toFixed(1) + ' meV';
+        STATE.bz = p.bz; slBz.value = p.bz; document.getElementById('lbl-bz').innerText = p.bz.toFixed(2) + ' Å⁻¹';
+        STATE.qFac = p.qfac; slQfac.value = p.qfac; document.getElementById('lbl-qfac').innerText = p.qfac;
+        STATE.isHighBranch = p.branch;
+
+        updatePhysics();
+      });
+    });
+
+    // --- Physics Model Update ---
+    function updatePhysics() {
+      // 1. Rabi Splitting Omega_Rabi = sqrt(delta^2 + 4 * gAx^2)
+      STATE.rabiSplitting = Math.sqrt(STATE.detuning ** 2 + 4.0 * (STATE.gAx ** 2));
+
+      // 2. Optical Bistability S-Curve Logic
+      // Thresholds for hysteresis: I_th1 (turn-on) and I_th2 (turn-off)
+      const iThOn = 0.62 * (1.0 + Math.abs(STATE.detuning) * 0.12);
+      const iThOff = 0.35 * (1.0 + Math.abs(STATE.detuning) * 0.08);
+
+      if (STATE.iPump > iThOn) {
+        STATE.isHighBranch = true;
+      } else if (STATE.iPump < iThOff) {
+        STATE.isHighBranch = false;
+      }
+
+      // Compute Output Intensity I_out
+      const alphaKerr = 1.4 * (STATE.gAx / 10.0);
+      const cavityLoss = 2.0 * Math.PI * 1.5e14 / STATE.qFac;
+      
+      if (STATE.isHighBranch) {
+        STATE.iOut = STATE.iPump * (0.82 + 0.15 * Math.tanh((STATE.iPump - iThOff) * 4.0));
+      } else {
+        STATE.iOut = STATE.iPump * 0.024 * (1.0 / (1.0 + (STATE.detuning / 2.0) ** 2));
+      }
+
+      // Extinction Ratio dB
+      const highI = Math.max(0.001, STATE.iPump * 0.85);
+      const lowI = Math.max(0.0001, STATE.iPump * 0.02);
+      STATE.extinctionDB = 10.0 * Math.log10(highI / lowI);
+
+      // Ultrafast Switch Time (fs)
+      STATE.switchTimeFs = Math.round(55 + (STATE.qFac / 4500.0) * 18 - (STATE.bz * 12.0));
+
+      // UI Update
+      document.getElementById('val-iout').innerText = STATE.iOut.toFixed(3) + ' I₀';
+      document.getElementById('val-ext').innerText = STATE.extinctionDB.toFixed(1) + ' dB';
+      document.getElementById('val-rabi').innerText = STATE.rabiSplitting.toFixed(1) + ' meV';
+      document.getElementById('val-tau').innerText = STATE.switchTimeFs + ' fs';
+
+      const hudBistable = document.getElementById('hud-bistable-txt');
+      if (STATE.isHighBranch) {
+        hudBistable.innerText = 'HIGH TRANSMISSION (ON STATE)';
+        hudBistable.style.color = 'var(--accent-emerald)';
+      } else {
+        hudBistable.innerText = 'LOW TRANSMISSION (OFF STATE)';
+        hudBistable.style.color = 'var(--accent-rose)';
+      }
+      document.getElementById('hud-ext-txt').innerText = `R_ext = ${STATE.extinctionDB.toFixed(1)} dB (Picosecond Switch)`;
+    }
+
+    // --- 3D Projection Helpers ---
+    function project3D(x, y, z, cx, cy, scale) {
+      const cosY = Math.cos(STATE.rotY), sinY = Math.sin(STATE.rotY);
+      const x1 = x * cosY + z * sinY;
+      const z1 = -x * sinY + z * cosY;
+
+      const cosX = Math.cos(STATE.rotX), sinX = Math.sin(STATE.rotX);
+      const y2 = y * cosX - z1 * sinX;
+      const z2 = y * sinX + z1 * cosX;
+
+      const dist = 700;
+      const fov = dist / (dist + z2);
+      return {
+        px: cx + x1 * fov * scale * STATE.zoom,
+        py: cy + y2 * fov * scale * STATE.zoom,
+        depth: z2,
+        fov: fov
+      };
+    }
+
+    // --- 3D Holographic Rendering ---
+    function renderHologram() {
+      const w = holoCanvas.width;
+      const h = holoCanvas.height;
+      holoCtx.clearRect(0, 0, w, h);
+
+      const cx = w * 0.5;
+      const cy = h * 0.5;
+      const scale = Math.min(w, h) * 0.0016;
+
+      // 1. Draw Optical Cavity DBR Mirrors (Distributed Bragg Reflectors)
+      const dbrPlates = [-140, 140];
+      dbrPlates.forEach((pz, idx) => {
+        const plateW = 160;
+        const plateH = 110;
+        const corners = [
+          project3D(-plateW, -plateH, pz, cx, cy, scale),
+          project3D(plateW, -plateH, pz, cx, cy, scale),
+          project3D(plateW, plateH, pz, cx, cy, scale),
+          project3D(-plateW, plateH, pz, cx, cy, scale)
+        ];
+
+        holoCtx.beginPath();
+        corners.forEach((pt, i) => {
+          if (i === 0) holoCtx.moveTo(pt.px, pt.py);
+          else holoCtx.lineTo(pt.px, pt.py);
+        });
+        holoCtx.closePath();
+        holoCtx.fillStyle = idx === 0 ? 'rgba(56, 189, 248, 0.08)' : 'rgba(244, 63, 94, 0.08)';
+        holoCtx.fill();
+        holoCtx.strokeStyle = idx === 0 ? 'rgba(56, 189, 248, 0.45)' : 'rgba(244, 63, 94, 0.45)';
+        holoCtx.lineWidth = 1.5;
+        holoCtx.stroke();
+      });
+
+      // 2. Pair of Chiral Weyl Cones in Momentum Space (Monopole Nodes)
+      const weylZ = STATE.bz * 220;
+      const weylNodes = [
+        { z: -weylZ, chirality: +1, color: '#38bdf8', label: 'W₊ (Chirality +1)' },
+        { z: weylZ,  chirality: -1, color: '#f43f5e', label: 'W₋ (Chirality -1)' }
+      ];
+
+      weylNodes.forEach(node => {
+        // Draw 3D Weyl Dispersion Cones
+        const coneSteps = 16;
+        for (let s = 1; s <= 4; s++) {
+          const coneR = s * 14;
+          const coneH = s * 22;
+          
+          // Upper & lower cone rings
+          [-1, 1].forEach(dir => {
+            holoCtx.beginPath();
+            for (let i = 0; i <= coneSteps; i++) {
+              const ang = (i / coneSteps) * Math.PI * 2;
+              const px = Math.cos(ang) * coneR;
+              const py = dir * coneH;
+              const pz = node.z + Math.sin(ang) * coneR;
+              const p = project3D(px, py, pz, cx, cy, scale);
+              if (i === 0) holoCtx.moveTo(p.px, p.py);
+              else holoCtx.lineTo(p.px, p.py);
+            }
+            holoCtx.strokeStyle = node.color;
+            holoCtx.lineWidth = 1;
+            holoCtx.stroke();
+          });
+        }
+
+        // Weyl Monopole Center Dot
+        const centerP = project3D(0, 0, node.z, cx, cy, scale);
+        const grad = holoCtx.createRadialGradient(centerP.px, centerP.py, 1, centerP.px, centerP.py, 16 * centerP.fov);
+        grad.addColorStop(0, '#ffffff');
+        grad.addColorStop(0.3, node.color);
+        grad.addColorStop(1, 'transparent');
+
+        holoCtx.fillStyle = grad;
+        holoCtx.beginPath();
+        holoCtx.arc(centerP.px, centerP.py, 12 * centerP.fov, 0, Math.PI * 2);
+        holoCtx.fill();
+
+        holoCtx.fillStyle = '#ffffff';
+        holoCtx.font = `bold ${Math.round(11 * centerP.fov)}px monospace`;
+        holoCtx.fillText(node.label, centerP.px + 12, centerP.py - 6);
+      });
+
+      // 3. Topological Fermi Arc connecting Weyl Nodes
+      holoCtx.beginPath();
+      const arcPts = 40;
+      for (let i = 0; i <= arcPts; i++) {
+        const u = i / arcPts;
+        const z = -weylZ + u * (2 * weylZ);
+        const arcY = -45 - Math.sin(u * Math.PI) * 35;
+        const arcX = Math.sin(u * Math.PI * 2 + STATE.time * 3) * 15;
+        const p = project3D(arcX, arcY, z, cx, cy, scale);
+        if (i === 0) holoCtx.moveTo(p.px, p.py);
+        else holoCtx.lineTo(p.px, p.py);
+      }
+      holoCtx.strokeStyle = '#fbbf24';
+      holoCtx.lineWidth = 2.5;
+      holoCtx.shadowColor = '#fbbf24';
+      holoCtx.shadowBlur = 12;
+      holoCtx.stroke();
+      holoCtx.shadowBlur = 0;
+
+      // 4. Intra-Cavity Axion-Polariton Standing Wave (Intensity-dependent)
+      const numWaves = 7;
+      const waveAmp = (STATE.isHighBranch ? 32 : 5) * (STATE.iOut / 0.85);
+
+      holoCtx.beginPath();
+      for (let z = -140; z <= 140; z += 4) {
+        const u = (z + 140) / 280;
+        const standing = Math.sin(u * Math.PI * numWaves) * Math.cos(STATE.time * 6);
+        const py = standing * waveAmp;
+        const px = Math.cos(u * Math.PI * numWaves) * (waveAmp * 0.4);
+        const p = project3D(px, py, z, cx, cy, scale);
+        if (z === -140) holoCtx.moveTo(p.px, p.py);
+        else holoCtx.lineTo(p.px, p.py);
+      }
+      holoCtx.strokeStyle = STATE.isHighBranch ? 'rgba(52, 211, 153, 0.85)' : 'rgba(244, 63, 94, 0.45)';
+      holoCtx.lineWidth = STATE.isHighBranch ? 3.0 : 1.2;
+      holoCtx.stroke();
+
+      // 5. Laser Pulse Packet Animation
+      if (STATE.pulseActive) {
+        STATE.pulseTime += 0.04;
+        if (STATE.pulseTime > 1.0) STATE.pulseActive = false;
+
+        const pulseZ = -220 + STATE.pulseTime * 440;
+        const pulseP = project3D(0, 0, pulseZ, cx, cy, scale);
+
+        holoCtx.fillStyle = '#fff';
+        holoCtx.shadowColor = '#38bdf8';
+        holoCtx.shadowBlur = 25;
+        holoCtx.beginPath();
+        holoCtx.arc(pulseP.px, pulseP.py, 16 * pulseP.fov, 0, Math.PI * 2);
+        holoCtx.fill();
+        holoCtx.shadowBlur = 0;
+      }
+    }
+
+    // --- Scope 1: S-Curve Optical Bistability Hysteresis ---
+    function renderScopeHysteresis() {
+      const w = scopeHyst.width;
+      const h = scopeHyst.height;
+      hystCtx.clearRect(0, 0, w, h);
+
+      // Grid
+      hystCtx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+      hystCtx.lineWidth = 1;
+      hystCtx.beginPath();
+      for (let x = 0; x < w; x += 30) { hystCtx.moveTo(x, 0); hystCtx.lineTo(x, h); }
+      for (let y = 0; y < h; y += 25) { hystCtx.moveTo(0, y); hystCtx.lineTo(w, y); }
+      hystCtx.stroke();
+
+      // Draw S-Shaped Double-Valued Bistability Curve
+      hystCtx.beginPath();
+      const pts = 100;
+      for (let i = 0; i < pts; i++) {
+        const u = i / (pts - 1);
+        const ip = u * 1.2; // Input Pump from 0 to 1.2
+
+        // Lower branch
+        const iOutLow = ip * 0.035;
+        const x = (ip / 1.2) * w;
+        const y = h - (iOutLow / 1.1) * (h * 0.85);
+        if (i === 0) hystCtx.moveTo(x, y);
+        else hystCtx.lineTo(x, y);
+      }
+      hystCtx.strokeStyle = 'rgba(244, 63, 94, 0.65)';
+      hystCtx.lineWidth = 1.8;
+      hystCtx.stroke();
+
+      // Upper branch
+      hystCtx.beginPath();
+      for (let i = 25; i < pts; i++) {
+        const u = i / (pts - 1);
+        const ip = u * 1.2;
+        const iOutHigh = ip * (0.82 + 0.15 * Math.tanh((ip - 0.4) * 5.0));
+        const x = (ip / 1.2) * w;
+        const y = h - (iOutHigh / 1.1) * (h * 0.85);
+        if (i === 25) hystCtx.moveTo(x, y);
+        else hystCtx.lineTo(x, y);
+      }
+      hystCtx.strokeStyle = 'rgba(52, 211, 153, 0.85)';
+      hystCtx.lineWidth = 2.2;
+      hystCtx.stroke();
+
+      // Vertical Switching Transitions (Jump-up / Jump-down)
+      hystCtx.setLineDash([3, 3]);
+      hystCtx.strokeStyle = 'rgba(251, 191, 36, 0.5)';
+      const xOn = (0.62 / 1.2) * w;
+      const xOff = (0.35 / 1.2) * w;
+      hystCtx.beginPath(); hystCtx.moveTo(xOn, h); hystCtx.lineTo(xOn, 10); hystCtx.stroke();
+      hystCtx.beginPath(); hystCtx.moveTo(xOff, h); hystCtx.lineTo(xOff, 10); hystCtx.stroke();
+      hystCtx.setLineDash([]);
+
+      // Current Operating Dot
+      const curX = (STATE.iPump / 1.2) * w;
+      const curY = h - (STATE.iOut / 1.1) * (h * 0.85);
+
+      hystCtx.fillStyle = '#fbbf24';
+      hystCtx.shadowColor = '#fbbf24';
+      hystCtx.shadowBlur = 10;
+      hystCtx.beginPath();
+      hystCtx.arc(curX, curY, 5, 0, Math.PI * 2);
+      hystCtx.fill();
+      hystCtx.shadowBlur = 0;
+
+      hystCtx.fillStyle = '#94a3b8';
+      hystCtx.font = '9px monospace';
+      hystCtx.fillText(`I_in=${STATE.iPump.toFixed(2)}`, curX + 8, curY - 4);
+    }
+
+    // --- Scope 2: Ultrafast Transient Dynamics I(t) ---
+    function renderScopeTransient() {
+      const w = scopeTrans.width;
+      const h = scopeTrans.height;
+      transCtx.clearRect(0, 0, w, h);
+
+      // Shift History
+      STATE.transientHistory.push(STATE.iOut);
+      if (STATE.transientHistory.length > 60) STATE.transientHistory.shift();
+
+      // Grid
+      transCtx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+      transCtx.lineWidth = 1;
+      transCtx.beginPath();
+      for (let x = 0; x < w; x += 30) { transCtx.moveTo(x, 0); transCtx.lineTo(x, h); }
+      for (let y = 0; y < h; y += 25) { transCtx.moveTo(0, y); transCtx.lineTo(w, y); }
+      transCtx.stroke();
+
+      // Trace line
+      transCtx.beginPath();
+      const len = STATE.transientHistory.length;
+      for (let i = 0; i < len; i++) {
+        const val = STATE.transientHistory[i];
+        const x = (i / (len - 1)) * w;
+        const y = h - (val / 1.1) * (h * 0.82);
+        if (i === 0) transCtx.moveTo(x, y);
+        else transCtx.lineTo(x, y);
+      }
+      transCtx.strokeStyle = '#38bdf8';
+      transCtx.lineWidth = 2.2;
+      transCtx.shadowColor = '#38bdf8';
+      transCtx.shadowBlur = 8;
+      transCtx.stroke();
+      transCtx.shadowBlur = 0;
+
+      // Status Indicator
+      transCtx.fillStyle = STATE.isHighBranch ? '#34d399' : '#f43f5e';
+      transCtx.font = '9px monospace';
+      transCtx.fillText(`STATE: ${STATE.isHighBranch ? 'ON (τ ~ 72fs)' : 'OFF (Pinch-off)'}`, 10, 15);
+    }
+
+    // --- Simulation Loop ---
+    let lastTime = performance.now();
+    function animate(currentTime) {
+      const dt = Math.min(0.05, (currentTime - lastTime) * 0.001);
+      lastTime = currentTime;
+      STATE.time += dt;
+
+      renderHologram();
+      renderScopeHysteresis();
+      renderScopeTransient();
+
+      requestAnimationFrame(animate);
+    }
+
+    // Initialize
+    resizeCanvases();
+    updatePhysics();
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>

@@ -1,0 +1,1389 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>半导体微腔激子极化激元拓扑凝聚态手征量子涡旋晶格与非厄米环流相变全息模拟器</title>
+  <style>
+    :root {
+      --bg-color: #030712;
+      --panel-bg: rgba(15, 23, 42, 0.78);
+      --panel-border: rgba(6, 182, 212, 0.25);
+      --accent-cyan: #06b6d4;
+      --accent-teal: #14b8a6;
+      --accent-indigo: #6366f1;
+      --accent-rose: #f43f5e;
+      --accent-amber: #f59e0b;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --font-mono: 'Fira Code', 'JetBrains Mono', 'Consolas', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+      overflow-x: hidden;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background-image: 
+        radial-gradient(circle at 20% 20%, rgba(6, 182, 212, 0.08) 0%, transparent 45%),
+        radial-gradient(circle at 80% 80%, rgba(99, 102, 241, 0.08) 0%, transparent 45%),
+        linear-gradient(to bottom, #020617, #090d16);
+    }
+
+    /* 顶部导航与指标 */
+    header {
+      padding: 14px 24px;
+      background: rgba(10, 15, 30, 0.85);
+      border-bottom: 1px solid var(--panel-border);
+      backdrop-filter: blur(12px);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+
+    .brand-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .badge-milestone {
+      background: linear-gradient(135deg, #06b6d4, #6366f1);
+      color: white;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 9999px;
+      letter-spacing: 0.5px;
+      box-shadow: 0 0 12px rgba(6, 182, 212, 0.4);
+    }
+
+    h1 {
+      font-size: 17px;
+      font-weight: 600;
+      letter-spacing: -0.2px;
+      background: linear-gradient(90deg, #f8fafc, #38bdf8, #818cf8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .status-capsules {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .capsule {
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(148, 163, 184, 0.15);
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .capsule .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #06b6d4;
+      box-shadow: 0 0 8px #06b6d4;
+    }
+
+    .capsule .val {
+      color: var(--accent-cyan);
+      font-weight: 600;
+    }
+
+    /* 布局容器 */
+    main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      gap: 16px;
+      padding: 16px 20px;
+      max-width: 1760px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    @media (max-width: 1200px) {
+      main {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* 视口与示波器区 */
+    .viewport-column {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .canvas-container {
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: 12px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+      height: 520px;
+    }
+
+    #mainCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      cursor: crosshair;
+    }
+
+    .canvas-overlay-ui {
+      position: absolute;
+      top: 14px;
+      left: 16px;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .hud-title {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--accent-cyan);
+      text-shadow: 0 0 10px rgba(6, 182, 212, 0.5);
+    }
+
+    .hud-info {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      line-height: 1.5;
+    }
+
+    .view-mode-bar {
+      position: absolute;
+      top: 14px;
+      right: 16px;
+      display: flex;
+      gap: 6px;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(6, 182, 212, 0.3);
+      border-radius: 8px;
+      padding: 4px;
+    }
+
+    .btn-mode {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-mode.active {
+      background: rgba(6, 182, 212, 0.25);
+      color: var(--accent-cyan);
+      font-weight: 600;
+      box-shadow: 0 0 8px rgba(6, 182, 212, 0.3);
+    }
+
+    /* 双科学示波器 */
+    .scopes-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      height: 240px;
+    }
+
+    @media (max-width: 800px) {
+      .scopes-grid {
+        grid-template-columns: 1fr;
+        height: auto;
+      }
+    }
+
+    .scope-card {
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: 10px;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    .scope-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+      padding: 0 4px;
+    }
+
+    .scope-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--accent-cyan);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .scope-legend {
+      font-size: 10px;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+    }
+
+    .scope-card canvas {
+      flex: 1;
+      width: 100%;
+      height: 100%;
+      background: rgba(3, 7, 18, 0.8);
+      border-radius: 6px;
+      display: block;
+    }
+
+    /* 侧边控制台 */
+    .control-column {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .panel-box {
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+    }
+
+    .panel-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--accent-cyan);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+      padding-bottom: 6px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* 控制项与滑条 */
+    .ctrl-group {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .ctrl-label-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .ctrl-val {
+      font-family: var(--font-mono);
+      color: var(--accent-cyan);
+      font-weight: 600;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 5px;
+      border-radius: 3px;
+      background: rgba(6, 182, 212, 0.18);
+      outline: none;
+      transition: background 0.2s;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--accent-cyan);
+      cursor: pointer;
+      box-shadow: 0 0 8px var(--accent-cyan);
+      transition: transform 0.1s;
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    /* 预设工况按钮网格 */
+    .presets-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .btn-preset {
+      background: rgba(30, 41, 59, 0.8);
+      border: 1px solid rgba(6, 182, 212, 0.25);
+      color: var(--text-main);
+      padding: 8px 6px;
+      border-radius: 6px;
+      font-size: 10.5px;
+      font-weight: 500;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s ease;
+      line-height: 1.3;
+    }
+
+    .btn-preset:hover {
+      background: rgba(6, 182, 212, 0.2);
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 10px rgba(6, 182, 212, 0.3);
+    }
+
+    .btn-preset.active {
+      background: linear-gradient(135deg, rgba(6, 182, 212, 0.35), rgba(99, 102, 241, 0.35));
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 12px rgba(6, 182, 212, 0.4);
+      color: #fff;
+    }
+
+    /* 主操作按钮组 */
+    .action-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn-action {
+      flex: 1;
+      padding: 9px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.2s;
+      border: none;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #0284c7, #6366f1);
+      color: white;
+      box-shadow: 0 0 12px rgba(2, 132, 199, 0.35);
+    }
+
+    .btn-primary:hover {
+      background: linear-gradient(135deg, #0369a1, #4f46e5);
+      box-shadow: 0 0 16px rgba(2, 132, 199, 0.5);
+    }
+
+    .btn-secondary {
+      background: rgba(30, 41, 59, 0.9);
+      color: var(--text-main);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(51, 65, 85, 0.9);
+      border-color: var(--text-muted);
+    }
+
+    /* 物理量实时列表 */
+    .metrics-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+    }
+
+    .metric-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 4px 6px;
+      background: rgba(10, 15, 30, 0.5);
+      border-radius: 4px;
+    }
+
+    .metric-label {
+      color: var(--text-muted);
+    }
+
+    .metric-num {
+      color: var(--accent-amber);
+      font-weight: 600;
+    }
+
+    /* 底部物理说明 */
+    footer {
+      padding: 10px 24px;
+      background: rgba(10, 15, 30, 0.9);
+      border-top: 1px solid var(--panel-border);
+      font-size: 11px;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .physics-tag {
+      color: var(--accent-cyan);
+      font-weight: 500;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 头部与实时指标 -->
+  <header>
+    <div class="brand-group">
+      <span class="badge-milestone">#278 尖端前沿物理</span>
+      <h1>半导体微腔激子极化激元拓扑凝聚态手征量子涡旋晶格与非厄米环流相变全息模拟器</h1>
+    </div>
+    <div class="status-capsules">
+      <div class="capsule">
+        <span class="dot"></span>
+        <span>凝聚一阶相干度:</span>
+        <span class="val" id="topG1Val">0.94 g⁽¹⁾</span>
+      </div>
+      <div class="capsule">
+        <span>量子涡核总数:</span>
+        <span class="val" id="topVortexCount">18 涡旋</span>
+      </div>
+      <div class="capsule">
+        <span>手征轨道角动量:</span>
+        <span class="val" id="topLzVal">+14.2 ℏ</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- 主体工作区 -->
+  <main>
+    <!-- 左侧视口与示波器 -->
+    <div class="viewport-column">
+      <div class="canvas-container">
+        <canvas id="mainCanvas"></canvas>
+        <div class="canvas-overlay-ui">
+          <div class="hud-title">非平衡 Gross-Pitaevskii 宏观波函数与微柱超点阵全息场</div>
+          <div class="hud-info">
+            • 体系: GaAs/AlGaAs 蚀刻微柱六角-Kagome 阵列微腔 (Pillar Microcavity)<br>
+            • 激发: 连续非相干光学泵浦 (P/Pth > 1.0) 玻色-爱因斯坦凝聚<br>
+            • 拓扑量: TE-TM 自旋轨道劈裂 & 塞曼场诱导手征第一陈数 C = +1
+          </div>
+        </div>
+        <div class="view-mode-bar">
+          <button class="btn-mode active" data-mode="density">超流密度 |ψ|²</button>
+          <button class="btn-mode" data-mode="phase">量子相位 arg(ψ)</button>
+          <button class="btn-mode" data-mode="forked">叉形干涉条纹 (Forked)</button>
+        </div>
+      </div>
+
+      <!-- 双科学示波器 -->
+      <div class="scopes-grid">
+        <div class="scope-card">
+          <div class="scope-header">
+            <span class="scope-title">动量空间角分辨光发射谱 E(kx) 与狄拉克拓扑能隙</span>
+            <span class="scope-legend">平带 vs 狄拉克锥色散</span>
+          </div>
+          <canvas id="dispersionCanvas"></canvas>
+        </div>
+        <div class="scope-card">
+          <div class="scope-header">
+            <span class="scope-title">凝聚相干阈值响应与轨道角动量 ⟨Lz⟩(P) 阶跃谱</span>
+            <span class="scope-legend">g⁽¹⁾(0) 相干度 vs ⟨Lz⟩ 曲线</span>
+          </div>
+          <canvas id="spectrumCanvas"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- 右侧参数调控台 -->
+    <div class="control-column">
+      <!-- 预设工况配置 -->
+      <div class="panel-box">
+        <div class="panel-title">
+          <span>经典物理预设工况</span>
+          <span style="font-size: 10px; color: var(--accent-cyan);">PRESETS</span>
+        </div>
+        <div class="presets-grid">
+          <button class="btn-preset active" data-preset="1">阿布里科索夫晶格<br>(Abrikosov Vortex)</button>
+          <button class="btn-preset" data-preset="2">手征单向边缘流<br>(Topological Edge Flow)</button>
+          <button class="btn-preset" data-preset="3">涡旋对动态湮灭<br>(Vortex Annihilation)</button>
+          <button class="btn-preset" data-preset="4">阈值下非相干态<br>(Sub-threshold Gas)</button>
+        </div>
+      </div>
+
+      <!-- 动态交互控制 -->
+      <div class="panel-box">
+        <div class="panel-title">
+          <span>动力学参数调控</span>
+          <span style="font-size: 10px; color: var(--accent-cyan);">GROSS-PITAEVSKII</span>
+        </div>
+
+        <div class="ctrl-group">
+          <div class="ctrl-label-row">
+            <span>泵浦注入比 P/Pth</span>
+            <span class="ctrl-val" id="valPump">2.15</span>
+          </div>
+          <input type="range" id="sliderPump" min="0.4" max="3.5" step="0.05" value="2.15">
+        </div>
+
+        <div class="ctrl-group">
+          <div class="ctrl-label-row">
+            <span>塞曼自旋劈裂 / 磁场 ΩZ (meV)</span>
+            <span class="ctrl-val" id="valZeeman">1.40</span>
+          </div>
+          <input type="range" id="sliderZeeman" min="0.0" max="4.0" step="0.05" value="1.40">
+        </div>
+
+        <div class="ctrl-group">
+          <div class="ctrl-label-row">
+            <span>TE-TM 自旋轨道耦合 ΔLT (meV)</span>
+            <span class="ctrl-val" id="valSoc">0.85</span>
+          </div>
+          <input type="range" id="sliderSoc" min="0.1" max="2.5" step="0.05" value="0.85">
+        </div>
+
+        <div class="ctrl-group">
+          <div class="ctrl-label-row">
+            <span>极化激元非线性排斥 g_nl (μeV·μm²)</span>
+            <span class="ctrl-val" id="valGnl">0.08</span>
+          </div>
+          <input type="range" id="sliderGnl" min="0.01" max="0.25" step="0.01" value="0.08">
+        </div>
+
+        <div class="ctrl-group">
+          <div class="ctrl-label-row">
+            <span>有效旋转角速度 Ωrot (GHz)</span>
+            <span class="ctrl-val" id="valRot">18.5</span>
+          </div>
+          <input type="range" id="sliderRot" min="-40.0" max="40.0" step="1.0" value="18.5">
+        </div>
+      </div>
+
+      <!-- 操纵与激发控制 -->
+      <div class="panel-box">
+        <div class="panel-title">
+          <span>激发与干涉控制</span>
+        </div>
+        <div class="action-row">
+          <button class="btn-action btn-primary" id="btnInvertZeeman">
+            <span>反转手征拓扑场 (⇄)</span>
+          </button>
+          <button class="btn-action btn-secondary" id="btnInjectPhonon">
+            <span>注入量子微扰</span>
+          </button>
+        </div>
+        <div class="action-row" style="margin-top: 6px;">
+          <button class="btn-action btn-secondary" id="btnPause">暂停 / 运行</button>
+          <button class="btn-action btn-secondary" id="btnAudio">开启声效 (Audio)</button>
+        </div>
+      </div>
+
+      <!-- 关键物理观测量 -->
+      <div class="panel-box">
+        <div class="panel-title">
+          <span>宏观量子监视器</span>
+          <span style="font-size: 10px; color: var(--accent-amber);">MONITOR</span>
+        </div>
+        <div class="metrics-list">
+          <div class="metric-row">
+            <span class="metric-label">凝聚极化激元密度 n₀:</span>
+            <span class="metric-num" id="n0Val">1.48×10¹¹ cm⁻²</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">超流声速 cs:</span>
+            <span class="metric-num" id="csVal">1.62×10⁶ m/s</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">涡旋相干恢复长度 ξ:</span>
+            <span class="metric-num" id="healingVal">1.34 μm</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">拓扑陈数 Chern Number:</span>
+            <span class="metric-num" id="chernVal">C = +1</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">非厄米边缘环流速度 v_edge:</span>
+            <span class="metric-num" id="vedgeVal">2.18×10⁶ m/s</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- 底部科技与物理信息注脚 -->
+  <footer>
+    <div>
+      <span class="physics-tag">理论架构:</span>
+      开放耗散复数 Gross-Pitaevskii 方程结合微腔 TE-TM 光子自旋轨道耦合与微柱势阱，模拟自发量子阿布里科索夫涡旋晶格与手征拓扑单向孤子边缘态。
+    </div>
+    <div style="font-family: var(--font-mono);">
+      VANILLA JS • REAL-TIME INTERFEROMETRY • DUAL SCIENTIFIC SCOPES • ZERO DEPENDENCIES
+    </div>
+  </footer>
+
+  <script>
+    /**
+     * 半导体微腔极化激元拓扑凝聚态手征量子涡旋晶格与干涉全息模拟引擎
+     */
+    const STATE = {
+      // 物理参数
+      pump: 2.15,         // P/Pth 泵浦强度
+      zeeman: 1.40,       // 塞曼自旋劈裂 (meV)
+      soc: 0.85,          // TE-TM 自旋轨道耦合 (meV)
+      gnl: 0.08,          // 非线性相互作用 (μeV·μm²)
+      rot: 18.5,          // 旋转角速度 (GHz)
+
+      // 拓扑与宏观计算量
+      g1Val: 0.94,
+      vortexCount: 18,
+      lzTotal: 14.2,
+      n0Density: 1.48,
+      soundVelocity: 1.62,
+      healingLength: 1.34,
+      chernNumber: '+1',
+      vEdge: 2.18,
+
+      // 视图控制
+      viewMode: 'density', // 'density', 'phase', 'forked'
+      paused: false,
+      audioActive: false,
+      preset: 1,
+      simTime: 0,
+      perturbations: []
+    };
+
+    // DOM 元素获取
+    const mainCanvas = document.getElementById('mainCanvas');
+    const ctxMain = mainCanvas.getContext('2d');
+    const dispersionCanvas = document.getElementById('dispersionCanvas');
+    const ctxDisp = dispersionCanvas.getContext('2d');
+    const spectrumCanvas = document.getElementById('spectrumCanvas');
+    const ctxSpec = spectrumCanvas.getContext('2d');
+
+    // UI 指标
+    const topG1Val = document.getElementById('topG1Val');
+    const topVortexCount = document.getElementById('topVortexCount');
+    const topLzVal = document.getElementById('topLzVal');
+
+    const n0Val = document.getElementById('n0Val');
+    const csVal = document.getElementById('csVal');
+    const healingVal = document.getElementById('healingVal');
+    const chernVal = document.getElementById('chernVal');
+    const vedgeVal = document.getElementById('vedgeVal');
+
+    const sliderPump = document.getElementById('sliderPump');
+    const valPump = document.getElementById('valPump');
+    const sliderZeeman = document.getElementById('sliderZeeman');
+    const valZeeman = document.getElementById('valZeeman');
+    const sliderSoc = document.getElementById('sliderSoc');
+    const valSoc = document.getElementById('valSoc');
+    const sliderGnl = document.getElementById('sliderGnl');
+    const valGnl = document.getElementById('valGnl');
+    const sliderRot = document.getElementById('sliderRot');
+    const valRot = document.getElementById('valRot');
+
+    const btnInvertZeeman = document.getElementById('btnInvertZeeman');
+    const btnInjectPhonon = document.getElementById('btnInjectPhonon');
+    const btnPause = document.getElementById('btnPause');
+    const btnAudio = document.getElementById('btnAudio');
+    const btnModes = document.querySelectorAll('.btn-mode');
+    const presetButtons = document.querySelectorAll('.btn-preset');
+
+    // Web Audio 合成器
+    let audioCtx = null;
+    let oscCondensate = null;
+    let oscVortexBeat = null;
+    let gainMaster = null;
+
+    function initAudio() {
+      if (audioCtx) return;
+      try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioContext();
+
+        gainMaster = audioCtx.createGain();
+        gainMaster.gain.setValueAtTime(0.065, audioCtx.currentTime);
+        gainMaster.connect(audioCtx.destination);
+
+        // 凝聚态宏观相干辐射 (纯净单频晶莹泛音)
+        oscCondensate = audioCtx.createOscillator();
+        oscCondensate.type = 'sine';
+        oscCondensate.frequency.setValueAtTime(360 + STATE.pump * 80, audioCtx.currentTime);
+
+        // 涡旋晶格旋转进动拍频
+        oscVortexBeat = audioCtx.createOscillator();
+        oscVortexBeat.type = 'triangle';
+        oscVortexBeat.frequency.setValueAtTime(180 + Math.abs(STATE.rot) * 6, audioCtx.currentTime);
+
+        const gainCond = audioCtx.createGain();
+        gainCond.gain.setValueAtTime(0.045, audioCtx.currentTime);
+        const gainBeat = audioCtx.createGain();
+        gainBeat.gain.setValueAtTime(0.035, audioCtx.currentTime);
+
+        oscCondensate.connect(gainCond);
+        oscVortexBeat.connect(gainBeat);
+        gainCond.connect(gainMaster);
+        gainBeat.connect(gainMaster);
+
+        oscCondensate.start();
+        oscVortexBeat.start();
+        STATE.audioActive = true;
+        btnAudio.style.background = 'linear-gradient(135deg, #10b981, #059669)';
+        btnAudio.innerText = '声效已开启 (Mute)';
+      } catch (e) {
+        console.warn('Web Audio 启动被阻止，需交互后触发', e);
+      }
+    }
+
+    function updateAudioParams() {
+      if (!audioCtx || !STATE.audioActive) return;
+      const t = audioCtx.currentTime;
+      // 凝聚阈值判断: P > 1.0 时相干音调清晰，P < 1.0 时音量极小且频散
+      const isCond = (STATE.pump > 1.0);
+      const baseFreq = isCond ? (340 + STATE.pump * 75) : 120;
+      oscCondensate.frequency.setTargetAtTime(baseFreq, t, 0.05);
+
+      const rotFreq = 160 + Math.abs(STATE.rot) * 5.5;
+      oscVortexBeat.frequency.setTargetAtTime(rotFreq, t, 0.05);
+
+      const targetVol = isCond ? (0.05 + 0.03 * (STATE.pump / 3.0)) : 0.012;
+      gainMaster.gain.setTargetAtTime(targetVol, t, 0.08);
+    }
+
+    // 窗口尺寸自适应
+    function resizeCanvases() {
+      const dpr = window.devicePixelRatio || 1;
+
+      const rectMain = mainCanvas.parentElement.getBoundingClientRect();
+      mainCanvas.width = rectMain.width * dpr;
+      mainCanvas.height = rectMain.height * dpr;
+      ctxMain.scale(dpr, dpr);
+
+      const rectDisp = dispersionCanvas.parentElement.getBoundingClientRect();
+      dispersionCanvas.width = rectDisp.width * dpr;
+      dispersionCanvas.height = (rectDisp.height - 30) * dpr;
+      ctxDisp.scale(dpr, dpr);
+
+      const rectSpec = spectrumCanvas.parentElement.getBoundingClientRect();
+      spectrumCanvas.width = rectSpec.width * dpr;
+      spectrumCanvas.height = (rectSpec.height - 30) * dpr;
+      ctxSpec.scale(dpr, dpr);
+    }
+
+    window.addEventListener('resize', resizeCanvases);
+
+    // 物理模型演化与计算
+    function updatePhysicsModel() {
+      const p = STATE.pump;
+      const bz = STATE.zeeman;
+      const soc = STATE.soc;
+      const gnl = STATE.gnl;
+      const rot = STATE.rot;
+
+      // 1. 阈值判断与凝聚密度: n0 ~ (P - Pth)
+      const isCond = (p > 1.0);
+      const n0 = isCond ? (0.75 * (p - 1.0) * (1.0 + gnl * 2.0)) : 0.02;
+      STATE.n0Density = n0.toFixed(2);
+
+      // 2. 一阶相干度 g^(1)(0)
+      const g1 = isCond ? Math.min(0.98, 0.55 + 0.42 * (1.0 - Math.exp(-(p - 1.0) * 1.8))) : 0.15;
+      STATE.g1Val = g1.toFixed(2);
+
+      // 3. 量子涡旋数目与费曼准则 (Feynman's Relation: N_vortex ∝ 2*m*Ω*R^2 / ħ)
+      let vCount = 0;
+      if (isCond) {
+        vCount = Math.round(Math.abs(rot) * 0.72 + (p > 1.5 ? 4 : 0));
+      }
+      STATE.vortexCount = vCount;
+
+      // 4. 总轨道角动量 <Lz>
+      const sign = (rot >= 0 ? 1 : -1) * (bz >= 0 ? 1 : -1);
+      const lz = (sign * vCount * 0.85 * (g1 / 0.9)).toFixed(1);
+      STATE.lzTotal = lz;
+
+      // 5. 超流声速与相干恢复长度 (Bogoliubov Sound Velocity & Healing Length)
+      const cs = (1.20 * Math.sqrt(Math.max(0.1, n0 * gnl * 12.0))).toFixed(2);
+      STATE.soundVelocity = cs;
+      const xi = (1.65 / Math.sqrt(Math.max(0.1, n0 * gnl * 10.0 + 0.1))).toFixed(2);
+      STATE.healingLength = xi;
+
+      // 6. 拓扑陈数与边缘速度
+      if (Math.abs(bz) > 0.3 && soc > 0.2) {
+        STATE.chernNumber = (bz > 0) ? 'C = +1' : 'C = -1';
+      } else {
+        STATE.chernNumber = 'C = 0 (平庸)';
+      }
+      const vEdgeVal = (1.5 + Math.abs(bz) * 0.45 * (soc / 0.8)).toFixed(2);
+      STATE.vEdge = vEdgeVal;
+
+      // 更新顶部与监视面板
+      topG1Val.innerText = `${STATE.g1Val} g⁽¹⁾`;
+      topVortexCount.innerText = `${STATE.vortexCount} 涡旋`;
+      topLzVal.innerText = `${STATE.lzTotal > 0 ? '+' : ''}${STATE.lzTotal} ℏ`;
+
+      n0Val.innerText = `${STATE.n0Density}×10¹¹ cm⁻²`;
+      csVal.innerText = `${STATE.soundVelocity}×10⁶ m/s`;
+      healingVal.innerText = `${STATE.healingLength} μm`;
+      chernVal.innerText = STATE.chernNumber;
+      vedgeVal.innerText = `${STATE.vEdge}×10⁶ m/s`;
+
+      updateAudioParams();
+    }
+
+    // 预设工况配置
+    const PRESETS = {
+      1: { pump: 2.25, zeeman: 1.50, soc: 0.90, gnl: 0.09, rot: 22.0 },
+      2: { pump: 2.60, zeeman: 2.80, soc: 1.40, gnl: 0.05, rot: 6.0 },
+      3: { pump: 1.85, zeeman: 0.00, soc: 0.70, gnl: 0.15, rot: -14.0 },
+      4: { pump: 0.75, zeeman: 1.00, soc: 0.80, gnl: 0.08, rot: 0.0 }
+    };
+
+    function applyPreset(id) {
+      const p = PRESETS[id];
+      if (!p) return;
+      STATE.preset = id;
+      STATE.pump = p.pump;
+      STATE.zeeman = p.zeeman;
+      STATE.soc = p.soc;
+      STATE.gnl = p.gnl;
+      STATE.rot = p.rot;
+
+      sliderPump.value = p.pump; valPump.innerText = p.pump.toFixed(2);
+      sliderZeeman.value = p.zeeman; valZeeman.innerText = p.zeeman.toFixed(2);
+      sliderSoc.value = p.soc; valSoc.innerText = p.soc.toFixed(2);
+      sliderGnl.value = p.gnl; valGnl.innerText = p.gnl.toFixed(2);
+      sliderRot.value = p.rot; valRot.innerText = p.rot.toFixed(1);
+
+      presetButtons.forEach(btn => {
+        btn.classList.toggle('active', parseInt(btn.dataset.preset) === id);
+      });
+
+      updatePhysicsModel();
+    }
+
+    // 事件绑定
+    sliderPump.addEventListener('input', (e) => {
+      STATE.pump = parseFloat(e.target.value);
+      valPump.innerText = STATE.pump.toFixed(2);
+      updatePhysicsModel();
+    });
+
+    sliderZeeman.addEventListener('input', (e) => {
+      STATE.zeeman = parseFloat(e.target.value);
+      valZeeman.innerText = STATE.zeeman.toFixed(2);
+      updatePhysicsModel();
+    });
+
+    sliderSoc.addEventListener('input', (e) => {
+      STATE.soc = parseFloat(e.target.value);
+      valSoc.innerText = STATE.soc.toFixed(2);
+      updatePhysicsModel();
+    });
+
+    sliderGnl.addEventListener('input', (e) => {
+      STATE.gnl = parseFloat(e.target.value);
+      valGnl.innerText = STATE.gnl.toFixed(2);
+      updatePhysicsModel();
+    });
+
+    sliderRot.addEventListener('input', (e) => {
+      STATE.rot = parseFloat(e.target.value);
+      valRot.innerText = STATE.rot.toFixed(1);
+      updatePhysicsModel();
+    });
+
+    btnModes.forEach(btn => {
+      btn.addEventListener('click', () => {
+        btnModes.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        STATE.viewMode = btn.dataset.mode;
+      });
+    });
+
+    presetButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        applyPreset(parseInt(btn.dataset.preset));
+      });
+    });
+
+    btnInvertZeeman.addEventListener('click', () => {
+      STATE.zeeman *= -1;
+      sliderZeeman.value = STATE.zeeman;
+      valZeeman.innerText = STATE.zeeman.toFixed(2);
+      updatePhysicsModel();
+    });
+
+    btnInjectPhonon.addEventListener('click', () => {
+      STATE.perturbations.push({
+        x: mainCanvas.width * 0.5,
+        y: mainCanvas.height * 0.5,
+        radius: 10,
+        opacity: 1.0,
+        age: 0
+      });
+    });
+
+    btnPause.addEventListener('click', () => {
+      STATE.paused = !STATE.paused;
+      btnPause.innerText = STATE.paused ? '继续运行 (Resume)' : '暂停 / 运行';
+    });
+
+    btnAudio.addEventListener('click', () => {
+      if (!STATE.audioActive) {
+        initAudio();
+      } else {
+        if (gainMaster) {
+          gainMaster.gain.setValueAtTime(gainMaster.gain.value > 0 ? 0 : 0.065, audioCtx.currentTime);
+          btnAudio.innerText = gainMaster.gain.value > 0 ? '开启声效 (Audio)' : '声效已开启 (Mute)';
+        }
+      }
+    });
+
+    // 鼠标点击注入局部量子涡旋扰动
+    mainCanvas.addEventListener('click', (e) => {
+      const rect = mainCanvas.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const clickY = e.clientY - rect.top;
+      STATE.perturbations.push({
+        x: clickX,
+        y: clickY,
+        radius: 12,
+        opacity: 1.0,
+        age: 0
+      });
+    });
+
+    // 主画布渲染逻辑
+    function drawMainViewport(w, h, time) {
+      ctxMain.clearRect(0, 0, w, h);
+
+      const cx = w * 0.5;
+      const cy = h * 0.5;
+      const isCond = (STATE.pump > 1.0);
+      const rotAngle = time * (STATE.rot * 0.04);
+
+      // 1. 绘制微柱超点阵背景 (Pillar Lattice - 六角/蜂窝网格)
+      const latticeR = 210;
+      const pillarRows = 9;
+      const pillarCols = 11;
+      const pSpacing = 42;
+
+      ctxMain.fillStyle = 'rgba(15, 23, 42, 0.4)';
+      ctxMain.strokeStyle = 'rgba(6, 182, 212, 0.15)';
+      ctxMain.lineWidth = 1;
+
+      for (let r = -4; r <= 4; r++) {
+        for (let c = -5; c <= 5; c++) {
+          const px = cx + c * pSpacing + (r % 2 === 0 ? 0 : pSpacing * 0.5);
+          const py = cy + r * (pSpacing * 0.866);
+
+          const distCenter = Math.hypot(px - cx, py - cy);
+          if (distCenter < latticeR + 15) {
+            // 绘制微柱基座
+            ctxMain.beginPath();
+            ctxMain.arc(px, py, 11, 0, Math.PI * 2);
+            ctxMain.fillStyle = 'rgba(30, 41, 59, 0.6)';
+            ctxMain.fill();
+            ctxMain.stroke();
+          }
+        }
+      }
+
+      // 2. 根据 viewMode 渲染不同全息物理图层
+      if (STATE.viewMode === 'density') {
+        // 模式 1: 极化激元超流宏观凝聚密度 |ψ(r)|² 辉光场
+        const gradDensity = ctxMain.createRadialGradient(cx, cy, 10, cx, cy, latticeR);
+        if (isCond) {
+          const intensity = Math.min(0.85, 0.45 * (STATE.pump / 2.0));
+          gradDensity.addColorStop(0, `rgba(6, 182, 212, ${intensity})`);
+          gradDensity.addColorStop(0.7, `rgba(99, 102, 241, ${intensity * 0.6})`);
+          gradDensity.addColorStop(1, 'rgba(3, 7, 18, 0.05)');
+        } else {
+          // 阈值下非相干热光斑
+          gradDensity.addColorStop(0, 'rgba(148, 163, 184, 0.2)');
+          gradDensity.addColorStop(1, 'transparent');
+        }
+        ctxMain.fillStyle = gradDensity;
+        ctxMain.fillRect(0, 0, w, h);
+
+        // 绘制阿布里科索夫三角涡旋点阵暗斑 (Vortex Core Dark Nodes)
+        if (isCond && STATE.vortexCount > 0) {
+          const vCount = Math.min(36, STATE.vortexCount);
+          const rings = Math.ceil(Math.sqrt(vCount));
+
+          let drawnVortices = 0;
+          for (let ring = 1; ring <= rings && drawnVortices < vCount; ring++) {
+            const numInRing = ring * 6;
+            const rRadius = ring * 36;
+            for (let i = 0; i < numInRing && drawnVortices < vCount; i++) {
+              const ang = (i / numInRing) * Math.PI * 2 + rotAngle;
+              const vx = cx + Math.cos(ang) * rRadius;
+              const vy = cy + Math.sin(ang) * rRadius;
+
+              // 涡核中心密度坍缩暗斑
+              const coreGrad = ctxMain.createRadialGradient(vx, vy, 1.5, vx, vy, 12);
+              coreGrad.addColorStop(0, '#030712');
+              coreGrad.addColorStop(0.5, 'rgba(3, 7, 18, 0.85)');
+              coreGrad.addColorStop(1, 'transparent');
+
+              ctxMain.fillStyle = coreGrad;
+              ctxMain.beginPath();
+              ctxMain.arc(vx, vy, 14, 0, Math.PI * 2);
+              ctxMain.fill();
+
+              // 涡核发光微晕圈
+              ctxMain.strokeStyle = 'rgba(6, 182, 212, 0.8)';
+              ctxMain.lineWidth = 1.2;
+              ctxMain.beginPath();
+              ctxMain.arc(vx, vy, 5.0, 0, Math.PI * 2);
+              ctxMain.stroke();
+
+              drawnVortices++;
+            }
+          }
+        }
+      } else if (STATE.viewMode === 'phase') {
+        // 模式 2: 宏观量子相位分布 arg(ψ(r))
+        const step = 8;
+        for (let x = cx - latticeR; x <= cx + latticeR; x += step) {
+          for (let y = cy - latticeR; y <= cy + latticeR; y += step) {
+            const dx = x - cx;
+            const dy = y - cy;
+            const dist = Math.hypot(dx, dy);
+            if (dist < latticeR) {
+              // 计算局域多重涡旋环绕相位叠加
+              let phase = Math.atan2(dy, dx) * (STATE.rot >= 0 ? 1 : -1) - rotAngle;
+              if (STATE.vortexCount > 6) {
+                phase += Math.sin(dx * 0.08) * 0.8 + Math.cos(dy * 0.08) * 0.8;
+              }
+              const hue = ((phase % (Math.PI * 2) + Math.PI * 2) / (Math.PI * 2)) * 360;
+              ctxMain.fillStyle = `hsla(${hue}, 85%, 60%, 0.45)`;
+              ctxMain.fillRect(x, y, step, step);
+            }
+          }
+        }
+      } else if (STATE.viewMode === 'forked') {
+        // 模式 3: 叉形干涉条纹 (Forked Interferogram: ψ + e^{i k_ref x})
+        const step = 5;
+        const kRef = 0.12; // 平直参考光波矢
+        for (let x = cx - latticeR; x <= cx + latticeR; x += step) {
+          for (let y = cy - latticeR; y <= cy + latticeR; y += step) {
+            const dx = x - cx;
+            const dy = y - cy;
+            const dist = Math.hypot(dx, dy);
+            if (dist < latticeR) {
+              // 涡旋相位
+              let vortexPhase = Math.atan2(dy, dx) * (STATE.rot >= 0 ? 1 : -1) - rotAngle;
+              if (STATE.vortexCount > 8) {
+                // 多涡旋三角干涉调制
+                vortexPhase += Math.sin(dx * 0.06 + dy * 0.04) * 1.2;
+              }
+              const refPhase = x * kRef;
+              // 干涉光强 I = |ψ + 1|^2 ~ 1 + cos(θ_vortex - θ_ref)
+              const fringeIntensity = 0.5 + 0.5 * Math.cos(vortexPhase - refPhase);
+              ctxMain.fillStyle = `rgba(6, 182, 212, ${fringeIntensity * 0.85})`;
+              ctxMain.fillRect(x, y, step, step);
+            }
+          }
+        }
+      }
+
+      // 3. 绘制拓扑手征单向边缘流 (Topological Chiral Edge Flow Loop)
+      if (isCond && Math.abs(STATE.zeeman) > 0.3) {
+        ctxMain.save();
+        ctxMain.beginPath();
+        ctxMain.arc(cx, cy, latticeR - 4, 0, Math.PI * 2);
+        ctxMain.strokeStyle = (STATE.zeeman > 0) ? 'rgba(6, 182, 212, 0.85)' : 'rgba(244, 63, 94, 0.85)';
+        ctxMain.lineWidth = 2.5;
+        ctxMain.setLineDash([8, 6]);
+        ctxMain.lineDashOffset = -time * 60 * (STATE.zeeman > 0 ? 1 : -1);
+        ctxMain.stroke();
+        ctxMain.restore();
+
+        // 沿边缘单向高速循行的高能极化激元粒子
+        for (let p = 0; p < 16; p++) {
+          const edgeAng = (time * 1.5 * (STATE.zeeman > 0 ? 1 : -1) + (p / 16) * Math.PI * 2);
+          const ex = cx + Math.cos(edgeAng) * (latticeR - 4);
+          const ey = cy + Math.sin(edgeAng) * (latticeR - 4);
+
+          ctxMain.beginPath();
+          ctxMain.arc(ex, ey, 2.5, 0, Math.PI * 2);
+          ctxMain.fillStyle = '#06b6d4';
+          ctxMain.shadowColor = '#06b6d4';
+          ctxMain.shadowBlur = 8;
+          ctxMain.fill();
+        }
+
+        // 边缘流指标标注
+        ctxMain.fillStyle = 'rgba(6, 182, 212, 0.9)';
+        ctxMain.font = '11px monospace';
+        ctxMain.fillText(`▲ 拓扑手征保护单向边缘态 (vedge: ${STATE.vEdge}×10⁶ m/s)`, cx - 110, cy - latticeR - 12);
+      }
+
+      // 4. 扰动波包演化与渲染
+      for (let i = STATE.perturbations.length - 1; i >= 0; i--) {
+        const p = STATE.perturbations[i];
+        p.radius += 2.2;
+        p.opacity *= 0.95;
+        p.age += 0.016;
+
+        ctxMain.beginPath();
+        ctxMain.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+        ctxMain.strokeStyle = `rgba(244, 63, 94, ${p.opacity})`;
+        ctxMain.lineWidth = 2.0;
+        ctxMain.stroke();
+
+        if (p.opacity < 0.05 || p.radius > 160) {
+          STATE.perturbations.splice(i, 1);
+        }
+      }
+    }
+
+    // 示波器 1：动量空间角分辨光谱 E(kx) 与狄拉克拓扑能隙
+    function drawDispersionScope(w, h) {
+      ctxDisp.clearRect(0, 0, w, h);
+
+      const originX = 40;
+      const originY = h * 0.88;
+      const plotW = w - 60;
+      const plotH = h * 0.78;
+
+      // 标尺与网格
+      ctxDisp.strokeStyle = 'rgba(148, 163, 184, 0.12)';
+      ctxDisp.lineWidth = 1;
+      for (let e = 0; e <= 3.0; e += 1.0) {
+        const y = originY - (e / 3.5) * plotH;
+        ctxDisp.beginPath();
+        ctxDisp.moveTo(originX, y);
+        ctxDisp.lineTo(originX + plotW, y);
+        ctxDisp.stroke();
+
+        ctxDisp.fillStyle = 'rgba(148, 163, 184, 0.6)';
+        ctxDisp.font = '9px monospace';
+        ctxDisp.fillText(`${e.toFixed(1)}`, 14, y + 3);
+      }
+
+      ctxDisp.fillText('E (meV)', 12, 18);
+      ctxDisp.fillText('-K', originX + 10, originY + 12);
+      ctxDisp.fillText('Γ', originX + plotW * 0.5 - 4, originY + 12);
+      ctxDisp.fillText('+K', originX + plotW - 25, originY + 12);
+
+      // 1. Kagome 晶格平带 (Flat Band): 虚线紫
+      const flatBandY = originY - (2.4 / 3.5) * plotH;
+      ctxDisp.beginPath();
+      ctxDisp.setLineDash([4, 4]);
+      ctxDisp.moveTo(originX, flatBandY);
+      ctxDisp.lineTo(originX + plotW, flatBandY);
+      ctxDisp.strokeStyle = '#a855f7';
+      ctxDisp.lineWidth = 1.4;
+      ctxDisp.stroke();
+      ctxDisp.setLineDash([]);
+
+      // 2. 狄拉克锥色散分支 (上/下狄拉克锥极化激元分支)
+      const bz = Math.abs(STATE.zeeman);
+      const soc = STATE.soc;
+      const midX = originX + plotW * 0.5;
+
+      // 上狄拉克支
+      ctxDisp.beginPath();
+      ctxDisp.strokeStyle = '#06b6d4';
+      ctxDisp.lineWidth = 2.2;
+      for (let s = 0; s <= 60; s++) {
+        const kFrac = (s - 30) / 30; // -1 到 +1
+        const x = midX + kFrac * (plotW * 0.45);
+        // E(k) = sqrt(v^2 k^2 + M^2)
+        const massGap = Math.sqrt(bz * bz * 0.25 + soc * soc * 0.2);
+        const eUp = 1.5 + Math.sqrt(Math.pow(kFrac * 1.4, 2) + massGap * massGap * 0.35);
+        const y = originY - (eUp / 3.5) * plotH;
+        if (s === 0) ctxDisp.moveTo(x, y);
+        else ctxDisp.lineTo(x, y);
+      }
+      ctxDisp.stroke();
+
+      // 下狄拉克支
+      ctxDisp.beginPath();
+      ctxDisp.strokeStyle = '#6366f1';
+      ctxDisp.lineWidth = 2.2;
+      for (let s = 0; s <= 60; s++) {
+        const kFrac = (s - 30) / 30;
+        const x = midX + kFrac * (plotW * 0.45);
+        const massGap = Math.sqrt(bz * bz * 0.25 + soc * soc * 0.2);
+        const eDown = 1.5 - Math.sqrt(Math.pow(kFrac * 1.4, 2) + massGap * massGap * 0.35);
+        const y = originY - (Math.max(0.1, eDown) / 3.5) * plotH;
+        if (s === 0) ctxDisp.moveTo(x, y);
+        else ctxDisp.lineTo(x, y);
+      }
+      ctxDisp.stroke();
+
+      // 3. 凝聚态化学势 μ 指示线 (金色水平实线)
+      if (STATE.pump > 1.0) {
+        const muEnergy = 1.5 + 0.15 * (STATE.pump - 1.0);
+        const muY = originY - (muEnergy / 3.5) * plotH;
+        ctxDisp.beginPath();
+        ctxDisp.moveTo(originX, muY);
+        ctxDisp.lineTo(originX + plotW, muY);
+        ctxDisp.strokeStyle = '#f59e0b';
+        ctxDisp.lineWidth = 1.8;
+        ctxDisp.stroke();
+
+        ctxDisp.fillStyle = '#f59e0b';
+        ctxDisp.font = '10px monospace';
+        ctxDisp.fillText(`μ = ${muEnergy.toFixed(2)} meV (凝聚阈值上)`, originX + 15, muY - 6);
+      }
+    }
+
+    // 示波器 2：相干阈值响应与轨道角动量 <Lz>(P) 阶跃谱
+    function drawSpectrumScope(w, h) {
+      ctxSpec.clearRect(0, 0, w, h);
+
+      const originX = 45;
+      const originY = h * 0.88;
+      const plotW = w - 65;
+      const plotH = h * 0.78;
+
+      // 标尺与网格 (P/Pth: 0.5 到 3.5)
+      ctxSpec.strokeStyle = 'rgba(148, 163, 184, 0.12)';
+      ctxSpec.lineWidth = 1;
+      for (let gStep = 0.0; gStep <= 1.0; gStep += 0.25) {
+        const y = originY - gStep * plotH;
+        ctxSpec.beginPath();
+        ctxSpec.moveTo(originX, y);
+        ctxSpec.lineTo(originX + plotW, y);
+        ctxSpec.stroke();
+
+        ctxSpec.fillStyle = 'rgba(148, 163, 184, 0.6)';
+        ctxSpec.font = '9px monospace';
+        ctxSpec.fillText(gStep.toFixed(2), 12, y + 3);
+      }
+
+      for (let pStep = 1.0; pStep <= 3.0; pStep += 1.0) {
+        const x = originX + ((pStep - 0.5) / 3.0) * plotW;
+        ctxSpec.beginPath();
+        ctxSpec.moveTo(x, originY);
+        ctxSpec.lineTo(x, originY - plotH);
+        ctxSpec.stroke();
+
+        ctxSpec.fillStyle = 'rgba(148, 163, 184, 0.6)';
+        ctxSpec.font = '9px monospace';
+        ctxSpec.fillText(`${pStep.toFixed(1)}Pth`, x - 12, originY + 12);
+      }
+
+      ctxSpec.fillText('P/Pth', originX + plotW - 15, originY + 12);
+      ctxSpec.fillText('g⁽¹⁾(0)', 14, 16);
+
+      // 1. 一阶相干度曲线 g^(1)(0) 随泵浦的 S 型阶跃: 霓虹青
+      ctxSpec.beginPath();
+      for (let step = 0; step <= 60; step++) {
+        const curP = 0.5 + (step / 60) * 3.0;
+        const x = originX + (step / 60) * plotW;
+        const g1Calc = (curP > 1.0)
+          ? Math.min(0.98, 0.55 + 0.42 * (1.0 - Math.exp(-(curP - 1.0) * 1.8)))
+          : (0.15 * Math.exp((curP - 1.0) * 2.0));
+        const y = originY - g1Calc * plotH;
+        if (step === 0) ctxSpec.moveTo(x, y);
+        else ctxSpec.lineTo(x, y);
+      }
+      ctxSpec.strokeStyle = '#06b6d4';
+      ctxSpec.lineWidth = 2.2;
+      ctxSpec.stroke();
+
+      // 2. 轨道角动量 <Lz> 阶跃阶梯: 虚线金
+      ctxSpec.beginPath();
+      ctxSpec.setLineDash([3, 3]);
+      for (let step = 0; step <= 60; step++) {
+        const curP = 0.5 + (step / 60) * 3.0;
+        const x = originX + (step / 60) * plotW;
+        const lzRatio = (curP > 1.0)
+          ? Math.min(1.0, (Math.abs(STATE.rot) / 40.0) * (curP - 0.8) * 0.45)
+          : 0.05;
+        const y = originY - lzRatio * plotH;
+        if (step === 0) ctxSpec.moveTo(x, y);
+        else ctxSpec.lineTo(x, y);
+      }
+      ctxSpec.strokeStyle = '#f59e0b';
+      ctxSpec.lineWidth = 1.8;
+      ctxSpec.stroke();
+      ctxSpec.setLineDash([]);
+
+      // 当前泵浦功率垂直指示线
+      const curX = originX + ((STATE.pump - 0.5) / 3.0) * plotW;
+      ctxSpec.beginPath();
+      ctxSpec.moveTo(curX, originY);
+      ctxSpec.lineTo(curX, originY - plotH);
+      ctxSpec.strokeStyle = 'rgba(99, 102, 241, 0.8)';
+      ctxSpec.lineWidth = 1.5;
+      ctxSpec.stroke();
+
+      // 图例标注
+      ctxSpec.fillStyle = '#06b6d4';
+      ctxSpec.font = '10px monospace';
+      ctxSpec.fillText('■ 相干度 g⁽¹⁾(0)', originX + 15, 22);
+
+      ctxSpec.fillStyle = '#f59e0b';
+      ctxSpec.fillText(`■ 轨道角动量 ⟨Lz⟩ = ${STATE.lzTotal}ℏ`, originX + 160, 22);
+    }
+
+    // 动画主循环
+    let lastTime = performance.now();
+    function animate(now) {
+      requestAnimationFrame(animate);
+      const dt = (now - lastTime) / 1000;
+      lastTime = now;
+
+      if (!STATE.paused) {
+        STATE.simTime += dt;
+      }
+
+      const rectMain = mainCanvas.parentElement.getBoundingClientRect();
+      const rectDisp = dispersionCanvas.parentElement.getBoundingClientRect();
+      const rectSpec = spectrumCanvas.parentElement.getBoundingClientRect();
+
+      drawMainViewport(rectMain.width, rectMain.height, STATE.simTime);
+      drawDispersionScope(rectDisp.width, rectDisp.height - 30);
+      drawSpectrumScope(rectSpec.width, rectSpec.height - 30);
+    }
+
+    // 初始化运行
+    resizeCanvases();
+    applyPreset(1);
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>

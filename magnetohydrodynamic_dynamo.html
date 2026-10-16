@@ -1,0 +1,1205 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>磁流体自激发发电机与地磁极倒转模拟 (MHD Geodynamo & Reversals)</title>
+  <style>
+    :root {
+      --bg: #030712;
+      --card-bg: rgba(15, 23, 42, 0.85);
+      --border: rgba(148, 163, 184, 0.15);
+      --accent-cyan: #06b6d4;
+      --accent-orange: #f97316;
+      --accent-purple: #8b5cf6;
+      --accent-gold: #fbbf24;
+      --text: #f8fafc;
+      --text-dim: #94a3b8;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      padding: 16px 24px;
+      background: rgba(3, 7, 18, 0.9);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      backdrop-filter: blur(8px);
+      z-index: 10;
+    }
+    .header-left {
+      display: flex;
+      align-items: baseline;
+      gap: 16px;
+    }
+    h1 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      background: linear-gradient(135deg, #38bdf8, #818cf8, #fb7185);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .tagline {
+      font-size: 0.825rem;
+      color: var(--text-dim);
+    }
+    .nav-btn {
+      padding: 6px 14px;
+      font-size: 0.825rem;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border);
+      color: var(--text);
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+    .nav-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: var(--accent-cyan);
+    }
+    main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 360px;
+      gap: 16px;
+      padding: 16px 24px;
+      max-width: 1750px;
+      margin: 0 auto;
+      width: 100%;
+    }
+    @media (max-width: 1200px) {
+      main {
+        grid-template-columns: 1fr;
+      }
+    }
+    .viewports-container {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .canvas-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    }
+    .main-canvas-wrapper {
+      height: 540px;
+      position: relative;
+      cursor: grab;
+    }
+    .main-canvas-wrapper:active {
+      cursor: grabbing;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+    .canvas-overlay {
+      position: absolute;
+      top: 14px;
+      left: 16px;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      background: rgba(6, 182, 212, 0.15);
+      border: 1px solid rgba(6, 182, 212, 0.4);
+      color: #67e8f9;
+      width: fit-content;
+    }
+    .badge-indicator {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: currentColor;
+      box-shadow: 0 0 8px currentColor;
+    }
+    .status-badge-reverse {
+      background: rgba(244, 63, 94, 0.15);
+      border-color: rgba(244, 63, 94, 0.4);
+      color: #fda4af;
+    }
+    .canvas-controls-overlay {
+      position: absolute;
+      bottom: 14px;
+      left: 16px;
+      display: flex;
+      gap: 8px;
+      pointer-events: auto;
+    }
+    .btn-sm {
+      padding: 5px 12px;
+      font-size: 0.75rem;
+      border-radius: 6px;
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid var(--border);
+      color: var(--text);
+      cursor: pointer;
+      backdrop-filter: blur(4px);
+      transition: all 0.15s;
+    }
+    .btn-sm:hover {
+      background: rgba(30, 41, 59, 0.9);
+      border-color: var(--accent-cyan);
+    }
+    .btn-sm.active {
+      background: rgba(6, 182, 212, 0.25);
+      border-color: var(--accent-cyan);
+      color: #67e8f9;
+    }
+    .dual-charts {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      height: 220px;
+    }
+    @media (max-width: 768px) {
+      .dual-charts {
+        grid-template-columns: 1fr;
+        height: auto;
+      }
+      .dual-charts .canvas-card {
+        height: 200px;
+      }
+    }
+    .chart-title {
+      position: absolute;
+      top: 10px;
+      left: 14px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-dim);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .control-panel {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    }
+    .panel-section-title {
+      font-size: 0.85rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--accent-cyan);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .control-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.75rem;
+      color: var(--text-dim);
+    }
+    .control-val {
+      font-family: monospace;
+      color: var(--text);
+    }
+    input[type=range] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 5px;
+      border-radius: 3px;
+      background: rgba(255, 255, 255, 0.1);
+      outline: none;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--accent-cyan);
+      cursor: pointer;
+      box-shadow: 0 0 8px var(--accent-cyan);
+      transition: transform 0.1s;
+    }
+    input[type=range]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+    .btn-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .action-btn {
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border);
+      color: var(--text);
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    .action-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: var(--accent-cyan);
+    }
+    .action-btn.danger {
+      background: rgba(239, 68, 68, 0.15);
+      border-color: rgba(239, 68, 68, 0.4);
+      color: #fca5a5;
+    }
+    .action-btn.danger:hover {
+      background: rgba(239, 68, 68, 0.25);
+      border-color: #ef4444;
+    }
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .metric-card {
+      background: rgba(0, 0, 0, 0.25);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 8px;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .metric-title {
+      font-size: 0.7rem;
+      color: var(--text-dim);
+    }
+    .metric-value {
+      font-size: 1.05rem;
+      font-weight: 700;
+      font-family: monospace;
+      color: var(--accent-cyan);
+    }
+    .theory-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      font-size: 0.75rem;
+      line-height: 1.5;
+      color: var(--text-dim);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .theory-card b {
+      color: var(--text);
+    }
+    .math-formula {
+      font-family: "JetBrains Mono", monospace;
+      background: rgba(0, 0, 0, 0.3);
+      padding: 6px 8px;
+      border-radius: 6px;
+      color: #cbd5e1;
+      border-left: 2px solid var(--accent-cyan);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-left">
+      <h1>磁流体发电机效应与地磁极倒转</h1>
+      <span class="tagline">MHD Geodynamo, α-Ω Dynamo Waves & Stochastic Polarity Reversal</span>
+    </div>
+    <div style="display:flex; gap:12px; align-items:center;">
+      <a href="index.html" class="nav-btn">← 返回项目矩阵</a>
+    </div>
+  </header>
+
+  <main>
+    <div class="viewports-container">
+      <!-- 主三维磁流体球体与磁场线流体追踪 -->
+      <div class="canvas-card main-canvas-wrapper" id="mainWrapper">
+        <canvas id="mainCanvas"></canvas>
+        <div class="canvas-overlay">
+          <div class="badge" id="polarityBadge">
+            <span class="badge-indicator"></span>
+            <span id="polarityText">极性状态: 正向偶极 (Normal N-Geomagnetic)</span>
+          </div>
+          <div style="font-size:0.75rem; color:#94a3b8; font-family:monospace;" id="coreStateText">
+            内核自转: 1.02× | 外核雷诺数 Rm: 180 | 泰勒对流柱: 8 对
+          </div>
+        </div>
+        <div class="canvas-controls-overlay">
+          <button class="btn-sm active" id="btnToggleLines">外磁力线 (B_ext)</button>
+          <button class="btn-sm active" id="btnToggleToroid">内部环形磁场 (B_tor)</button>
+          <button class="btn-sm active" id="btnToggleConvection">科氏对流涡流柱</button>
+          <button class="btn-sm" id="btnToggleCutaway">半剖透视视图</button>
+          <button class="btn-sm" id="btnResetView">重置视角</button>
+        </div>
+      </div>
+
+      <!-- 下方双示波器：地磁偶极矩时间演化历程 + 相空间吸引子轨迹 -->
+      <div class="dual-charts">
+        <div class="canvas-card" style="position:relative;">
+          <div class="chart-title">
+            <span style="color:var(--accent-cyan)">●</span> 偶极矩时间历程 M_z(t) (百万年时间序列与极性反转)
+          </div>
+          <canvas id="timeSeriesCanvas"></canvas>
+        </div>
+        <div class="canvas-card" style="position:relative;">
+          <div class="chart-title">
+            <span style="color:var(--accent-purple)">●</span> 发电机相空间吸引子 (M_z vs B_φ vs 对流振幅)
+          </div>
+          <canvas id="phaseSpaceCanvas"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- 侧边栏控制面板 -->
+    <div class="sidebar">
+      <div class="control-panel">
+        <div class="panel-section-title">
+          <span>⚙ 发电机动力学参数 (Dynamo Control)</span>
+        </div>
+
+        <div class="control-group">
+          <div class="control-label">
+            <span>磁雷诺数 (Magnetic Reynolds Rm)</span>
+            <span class="control-val" id="valRm">185</span>
+          </div>
+          <input type="range" id="paramRm" min="50" max="350" step="5" value="185">
+        </div>
+
+        <div class="control-group">
+          <div class="control-label">
+            <span>α-效应螺旋对流强度 (Helicity α)</span>
+            <span class="control-val" id="valAlpha">1.45</span>
+          </div>
+          <input type="range" id="paramAlpha" min="0.2" max="3.0" step="0.05" value="1.45">
+        </div>
+
+        <div class="control-group">
+          <div class="control-label">
+            <span>Ω-效应差速剪切旋转 (Shear Rate Ω)</span>
+            <span class="control-val" id="valOmega">2.10</span>
+          </div>
+          <input type="range" id="paramOmega" min="0.5" max="4.0" step="0.1" value="2.10">
+        </div>
+
+        <div class="control-group">
+          <div class="control-label">
+            <span>混沌湍流扰动噪度 (Core Turbulence)</span>
+            <span class="control-val" id="valTurb">0.35</span>
+          </div>
+          <input type="range" id="paramTurb" min="0.05" max="0.9" step="0.05" value="0.35">
+        </div>
+
+        <div class="btn-row">
+          <button class="action-btn danger" id="btnTriggerInversion">
+            ⚡ 触发极性倒转脉冲
+          </button>
+          <button class="action-btn" id="btnAudioToggle">
+            🔊 磁声合成: 开
+          </button>
+        </div>
+
+        <div class="panel-section-title" style="margin-top:6px;">
+          <span>预设模式 (Presets)</span>
+        </div>
+        <div class="btn-row">
+          <button class="btn-sm" id="presetEarth">标准地磁态 (Earth)</button>
+          <button class="btn-sm" id="presetJupiter">木星超强发电机</button>
+          <button class="btn-sm" id="presetReversalEpoch">频繁反转活跃期</button>
+          <button class="btn-sm" id="presetSubcritical">亚临界衰减态</button>
+        </div>
+
+        <div class="panel-section-title" style="margin-top:6px;">
+          <span>实时遥测指标 (Real-Time Metrics)</span>
+        </div>
+        <div class="metrics-grid">
+          <div class="metric-card">
+            <div class="metric-title">归一化轴向偶极矩 M_z</div>
+            <div class="metric-value" id="dispMz">+0.94</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-title">环向磁能密度 E_tor</div>
+            <div class="metric-value" id="dispEtor">4.82</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-title">磁倾角偏角 θ_tilt</div>
+            <div class="metric-value" id="dispTilt">11.4°</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-title">地磁极倒转次数</div>
+            <div class="metric-value" id="dispRevCount">0 次</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="theory-card">
+        <b>物理机制原理解析</b>
+        <div>
+          行星磁场源自外地核导电流体对流激发的<b>自激发磁流体发电机 (MHD Dynamo)</b>。
+        </div>
+        <div class="math-formula">
+          ∂B/∂t = ∇×(u×B) + η∇²B
+        </div>
+        <div>
+          <b>1. Ω-效应:</b> 液态外核的差动旋转将极向偶极磁力线剪切拉伸，在赤道深处缠绕成极强的环向磁场 (Toroidal Field)。
+        </div>
+        <div>
+          <b>2. α-效应:</b> 科里奥利力迫使上升热对流流柱发生螺旋扭转，将环向磁通扭聚生成反向子午面偶极场，形成自维持闭环。
+        </div>
+        <div>
+          <b>3. 自发极性倒转:</b> 磁力线与对流存在非线性劳伦兹力反作用与混沌热涨落，当偶极场能量向非对称四极矩发生耗散转移时，偶极子瞬间坍缩并以相反符号重新成核再生！
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // --- 物理常数与仿真参数 ---
+    const PARAMS = {
+      Rm: 185,             // 磁雷诺数
+      alpha: 1.45,         // α 效应螺旋度
+      omega: 2.10,         // Ω 效应差速剪切
+      turb: 0.35,          // 湍流涨落强度
+      cutaway: false,      // 半剖透视
+      showLines: true,     // 显示外偶极线
+      showToroid: true,    // 显示内部环形场
+      showConvection: true // 显示科氏对流柱
+    };
+
+    // --- 低阶混沌发电机动力学模型 (基于 Rikitake-Lorenz-Dyn 扩展方程) ---
+    // 状态变量: x = 偶极矩 M_z, y = 极向非对称多极矩, z = 环向磁场强度 B_phi, w = 对流螺旋度
+    let dynamo = {
+      x: 0.95,      // 轴向偶极矩 (标度化)
+      y: 0.05,      // 四极矩/横向扰动
+      z: 1.10,      // 环向磁场
+      w: 1.0,       // 瞬时流体螺旋动能
+      tilt: 11.2,   // 磁极偏角 (度)
+      reversals: 0,
+      history: [],  // 时间历程数据
+      phase: []     // 相空间轨迹
+    };
+
+    let audioCtx = null;
+    let humOsc = null;
+    let humGain = null;
+    let noiseFilter = null;
+    let audioEnabled = true;
+
+    // --- Web Audio 初始化 ---
+    function initAudio() {
+      try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioContext();
+
+        // 低频旋转发电机深沉嗡鸣基频
+        humOsc = audioCtx.createOscillator();
+        humOsc.type = 'sawtooth';
+        humOsc.frequency.setValueAtTime(55, audioCtx.currentTime);
+
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(140, audioCtx.currentTime);
+
+        humGain = audioCtx.createGain();
+        humGain.gain.setValueAtTime(0.04, audioCtx.currentTime);
+
+        humOsc.connect(filter);
+        filter.connect(humGain);
+        humGain.connect(audioCtx.destination);
+        humOsc.start();
+      } catch (e) {
+        console.warn('AudioContext failed:', e);
+      }
+    }
+
+    function playReversalBurst() {
+      if (!audioCtx || !audioEnabled) return;
+      try {
+        const now = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(180, now);
+        osc.frequency.exponentialRampToValueAtTime(45, now + 0.8);
+
+        gain.gain.setValueAtTime(0.12, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
+
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.85);
+      } catch (e) {}
+    }
+
+    // --- 3D 投影视角矩阵与控制 ---
+    const camera = {
+      rotX: 0.35,
+      rotY: -0.65,
+      dist: 360,
+      isDragging: false,
+      lastMouseX: 0,
+      lastMouseY: 0
+    };
+
+    const mainWrapper = document.getElementById('mainWrapper');
+    const mainCanvas = document.getElementById('mainCanvas');
+    const ctx = mainCanvas.getContext('2d');
+
+    const timeCanvas = document.getElementById('timeSeriesCanvas');
+    const timeCtx = timeCanvas.getContext('2d');
+
+    const phaseCanvas = document.getElementById('phaseSpaceCanvas');
+    const phaseCtx = phaseCanvas.getContext('2d');
+
+    // 监听拖拽三维视角
+    mainWrapper.addEventListener('mousedown', (e) => {
+      camera.isDragging = true;
+      camera.lastMouseX = e.clientX;
+      camera.lastMouseY = e.clientY;
+      if (!audioCtx && audioEnabled) initAudio();
+    });
+    window.addEventListener('mouseup', () => camera.isDragging = false);
+    window.addEventListener('mousemove', (e) => {
+      if (!camera.isDragging) return;
+      const dx = e.clientX - camera.lastMouseX;
+      const dy = e.clientY - camera.lastMouseY;
+      camera.rotY += dx * 0.008;
+      camera.rotX += dy * 0.008;
+      camera.rotX = Math.max(-Math.PI / 2 + 0.05, Math.min(Math.PI / 2 - 0.05, camera.rotX));
+      camera.lastMouseX = e.clientX;
+      camera.lastMouseY = e.clientY;
+    });
+
+    // 滚轮缩放
+    mainWrapper.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      camera.dist += e.deltaY * 0.25;
+      camera.dist = Math.max(220, Math.min(600, camera.dist));
+    }, { passive: false });
+
+    function resizeCanvases() {
+      const rect = mainWrapper.getBoundingClientRect();
+      mainCanvas.width = rect.width * window.devicePixelRatio;
+      mainCanvas.height = rect.height * window.devicePixelRatio;
+
+      const tRect = timeCanvas.parentElement.getBoundingClientRect();
+      timeCanvas.width = tRect.width * window.devicePixelRatio;
+      timeCanvas.height = tRect.height * window.devicePixelRatio;
+
+      const pRect = phaseCanvas.parentElement.getBoundingClientRect();
+      phaseCanvas.width = pRect.width * window.devicePixelRatio;
+      phaseCanvas.height = pRect.height * window.devicePixelRatio;
+    }
+    window.addEventListener('resize', resizeCanvases);
+
+    // 三维投影数学函数
+    function project3D(x, y, z, cx, cy, scale) {
+      // 绕 Y 轴旋转
+      const cosY = Math.cos(camera.rotY), sinY = Math.sin(camera.rotY);
+      const x1 = x * cosY + z * sinY;
+      const z1 = -x * sinY + z * cosY;
+
+      // 绕 X 轴旋转
+      const cosX = Math.cos(camera.rotX), sinX = Math.sin(camera.rotX);
+      const y2 = y * cosX - z1 * sinX;
+      const z2 = y * sinX + z1 * cosX;
+
+      // 透视投影
+      const fov = 700;
+      const factor = fov / (fov + z2 + camera.dist * 0.7);
+      return {
+        px: cx + x1 * factor * scale,
+        py: cy - y2 * factor * scale,
+        depth: z2,
+        scale: factor
+      };
+    }
+
+    // --- 粒子流线 (用于磁力线与对流柱运动追踪) ---
+    const NUM_MAG_PARTICLES = 280;
+    const magParticles = [];
+    for (let i = 0; i < NUM_MAG_PARTICLES; i++) {
+      magParticles.push({
+        loopId: i % 18,
+        paramT: Math.random(),
+        speed: 0.003 + Math.random() * 0.004,
+        offsetAngle: ((i % 18) / 18) * Math.PI * 2 + (Math.random() - 0.5) * 0.2,
+        maxRadius: 1.4 + (Math.floor(i / 18) / 15) * 1.8
+      });
+    }
+
+    const NUM_CONV_PARTICLES = 160;
+    const convParticles = [];
+    for (let i = 0; i < NUM_CONV_PARTICLES; i++) {
+      convParticles.push({
+        colIdx: i % 8, // 8 个泰勒柱
+        height: (Math.random() - 0.5) * 1.4,
+        angle: Math.random() * Math.PI * 2,
+        speedH: 0.012 + Math.random() * 0.008
+      });
+    }
+
+    // --- 发电机数值步进方程 (Runge-Kutta / 高阶有限差分) ---
+    let lastTime = performance.now();
+    let simTime = 0;
+
+    function stepDynamoPhysics(dt) {
+      // 阻尼与耗散常数
+      const nu = 1.05 * (200 / PARAMS.Rm);
+      const alphaVal = PARAMS.alpha;
+      const omegaVal = PARAMS.omega;
+
+      // 连续混沌涨落驱动
+      const noiseX = (Math.random() - 0.5) * PARAMS.turb * 0.8;
+      const noiseY = (Math.random() - 0.5) * PARAMS.turb * 0.6;
+
+      // 非线性发电机截断动力学 (Rikitake-Lorenz-Dyn 扩展方程):
+      // dx/dt: 偶极矩演化，由 alpha 效应扭转多极场生成，受磁扩散 nu 衰减
+      // dy/dt: 四极子与不对称扰动模态
+      // dz/dt: 环向磁场，由 Omega 剪切拉伸偶极子生成，并在劳伦兹力反冲下饱和
+      const dx = -nu * dynamo.x + alphaVal * dynamo.y * dynamo.z + noiseX;
+      const dy = -nu * dynamo.y + (dynamo.z - omegaVal) * dynamo.x + noiseY;
+      const dz = (1.8 * omegaVal) - dynamo.x * dynamo.y - 0.12 * Math.pow(dynamo.z, 3);
+
+      const oldX = dynamo.x;
+      dynamo.x += dx * dt * 0.85;
+      dynamo.y += dy * dt * 0.85;
+      dynamo.z += dz * dt * 0.85;
+
+      // 软限幅防止发散
+      dynamo.x = Math.max(-2.2, Math.min(2.2, dynamo.x));
+      dynamo.y = Math.max(-2.5, Math.min(2.5, dynamo.y));
+      dynamo.z = Math.max(-4.0, Math.min(4.0, dynamo.z));
+
+      // 检测极性倒转零点穿透
+      if ((oldX > 0 && dynamo.x <= 0) || (oldX < 0 && dynamo.x >= 0)) {
+        dynamo.reversals++;
+        playReversalBurst();
+      }
+
+      // 计算偶极倾角
+      const quadRatio = Math.abs(dynamo.y) / (Math.abs(dynamo.x) + 0.05);
+      dynamo.tilt = Math.min(88, 10.5 + quadRatio * 28.0);
+
+      // 记录时间序列
+      simTime += dt;
+      if (dynamo.history.length === 0 || simTime - dynamo.history[dynamo.history.length - 1].t > 0.06) {
+        dynamo.history.push({
+          t: simTime,
+          mz: dynamo.x,
+          toroid: Math.abs(dynamo.z) * 1.5,
+          quad: dynamo.y
+        });
+        if (dynamo.history.length > 280) dynamo.history.shift();
+
+        dynamo.phase.push({ x: dynamo.x, y: dynamo.y, z: dynamo.z });
+        if (dynamo.phase.length > 350) dynamo.phase.shift();
+      }
+
+      // 更新音频调频
+      if (humOsc && audioEnabled) {
+        const targetFreq = 48 + Math.abs(dynamo.z) * 18 + PARAMS.omega * 8;
+        humOsc.frequency.setTargetAtTime(targetFreq, audioCtx.currentTime, 0.1);
+      }
+    }
+
+    // --- 绘制主 3D 发电机与地球磁层 ---
+    function renderMainView() {
+      const w = mainCanvas.width;
+      const h = mainCanvas.height;
+      ctx.clearRect(0, 0, w, h);
+
+      const cx = w * 0.5;
+      const cy = h * 0.52;
+      const R_EARTH = Math.min(w, h) * 0.22;
+      const R_OUTER_CORE = R_EARTH * 0.55;
+      const R_INNER_CORE = R_EARTH * 0.20;
+
+      // 背景星空微弱网格
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
+      ctx.lineWidth = 1;
+      const gridStep = 60 * window.devicePixelRatio;
+      for (let x = 0; x < w; x += gridStep) {
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+      }
+      for (let y = 0; y < h; y += gridStep) {
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+      }
+
+      // 渲染地球外部球形半透明轮廓
+      ctx.save();
+      const gradEarth = ctx.createRadialGradient(cx, cy, R_EARTH * 0.2, cx, cy, R_EARTH);
+      gradEarth.addColorStop(0, 'rgba(30, 58, 138, 0.15)');
+      gradEarth.addColorStop(0.85, 'rgba(15, 23, 42, 0.35)');
+      gradEarth.addColorStop(1, 'rgba(56, 189, 248, 0.25)');
+
+      ctx.fillStyle = gradEarth;
+      ctx.beginPath();
+      ctx.arc(cx, cy, R_EARTH, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.35)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      // 绘制经纬网骨架
+      const numLat = 6;
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
+      ctx.lineWidth = 1;
+      for (let i = -numLat; i <= numLat; i++) {
+        const phi = (i / numLat) * (Math.PI / 2);
+        const rRing = Math.cos(phi) * R_EARTH;
+        const yRing = Math.sin(phi) * R_EARTH;
+        ctx.beginPath();
+        for (let a = 0; a <= Math.PI * 2 + 0.1; a += 0.15) {
+          const pt = project3D(Math.cos(a) * rRing, yRing, Math.sin(a) * rRing, cx, cy, 1);
+          if (a === 0) ctx.moveTo(pt.px, pt.py);
+          else ctx.lineTo(pt.px, pt.py);
+        }
+        ctx.stroke();
+      }
+
+      // 地幔与外地核边界 (CMB - Core-Mantle Boundary)
+      const gradCore = ctx.createRadialGradient(cx, cy, R_INNER_CORE, cx, cy, R_OUTER_CORE);
+      gradCore.addColorStop(0, 'rgba(251, 191, 36, 0.4)');
+      gradCore.addColorStop(0.7, 'rgba(249, 115, 22, 0.35)');
+      gradCore.addColorStop(1, 'rgba(239, 68, 68, 0.25)');
+      ctx.fillStyle = gradCore;
+      ctx.beginPath();
+      ctx.arc(cx, cy, R_OUTER_CORE, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(249, 115, 22, 0.6)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // 固态内核 (Solid Inner Core)
+      ctx.fillStyle = 'rgba(254, 240, 138, 0.85)';
+      ctx.shadowColor = '#fbbf24';
+      ctx.shadowBlur = 15;
+      ctx.beginPath();
+      ctx.arc(cx, cy, R_INNER_CORE, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.restore();
+
+      // --- 绘制科里奥利螺旋对流柱 (Taylor Columns) ---
+      if (PARAMS.showConvection) {
+        const numCols = 8;
+        const colRadius = (R_OUTER_CORE + R_INNER_CORE) * 0.5;
+        ctx.save();
+        for (let i = 0; i < numCols; i++) {
+          const baseAngle = (i / numCols) * Math.PI * 2 + simTime * 0.4;
+          const colX = Math.cos(baseAngle) * colRadius;
+          const colZ = Math.sin(baseAngle) * colRadius;
+
+          // 绘制对流柱中心螺旋流线
+          ctx.beginPath();
+          let first = true;
+          for (let y = -R_OUTER_CORE * 0.75; y <= R_OUTER_CORE * 0.75; y += 8) {
+            const twistAngle = baseAngle + y * 0.08 * PARAMS.alpha;
+            const rOffset = 10 * Math.sin(y * 0.1 + simTime * 3);
+            const pt = project3D(colX + Math.cos(twistAngle) * rOffset, y, colZ + Math.sin(twistAngle) * rOffset, cx, cy, 1);
+            if (first) { ctx.moveTo(pt.px, pt.py); first = false; }
+            else ctx.lineTo(pt.px, pt.py);
+          }
+          ctx.strokeStyle = (i % 2 === 0) ? 'rgba(6, 182, 212, 0.45)' : 'rgba(244, 63, 94, 0.45)';
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      // --- 绘制内部强环向磁场 (Toroidal Field B_phi) ---
+      if (PARAMS.showToroid && Math.abs(dynamo.z) > 0.05) {
+        ctx.save();
+        const toroidSign = Math.sign(dynamo.z);
+        const toroidAlpha = Math.min(0.8, Math.abs(dynamo.z) * 0.35);
+        const numTorusRings = 5;
+        for (let ring = 0; ring < numTorusRings; ring++) {
+          const lat = (ring - 2) * 0.28; // 北半球与南半球反向剪切环
+          const rRing = Math.cos(lat) * (R_INNER_CORE * 1.2 + (R_OUTER_CORE - R_INNER_CORE) * 0.5);
+          const yRing = Math.sin(lat) * R_OUTER_CORE * 0.6;
+          
+          ctx.beginPath();
+          for (let a = 0; a <= Math.PI * 2 + 0.1; a += 0.2) {
+            const pt = project3D(Math.cos(a) * rRing, yRing, Math.sin(a) * rRing, cx, cy, 1);
+            if (a === 0) ctx.moveTo(pt.px, pt.py);
+            else ctx.lineTo(pt.px, pt.py);
+          }
+          ctx.strokeStyle = (toroidSign > 0) ? `rgba(234, 179, 8, ${toroidAlpha})` : `rgba(168, 85, 247, ${toroidAlpha})`;
+          ctx.lineWidth = 2.2;
+          ctx.setLineDash([8, 4]);
+          ctx.stroke();
+        }
+        ctx.setLineDash([]);
+        ctx.restore();
+      }
+
+      // --- 绘制外部自闭合磁力线 (B_pol 偶极子场) ---
+      if (PARAMS.showLines) {
+        ctx.save();
+        const mzVal = dynamo.x;
+        const absMz = Math.abs(mzVal);
+        const isNormal = mzVal > 0;
+        const numLines = 16;
+
+        // 偶极磁场线参数方程: r(theta) = R_0 * sin^2(theta)
+        for (let i = 0; i < numLines; i++) {
+          const phiRot = (i / numLines) * Math.PI * 2;
+          const maxRScale = 1.35 + (i % 4) * 0.45;
+          const lineR0 = R_EARTH * maxRScale;
+
+          ctx.beginPath();
+          let firstPt = true;
+          // 沿极角 theta 从南极流向北极 (或倒转)
+          const stepAngle = 0.08;
+          for (let theta = 0.18; theta <= Math.PI - 0.18; theta += stepAngle) {
+            const r = lineR0 * Math.sin(theta) * Math.sin(theta);
+            if (r < R_OUTER_CORE * 0.95 && (theta < 0.45 || theta > Math.PI - 0.45)) continue;
+
+            const yPos = r * Math.cos(theta);
+            const rCyl = r * Math.sin(theta);
+            const xPos = rCyl * Math.cos(phiRot);
+            const zPos = rCyl * Math.sin(phiRot);
+
+            // 考虑偶极倾斜角
+            const tiltRad = (dynamo.tilt * Math.PI / 180) * 0.3;
+            const yTilted = yPos * Math.cos(tiltRad) - xPos * Math.sin(tiltRad);
+            const xTilted = yPos * Math.sin(tiltRad) + xPos * Math.cos(tiltRad);
+
+            const pt = project3D(xTilted, yTilted, zPos, cx, cy, 1);
+            if (firstPt) { ctx.moveTo(pt.px, pt.py); firstPt = false; }
+            else ctx.lineTo(pt.px, pt.py);
+          }
+
+          // 根据偶极矩强度动态变亮与变色
+          const lineAlpha = Math.min(0.65, absMz * 0.45 + 0.08);
+          ctx.strokeStyle = isNormal 
+            ? `rgba(56, 189, 248, ${lineAlpha})`
+            : `rgba(244, 63, 94, ${lineAlpha})`;
+          ctx.lineWidth = Math.max(0.8, absMz * 1.6);
+          ctx.stroke();
+        }
+
+        // 磁流体流动粒子追踪渲染
+        ctx.fillStyle = isNormal ? '#a5f3fc' : '#fecdd3';
+        for (let p of magParticles) {
+          p.paramT += p.speed * (isNormal ? 1 : -1) * (0.4 + absMz * 0.8);
+          if (p.paramT > 1.0) p.paramT -= 1.0;
+          if (p.paramT < 0.0) p.paramT += 1.0;
+
+          const theta = 0.22 + p.paramT * (Math.PI - 0.44);
+          const r0 = R_EARTH * p.maxRadius;
+          const r = r0 * Math.sin(theta) * Math.sin(theta);
+          const yPos = r * Math.cos(theta);
+          const rCyl = r * Math.sin(theta);
+          const xPos = rCyl * Math.cos(p.offsetAngle);
+          const zPos = rCyl * Math.sin(p.offsetAngle);
+
+          const pt = project3D(xPos, yPos, zPos, cx, cy, 1);
+          if (pt.scale > 0.4) {
+            ctx.beginPath();
+            ctx.arc(pt.px, pt.py, 1.8 * pt.scale, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+        ctx.restore();
+      }
+
+      // 自转轴与地磁轴矢量标头
+      const axisLen = R_EARTH * 1.35;
+      const northPt = project3D(0, axisLen, 0, cx, cy, 1);
+      const southPt = project3D(0, -axisLen, 0, cx, cy, 1);
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.moveTo(southPt.px, southPt.py);
+      ctx.lineTo(northPt.px, northPt.py);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.font = '11px sans-serif';
+      ctx.fillStyle = '#e2e8f0';
+      ctx.fillText('地理北极 (Geo N)', northPt.px + 8, northPt.py);
+      ctx.restore();
+    }
+
+    // --- 绘制示波器 1: 偶极矩时间历史 M_z(t) ---
+    function renderTimeSeries() {
+      const w = timeCanvas.width;
+      const h = timeCanvas.height;
+      timeCtx.clearRect(0, 0, w, h);
+
+      const margin = 28 * window.devicePixelRatio;
+      const pw = w - margin * 2;
+      const ph = h - margin * 2;
+      const midY = margin + ph * 0.5;
+
+      // 网格底图
+      timeCtx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+      timeCtx.lineWidth = 1;
+      timeCtx.beginPath();
+      timeCtx.moveTo(margin, midY);
+      timeCtx.lineTo(margin + pw, midY);
+      timeCtx.stroke();
+
+      timeCtx.font = `${9 * window.devicePixelRatio}px monospace`;
+      timeCtx.fillStyle = '#64748b';
+      timeCtx.fillText('+1.0 (正极 Normal)', margin + 4, margin + 12);
+      timeCtx.fillText('0.0 (反转临界)', margin + 4, midY - 4);
+      timeCtx.fillText('-1.0 (反极 Reversed)', margin + 4, margin + ph - 4);
+
+      if (dynamo.history.length < 2) return;
+
+      // 绘制历史曲线
+      timeCtx.beginPath();
+      for (let i = 0; i < dynamo.history.length; i++) {
+        const item = dynamo.history[i];
+        const x = margin + (i / (dynamo.history.length - 1)) * pw;
+        // M_z 映射到屏幕纵轴 (-1.8 到 +1.8)
+        const y = midY - (item.mz / 1.8) * (ph * 0.45);
+        if (i === 0) timeCtx.moveTo(x, y);
+        else timeCtx.lineTo(x, y);
+      }
+      timeCtx.strokeStyle = '#06b6d4';
+      timeCtx.lineWidth = 2.2 * window.devicePixelRatio;
+      timeCtx.stroke();
+
+      // 填充正反极性着色区域
+      timeCtx.lineTo(margin + pw, midY);
+      timeCtx.lineTo(margin, midY);
+      timeCtx.closePath();
+      timeCtx.fillStyle = 'rgba(6, 182, 212, 0.08)';
+      timeCtx.fill();
+    }
+
+    // --- 绘制示波器 2: 相空间吸引子轨迹 (Phase Space Attractor) ---
+    function renderPhaseSpace() {
+      const w = phaseCanvas.width;
+      const h = phaseCanvas.height;
+      phaseCtx.clearRect(0, 0, w, h);
+
+      const margin = 20 * window.devicePixelRatio;
+      const pw = w - margin * 2;
+      const ph = h - margin * 2;
+      const midX = margin + pw * 0.5;
+      const midY = margin + ph * 0.5;
+
+      // 绘制相空间坐标轴
+      phaseCtx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
+      phaseCtx.lineWidth = 1;
+      phaseCtx.beginPath();
+      phaseCtx.moveTo(margin, midY); phaseCtx.lineTo(margin + pw, midY);
+      phaseCtx.moveTo(midX, margin); phaseCtx.lineTo(midX, margin + ph);
+      phaseCtx.stroke();
+
+      phaseCtx.font = `${9 * window.devicePixelRatio}px monospace`;
+      phaseCtx.fillStyle = '#64748b';
+      phaseCtx.fillText('偶极矩 M_z →', margin + pw - 65, midY - 6);
+      phaseCtx.fillText('↑ 环向磁场 B_φ', midX + 6, margin + 14);
+
+      if (dynamo.phase.length < 2) return;
+
+      phaseCtx.beginPath();
+      for (let i = 0; i < dynamo.phase.length; i++) {
+        const pt = dynamo.phase[i];
+        const px = midX + (pt.x / 2.2) * (pw * 0.44);
+        const py = midY - (pt.z / 3.5) * (ph * 0.44);
+        if (i === 0) phaseCtx.moveTo(px, py);
+        else phaseCtx.lineTo(px, py);
+      }
+      phaseCtx.strokeStyle = '#a855f7';
+      phaseCtx.lineWidth = 1.6 * window.devicePixelRatio;
+      phaseCtx.stroke();
+
+      // 当前相点高亮
+      const curr = dynamo.phase[dynamo.phase.length - 1];
+      const curX = midX + (curr.x / 2.2) * (pw * 0.44);
+      const curY = midY - (curr.z / 3.5) * (ph * 0.44);
+      phaseCtx.fillStyle = '#f43f5e';
+      phaseCtx.shadowColor = '#f43f5e';
+      phaseCtx.shadowBlur = 8;
+      phaseCtx.beginPath();
+      phaseCtx.arc(curX, curY, 4 * window.devicePixelRatio, 0, Math.PI * 2);
+      phaseCtx.fill();
+      phaseCtx.shadowBlur = 0;
+    }
+
+    // --- 界面控制与事件绑定 ---
+    document.getElementById('paramRm').addEventListener('input', (e) => {
+      PARAMS.Rm = parseFloat(e.target.value);
+      document.getElementById('valRm').textContent = PARAMS.Rm;
+    });
+    document.getElementById('paramAlpha').addEventListener('input', (e) => {
+      PARAMS.alpha = parseFloat(e.target.value);
+      document.getElementById('valAlpha').textContent = PARAMS.alpha.toFixed(2);
+    });
+    document.getElementById('paramOmega').addEventListener('input', (e) => {
+      PARAMS.omega = parseFloat(e.target.value);
+      document.getElementById('valOmega').textContent = PARAMS.omega.toFixed(2);
+    });
+    document.getElementById('paramTurb').addEventListener('input', (e) => {
+      PARAMS.turb = parseFloat(e.target.value);
+      document.getElementById('valTurb').textContent = PARAMS.turb.toFixed(2);
+    });
+
+    // 强行注入反向脉冲
+    document.getElementById('btnTriggerInversion').addEventListener('click', () => {
+      dynamo.x = -dynamo.x * 0.7 - Math.sign(dynamo.x) * 0.3;
+      dynamo.y += (Math.random() - 0.5) * 1.5;
+      playReversalBurst();
+    });
+
+    // 声音切换
+    const btnAudio = document.getElementById('btnAudioToggle');
+    btnAudio.addEventListener('click', () => {
+      audioEnabled = !audioEnabled;
+      btnAudio.textContent = audioEnabled ? '🔊 磁声合成: 开' : '🔇 磁声合成: 关';
+      if (humGain && audioCtx) {
+        humGain.gain.setValueAtTime(audioEnabled ? 0.04 : 0.0, audioCtx.currentTime);
+      }
+    });
+
+    // 视图显示切换
+    const setupToggle = (btnId, key) => {
+      const btn = document.getElementById(btnId);
+      btn.addEventListener('click', () => {
+        PARAMS[key] = !PARAMS[key];
+        btn.classList.toggle('active', PARAMS[key]);
+      });
+    };
+    setupToggle('btnToggleLines', 'showLines');
+    setupToggle('btnToggleToroid', 'showToroid');
+    setupToggle('btnToggleConvection', 'showConvection');
+    setupToggle('btnToggleCutaway', 'cutaway');
+
+    document.getElementById('btnResetView').addEventListener('click', () => {
+      camera.rotX = 0.35;
+      camera.rotY = -0.65;
+      camera.dist = 360;
+    });
+
+    // 预设切换
+    document.getElementById('presetEarth').addEventListener('click', () => {
+      PARAMS.Rm = 185; PARAMS.alpha = 1.45; PARAMS.omega = 2.10; PARAMS.turb = 0.32;
+      updateInputs();
+    });
+    document.getElementById('presetJupiter').addEventListener('click', () => {
+      PARAMS.Rm = 320; PARAMS.alpha = 2.60; PARAMS.omega = 3.60; PARAMS.turb = 0.15;
+      updateInputs();
+    });
+    document.getElementById('presetReversalEpoch').addEventListener('click', () => {
+      PARAMS.Rm = 120; PARAMS.alpha = 1.10; PARAMS.omega = 1.40; PARAMS.turb = 0.75;
+      updateInputs();
+    });
+    document.getElementById('presetSubcritical').addEventListener('click', () => {
+      PARAMS.Rm = 60; PARAMS.alpha = 0.40; PARAMS.omega = 0.80; PARAMS.turb = 0.10;
+      updateInputs();
+    });
+
+    function updateInputs() {
+      document.getElementById('paramRm').value = PARAMS.Rm;
+      document.getElementById('valRm').textContent = PARAMS.Rm;
+      document.getElementById('paramAlpha').value = PARAMS.alpha;
+      document.getElementById('valAlpha').textContent = PARAMS.alpha.toFixed(2);
+      document.getElementById('paramOmega').value = PARAMS.omega;
+      document.getElementById('valOmega').textContent = PARAMS.omega.toFixed(2);
+      document.getElementById('paramTurb').value = PARAMS.turb;
+      document.getElementById('valTurb').textContent = PARAMS.turb.toFixed(2);
+    }
+
+    // --- 主动画更新循环 ---
+    function animate(now) {
+      const dt = Math.min(0.04, (now - lastTime) * 0.001);
+      lastTime = now;
+
+      // 物理积分更新
+      stepDynamoPhysics(dt);
+
+      // 渲染主视窗与示波器
+      renderMainView();
+      renderTimeSeries();
+      renderPhaseSpace();
+
+      // 更新仪表盘指标与状态标签
+      const isNormal = dynamo.x > 0;
+      const badge = document.getElementById('polarityBadge');
+      const polarityText = document.getElementById('polarityText');
+      if (Math.abs(dynamo.x) < 0.25) {
+        badge.className = 'badge';
+        badge.style.background = 'rgba(234, 179, 8, 0.2)';
+        badge.style.borderColor = 'rgba(234, 179, 8, 0.5)';
+        badge.style.color = '#fde047';
+        polarityText.textContent = '极性状态: 极性反转过渡中 (Transitioning)';
+      } else if (isNormal) {
+        badge.className = 'badge';
+        badge.style.background = '';
+        badge.style.borderColor = '';
+        badge.style.color = '';
+        polarityText.textContent = '极性状态: 正向偶极 (Normal N-Geomagnetic)';
+      } else {
+        badge.className = 'badge status-badge-reverse';
+        polarityText.textContent = '极性状态: 倒转反极 (Reversed S-Geomagnetic)';
+      }
+
+      document.getElementById('dispMz').textContent = (dynamo.x >= 0 ? '+' : '') + dynamo.x.toFixed(2);
+      document.getElementById('dispEtor').textContent = (Math.abs(dynamo.z) * 1.8).toFixed(2);
+      document.getElementById('dispTilt').textContent = dynamo.tilt.toFixed(1) + '°';
+      document.getElementById('dispRevCount').textContent = dynamo.reversals + ' 次';
+
+      requestAnimationFrame(animate);
+    }
+
+    // 启动仿真
+    resizeCanvases();
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>

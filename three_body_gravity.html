@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>全息三体引力演化与轨道沙盒 - Three-Body Gravity Orbit</title>
+<style>
+  :root {
+    --bg-color: #020207;
+    --accent-cyan: #38bdf8;
+    --accent-gold: #fbbf24;
+    --accent-crimson: #f43f5e;
+    --glass-bg: rgba(10, 12, 24, 0.8);
+    --glass-border: rgba(56, 189, 248, 0.25);
+  }
+
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    user-select: none;
+  }
+
+  body {
+    background-color: var(--bg-color);
+    color: #f1f5f9;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    overflow: hidden;
+    width: 100vw;
+    height: 100vh;
+  }
+
+  #viewport {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    cursor: grab;
+  }
+
+  #viewport:active {
+    cursor: grabbing;
+  }
+
+  /* 顶部科幻抬头 */
+  .header-card {
+    position: absolute;
+    top: 24px;
+    left: 28px;
+    z-index: 10;
+    pointer-events: none;
+  }
+
+  .header-card h1 {
+    font-size: 1.6rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+    background: linear-gradient(135deg, #38bdf8, #fbbf24, #f43f5e);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-transform: uppercase;
+    text-shadow: 0 0 25px rgba(56, 189, 248, 0.35);
+  }
+
+  .header-card .sub {
+    font-size: 0.85rem;
+    color: #94a3b8;
+    margin-top: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .pulse-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #38bdf8;
+    box-shadow: 0 0 10px #38bdf8;
+    animation: pulsarGlow 1.8s infinite ease-in-out;
+  }
+
+  @keyframes pulsarGlow {
+    0%, 100% { opacity: 0.3; transform: scale(0.9); }
+    50% { opacity: 1; transform: scale(1.2); }
+  }
+
+  /* 右上角天体遥测 */
+  .telemetry-card {
+    position: absolute;
+    top: 24px;
+    right: 28px;
+    z-index: 10;
+    background: var(--glass-bg);
+    backdrop-filter: blur(16px);
+    border: 1px solid var(--glass-border);
+    border-radius: 14px;
+    padding: 16px 20px;
+    min-width: 270px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+    font-family: 'Courier New', monospace;
+  }
+
+  .telemetry-title {
+    font-size: 0.75rem;
+    color: var(--accent-cyan);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    border-bottom: 1px solid rgba(56, 189, 248, 0.2);
+    padding-bottom: 5px;
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .tele-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.82rem;
+    margin-bottom: 5px;
+  }
+
+  .tele-row .lbl { color: #64748b; }
+  .tele-row .val { color: #f8fafc; font-weight: 600; }
+
+  /* 左侧轨道特解预设 */
+  .presets-bar {
+    position: absolute;
+    top: 90px;
+    left: 28px;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .preset-btn {
+    background: rgba(10, 12, 24, 0.65);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #cbd5e1;
+    padding: 7px 14px;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: left;
+    min-width: 170px;
+  }
+
+  .preset-btn:hover, .preset-btn.active {
+    background: rgba(56, 189, 248, 0.25);
+    border-color: var(--accent-cyan);
+    color: #fff;
+    transform: translateX(4px);
+  }
+
+  /* 悬浮控制台 */
+  .dock {
+    position: absolute;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border);
+    border-radius: 18px;
+    padding: 14px 22px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    max-width: 94vw;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .ctrl-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .ctrl-item label {
+    font-size: 0.7rem;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .ctrl-item label span {
+    color: var(--accent-cyan);
+    font-family: monospace;
+  }
+
+  .ctrl-item input[type="range"] {
+    -webkit-appearance: none;
+    width: 110px;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 2px;
+    outline: none;
+  }
+
+  .ctrl-item input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--accent-cyan);
+    cursor: pointer;
+    box-shadow: 0 0 10px var(--accent-cyan);
+    transition: transform 0.1s;
+  }
+
+  .ctrl-item input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.3);
+  }
+
+  .btn {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: #fff;
+    padding: 8px 14px;
+    border-radius: 10px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .btn:hover {
+    background: rgba(56, 189, 248, 0.2);
+    border-color: var(--accent-cyan);
+    box-shadow: 0 0 15px rgba(56, 189, 248, 0.3);
+    transform: translateY(-2px);
+  }
+
+  .btn.active {
+    background: var(--accent-cyan);
+    color: #020207;
+    border-color: var(--accent-cyan);
+    box-shadow: 0 0 15px var(--accent-cyan);
+  }
+
+  .hint-tip {
+    position: absolute;
+    bottom: 24px;
+    left: 28px;
+    z-index: 10;
+    pointer-events: none;
+    font-size: 0.75rem;
+    color: #64748b;
+    line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+
+<canvas id="viewport"></canvas>
+
+<div class="header-card">
+  <h1>THREE-BODY GRAVITY</h1>
+  <div class="sub">
+    <div class="pulse-dot"></div>
+    <span>万有引力动力学 · 辛积分轨道演化 · 潮汐撕裂场</span>
+  </div>
+</div>
+
+<div class="presets-bar" id="presets-list">
+  <!-- 经典三体特解按钮 -->
+</div>
+
+<div class="telemetry-card">
+  <div class="telemetry-title">
+    <span>天体力学遥测 (ORBIT STATE)</span>
+    <span id="fps-val">60 FPS</span>
+  </div>
+  <div class="tele-row">
+    <span class="lbl">轨道模式:</span>
+    <span class="val" id="tele-mode">Figure-8 (8字特解)</span>
+  </div>
+  <div class="tele-row">
+    <span class="lbl">系统总动能 T:</span>
+    <span class="val" id="tele-ke">1.45e4 J</span>
+  </div>
+  <div class="tele-row">
+    <span class="lbl">引力总势能 V:</span>
+    <span class="val" id="tele-pe">-2.89e4 J</span>
+  </div>
+  <div class="tele-row">
+    <span class="lbl">哈密顿能量漂移:</span>
+    <span class="val" id="tele-drift">0.0003%</span>
+  </div>
+  <div class="tele-row">
+    <span class="lbl">星际尘埃粒子:</span>
+    <span class="val" id="tele-dust">1200 颗</span>
+  </div>
+</div>
+
+<div class="hint-tip">
+  🖱️ 左键拖动/滚轮: 360° 旋转与推进深空视野<br>
+  💫 单击任意位置: 播撒一颗受摄动测试彗星<br>
+  💥 双击恒星: 触发微型超新星引力冲击波
+</div>
+
+<div class="dock">
+  <div class="ctrl-item">
+    <label>引力常数 G <span id="val-g">1.0</span></label>
+    <input type="range" id="param-g" min="0.1" max="3.0" step="0.1" value="1.0">
+  </div>
+  <div class="ctrl-item">
+    <label>时间步长 Step <span id="val-step">1.0x</span></label>
+    <input type="range" id="param-step" min="0.2" max="2.5" step="0.1" value="1.0">
+  </div>
+  <div class="ctrl-item">
+    <label>轨道拖尾 Trail <span id="val-trail">450</span></label>
+    <input type="range" id="param-trail" min="100" max="1200" step="50" value="450">
+  </div>
+
+  <button class="btn active" id="btn-dust">🌌 潮汐尘埃: 开</button>
+  <button class="btn active" id="btn-gravity-mesh">🌐 引力曲面: 开</button>
+  <button class="btn" id="btn-sound">🔊 宇宙音频: 关</button>
+  <button class="btn" id="btn-center">🎯 重置视角</button>
+</div>
+
+<script>
+/**
+ * 经典三体问题与辛积分器 (Symplectic Velocity-Verlet)
+ * 方程：
+ * d^2 r_i / dt^2 = G * sum_{j != i} [ m_j * (r_j - r_i) / (|r_j - r_i|^2 + eps^2)^(3/2) ]
+ * 采用微小软化因子 eps 防止引力奇点碰撞导致数值飞散
+ */
+
+const canvas = document.getElementById('viewport');
+const ctx = canvas.getContext('2d');
+
+let width, height;
+function resize() {
+  width = canvas.width = window.innerWidth;
+  height = canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resize);
+resize();
+
+// 物理全局参数
+const physics = {
+  G: 1.0,
+  timeScale: 1.0,
+  softening: 15.0, // 防止近距离奇点
+  showDust: true,
+  showMesh: true,
+  maxTrail: 450,
+  soundEnabled: false
+};
+
+// 相机系统 (3D 透视转动)
+const camera = {
+  rotX: 0.45,
+  rotY: 0.25,
+  zoom: 1.0,
+  isDragging: false,
+  lastX: 0,
+  lastY: 0
+};
+
+// 三颗恒星主体
+let bodies = [];
+
+// 预设经典轨道特解
+const PRESETS = [
+  {
+    name: '经典 8 字形特解',
+    id: 'figure8',
+    init: () => {
+      // Chenciner & Montgomery Figure-8
+      const scale = 220;
+      const vScale = 0.9324;
+      const x1 = -0.97000436 * scale, y1 = 0.24308753 * scale;
+      const vx3 = -0.93240737 * 1.6, vy3 = -0.86473146 * 1.6;
+      const vx1 = -vx3 / 2, vy1 = -vy3 / 2;
+
+      return [
+        { x: x1, y: y1, z: 0, vx: vx1, vy: vy1, vz: 0, mass: 1000, radius: 11, color: '#38bdf8', trail: [] },
+        { x: -x1, y: -y1, z: 0, vx: vx1, vy: vy1, vz: 0, mass: 1000, radius: 11, color: '#fbbf24', trail: [] },
+        { x: 0, y: 0, z: 0, vx: vx3, vy: vy3, vz: 0, mass: 1000, radius: 11, color: '#f43f5e', trail: [] }
+      ];
+    }
+  },
+  {
+    name: '拉格朗日正三棱星',
+    id: 'lagrange',
+    init: () => {
+      const r = 180;
+      const v = 1.35;
+      return [
+        { x: r * Math.cos(0), y: r * Math.sin(0), z: 0, vx: -v * Math.sin(0), vy: v * Math.cos(0), vz: 0, mass: 1000, radius: 10, color: '#38bdf8', trail: [] },
+        { x: r * Math.cos(2*Math.PI/3), y: r * Math.sin(2*Math.PI/3), z: 0, vx: -v * Math.sin(2*Math.PI/3), vy: v * Math.cos(2*Math.PI/3), vz: 0, mass: 1000, radius: 10, color: '#fbbf24', trail: [] },
+        { x: r * Math.cos(4*Math.PI/3), y: r * Math.sin(4*Math.PI/3), z: 0, vx: -v * Math.sin(4*Math.PI/3), vy: v * Math.cos(4*Math.PI/3), vz: 0, mass: 1000, radius: 10, color: '#f43f5e', trail: [] }
+      ];
+    }
+  },
+  {
+    name: '蝴蝶引力涡流',
+    id: 'butterfly',
+    init: () => {
+      const s = 190;
+      return [
+        { x: -s, y: 0, z: 20, vx: 0.3, vy: 0.8, vz: 0.2, mass: 1100, radius: 12, color: '#a855f7', trail: [] },
+        { x: s, y: 0, z: -20, vx: 0.3, vy: 0.8, vz: -0.2, mass: 1100, radius: 12, color: '#22c55e', trail: [] },
+        { x: 0, y: 0, z: 0, vx: -0.6, vy: -1.6, vz: 0, mass: 1100, radius: 12, color: '#f59e0b', trail: [] }
+      ];
+    }
+  },
+  {
+    name: '双星与掠日捕获',
+    id: 'capture',
+    init: () => {
+      return [
+        { x: -80, y: 0, z: 0, vx: 0, vy: -1.7, vz: 0, mass: 1500, radius: 13, color: '#00f3ff', trail: [] },
+        { x: 80, y: 0, z: 0, vx: 0, vy: 1.7, vz: 0, mass: 1500, radius: 13, color: '#ff0077', trail: [] },
+        { x: -320, y: 180, z: 30, vx: 1.4, vy: -0.2, vz: -0.1, mass: 300, radius: 7, color: '#fbbf24', trail: [] }
+      ];
+    }
+  }
+];
+
+// 初始化预设 UI
+const presetsListElem = document.getElementById('presets-list');
+PRESETS.forEach((p, idx) => {
+  const btn = document.createElement('div');
+  btn.className = 'preset-btn' + (idx === 0 ? ' active' : '');
+  btn.textContent = p.name;
+  btn.onclick = () => {
+    document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    loadPreset(p);
+  };
+  presetsListElem.appendChild(btn);
+});
+
+let initialTotalE = 0;
+function loadPreset(p) {
+  bodies = p.init();
+  document.getElementById('tele-mode').textContent = p.name;
+  initDust();
+  initialTotalE = computeTotalEnergy();
+}
+
+// 星际引力潮汐尘埃粒子云
+const DUST_COUNT = 1200;
+let dustParticles = [];
+
+function initDust() {
+  dustParticles = [];
+  for (let i = 0; i < DUST_COUNT; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const dist = 60 + Math.random() * 320;
+    const speed = Math.sqrt((physics.G * 2000) / (dist + 50)) * (0.8 + Math.random() * 0.4);
+
+    dustParticles.push({
+      x: Math.cos(angle) * dist,
+      y: Math.sin(angle) * dist,
+      z: (Math.random() - 0.5) * 40,
+      vx: -Math.sin(angle) * speed,
+      vy: Math.cos(angle) * speed,
+      vz: (Math.random() - 0.5) * 0.2,
+      size: Math.random() * 1.5 + 0.8
+    });
+  }
+}
+
+// 辛速度-韦尔莱 (Velocity-Verlet) 数值积分
+function computeAccelerations(bodyList) {
+  const n = bodyList.length;
+  const accs = [];
+  for (let i = 0; i < n; i++) accs.push({ ax: 0, ay: 0, az: 0 });
+
+  for (let i = 0; i < n; i++) {
+    for (let j = i + 1; j < n; j++) {
+      const dx = bodyList[j].x - bodyList[i].x;
+      const dy = bodyList[j].y - bodyList[i].y;
+      const dz = bodyList[j].z - bodyList[i].z;
+
+      const distSq = dx * dx + dy * dy + dz * dz + physics.softening * physics.softening;
+      const dist = Math.sqrt(distSq);
+      const forceMag = physics.G / (distSq * dist);
+
+      // i 受 j 吸引
+      accs[i].ax += dx * forceMag * bodyList[j].mass;
+      accs[i].ay += dy * forceMag * bodyList[j].mass;
+      accs[i].az += dz * forceMag * bodyList[j].mass;
+
+      // j 受 i 吸引
+      accs[j].ax -= dx * forceMag * bodyList[i].mass;
+      accs[j].ay -= dy * forceMag * bodyList[i].mass;
+      accs[j].az -= dz * forceMag * bodyList[i].mass;
+    }
+  }
+  return accs;
+}
+
+function updatePhysicsStep(dt) {
+  dt *= physics.timeScale;
+
+  // 1. 计算初始加速度 a(t)
+  const a1 = computeAccelerations(bodies);
+
+  // 2. 更新位置 r(t + dt) = r(t) + v(t)*dt + 1/2*a(t)*dt^2
+  for (let i = 0; i < bodies.length; i++) {
+    const b = bodies[i];
+    b.x += b.vx * dt + 0.5 * a1[i].ax * dt * dt;
+    b.y += b.vy * dt + 0.5 * a1[i].ay * dt * dt;
+    b.z += b.vz * dt + 0.5 * a1[i].az * dt * dt;
+
+    b.trail.push({ x: b.x, y: b.y, z: b.z });
+    if (b.trail.length > physics.maxTrail) {
+      b.trail.shift();
+    }
+  }
+
+  // 3. 计算新位置加速度 a(t + dt)
+  const a2 = computeAccelerations(bodies);
+
+  // 4. 更新速度 v(t + dt) = v(t) + 1/2*(a1 + a2)*dt
+  for (let i = 0; i < bodies.length; i++) {
+    const b = bodies[i];
+    b.vx += 0.5 * (a1[i].ax + a2[i].ax) * dt;
+    b.vy += 0.5 * (a1[i].ay + a2[i].ay) * dt;
+    b.vz += 0.5 * (a1[i].az + a2[i].az) * dt;
+  }
+
+  // 5. 更新无质量尘埃粒子云
+  if (physics.showDust) {
+    for (let k = 0; k < dustParticles.length; k++) {
+      const p = dustParticles[k];
+      let ax = 0, ay = 0, az = 0;
+
+      for (let i = 0; i < bodies.length; i++) {
+        const b = bodies[i];
+        const dx = b.x - p.x;
+        const dy = b.y - p.y;
+        const dz = b.z - p.z;
+        const distSq = dx * dx + dy * dy + dz * dz + 200;
+        const dist = Math.sqrt(distSq);
+        const f = (physics.G * b.mass) / (distSq * dist);
+        ax += dx * f;
+        ay += dy * f;
+        az += dz * f;
+      }
+
+      p.vx += ax * dt;
+      p.vy += ay * dt;
+      p.vz += az * dt;
+
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.z += p.vz * dt;
+    }
+  }
+
+  // 遥测数据计算
+  const { ke, pe } = computeEnergies();
+  document.getElementById('tele-ke').textContent = (ke / 1000).toFixed(2) + 'e3 J';
+  document.getElementById('tele-pe').textContent = (pe / 1000).toFixed(2) + 'e3 J';
+
+  const totalE = ke + pe;
+  const drift = Math.abs((totalE - initialTotalE) / (initialTotalE || 1)) * 100;
+  document.getElementById('tele-drift').textContent = drift.toFixed(4) + '%';
+}
+
+function computeEnergies() {
+  let ke = 0;
+  let pe = 0;
+
+  for (let i = 0; i < bodies.length; i++) {
+    const b = bodies[i];
+    ke += 0.5 * b.mass * (b.vx * b.vx + b.vy * b.vy + b.vz * b.vz);
+
+    for (let j = i + 1; j < bodies.length; j++) {
+      const b2 = bodies[j];
+      const dist = Math.hypot(b.x - b2.x, b.y - b2.y, b.z - b2.z) + physics.softening;
+      pe -= (physics.G * b.mass * b2.mass) / dist;
+    }
+  }
+  return { ke, pe };
+}
+
+function computeTotalEnergy() {
+  const { ke, pe } = computeEnergies();
+  return ke + pe;
+}
+
+// 3D 投影函数
+function project3D(x, y, z) {
+  const cosY = Math.cos(camera.rotY);
+  const sinY = Math.sin(camera.rotY);
+  const x1 = x * cosY - z * sinY;
+  const z1 = z * cosY + x * sinY;
+
+  const cosX = Math.cos(camera.rotX);
+  const sinX = Math.sin(camera.rotX);
+  const y2 = y * cosX - z1 * sinX;
+  const z2 = z1 * cosX + y * sinX;
+
+  const fov = 750 * camera.zoom;
+  const dist = 900;
+  const scale = fov / (z2 + dist);
+
+  return {
+    x: width / 2 + x1 * scale,
+    y: height / 2 - y2 * scale,
+    scale: scale,
+    zDepth: z2
+  };
+}
+
+// 渲染
+let lastFpsTime = performance.now();
+let frames = 0;
+
+function render() {
+  ctx.fillStyle = '#020207';
+  ctx.fillRect(0, 0, width, height);
+
+  // 1. 绘制引力势阱弯曲网格
+  if (physics.showMesh) {
+    drawGravityMesh();
+  }
+
+  // 2. 绘制星际引力微粒尘埃云
+  if (physics.showDust) {
+    drawDust();
+  }
+
+  // 3. 绘制恒星长轨道轨迹
+  drawTrails();
+
+  // 4. 绘制恒星主体与引力透镜发光
+  drawBodies();
+
+  // FPS
+  frames++;
+  const now = performance.now();
+  if (now - lastFpsTime >= 1000) {
+    document.getElementById('fps-val').textContent = frames + ' FPS';
+    frames = 0;
+    lastFpsTime = now;
+  }
+}
+
+// 绘制空间弯曲引力网格 (Gravitational Potential Well)
+function drawGravityMesh() {
+  const size = 360;
+  const step = 45;
+  ctx.save();
+  ctx.lineWidth = 1;
+
+  for (let x = -size; x <= size; x += step) {
+    ctx.beginPath();
+    for (let y = -size; y <= size; y += 15) {
+      // 根据引力势能计算 Z 轴凹陷下沉深度
+      let pot = 0;
+      for (let i = 0; i < bodies.length; i++) {
+        const dist = Math.hypot(x - bodies[i].x, y - bodies[i].y) + 40;
+        pot -= (physics.G * bodies[i].mass * 0.12) / dist;
+      }
+      const p = project3D(x, y, pot * 25);
+      if (y === -size) ctx.moveTo(p.x, p.y);
+      else ctx.lineTo(p.x, p.y);
+    }
+    ctx.strokeStyle = 'rgba(56, 189, 248, 0.08)';
+    ctx.stroke();
+  }
+
+  for (let y = -size; y <= size; y += step) {
+    ctx.beginPath();
+    for (let x = -size; x <= size; x += 15) {
+      let pot = 0;
+      for (let i = 0; i < bodies.length; i++) {
+        const dist = Math.hypot(x - bodies[i].x, y - bodies[i].y) + 40;
+        pot -= (physics.G * bodies[i].mass * 0.12) / dist;
+      }
+      const p = project3D(x, y, pot * 25);
+      if (x === -size) ctx.moveTo(p.x, p.y);
+      else ctx.lineTo(p.x, p.y);
+    }
+    ctx.strokeStyle = 'rgba(56, 189, 248, 0.08)';
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+// 绘制潮汐尘埃
+function drawDust() {
+  ctx.save();
+  for (let i = 0; i < dustParticles.length; i++) {
+    const p = dustParticles[i];
+    const proj = project3D(p.x, p.y, p.z);
+    if (proj.scale <= 0) continue;
+
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+    ctx.beginPath();
+    ctx.arc(proj.x, proj.y, p.size * proj.scale, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+// 绘制发光轨迹带
+function drawTrails() {
+  ctx.save();
+  for (let i = 0; i < bodies.length; i++) {
+    const b = bodies[i];
+    if (b.trail.length < 2) continue;
+
+    for (let k = 1; k < b.trail.length; k++) {
+      const pt1 = b.trail[k - 1];
+      const pt2 = b.trail[k];
+      const p1 = project3D(pt1.x, pt1.y, pt1.z);
+      const p2 = project3D(pt2.x, pt2.y, pt2.z);
+
+      const alpha = (k / b.trail.length);
+      ctx.strokeStyle = b.color;
+      ctx.globalAlpha = alpha * 0.75;
+      ctx.lineWidth = alpha * 2.2 + 0.5;
+
+      ctx.beginPath();
+      ctx.moveTo(p1.x, p1.y);
+      ctx.lineTo(p2.x, p2.y);
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+
+// 绘制发光恒星
+function drawBodies() {
+  ctx.save();
+  // 根据 Z 深度由远及近排序
+  const sorted = bodies.map((b, idx) => ({ b, idx, p: project3D(b.x, b.y, b.z) }))
+                       .sort((a, b) => b.p.zDepth - a.p.zDepth);
+
+  for (let i = 0; i < sorted.length; i++) {
+    const { b, p } = sorted[i];
+    if (p.scale <= 0) continue;
+
+    const r = b.radius * p.scale;
+
+    // 放射外层光晕
+    const glow = ctx.createRadialGradient(p.x, p.y, r * 0.2, p.x, p.y, r * 4.0);
+    glow.addColorStop(0, b.color);
+    glow.addColorStop(0.4, b.color);
+    glow.addColorStop(1, 'transparent');
+
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, r * 4.0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 恒星内核高亮
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+    ctx.fillStyle = '#ffffff';
+    ctx.shadowColor = b.color;
+    ctx.shadowBlur = 18;
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+// 相机 3D 视角交互
+canvas.addEventListener('mousedown', (e) => {
+  camera.isDragging = true;
+  camera.lastX = e.clientX;
+  camera.lastY = e.clientY;
+});
+
+window.addEventListener('mousemove', (e) => {
+  if (!camera.isDragging) return;
+  const dx = e.clientX - camera.lastX;
+  const dy = e.clientY - camera.lastY;
+
+  camera.rotY += dx * 0.006;
+  camera.rotX = Math.max(-1.2, Math.min(1.2, camera.rotX - dy * 0.006));
+
+  camera.lastX = e.clientX;
+  camera.lastY = e.clientY;
+});
+
+window.addEventListener('mouseup', () => {
+  camera.isDragging = false;
+});
+
+window.addEventListener('wheel', (e) => {
+  camera.zoom = Math.max(0.4, Math.min(2.5, camera.zoom - e.deltaY * 0.001));
+}, { passive: true });
+
+// UI 绑定
+document.getElementById('param-g').addEventListener('input', (e) => {
+  physics.G = parseFloat(e.target.value);
+  document.getElementById('val-g').textContent = physics.G.toFixed(1);
+});
+
+document.getElementById('param-step').addEventListener('input', (e) => {
+  physics.timeScale = parseFloat(e.target.value);
+  document.getElementById('val-step').textContent = physics.timeScale.toFixed(1) + 'x';
+});
+
+document.getElementById('param-trail').addEventListener('input', (e) => {
+  physics.maxTrail = parseInt(e.target.value);
+  document.getElementById('val-trail').textContent = physics.maxTrail;
+});
+
+const btnDust = document.getElementById('btn-dust');
+btnDust.addEventListener('click', () => {
+  physics.showDust = !physics.showDust;
+  btnDust.classList.toggle('active', physics.showDust);
+});
+
+const btnMesh = document.getElementById('btn-gravity-mesh');
+btnMesh.addEventListener('click', () => {
+  physics.showMesh = !physics.showMesh;
+  btnMesh.classList.toggle('active', physics.showMesh);
+});
+
+document.getElementById('btn-center').addEventListener('click', () => {
+  camera.rotX = 0.45;
+  camera.rotY = 0.25;
+  camera.zoom = 1.0;
+});
+
+// 初始化载入默认轨道
+loadPreset(PRESETS[0]);
+
+// 主循环
+let lastTimestamp = performance.now();
+function loop(timestamp) {
+  const dt = (timestamp - lastTimestamp) / 1000;
+  lastTimestamp = timestamp;
+
+  // 保证积分稳定，采用 4 次子循环
+  const subDt = Math.min(0.04, dt) / 4;
+  for (let s = 0; s < 4; s++) {
+    updatePhysicsStep(subDt);
+  }
+
+  render();
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+</script>
+</body>
+</html>

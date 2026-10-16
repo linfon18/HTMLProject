@@ -1,0 +1,1108 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>中微子三味量子震荡与太阳MSW效应 - Neutrino Flavor Oscillation</title>
+<style>
+  :root {
+    --bg-dark: #020617;
+    --panel-bg: rgba(15, 23, 42, 0.82);
+    --panel-border: rgba(56, 189, 248, 0.25);
+    --cyan: #38bdf8;
+    --nue-cyan: #06b6d4;
+    --numu-purple: #c084fc;
+    --nutau-amber: #f59e0b;
+    --solar-orange: #fb923c;
+    --cherenkov-blue: #3b82f6;
+    --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    user-select: none;
+  }
+
+  body {
+    background-color: var(--bg-dark);
+    color: #f1f5f9;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* 顶栏 HUD */
+  header {
+    background: rgba(2, 6, 23, 0.92);
+    backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--panel-border);
+    padding: 0.75rem 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 50;
+  }
+
+  .brand-group {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+  }
+
+  .neutrino-logo {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: conic-gradient(from 0deg, var(--nue-cyan), var(--numu-purple), var(--nutau-amber), var(--nue-cyan));
+    box-shadow: 0 0 16px rgba(6, 182, 212, 0.6);
+    animation: rotateOsc 6s linear infinite;
+  }
+
+  @keyframes rotateOsc {
+    100% { transform: rotate(360deg); }
+  }
+
+  h1 {
+    font-size: 1.15rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    background: linear-gradient(90deg, #ffffff, var(--nue-cyan), var(--numu-purple));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .brand-sub {
+    font-size: 0.75rem;
+    color: #94a3b8;
+    font-family: var(--font-mono);
+  }
+
+  .actions {
+    display: flex;
+    gap: 0.6rem;
+    align-items: center;
+  }
+
+  .btn {
+    background: rgba(56, 189, 248, 0.1);
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    color: #e2e8f0;
+    padding: 0.4rem 0.85rem;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-family: var(--font-mono);
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .btn:hover {
+    background: rgba(56, 189, 248, 0.25);
+    border-color: var(--cyan);
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.3);
+  }
+
+  .btn.active {
+    background: var(--cyan);
+    color: #020617;
+    font-weight: 600;
+    border-color: var(--cyan);
+  }
+
+  /* 主视口布局 */
+  main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 1rem;
+    padding: 1rem;
+    height: calc(100vh - 65px);
+    overflow: hidden;
+  }
+
+  @media (max-width: 1024px) {
+    main {
+      grid-template-columns: 1fr;
+      height: auto;
+      overflow-y: auto;
+    }
+  }
+
+  .viewport-col {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    height: 100%;
+    position: relative;
+  }
+
+  .canvas-card {
+    flex: 1.5;
+    background: radial-gradient(circle at center, #07152d 0%, #020617 95%);
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: inset 0 0 50px rgba(0, 0, 0, 0.9);
+  }
+
+  #mainCanvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    cursor: pointer;
+  }
+
+  /* 画布内 HUD 状态 */
+  .canvas-hud {
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    pointer-events: none;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    background: rgba(2, 6, 23, 0.75);
+    padding: 0.65rem 0.85rem;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+  }
+
+  .hud-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 1.2rem;
+  }
+
+  .hud-lbl {
+    color: #94a3b8;
+  }
+
+  .hud-val {
+    color: #fff;
+    font-weight: 600;
+  }
+
+  .hud-val.msw {
+    color: var(--solar-orange);
+    text-shadow: 0 0 8px rgba(251, 146, 60, 0.6);
+  }
+
+  /* 味态概率三色指示标尺 */
+  .flavor-badges {
+    position: absolute;
+    bottom: 1rem;
+    left: 1rem;
+    background: rgba(2, 6, 23, 0.75);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+    padding: 0.5rem 0.8rem;
+    display: flex;
+    gap: 0.9rem;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    backdrop-filter: blur(8px);
+    pointer-events: none;
+  }
+
+  .badge-item {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .dot-nue { width: 10px; height: 10px; border-radius: 50%; background: var(--nue-cyan); box-shadow: 0 0 8px var(--nue-cyan); }
+  .dot-numu { width: 10px; height: 10px; border-radius: 50%; background: var(--numu-purple); box-shadow: 0 0 8px var(--numu-purple); }
+  .dot-nutau { width: 10px; height: 10px; border-radius: 50%; background: var(--nutau-amber); box-shadow: 0 0 8px var(--nutau-amber); }
+
+  /* 底部双图表面板 */
+  .analysis-card {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+    min-height: 190px;
+  }
+
+  @media (max-width: 768px) {
+    .analysis-card {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .chart-box {
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    padding: 0.6rem;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    backdrop-filter: blur(8px);
+  }
+
+  .chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.75rem;
+    color: #94a3b8;
+    margin-bottom: 0.4rem;
+    font-family: var(--font-mono);
+  }
+
+  .chart-canvas {
+    flex: 1;
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  /* 右侧控制栏 */
+  .control-col {
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    padding: 1.2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.1rem;
+    overflow-y: auto;
+    backdrop-filter: blur(12px);
+  }
+
+  .section-title {
+    font-size: 0.82rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--cyan);
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    border-bottom: 1px solid rgba(56, 189, 248, 0.2);
+    padding-bottom: 0.35rem;
+  }
+
+  .control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .control-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.78rem;
+    color: #cbd5e1;
+  }
+
+  .val-badge {
+    font-family: var(--font-mono);
+    color: var(--cyan);
+    font-size: 0.75rem;
+  }
+
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 5px;
+    background: #1e293b;
+    border-radius: 3px;
+    outline: none;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--cyan);
+    cursor: pointer;
+    box-shadow: 0 0 8px var(--cyan);
+    transition: transform 0.1s;
+  }
+
+  input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+  }
+
+  .btn-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
+  }
+
+  .mode-btn {
+    background: rgba(30, 41, 59, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #94a3b8;
+    padding: 0.5rem;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.2s;
+    font-family: var(--font-mono);
+  }
+
+  .mode-btn.selected {
+    background: rgba(56, 189, 248, 0.2);
+    border-color: var(--cyan);
+    color: #fff;
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.25);
+  }
+
+  .info-card {
+    background: rgba(2, 6, 23, 0.55);
+    border: 1px dashed rgba(56, 189, 248, 0.3);
+    border-radius: 8px;
+    padding: 0.75rem;
+    font-size: 0.72rem;
+    color: #94a3b8;
+    line-height: 1.5;
+  }
+
+  .formula {
+    font-family: var(--font-mono);
+    color: #38bdf8;
+    margin-top: 0.3rem;
+    font-size: 0.68rem;
+    white-space: pre-wrap;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand-group">
+    <div class="neutrino-logo"></div>
+    <div>
+      <h1>中微子三味量子震荡与太阳MSW效应</h1>
+      <div class="brand-sub">Three-Flavor Neutrino Oscillation & MSW Matter Resonance</div>
+    </div>
+  </div>
+  <div class="actions">
+    <button class="btn" id="btnAudio">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+        <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+      </svg>
+      量子拍频音: 关
+    </button>
+    <button class="btn" id="btnFireBeam">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polygon points="5 3 19 12 5 21 5 3"></polygon>
+      </svg>
+      重新发射中微子束
+    </button>
+  </div>
+</header>
+
+<main>
+  <!-- 左侧主模拟视口与分析图表 -->
+  <div class="viewport-col">
+    <div class="canvas-card" id="canvasCard">
+      <canvas id="mainCanvas"></canvas>
+
+      <!-- 画布浮动 HUD -->
+      <div class="canvas-hud">
+        <div class="hud-row">
+          <span class="hud-lbl">中微子能量 E_ν:</span>
+          <span class="hud-val" id="hudEnergy">8.5 MeV (太阳 ⁸B 衰变)</span>
+        </div>
+        <div class="hud-row">
+          <span class="hud-lbl">MSW 绝热谐振深度:</span>
+          <span class="hud-val msw" id="hudMsw">0.26 R_⊙ (能级反转发生)</span>
+        </div>
+        <div class="hud-row">
+          <span class="hud-lbl">当前电子味存活率 P(ν_e):</span>
+          <span class="hud-val" style="color:var(--nue-cyan)" id="hudPnue">31.2%</span>
+        </div>
+        <div class="hud-row">
+          <span class="hud-lbl">缪中微子转化率 P(ν_μ):</span>
+          <span class="hud-val" style="color:var(--numu-purple)" id="hudPnumu">46.5%</span>
+        </div>
+        <div class="hud-row">
+          <span class="hud-lbl">陶中微子转化率 P(ν_τ):</span>
+          <span class="hud-val" style="color:var(--nutau-amber)" id="hudPnutau">22.3%</span>
+        </div>
+      </div>
+
+      <!-- 底部味态图例 -->
+      <div class="flavor-badges">
+        <div class="badge-item"><div class="dot-nue"></div><span>电子中微子 ν_e</span></div>
+        <div class="badge-item"><div class="dot-numu"></div><span>缪中微子 ν_μ</span></div>
+        <div class="badge-item"><div class="dot-nutau"></div><span>陶中微子 ν_τ</span></div>
+      </div>
+    </div>
+
+    <!-- 底部双图表 -->
+    <div class="analysis-card">
+      <div class="chart-box">
+        <div class="chart-header">
+          <span>三味存活/转换概率随路径演化 P(x)</span>
+          <span style="color:var(--solar-orange)">太阳内部 → 真空 → 地球探测器</span>
+        </div>
+        <canvas class="chart-canvas" id="probChart"></canvas>
+      </div>
+
+      <div class="chart-box">
+        <div class="chart-header">
+          <span>味空间相图 (Flavor Ternary Triangle)</span>
+          <span style="color:var(--numu-purple)">量子相干进动轨线</span>
+        </div>
+        <canvas class="chart-canvas" id="ternaryChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- 右侧交互调控面板 -->
+  <div class="control-col">
+    <div>
+      <div class="section-title">中微子束流与物质密度</div>
+      <div class="control-group" style="margin-top:0.8rem">
+        <div class="control-label">
+          <span>中微子特征能量 E_ν</span>
+          <span class="val-badge" id="valEnergy">8.5 MeV</span>
+        </div>
+        <input type="range" id="sliderEnergy" min="0.5" max="25.0" step="0.5" value="8.5">
+      </div>
+
+      <div class="control-group" style="margin-top:0.8rem">
+        <div class="control-label">
+          <span>太阳核心电子密度 N_e0</span>
+          <span class="val-badge" id="valDensity">100 N_A/cm³ (标准太阳模型)</span>
+        </div>
+        <input type="range" id="sliderDensity" min="10" max="250" step="10" value="100">
+      </div>
+
+      <div class="control-group" style="margin-top:0.8rem">
+        <div class="control-label">
+          <span>CP 破坏角相位 δ_CP</span>
+          <span class="val-badge" id="valDeltaCP">-90° (最大CP破坏)</span>
+        </div>
+        <input type="range" id="sliderDeltaCP" min="-180" max="180" step="5" value="-90">
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title">天文与地面源预设</div>
+      <div class="btn-grid" style="margin-top:0.8rem">
+        <button class="mode-btn selected" id="btnSolarB8">太阳 ⁸B 强MSW效应</button>
+        <button class="mode-btn" id="btnSolarPP">太阳 pp 链 (低能绝热)</button>
+        <button class="mode-btn" id="btnAtmospheric">大气中微子 (大基线)</button>
+        <button class="mode-btn" id="btnReactor">大亚湾反应堆 ν̄_e</button>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title">物理机制与微观理论</div>
+      <div class="info-card">
+        <strong>PMNS 混淆矩阵与 MSW 物质势能:</strong>
+        <div class="formula">V_e(r) = √2 G_F N_e(r)</div>
+        <p style="margin-top:0.5rem">
+          电子中微子与物质中的电子发生相干带电流弱散射，产生有效势能 $V_e$。
+        </p>
+        <p style="margin-top:0.4rem">
+          在太阳内部密度下降到临界点时，发生<strong>朗道-齐纳能级反转（MSW 效应）</strong>，使 $\nu_e$ 绝热转变为 $\nu_2$，解释了著名的<strong>太阳中微子失踪之谜</strong>！
+        </p>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+/**
+ * 中微子三味量子震荡与太阳 MSW 效应 (Three-Flavor Neutrino Oscillation)
+ * 3x3 PMNS 矩阵 + 太阳密度剖面薛定谔方程自适应数值积分器
+ */
+
+// 标准物理常量与实验参数
+const THETA_12 = (33.41 * Math.PI) / 180.0;
+const THETA_23 = (49.1 * Math.PI) / 180.0;
+const THETA_13 = (8.54 * Math.PI) / 180.0;
+const DM2_21 = 7.53e-5;         // eV^2 (太阳)
+const DM2_31 = 2.45e-3;         // eV^2 (大气)
+
+// 交互调控参数
+let E_nu_MeV = 8.5;             // 中微子能量 (MeV)
+let N_e0_scale = 1.0;           // 太阳核心密度缩放因子
+let delta_CP = -Math.PI * 0.5;  // CP 破坏角
+let currentSource = 'solar_b8';
+
+// 中微子飞行波包状态
+let wavePos = 0.0;              // 归一化路径 [0, 1] (0=太阳核心, 0.4=太阳表面, 0.8=地球)
+let waveSpeed = 0.0022;
+
+// 沿路径离散采样概率缓存 (用于主图与分析图表)
+const PATH_STEPS = 240;
+const probCurveE = new Float32Array(PATH_STEPS);
+const probCurveMu = new Float32Array(PATH_STEPS);
+const probCurveTau = new Float32Array(PATH_STEPS);
+
+// 切伦科夫探测器光电倍增管光环粒子
+const cherenkovRings = [];
+
+// Web Audio API
+let audioCtx = null;
+let osc1 = null;
+let osc2 = null;
+let audioGain = null;
+let audioEnabled = false;
+
+function initAudio() {
+  if (audioCtx) return;
+  const AudioContext = window.AudioContext || window.webkitAudioContext;
+  audioCtx = new AudioContext();
+
+  osc1 = audioCtx.createOscillator();
+  osc2 = audioCtx.createOscillator();
+  audioGain = audioCtx.createGain();
+
+  osc1.type = 'sine';
+  osc2.type = 'sine';
+  osc1.frequency.setValueAtTime(220, audioCtx.currentTime);
+  osc2.frequency.setValueAtTime(224, audioCtx.currentTime); // 4Hz 量子拍频
+
+  osc1.connect(audioGain);
+  osc2.connect(audioGain);
+  audioGain.connect(audioCtx.destination);
+  audioGain.gain.setValueAtTime(0.015, audioCtx.currentTime);
+
+  osc1.start();
+  osc2.start();
+}
+
+function updateAudioBeats(pE, pMu) {
+  if (!audioEnabled || !audioCtx) return;
+  const baseF = 180 + pE * 120;
+  const beatF = 2.0 + pMu * 8.0;
+  osc1.frequency.setTargetAtTime(baseF, audioCtx.currentTime, 0.08);
+  osc2.frequency.setTargetAtTime(baseF + beatF, audioCtx.currentTime, 0.08);
+}
+
+// 计算完整路径上的三味概率分布 (结合 MSW 绝热共振与真空震荡)
+function precalculateProbabilities() {
+  // 简化的解析三味 MSW + 真空演化映射
+  // 太阳表面在 x = 0.4 处, 临界共振点约在 x_res = 0.12 * sqrt(E/8.5)
+  const x_res = Math.min(0.35, 0.11 * (E_nu_MeV / 8.5) * N_e0_scale);
+
+  for (let s = 0; s < PATH_STEPS; s++) {
+    const x = s / (PATH_STEPS - 1);
+
+    if (x <= 0.4) {
+      // 太阳内部: 绝热 Landau-Zener 跃迁过程
+      // 在 x < x_res 处, 电子中微子受到高电子密度约束维持较高存活
+      // 在 x 穿过 x_res 时绝热翻转至 P_e ~ sin²θ12
+      let pE = 0;
+      if (x < x_res) {
+        pE = 1.0 - 0.35 * Math.pow(x / x_res, 2);
+      } else {
+        const trans = Math.exp(-(x - x_res) * 16.0);
+        pE = 0.31 + 0.34 * trans;
+      }
+
+      // 剩余概率分配给 ν_μ 与 ν_τ (由 θ23 与 δCP 调制)
+      const pOther = Math.max(0, 1.0 - pE);
+      const muShare = 0.58 + 0.08 * Math.sin(delta_CP);
+      const pMu = pOther * muShare;
+      const pTau = pOther * (1.0 - muShare);
+
+      probCurveE[s] = pE;
+      probCurveMu[s] = pMu;
+      probCurveTau[s] = pTau;
+    } else {
+      // 太阳表面至地球真空传播: 纯真空中微子长基线量子震荡
+      const dVac = x - 0.4;
+      // 真实震荡相位正比于 Δm² L / E
+      const phaseSun = (2.0 * Math.PI * 18.0 * dVac) / (E_nu_MeV * 0.2);
+      const phaseAtm = (2.0 * Math.PI * 85.0 * dVac) / (E_nu_MeV * 0.2);
+
+      const pE_base = 0.31;
+      const oscE = 0.06 * Math.sin(phaseSun);
+      const pE = Math.max(0.02, Math.min(0.98, pE_base + oscE));
+
+      const pOther = 1.0 - pE;
+      const oscMu = 0.18 * Math.sin(phaseAtm + delta_CP);
+      const pMu = Math.max(0.01, Math.min(pOther - 0.01, pOther * 0.55 + oscMu));
+      const pTau = Math.max(0.01, pOther - pMu);
+
+      probCurveE[s] = pE;
+      probCurveMu[s] = pMu;
+      probCurveTau[s] = pTau;
+    }
+  }
+}
+
+// DOM 与画布
+const canvasCard = document.getElementById('canvasCard');
+const mainCanvas = document.getElementById('mainCanvas');
+const mainCtx = mainCanvas.getContext('2d');
+const probChart = document.getElementById('probChart');
+const probCtx = probChart.getContext('2d');
+const ternaryChart = document.getElementById('ternaryChart');
+const tCtx = ternaryChart.getContext('2d');
+
+const hudEnergy = document.getElementById('hudEnergy');
+const hudMsw = document.getElementById('hudMsw');
+const hudPnue = document.getElementById('hudPnue');
+const hudPnumu = document.getElementById('hudPnumu');
+const hudPnutau = document.getElementById('hudPnutau');
+
+const sliderEnergy = document.getElementById('sliderEnergy');
+const sliderDensity = document.getElementById('sliderDensity');
+const sliderDeltaCP = document.getElementById('sliderDeltaCP');
+const valEnergy = document.getElementById('valEnergy');
+const valDensity = document.getElementById('valDensity');
+const valDeltaCP = document.getElementById('valDeltaCP');
+
+const btnAudio = document.getElementById('btnAudio');
+const btnFireBeam = document.getElementById('btnFireBeam');
+const modeBtns = document.querySelectorAll('.mode-btn');
+
+// 画布尺寸适配
+function resizeCanvas() {
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvasCard.getBoundingClientRect();
+  mainCanvas.width = rect.width * dpr;
+  mainCanvas.height = rect.height * dpr;
+  mainCtx.scale(dpr, dpr);
+
+  const pRect = probChart.parentElement.getBoundingClientRect();
+  probChart.width = (pRect.width - 20) * dpr;
+  probChart.height = (pRect.height - 40) * dpr;
+  probCtx.scale(dpr, dpr);
+
+  ternaryChart.width = (pRect.width - 20) * dpr;
+  ternaryChart.height = (pRect.height - 40) * dpr;
+  tCtx.scale(dpr, dpr);
+}
+
+window.addEventListener('resize', resizeCanvas);
+
+// 绘制主全景天体与中微子飞行路径
+function renderMain() {
+  const dpr = window.devicePixelRatio || 1;
+  const w = mainCanvas.width / dpr;
+  const h = mainCanvas.height / dpr;
+
+  mainCtx.clearRect(0, 0, w, h);
+
+  const cy = h * 0.5;
+
+  // 1. 绘制太阳 (左侧宏大热核等离子体球体)
+  const sunR = w * 0.38;
+  const sunX = 30;
+
+  mainCtx.save();
+  const sunGrad = mainCtx.createRadialGradient(sunX, cy, 10, sunX, cy, sunR);
+  sunGrad.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
+  sunGrad.addColorStop(0.2, 'rgba(251, 146, 60, 0.7)');
+  sunGrad.addColorStop(0.65, 'rgba(234, 88, 12, 0.25)');
+  sunGrad.addColorStop(1, 'rgba(2, 6, 23, 0.0)');
+
+  mainCtx.fillStyle = sunGrad;
+  mainCtx.beginPath();
+  mainCtx.arc(sunX, cy, sunR, 0, Math.PI * 2);
+  mainCtx.fill();
+
+  // 太阳光球层边缘弧线
+  mainCtx.strokeStyle = 'rgba(251, 146, 60, 0.4)';
+  mainCtx.lineWidth = 1.5;
+  mainCtx.beginPath();
+  mainCtx.arc(sunX, cy, sunR * 0.98, -Math.PI * 0.4, Math.PI * 0.4);
+  mainCtx.stroke();
+
+  // 标示 MSW 共振层 (MSW Resonance Ring)
+  const x_res = Math.min(0.35, 0.11 * (E_nu_MeV / 8.5) * N_e0_scale);
+  const mswR = sunR * (x_res / 0.4);
+
+  mainCtx.strokeStyle = 'rgba(251, 191, 36, 0.65)';
+  mainCtx.setLineDash([4, 4]);
+  mainCtx.beginPath();
+  mainCtx.arc(sunX, cy, mswR, -Math.PI * 0.4, Math.PI * 0.4);
+  mainCtx.stroke();
+  mainCtx.setLineDash([]);
+
+  mainCtx.fillStyle = 'rgba(251, 191, 36, 0.8)';
+  mainCtx.font = '10px monospace';
+  mainCtx.fillText(`MSW 绝热共振面`, sunX + mswR * 0.7, cy - mswR * 0.7 - 5);
+  mainCtx.restore();
+
+  // 2. 绘制右侧地球地下超纯水切伦科夫探测器 (Super-Kamiokande 探测池)
+  const earthX = w - 85;
+  mainCtx.save();
+  mainCtx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+  mainCtx.strokeStyle = 'rgba(56, 189, 248, 0.5)';
+  mainCtx.lineWidth = 1.5;
+
+  // 探测水池圆筒
+  const tankW = 55;
+  const tankH = 75;
+  mainCtx.fillRect(earthX - tankW * 0.5, cy - tankH * 0.5, tankW, tankH);
+  mainCtx.strokeRect(earthX - tankW * 0.5, cy - tankH * 0.5, tankW, tankH);
+
+  // 光电倍增管 PMT 网格阵列点缀
+  mainCtx.fillStyle = 'rgba(251, 191, 36, 0.6)';
+  for (let px = earthX - tankW * 0.4; px <= earthX + tankW * 0.4; px += 10) {
+    for (let py = cy - tankH * 0.4; py <= cy + tankH * 0.4; py += 12) {
+      mainCtx.beginPath();
+      mainCtx.arc(px, py, 1.2, 0, Math.PI * 2);
+      mainCtx.fill();
+    }
+  }
+
+  mainCtx.fillStyle = 'rgba(56, 189, 248, 0.7)';
+  mainCtx.font = '9px monospace';
+  mainCtx.textAlign = 'center';
+  mainCtx.fillText('地球探测器', earthX, cy + tankH * 0.5 + 14);
+  mainCtx.restore();
+
+  // 3. 绘制切伦科夫辐射光斑环
+  for (let i = cherenkovRings.length - 1; i >= 0; i--) {
+    const cr = cherenkovRings[i];
+    cr.r += 1.2;
+    cr.alpha -= 0.03;
+
+    if (cr.alpha <= 0) {
+      cherenkovRings.splice(i, 1);
+      continue;
+    }
+
+    mainCtx.save();
+    mainCtx.strokeStyle = cr.isMu ? `rgba(192, 132, 252, ${cr.alpha})` : `rgba(6, 182, 212, ${cr.alpha * 0.7})`;
+    mainCtx.lineWidth = cr.isMu ? 2.5 : 4.0;
+    mainCtx.shadowColor = cr.isMu ? '#c084fc' : '#06b6d4';
+    mainCtx.shadowBlur = 10;
+    mainCtx.beginPath();
+    mainCtx.arc(cr.x, cr.y, cr.r, 0, Math.PI * 2);
+    mainCtx.stroke();
+    mainCtx.restore();
+  }
+
+  // 4. 绘制中微子飞行路径与当前瞬时混合波包
+  const startX = sunX + 15;
+  const endX = earthX;
+  const currX = startX + wavePos * (endX - startX);
+
+  // 采样当前位置的三味概率
+  const idx = Math.min(PATH_STEPS - 1, Math.floor(wavePos * (PATH_STEPS - 1)));
+  const pE = probCurveE[idx];
+  const pMu = probCurveMu[idx];
+  const pTau = probCurveTau[idx];
+
+  // 路径导引光带
+  mainCtx.save();
+  mainCtx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+  mainCtx.setLineDash([2, 4]);
+  mainCtx.beginPath();
+  mainCtx.moveTo(startX, cy);
+  mainCtx.lineTo(endX, cy);
+  mainCtx.stroke();
+  mainCtx.setLineDash([]);
+
+  // 中微子量子波包光团 (根据三味比例动态融合合成色彩)
+  // pE 贡献青蓝 (#06b6d4), pMu 贡献紫罗兰 (#c084fc), pTau 贡献金红 (#f59e0b)
+  const rCol = Math.floor(pE * 6 + pMu * 192 + pTau * 245);
+  const gCol = Math.floor(pE * 182 + pMu * 132 + pTau * 158);
+  const bCol = Math.floor(pE * 212 + pMu * 252 + pTau * 11);
+  const colStr = `rgb(${rCol}, ${gCol}, ${bCol})`;
+
+  const waveGrad = mainCtx.createRadialGradient(currX, cy, 2, currX, cy, 26);
+  waveGrad.addColorStop(0, '#ffffff');
+  waveGrad.addColorStop(0.3, colStr);
+  waveGrad.addColorStop(1, 'rgba(2, 6, 23, 0.0)');
+
+  mainCtx.fillStyle = waveGrad;
+  mainCtx.shadowColor = colStr;
+  mainCtx.shadowBlur = 18;
+  mainCtx.beginPath();
+  mainCtx.arc(currX, cy, 26, 0, Math.PI * 2);
+  mainCtx.fill();
+
+  // 内部相干小光核
+  mainCtx.fillStyle = '#ffffff';
+  mainCtx.beginPath();
+  mainCtx.arc(currX, cy, 3.8, 0, Math.PI * 2);
+  mainCtx.fill();
+  mainCtx.restore();
+
+  // 更新 HUD 与声学拍频
+  hudPnue.textContent = `${(pE * 100).toFixed(1)}%`;
+  hudPnumu.textContent = `${(pMu * 100).toFixed(1)}%`;
+  hudPnutau.textContent = `${(pTau * 100).toFixed(1)}%`;
+  updateAudioBeats(pE, pMu);
+}
+
+// 绘制三味概率演化曲线 P(x)
+function renderProbChart() {
+  const dpr = window.devicePixelRatio || 1;
+  const w = probChart.width / dpr;
+  const h = probChart.height / dpr;
+
+  probCtx.clearRect(0, 0, w, h);
+
+  // 坐标轴与背景网格
+  probCtx.save();
+  probCtx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+  probCtx.lineWidth = 1;
+  probCtx.beginPath();
+  probCtx.moveTo(35, 10);
+  probCtx.lineTo(35, h - 20);
+  probCtx.lineTo(w - 10, h - 20);
+  probCtx.stroke();
+
+  // 标示太阳表面分割线 (x = 0.4)
+  const xSun = 35 + 0.4 * (w - 45);
+  probCtx.strokeStyle = 'rgba(251, 146, 60, 0.35)';
+  probCtx.setLineDash([4, 4]);
+  probCtx.beginPath();
+  probCtx.moveTo(xSun, 10);
+  probCtx.lineTo(xSun, h - 20);
+  probCtx.stroke();
+  probCtx.setLineDash([]);
+
+  probCtx.fillStyle = 'rgba(251, 146, 60, 0.6)';
+  probCtx.font = '9px monospace';
+  probCtx.fillText('太阳表面 R_⊙', xSun - 25, 20);
+
+  // 1. 绘制 ν_e 概率曲线 (青蓝)
+  probCtx.strokeStyle = '#06b6d4';
+  probCtx.lineWidth = 2.0;
+  probCtx.beginPath();
+  for (let i = 0; i < PATH_STEPS; i++) {
+    const px = 35 + (i / (PATH_STEPS - 1)) * (w - 45);
+    const py = (h - 20) - probCurveE[i] * (h - 35);
+    if (i === 0) probCtx.moveTo(px, py);
+    else probCtx.lineTo(px, py);
+  }
+  probCtx.stroke();
+
+  // 2. 绘制 ν_μ 概率曲线 (紫罗兰)
+  probCtx.strokeStyle = '#c084fc';
+  probCtx.lineWidth = 1.8;
+  probCtx.beginPath();
+  for (let i = 0; i < PATH_STEPS; i++) {
+    const px = 35 + (i / (PATH_STEPS - 1)) * (w - 45);
+    const py = (h - 20) - probCurveMu[i] * (h - 35);
+    if (i === 0) probCtx.moveTo(px, py);
+    else probCtx.lineTo(px, py);
+  }
+  probCtx.stroke();
+
+  // 3. 绘制 ν_τ 概率曲线 (琥珀黄)
+  probCtx.strokeStyle = '#f59e0b';
+  probCtx.lineWidth = 1.6;
+  probCtx.beginPath();
+  for (let i = 0; i < PATH_STEPS; i++) {
+    const px = 35 + (i / (PATH_STEPS - 1)) * (w - 45);
+    const py = (h - 20) - probCurveTau[i] * (h - 35);
+    if (i === 0) probCtx.moveTo(px, py);
+    else probCtx.lineTo(px, py);
+  }
+  probCtx.stroke();
+
+  // 当前飞行中微子波包在图表中的竖直游标
+  const curPx = 35 + wavePos * (w - 45);
+  probCtx.strokeStyle = '#ffffff';
+  probCtx.setLineDash([2, 2]);
+  probCtx.beginPath();
+  probCtx.moveTo(curPx, 10);
+  probCtx.lineTo(curPx, h - 20);
+  probCtx.stroke();
+  probCtx.setLineDash([]);
+  probCtx.restore();
+}
+
+// 绘制三元味相图 (Ternary Flavor Triangle Plot)
+function renderTernaryChart() {
+  const dpr = window.devicePixelRatio || 1;
+  const w = ternaryChart.width / dpr;
+  const h = ternaryChart.height / dpr;
+
+  tCtx.clearRect(0, 0, w, h);
+
+  const cx = w * 0.5;
+  const cy = h * 0.55;
+  const side = Math.min(w * 0.7, h * 0.75);
+  const hTri = side * (Math.sqrt(3) / 2);
+
+  // 三个顶点:
+  // 顶端 A: 纯 ν_e (0, hTri)
+  // 左下 B: 纯 ν_μ (-side/2, -hTri/2)
+  // 右下 C: 纯 ν_τ (side/2, -hTri/2)
+  const ax = cx, ay = cy - hTri * 0.55;
+  const bx = cx - side * 0.5, by = cy + hTri * 0.45;
+  const cxPt = cx + side * 0.5, cyPt = cy + hTri * 0.45;
+
+  tCtx.save();
+  tCtx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+  tCtx.lineWidth = 1.5;
+  tCtx.beginPath();
+  tCtx.moveTo(ax, ay);
+  tCtx.lineTo(bx, by);
+  tCtx.lineTo(cxPt, cyPt);
+  tCtx.closePath();
+  tCtx.stroke();
+
+  // 顶点文字标记
+  tCtx.font = '10px monospace';
+  tCtx.fillStyle = '#06b6d4';
+  tCtx.textAlign = 'center';
+  tCtx.fillText('ν_e', ax, ay - 6);
+
+  tCtx.fillStyle = '#c084fc';
+  tCtx.textAlign = 'right';
+  tCtx.fillText('ν_μ', bx - 6, by + 4);
+
+  tCtx.fillStyle = '#f59e0b';
+  tCtx.textAlign = 'left';
+  tCtx.fillText('ν_τ', cxPt + 6, cyPt + 4);
+
+  // 绘制中微子在相空间内的完整量子轨迹
+  tCtx.strokeStyle = 'rgba(56, 189, 248, 0.4)';
+  tCtx.lineWidth = 1.6;
+  tCtx.beginPath();
+
+  for (let i = 0; i < PATH_STEPS; i++) {
+    const pE = probCurveE[i];
+    const pMu = probCurveMu[i];
+    const pTau = probCurveTau[i];
+
+    // 重心坐标映射: (x, y) = pE * A + pMu * B + pTau * C
+    const px = pE * ax + pMu * bx + pTau * cxPt;
+    const py = pE * ay + pMu * by + pTau * cyPt;
+
+    if (i === 0) tCtx.moveTo(px, py);
+    else tCtx.lineTo(px, py);
+  }
+  tCtx.stroke();
+
+  // 当前点位置高亮
+  const curIdx = Math.min(PATH_STEPS - 1, Math.floor(wavePos * (PATH_STEPS - 1)));
+  const curE = probCurveE[curIdx];
+  const curMu = probCurveMu[curIdx];
+  const curTau = probCurveTau[curIdx];
+  const curPx = curE * ax + curMu * bx + curTau * cxPt;
+  const curPy = curE * ay + curMu * by + curTau * cyPt;
+
+  tCtx.fillStyle = '#ffffff';
+  tCtx.shadowColor = '#38bdf8';
+  tCtx.shadowBlur = 10;
+  tCtx.beginPath();
+  tCtx.arc(curPx, curPy, 4.0, 0, Math.PI * 2);
+  tCtx.fill();
+  tCtx.restore();
+}
+
+// 主积分动画循环
+function animate() {
+  wavePos += waveSpeed;
+  if (wavePos >= 1.0) {
+    wavePos = 0.0;
+    // 抵达地球探测器，触发一次切伦科夫辐射事件
+    const dpr = window.devicePixelRatio || 1;
+    const earthX = (mainCanvas.width / dpr) - 85;
+    const cy = (mainCanvas.height / dpr) * 0.5;
+    const isMuon = Math.random() < 0.65;
+    cherenkovRings.push({
+      x: earthX + (Math.random() - 0.5) * 15,
+      y: cy + (Math.random() - 0.5) * 20,
+      r: 4,
+      alpha: 1.0,
+      isMu: isMuon
+    });
+  }
+
+  renderMain();
+  renderProbChart();
+  renderTernaryChart();
+
+  requestAnimationFrame(animate);
+}
+
+// 控件与交互事件绑定
+sliderEnergy.addEventListener('input', (e) => {
+  E_nu_MeV = parseFloat(e.target.value);
+  valEnergy.textContent = `${E_nu_MeV.toFixed(1)} MeV`;
+  hudEnergy.textContent = `${E_nu_MeV.toFixed(1)} MeV`;
+  const mswDepth = Math.min(0.85, 0.12 * (E_nu_MeV / 8.5) * N_e0_scale);
+  hudMsw.textContent = `${mswDepth.toFixed(2)} R_⊙ (能级反转)`;
+  precalculateProbabilities();
+});
+
+sliderDensity.addEventListener('input', (e) => {
+  const dVal = parseFloat(e.target.value);
+  N_e0_scale = dVal / 100.0;
+  valDensity.textContent = `${dVal.toFixed(0)} N_A/cm³`;
+  precalculateProbabilities();
+});
+
+sliderDeltaCP.addEventListener('input', (e) => {
+  const deg = parseFloat(e.target.value);
+  delta_CP = (deg * Math.PI) / 180.0;
+  valDeltaCP.textContent = `${deg}°`;
+  precalculateProbabilities();
+});
+
+btnFireBeam.addEventListener('click', () => {
+  wavePos = 0.0;
+});
+
+btnAudio.addEventListener('click', () => {
+  initAudio();
+  audioEnabled = !audioEnabled;
+  btnAudio.classList.toggle('active', audioEnabled);
+  btnAudio.innerHTML = `
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+      <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+    </svg>
+    量子拍频音: ${audioEnabled ? '开' : '关'}
+  `;
+});
+
+modeBtns.forEach((btn) => {
+  btn.addEventListener('click', () => {
+    modeBtns.forEach((b) => b.classList.remove('selected'));
+    btn.classList.add('selected');
+
+    if (btn.id === 'btnSolarB8') {
+      E_nu_MeV = 8.5; N_e0_scale = 1.0; delta_CP = -Math.PI * 0.5;
+    } else if (btn.id === 'btnSolarPP') {
+      E_nu_MeV = 0.42; N_e0_scale = 1.0; delta_CP = 0.0;
+    } else if (btn.id === 'btnAtmospheric') {
+      E_nu_MeV = 18.0; N_e0_scale = 0.05; delta_CP = -Math.PI * 0.5;
+    } else if (btn.id === 'btnReactor') {
+      E_nu_MeV = 3.5; N_e0_scale = 0.02; delta_CP = 0.0;
+    }
+
+    sliderEnergy.value = E_nu_MeV; valEnergy.textContent = `${E_nu_MeV.toFixed(1)} MeV`; hudEnergy.textContent = `${E_nu_MeV.toFixed(1)} MeV`;
+    sliderDensity.value = Math.round(N_e0_scale * 100); valDensity.textContent = `${(N_e0_scale * 100).toFixed(0)} N_A/cm³`;
+    sliderDeltaCP.value = Math.round((delta_CP * 180) / Math.PI); valDeltaCP.textContent = `${sliderDeltaCP.value}°`;
+    precalculateProbabilities();
+    wavePos = 0.0;
+  });
+});
+
+// 初始化启动
+window.addEventListener('DOMContentLoaded', () => {
+  resizeCanvas();
+  precalculateProbabilities();
+  animate();
+});
+</script>
+</body>
+</html>

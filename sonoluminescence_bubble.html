@@ -1,0 +1,1217 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>单气泡声致发光与空化动力学 - Single-Bubble Sonoluminescence</title>
+<style>
+  :root {
+    --bg-dark: #030712;
+    --panel-bg: rgba(15, 23, 42, 0.75);
+    --panel-border: rgba(56, 189, 248, 0.25);
+    --primary: #38bdf8;
+    --accent: #818cf8;
+    --glow-cyan: #22d3ee;
+    --flash-white: #f8fafc;
+    --hot-orange: #fb923c;
+    --plasma-purple: #c084fc;
+    --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    user-select: none;
+  }
+
+  body {
+    background-color: var(--bg-dark);
+    color: #e2e8f0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* 顶栏 HUD 标题 */
+  header {
+    background: rgba(3, 7, 18, 0.85);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--panel-border);
+    padding: 0.75rem 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 50;
+  }
+
+  .title-group {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .title-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #fff 0%, var(--glow-cyan) 50%, transparent 80%);
+    box-shadow: 0 0 15px var(--glow-cyan);
+    animation: pulseGlow 2s infinite alternate;
+  }
+
+  @keyframes pulseGlow {
+    0% { transform: scale(0.9); opacity: 0.8; }
+    100% { transform: scale(1.15); opacity: 1; filter: drop-shadow(0 0 10px #fff); }
+  }
+
+  h1 {
+    font-size: 1.15rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    background: linear-gradient(90deg, #fff, var(--primary), var(--plasma-purple));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .sub-tag {
+    font-size: 0.75rem;
+    color: #94a3b8;
+    font-family: var(--font-mono);
+  }
+
+  .nav-actions {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+  }
+
+  .btn {
+    background: rgba(56, 189, 248, 0.1);
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    color: #e2e8f0;
+    padding: 0.4rem 0.9rem;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-family: var(--font-mono);
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .btn:hover {
+    background: rgba(56, 189, 248, 0.25);
+    border-color: var(--primary);
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.3);
+  }
+
+  .btn.active {
+    background: var(--primary);
+    color: #030712;
+    font-weight: 600;
+  }
+
+  /* 主工作区布局 */
+  main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 360px;
+    gap: 1rem;
+    padding: 1rem;
+    height: calc(100vh - 65px);
+    overflow: hidden;
+  }
+
+  @media (max-width: 1024px) {
+    main {
+      grid-template-columns: 1fr;
+      height: auto;
+      overflow-y: auto;
+    }
+  }
+
+  /* 左侧主模拟画布与分析面板容器 */
+  .viewport-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    height: 100%;
+    position: relative;
+  }
+
+  .canvas-card {
+    flex: 1.4;
+    background: radial-gradient(circle at center, #07152d 0%, #030712 90%);
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.8);
+  }
+
+  #mainCanvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    cursor: crosshair;
+  }
+
+  /* 画布内浮动 HUD 信息 */
+  .canvas-hud {
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    pointer-events: none;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    background: rgba(3, 7, 18, 0.65);
+    padding: 0.6rem 0.8rem;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(8px);
+  }
+
+  .hud-item {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  .hud-label {
+    color: #94a3b8;
+  }
+
+  .hud-val {
+    color: #fff;
+    font-weight: 600;
+  }
+
+  .hud-val.peak {
+    color: #f43f5e;
+    text-shadow: 0 0 8px rgba(244, 63, 94, 0.6);
+  }
+
+  .flash-indicator {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.8rem;
+    border-radius: 20px;
+    background: rgba(3, 7, 18, 0.7);
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+  }
+
+  .flash-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #334155;
+    transition: all 0.05s ease-out;
+  }
+
+  .flash-dot.active {
+    background: #fff;
+    box-shadow: 0 0 15px #fff, 0 0 30px var(--glow-cyan);
+    transform: scale(1.4);
+  }
+
+  /* 下方分析图表栏 */
+  .analytics-card {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+    min-height: 200px;
+  }
+
+  @media (max-width: 768px) {
+    .analytics-card {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .chart-box {
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    padding: 0.6rem;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    backdrop-filter: blur(8px);
+  }
+
+  .chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.75rem;
+    color: #94a3b8;
+    margin-bottom: 0.4rem;
+    font-family: var(--font-mono);
+  }
+
+  .chart-canvas {
+    flex: 1;
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  /* 右侧仪表盘与参数控制面板 */
+  .control-panel {
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    padding: 1.2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.2rem;
+    overflow-y: auto;
+    backdrop-filter: blur(12px);
+  }
+
+  .section-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-bottom: 1px solid rgba(56, 189, 248, 0.2);
+    padding-bottom: 0.4rem;
+  }
+
+  .control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  .control-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.78rem;
+    color: #cbd5e1;
+  }
+
+  .val-badge {
+    font-family: var(--font-mono);
+    color: var(--glow-cyan);
+    font-size: 0.75rem;
+  }
+
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 5px;
+    background: #1e293b;
+    border-radius: 3px;
+    outline: none;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--primary);
+    cursor: pointer;
+    box-shadow: 0 0 8px var(--primary);
+    transition: transform 0.1s;
+  }
+
+  input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+  }
+
+  .select-group {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
+  }
+
+  .gas-btn {
+    background: rgba(30, 41, 59, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #94a3b8;
+    padding: 0.5rem;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.2s;
+    font-family: var(--font-mono);
+  }
+
+  .gas-btn.selected {
+    background: rgba(56, 189, 248, 0.2);
+    border-color: var(--primary);
+    color: #fff;
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.2);
+  }
+
+  .info-box {
+    background: rgba(3, 7, 18, 0.5);
+    border: 1px dashed rgba(56, 189, 248, 0.3);
+    border-radius: 8px;
+    padding: 0.75rem;
+    font-size: 0.72rem;
+    color: #94a3b8;
+    line-height: 1.5;
+  }
+
+  .formula {
+    font-family: var(--font-mono);
+    color: #38bdf8;
+    margin-top: 0.3rem;
+    font-size: 0.7rem;
+    white-space: pre-wrap;
+  }
+
+  /* 闪光全屏叠加覆盖效果 */
+  .flash-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle at center, rgba(255, 255, 255, 0.95) 0%, rgba(56, 189, 248, 0.4) 40%, transparent 80%);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.08s ease-out;
+    mix-blend-mode: screen;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="title-group">
+    <div class="title-icon"></div>
+    <div>
+      <h1>单气泡声致发光与空化动力学</h1>
+      <div class="sub-tag">Single-Bubble Sonoluminescence (SBSL) & Rayleigh-Plesset Cavitation</div>
+    </div>
+  </div>
+  <div class="nav-actions">
+    <button class="btn" id="btnAudioToggle">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+        <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+      </svg>
+      声学音效: 关
+    </button>
+    <button class="btn" id="btnSlowMo">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"></circle>
+        <polyline points="12 6 12 12 16 14"></polyline>
+      </svg>
+      超慢动作: 关
+    </button>
+    <button class="btn" id="btnInjectBubble">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M12 5v14M5 12h14"></path>
+      </svg>
+      注入/重置微泡
+    </button>
+  </div>
+</header>
+
+<main>
+  <!-- 左侧主模拟画布与图表面板 -->
+  <div class="viewport-container">
+    <div class="canvas-card" id="canvasCard">
+      <canvas id="mainCanvas"></canvas>
+      <div class="flash-overlay" id="flashOverlay"></div>
+
+      <!-- 画布 HUD 数据显示 -->
+      <div class="canvas-hud">
+        <div class="hud-item">
+          <span class="hud-label">瞬时半径 R(t):</span>
+          <span class="hud-val" id="hudRadius">5.00 μm</span>
+        </div>
+        <div class="hud-item">
+          <span class="hud-label">界面径向速度 Ṙ:</span>
+          <span class="hud-val" id="hudVelocity">0.0 m/s</span>
+        </div>
+        <div class="hud-item">
+          <span class="hud-label">核芯温度 T_core:</span>
+          <span class="hud-val" id="hudTemp">293 K</span>
+        </div>
+        <div class="hud-item">
+          <span class="hud-label">峰值历史温度:</span>
+          <span class="hud-val peak" id="hudPeakTemp">293 K</span>
+        </div>
+        <div class="hud-item">
+          <span class="hud-label">驱动声相位 Φ:</span>
+          <span class="hud-val" id="hudPhase">0.00 rad</span>
+        </div>
+      </div>
+
+      <!-- 闪光捕获检测指示灯 -->
+      <div class="flash-indicator">
+        <div class="flash-dot" id="flashDot"></div>
+        <span id="flashText">待机捕获</span>
+      </div>
+    </div>
+
+    <!-- 科学分析双图表 -->
+    <div class="analytics-card">
+      <div class="chart-box">
+        <div class="chart-header">
+          <span>气泡半径动态轨迹 R(t) / μm</span>
+          <span style="color:var(--primary)" id="rtScale">50 μs 窗口</span>
+        </div>
+        <canvas class="chart-canvas" id="radiusChart"></canvas>
+      </div>
+
+      <div class="chart-box">
+        <div class="chart-header">
+          <span>相空间相图 (Phase Portrait: R vs Ṙ)</span>
+          <span style="color:var(--plasma-purple)">极限环吸引子</span>
+        </div>
+        <canvas class="chart-canvas" id="phaseChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- 右侧交互调控面板 -->
+  <div class="control-panel">
+    <div>
+      <div class="section-title">超声驱动声场控制</div>
+      <div class="control-group" style="margin-top:0.8rem">
+        <div class="control-label">
+          <span>驱动声压幅值 P_A (Acoustic Pressure)</span>
+          <span class="val-badge" id="valPa">1.35 atm</span>
+        </div>
+        <input type="range" id="sliderPa" min="0.80" max="1.65" step="0.01" value="1.35">
+      </div>
+
+      <div class="control-group" style="margin-top:0.8rem">
+        <div class="control-label">
+          <span>超声工作频率 f_drive</span>
+          <span class="val-badge" id="valFreq">26.5 kHz</span>
+        </div>
+        <input type="range" id="sliderFreq" min="20.0" max="35.0" step="0.1" value="26.5">
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title">微气泡物理属性</div>
+      <div class="control-group" style="margin-top:0.8rem">
+        <div class="control-label">
+          <span>平衡基准半径 R_0</span>
+          <span class="val-badge" id="valR0">4.5 μm</span>
+        </div>
+        <input type="range" id="sliderR0" min="2.0" max="8.0" step="0.1" value="4.5">
+      </div>
+
+      <div class="control-group" style="margin-top:0.8rem">
+        <div class="control-label">
+          <span>液体环境温度 T_0 (水温)</span>
+          <span class="val-badge" id="valT0">20.0 °C</span>
+        </div>
+        <input type="range" id="sliderT0" min="5.0" max="40.0" step="1.0" value="20.0">
+      </div>
+
+      <div class="control-group" style="margin-top:0.8rem">
+        <span class="control-label" style="margin-bottom:0.3rem">注入稀有气体组分 (多方绝热指数 γ)</span>
+        <div class="select-group">
+          <button class="gas-btn selected" data-gas="Ar" data-gamma="1.667">氩气 (Ar) [γ=1.67]</button>
+          <button class="gas-btn" data-gas="Xe" data-gamma="1.667">氙气 (Xe) [极强发光]</button>
+          <button class="gas-btn" data-gas="He" data-gamma="1.660">氦气 (He) [高声速]</button>
+          <button class="gas-btn" data-gas="Air" data-gamma="1.400">空气 (N2/O2) [双原子]</button>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title">物理机制与微观公式</div>
+      <div class="info-box">
+        <strong>Rayleigh-Plesset 非线性气泡方程:</strong>
+        <div class="formula">RṘ̈ + 3/2 Ṙ² = 1/ρ [(P₀ + 2σ/R₀)(R₀/R)³ᵞ - 2σ/R - 4μṘ/R - P₀ - P_a(t)]</div>
+        <p style="margin-top:0.5rem">
+          在强负声压下，气泡缓慢扩张至最大半径（数倍于初始半径）；随后在周围巨大的水流惯性驱动下发生<strong>灾难性绝热坍缩</strong>（内爆）。
+        </p>
+        <p style="margin-top:0.4rem">
+          坍缩时界面向心速度突破声速，气泡内部被猛烈压缩产生<strong>极端等离子体高温（15,000K ~ 50,000K）</strong>，伴随<strong>皮秒量级紫外/蓝光微闪烁</strong>与发散激波！
+        </p>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+/**
+ * 单气泡声致发光与空化动力学 (Single-Bubble Sonoluminescence - SBSL)
+ * 高性能四阶龙格-库塔 (RK4) 微分方程积分器 & 冲击波水波渲染系统
+ */
+
+// 物理常量 (SI 制)
+const RHO_L = 998.0;         // 水密度 kg/m^3
+const SIGMA_SURF = 0.0728;   // 表面张力 N/m
+const MU_VISC = 1.002e-3;    // 动力粘度 Pa*s
+const P0 = 101325.0;         // 环境静水压 1 atm (Pa)
+const C_WATER = 1482.0;      // 水中声速 m/s
+const H_VAN_DER_WAALS = 8.5; // 范德华排斥体积截止因子: R_hc = R0 / 8.5
+
+// 状态参数
+let R0 = 4.5e-6;             // 平衡半径 (米)
+let Pa_atm = 1.35;           // 驱动声压幅值 (atm)
+let f_drive = 26500.0;       // 声频 26.5 kHz
+let gamma = 1.667;           // 绝热指数 (氩气)
+let T0_K = 293.15;           // 环境水温 (K)
+
+// 动力学变量: y[0] = R (m), y[1] = v = dR/dt (m/s)
+let R = R0;
+let v = 0.0;
+let simTime = 0.0;
+let peakTempHistory = 293.15;
+let isSlowMo = false;
+let audioEnabled = false;
+
+// 历史数据队列 (用于图表渲染)
+const HISTORY_LEN = 300;
+const rHistory = new Float32Array(HISTORY_LEN);
+const vHistory = new Float32Array(HISTORY_LEN);
+let historyIdx = 0;
+
+// 激波粒子与脉冲队列
+const shockwaves = [];
+const cavityStreamParticles = [];
+
+// DOM 元素引用
+const canvasCard = document.getElementById('canvasCard');
+const mainCanvas = document.getElementById('mainCanvas');
+const mainCtx = mainCanvas.getContext('2d');
+const radiusChart = document.getElementById('radiusChart');
+const radiusCtx = radiusChart.getContext('2d');
+const phaseChart = document.getElementById('phaseChart');
+const phaseCtx = phaseChart.getContext('2d');
+const flashOverlay = document.getElementById('flashOverlay');
+const flashDot = document.getElementById('flashDot');
+const flashText = document.getElementById('flashText');
+
+const hudRadius = document.getElementById('hudRadius');
+const hudVelocity = document.getElementById('hudVelocity');
+const hudTemp = document.getElementById('hudTemp');
+const hudPeakTemp = document.getElementById('hudPeakTemp');
+const hudPhase = document.getElementById('hudPhase');
+
+const sliderPa = document.getElementById('sliderPa');
+const sliderFreq = document.getElementById('sliderFreq');
+const sliderR0 = document.getElementById('sliderR0');
+const sliderT0 = document.getElementById('sliderT0');
+const valPa = document.getElementById('valPa');
+const valFreq = document.getElementById('valFreq');
+const valR0 = document.getElementById('valR0');
+const valT0 = document.getElementById('valT0');
+const gasBtns = document.querySelectorAll('.gas-btn');
+
+const btnAudioToggle = document.getElementById('btnAudioToggle');
+const btnSlowMo = document.getElementById('btnSlowMo');
+const btnInjectBubble = document.getElementById('btnInjectBubble');
+
+// Web Audio API 上下文与振荡器系统
+let audioCtx = null;
+let humOsc = null;
+let humGain = null;
+
+function initAudio() {
+  if (audioCtx) return;
+  const AudioContext = window.AudioContext || window.webkitAudioContext;
+  audioCtx = new AudioContext();
+
+  // 声悬浮超声低频分量模拟嗡鸣
+  humOsc = audioCtx.createOscillator();
+  humGain = audioCtx.createGain();
+  humOsc.type = 'sine';
+  humOsc.frequency.setValueAtTime(220, audioCtx.currentTime);
+  humGain.gain.setValueAtTime(0.015, audioCtx.currentTime);
+  humOsc.connect(humGain);
+  humGain.connect(audioCtx.destination);
+  humOsc.start();
+}
+
+function playCollapseClick(temp, bubbleRadius) {
+  if (!audioEnabled || !audioCtx) return;
+  
+  // 产生锐利的超音速空化坍缩声脉冲
+  const now = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  const filter = audioCtx.createBiquadFilter();
+
+  osc.type = 'triangle';
+  // 温度越高，内爆激波频率与尖锐度越高
+  const freq = Math.min(8000, 1200 + (temp / 10000) * 2000);
+  osc.frequency.setValueAtTime(freq, now);
+  osc.frequency.exponentialRampToValueAtTime(150, now + 0.04);
+
+  filter.type = 'bandpass';
+  filter.frequency.setValueAtTime(freq, now);
+  filter.Q.setValueAtTime(3.5, now);
+
+  const vol = Math.min(0.8, 0.15 + (temp / 35000) * 0.6);
+  gain.gain.setValueAtTime(vol, now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.035);
+
+  osc.connect(filter);
+  filter.connect(gain);
+  gain.connect(audioCtx.destination);
+
+  osc.start(now);
+  osc.stop(now + 0.04);
+}
+
+// 尺寸自适应初始化
+function resizeCanvas() {
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvasCard.getBoundingClientRect();
+  mainCanvas.width = rect.width * dpr;
+  mainCanvas.height = rect.height * dpr;
+  mainCtx.scale(dpr, dpr);
+
+  const rRect = radiusChart.parentElement.getBoundingClientRect();
+  radiusChart.width = (rRect.width - 20) * dpr;
+  radiusChart.height = (rRect.height - 40) * dpr;
+  radiusCtx.scale(dpr, dpr);
+
+  phaseChart.width = (rRect.width - 20) * dpr;
+  phaseChart.height = (rRect.height - 40) * dpr;
+  phaseCtx.scale(dpr, dpr);
+}
+
+window.addEventListener('resize', resizeCanvas);
+
+// 初始化流场微气泡粒子 (声辐射力与声流可视化)
+for (let i = 0; i < 90; i++) {
+  cavityStreamParticles.push({
+    angle: Math.random() * Math.PI * 2,
+    dist: 40 + Math.random() * 260,
+    speed: 0.3 + Math.random() * 0.7,
+    size: 1 + Math.random() * 2,
+    alpha: 0.2 + Math.random() * 0.5
+  });
+}
+
+// 物理微分方程: dR/dt = v, dv/dt = f(R, v, t)
+function computeDerivatives(currR, currV, currT) {
+  // 范德华核心硬球半径
+  const Rhc = R0 / H_VAN_DER_WAALS;
+  const effR = Math.max(Rhc * 1.001, currR);
+
+  // 驱动声压 P_a(t)
+  const Pa = Pa_atm * 101325.0;
+  const omega = 2.0 * Math.PI * f_drive;
+  const Pa_t = -Pa * Math.sin(omega * currT);
+
+  // 内部气体压力 (范德华修正绝热压缩)
+  const volRatio = Math.pow(Math.max(1e-12, (R0*R0*R0 - Rhc*Rhc*Rhc) / (effR*effR*effR - Rhc*Rhc*Rhc)), gamma);
+  const pGas0 = P0 + (2.0 * SIGMA_SURF / R0);
+  const pGas = pGas0 * volRatio;
+
+  // 表面张力项与液体粘度耗散项
+  const pSurf = (2.0 * SIGMA_SURF) / effR;
+  const pVisc = (4.0 * MU_VISC * currV) / effR;
+
+  // 气泡壁总外驱动净压强
+  const deltaP = pGas - pSurf - pVisc - P0 - Pa_t;
+
+  // 考虑 Gilmore / Keller-Miksis 弱声辐射阻尼修正: (1 - v/c)
+  // Rayleigh-Plesset 加速度: d²R/dt² = (deltaP/ρ - 1.5*v²) / R
+  const accel = (deltaP / RHO_L - 1.5 * currV * currV) / effR;
+
+  return [currV, accel];
+}
+
+// 4阶龙格-库塔 (RK4) 自适应微步长积分
+function rk4Step(dt) {
+  const k1 = computeDerivatives(R, v, simTime);
+  const k2 = computeDerivatives(R + 0.5 * dt * k1[0], v + 0.5 * dt * k1[1], simTime + 0.5 * dt);
+  const k3 = computeDerivatives(R + 0.5 * dt * k2[0], v + 0.5 * dt * k2[1], simTime + 0.5 * dt);
+  const k4 = computeDerivatives(R + dt * k3[0], v + dt * k3[1], simTime + dt);
+
+  R += (dt / 6.0) * (k1[0] + 2.0 * k2[0] + 2.0 * k3[0] + k4[0]);
+  v += (dt / 6.0) * (k1[1] + 2.0 * k2[1] + 2.0 * k3[1] + k4[1]);
+  simTime += dt;
+
+  // 约束硬球边界，防止数值爆炸
+  const Rhc = R0 / H_VAN_DER_WAALS;
+  if (R < Rhc * 1.002) {
+    R = Rhc * 1.002;
+    if (v < 0) v = -v * 0.35; // 刚性质壁弹回
+  }
+}
+
+// 计算中心核心绝热温升
+function getCoreTemperature(currR) {
+  const Rhc = R0 / H_VAN_DER_WAALS;
+  const effR = Math.max(Rhc * 1.001, currR);
+  const tempRatio = Math.pow(Math.max(1e-12, (R0*R0*R0 - Rhc*Rhc*Rhc) / (effR*effR*effR - Rhc*Rhc*Rhc)), gamma - 1.0);
+  return T0_K * tempRatio;
+}
+
+// 闪光触发阈值
+const FLASH_TEMP_THRESHOLD = 8000.0;
+let lastFlashTime = 0.0;
+
+function triggerFlash(temp) {
+  const now = performance.now();
+  if (now - lastFlashTime < 40) return; // 节流控制
+  lastFlashTime = now;
+
+  // 激波环产生
+  shockwaves.push({
+    x: mainCanvas.width / (2 * (window.devicePixelRatio || 1)),
+    y: mainCanvas.height / (2 * (window.devicePixelRatio || 1)),
+    radius: 12,
+    maxRadius: 180 + (temp / 10000) * 80,
+    speed: 7.5 + (temp / 15000) * 4.5,
+    opacity: 1.0,
+    temp: temp
+  });
+
+  // 界面闪光指示灯
+  flashDot.classList.add('active');
+  flashText.textContent = `闪光捕获! ${(temp).toFixed(0)} K`;
+  flashText.style.color = '#38bdf8';
+  flashOverlay.style.opacity = Math.min(1.0, 0.4 + (temp / 40000) * 0.6);
+
+  setTimeout(() => {
+    flashDot.classList.remove('active');
+    flashText.textContent = '待机捕获';
+    flashText.style.color = '#94a3b8';
+    flashOverlay.style.opacity = '0';
+  }, 120);
+
+  // 播放微爆裂咔哒声
+  playCollapseClick(temp, R);
+}
+
+// 主仿真更新
+function updateSimulation() {
+  // 一个驱动周期时间 T = 1/f
+  const period = 1.0 / f_drive;
+  // 划分精细微时间步长保证剧烈内爆的稳定性
+  const subSteps = isSlowMo ? 35 : 120;
+  const dt = (period / 1200) * (isSlowMo ? 0.08 : 1.0);
+
+  let prevV = v;
+  for (let i = 0; i < subSteps; i++) {
+    prevV = v;
+    rk4Step(dt);
+
+    const coreT = getCoreTemperature(R);
+    if (coreT > peakTempHistory) {
+      peakTempHistory = coreT;
+    }
+
+    // 检测强剧烈坍缩内爆极值点: v 从负向极大急剧转正
+    if (prevV < -150.0 && v >= -5.0 && coreT >= FLASH_TEMP_THRESHOLD) {
+      triggerFlash(coreT);
+    }
+  }
+
+  // 记录历史序列
+  rHistory[historyIdx] = R * 1e6; // 换算微米
+  vHistory[historyIdx] = v;
+  historyIdx = (historyIdx + 1) % HISTORY_LEN;
+}
+
+// 绘制主声悬浮腔体与气泡
+function renderMain() {
+  const dpr = window.devicePixelRatio || 1;
+  const w = mainCanvas.width / dpr;
+  const h = mainCanvas.height / dpr;
+  const cx = w * 0.5;
+  const cy = h * 0.5;
+
+  mainCtx.clearRect(0, 0, w, h);
+
+  // 1. 绘制背景超声驻波节点干涉场 (Acoustic Standing Wave)
+  const acousticPhase = (2.0 * Math.PI * f_drive * simTime) % (Math.PI * 2);
+  const waveGrad = mainCtx.createRadialGradient(cx, cy, 20, cx, cy, Math.max(w, h) * 0.6);
+  waveGrad.addColorStop(0, 'rgba(14, 165, 233, 0.08)');
+  waveGrad.addColorStop(0.5, 'rgba(30, 58, 138, 0.03)');
+  waveGrad.addColorStop(1, 'rgba(3, 7, 18, 0.0)');
+  mainCtx.fillStyle = waveGrad;
+  mainCtx.fillRect(0, 0, w, h);
+
+  // 驻波节点波纹
+  mainCtx.save();
+  mainCtx.strokeStyle = 'rgba(56, 189, 248, 0.07)';
+  mainCtx.lineWidth = 1.5;
+  for (let r = 80; r < Math.max(w, h); r += 90) {
+    const oscR = r + Math.sin(acousticPhase + r * 0.05) * 6;
+    mainCtx.beginPath();
+    mainCtx.arc(cx, cy, oscR, 0, Math.PI * 2);
+    mainCtx.stroke();
+  }
+  mainCtx.restore();
+
+  // 2. 绘制声流循环微粒 (Acoustic Streaming Particles)
+  mainCtx.save();
+  for (let i = 0; i < cavityStreamParticles.length; i++) {
+    const p = cavityStreamParticles[i];
+    p.angle += (p.speed * 0.005);
+    // 向中心节点声辐射汇聚吸引
+    p.dist += Math.sin(simTime * 5 + i) * 0.25;
+    const px = cx + Math.cos(p.angle) * p.dist;
+    const py = cy + Math.sin(p.angle) * p.dist * 0.85;
+
+    mainCtx.fillStyle = `rgba(56, 189, 248, ${p.alpha * 0.6})`;
+    mainCtx.beginPath();
+    mainCtx.arc(px, py, p.size, 0, Math.PI * 2);
+    mainCtx.fill();
+  }
+  mainCtx.restore();
+
+  // 3. 绘制外向扩散的超声激波 (Acoustic Shock Waves)
+  for (let i = shockwaves.length - 1; i >= 0; i--) {
+    const sw = shockwaves[i];
+    sw.radius += sw.speed;
+    sw.opacity -= 0.025;
+
+    if (sw.opacity <= 0 || sw.radius >= sw.maxRadius) {
+      shockwaves.splice(i, 1);
+      continue;
+    }
+
+    mainCtx.save();
+    mainCtx.beginPath();
+    mainCtx.arc(cx, cy, sw.radius, 0, Math.PI * 2);
+    mainCtx.strokeStyle = `rgba(255, 255, 255, ${sw.opacity * 0.8})`;
+    mainCtx.lineWidth = 3.5;
+    mainCtx.shadowColor = sw.temp > 20000 ? '#38bdf8' : '#fb923c';
+    mainCtx.shadowBlur = 15;
+    mainCtx.stroke();
+
+    // 激波内外圈细致折射纹理
+    mainCtx.beginPath();
+    mainCtx.arc(cx, cy, sw.radius - 4, 0, Math.PI * 2);
+    mainCtx.strokeStyle = `rgba(56, 189, 248, ${sw.opacity * 0.4})`;
+    mainCtx.lineWidth = 1.2;
+    mainCtx.stroke();
+    mainCtx.restore();
+  }
+
+  // 4. 绘制中心微气泡与发光核 (Bubble & Luminescent Core)
+  const currentTemp = getCoreTemperature(R);
+  // 可视化半径映射: 设定 5 μm -> 32 px
+  const renderR = Math.max(3.5, (R * 1e6) * 6.5);
+
+  // 气泡外部水流折射光晕
+  mainCtx.save();
+  const auraGrad = mainCtx.createRadialGradient(cx, cy, renderR * 0.8, cx, cy, renderR * 3.0);
+  if (currentTemp > FLASH_TEMP_THRESHOLD) {
+    auraGrad.addColorStop(0, 'rgba(255, 255, 255, 0.9)');
+    auraGrad.addColorStop(0.3, 'rgba(56, 189, 248, 0.6)');
+    auraGrad.addColorStop(0.7, 'rgba(192, 132, 252, 0.2)');
+    auraGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  } else {
+    auraGrad.addColorStop(0, 'rgba(56, 189, 248, 0.25)');
+    auraGrad.addColorStop(0.5, 'rgba(30, 58, 138, 0.1)');
+    auraGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  }
+  mainCtx.fillStyle = auraGrad;
+  mainCtx.beginPath();
+  mainCtx.arc(cx, cy, renderR * 3.0, 0, Math.PI * 2);
+  mainCtx.fill();
+
+  // 气泡内部等离子体球体
+  const bubbleGrad = mainCtx.createRadialGradient(cx - renderR * 0.2, cy - renderR * 0.2, 0, cx, cy, renderR);
+  if (currentTemp > 25000) {
+    // 极端高温: 炽白/紫外电离等离子体
+    bubbleGrad.addColorStop(0, '#ffffff');
+    bubbleGrad.addColorStop(0.25, '#c084fc');
+    bubbleGrad.addColorStop(0.7, '#38bdf8');
+    bubbleGrad.addColorStop(1, '#1e1b4b');
+    mainCtx.shadowColor = '#ffffff';
+    mainCtx.shadowBlur = 35;
+  } else if (currentTemp > FLASH_TEMP_THRESHOLD) {
+    // 高温发光: 亮蓝白
+    bubbleGrad.addColorStop(0, '#ffffff');
+    bubbleGrad.addColorStop(0.4, '#38bdf8');
+    bubbleGrad.addColorStop(0.85, '#0284c7');
+    bubbleGrad.addColorStop(1, '#082f49');
+    mainCtx.shadowColor = '#38bdf8';
+    mainCtx.shadowBlur = 20;
+  } else {
+    // 常温/膨胀期气泡: 透明水下气泡倒影
+    bubbleGrad.addColorStop(0, 'rgba(224, 242, 254, 0.85)');
+    bubbleGrad.addColorStop(0.5, 'rgba(56, 189, 248, 0.35)');
+    bubbleGrad.addColorStop(0.9, 'rgba(14, 116, 144, 0.2)');
+    bubbleGrad.addColorStop(1, 'rgba(3, 7, 18, 0.6)');
+    mainCtx.shadowBlur = 0;
+  }
+
+  mainCtx.fillStyle = bubbleGrad;
+  mainCtx.beginPath();
+  mainCtx.arc(cx, cy, renderR, 0, Math.PI * 2);
+  mainCtx.fill();
+
+  // 气泡高光光斑与表面张力边缘
+  mainCtx.strokeStyle = currentTemp > FLASH_TEMP_THRESHOLD ? '#ffffff' : 'rgba(255, 255, 255, 0.6)';
+  mainCtx.lineWidth = 1.5;
+  mainCtx.beginPath();
+  mainCtx.arc(cx, cy, renderR, 0, Math.PI * 2);
+  mainCtx.stroke();
+
+  // 高光反射弧
+  mainCtx.beginPath();
+  mainCtx.arc(cx - renderR * 0.3, cy - renderR * 0.3, renderR * 0.45, Math.PI * 1.1, Math.PI * 1.6);
+  mainCtx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+  mainCtx.lineWidth = Math.max(1, renderR * 0.08);
+  mainCtx.stroke();
+  mainCtx.restore();
+
+  // 5. 更新左上角 HUD 数据文本
+  hudRadius.textContent = `${(R * 1e6).toFixed(2)} μm`;
+  hudVelocity.textContent = `${(v).toFixed(1)} m/s`;
+  hudTemp.textContent = `${Math.round(currentTemp).toLocaleString()} K`;
+  hudPeakTemp.textContent = `${Math.round(peakTempHistory).toLocaleString()} K`;
+  hudPhase.textContent = `${(acousticPhase).toFixed(2)} rad`;
+}
+
+// 绘制 R(t) 半径时间曲线图
+function renderRadiusChart() {
+  const dpr = window.devicePixelRatio || 1;
+  const w = radiusChart.width / dpr;
+  const h = radiusChart.height / dpr;
+
+  radiusCtx.clearRect(0, 0, w, h);
+
+  // 背景网格线
+  radiusCtx.save();
+  radiusCtx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+  radiusCtx.lineWidth = 1;
+  for (let y = 0; y < h; y += h / 4) {
+    radiusCtx.beginPath();
+    radiusCtx.moveTo(0, y);
+    radiusCtx.lineTo(w, y);
+    radiusCtx.stroke();
+  }
+
+  // 绘制平衡线 R0
+  const maxR = Math.max(35.0, (R0 * 1e6) * 5.0);
+  const r0Y = h - ((R0 * 1e6) / maxR) * (h - 20) - 10;
+  radiusCtx.strokeStyle = 'rgba(148, 163, 184, 0.35)';
+  radiusCtx.setLineDash([4, 4]);
+  radiusCtx.beginPath();
+  radiusCtx.moveTo(0, r0Y);
+  radiusCtx.lineTo(w, r0Y);
+  radiusCtx.stroke();
+  radiusCtx.setLineDash([]);
+
+  // 绘制 R(t) 曲线
+  radiusCtx.strokeStyle = '#38bdf8';
+  radiusCtx.lineWidth = 1.8;
+  radiusCtx.beginPath();
+
+  for (let i = 0; i < HISTORY_LEN; i++) {
+    const idx = (historyIdx + i) % HISTORY_LEN;
+    const rVal = rHistory[idx];
+    const x = (i / (HISTORY_LEN - 1)) * w;
+    const y = h - (rVal / maxR) * (h - 20) - 10;
+
+    if (i === 0) radiusCtx.moveTo(x, y);
+    else radiusCtx.lineTo(x, y);
+  }
+  radiusCtx.stroke();
+
+  // 标示当前点
+  const curRVal = rHistory[(historyIdx - 1 + HISTORY_LEN) % HISTORY_LEN];
+  const curY = h - (curRVal / maxR) * (h - 20) - 10;
+  radiusCtx.fillStyle = '#ffffff';
+  radiusCtx.shadowColor = '#38bdf8';
+  radiusCtx.shadowBlur = 8;
+  radiusCtx.beginPath();
+  radiusCtx.arc(w - 2, curY, 3, 0, Math.PI * 2);
+  radiusCtx.fill();
+  radiusCtx.restore();
+}
+
+// 绘制相空间相图: R vs Ṙ
+function renderPhaseChart() {
+  const dpr = window.devicePixelRatio || 1;
+  const w = phaseChart.width / dpr;
+  const h = phaseChart.height / dpr;
+
+  phaseCtx.clearRect(0, 0, w, h);
+
+  const cx = w * 0.45;
+  const cy = h * 0.5;
+
+  // 坐标十字轴
+  phaseCtx.save();
+  phaseCtx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+  phaseCtx.lineWidth = 1;
+  phaseCtx.beginPath();
+  phaseCtx.moveTo(0, cy);
+  phaseCtx.lineTo(w, cy);
+  phaseCtx.moveTo(cx, 0);
+  phaseCtx.lineTo(cx, h);
+  phaseCtx.stroke();
+
+  // 绘制相轨迹
+  const maxR = Math.max(35.0, (R0 * 1e6) * 5.0);
+  const maxV = 450.0; // m/s
+
+  phaseCtx.strokeStyle = '#c084fc';
+  phaseCtx.lineWidth = 1.4;
+  phaseCtx.beginPath();
+
+  for (let i = 0; i < HISTORY_LEN; i++) {
+    const idx = (historyIdx + i) % HISTORY_LEN;
+    const rVal = rHistory[idx];
+    const vVal = vHistory[idx];
+
+    const px = (rVal / maxR) * (w - 20);
+    const py = cy - (vVal / maxV) * (cy - 10);
+
+    if (i === 0) phaseCtx.moveTo(px, py);
+    else phaseCtx.lineTo(px, py);
+  }
+  phaseCtx.stroke();
+
+  // 当前相点指示
+  const curR = rHistory[(historyIdx - 1 + HISTORY_LEN) % HISTORY_LEN];
+  const curV = vHistory[(historyIdx - 1 + HISTORY_LEN) % HISTORY_LEN];
+  const curPx = (curR / maxR) * (w - 20);
+  const curPy = cy - (curV / maxV) * (cy - 10);
+
+  phaseCtx.fillStyle = '#ffffff';
+  phaseCtx.shadowColor = '#c084fc';
+  phaseCtx.shadowBlur = 8;
+  phaseCtx.beginPath();
+  phaseCtx.arc(curPx, curPy, 3.5, 0, Math.PI * 2);
+  phaseCtx.fill();
+  phaseCtx.restore();
+}
+
+// 主循环
+function animate() {
+  updateSimulation();
+  renderMain();
+  renderRadiusChart();
+  renderPhaseChart();
+  requestAnimationFrame(animate);
+}
+
+// UI 与控件交互绑定
+sliderPa.addEventListener('input', (e) => {
+  Pa_atm = parseFloat(e.target.value);
+  valPa.textContent = `${Pa_atm.toFixed(2)} atm`;
+});
+
+sliderFreq.addEventListener('input', (e) => {
+  f_drive = parseFloat(e.target.value) * 1000.0;
+  valFreq.textContent = `${(f_drive / 1000.0).toFixed(1)} kHz`;
+});
+
+sliderR0.addEventListener('input', (e) => {
+  R0 = parseFloat(e.target.value) * 1e-6;
+  valR0.textContent = `${(R0 * 1e6).toFixed(1)} μm`;
+});
+
+sliderT0.addEventListener('input', (e) => {
+  const tC = parseFloat(e.target.value);
+  T0_K = tC + 273.15;
+  valT0.textContent = `${tC.toFixed(1)} °C`;
+});
+
+gasBtns.forEach((btn) => {
+  btn.addEventListener('click', () => {
+    gasBtns.forEach((b) => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    gamma = parseFloat(btn.dataset.gamma);
+  });
+});
+
+btnAudioToggle.addEventListener('click', () => {
+  initAudio();
+  audioEnabled = !audioEnabled;
+  btnAudioToggle.classList.toggle('active', audioEnabled);
+  btnAudioToggle.innerHTML = `
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+      <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+    </svg>
+    声学音效: ${audioEnabled ? '开' : '关'}
+  `;
+});
+
+btnSlowMo.addEventListener('click', () => {
+  isSlowMo = !isSlowMo;
+  btnSlowMo.classList.toggle('active', isSlowMo);
+  btnSlowMo.innerHTML = `
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="10"></circle>
+      <polyline points="12 6 12 12 16 14"></polyline>
+    </svg>
+    超慢动作: ${isSlowMo ? '开' : '关'}
+  `;
+});
+
+btnInjectBubble.addEventListener('click', () => {
+  R = R0;
+  v = 0.0;
+  peakTempHistory = 293.15;
+  rHistory.fill(R0 * 1e6);
+  vHistory.fill(0);
+  triggerFlash(12000);
+});
+
+// 点击画布互动
+mainCanvas.addEventListener('mousedown', (e) => {
+  const rect = mainCanvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  const mx = (e.clientX - rect.left);
+  const my = (e.clientY - rect.top);
+  const cx = mainCanvas.width / (2 * dpr);
+  const cy = mainCanvas.height / (2 * dpr);
+
+  // 产生声扰动激波
+  shockwaves.push({
+    x: mx,
+    y: my,
+    radius: 5,
+    maxRadius: 150,
+    speed: 6.0,
+    opacity: 0.9,
+    temp: 5000
+  });
+
+  // 如果点击微气泡附近，施加扰动动量
+  const dist = Math.hypot(mx - cx, my - cy);
+  if (dist < 80) {
+    v += 60.0;
+  }
+});
+
+// 启动
+window.addEventListener('DOMContentLoaded', () => {
+  resizeCanvas();
+  animate();
+});
+</script>
+</body>
+</html>

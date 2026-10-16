@@ -1,0 +1,1208 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>强引力透镜效应与爱因斯坦环全息仿真 (Gravitational Lensing & Einstein Ring)</title>
+  <style>
+    :root {
+      --bg-primary: #020614;
+      --bg-panel: rgba(8, 16, 36, 0.85);
+      --border-panel: rgba(255, 180, 0, 0.25);
+      --lens-gold: #ffd043;
+      --quasar-cyan: #00f0ff;
+      --caustic-purple: #c084fc;
+      --danger-red: #ff3366;
+      --text-main: #f0f6fc;
+      --text-dim: #7aa2c7;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body {
+      background-color: var(--bg-primary);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", "PingFang SC", "Microsoft YaHei", sans-serif;
+      overflow-x: hidden;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      background: linear-gradient(180deg, rgba(14, 26, 52, 0.95) 0%, rgba(6, 14, 28, 0.8) 100%);
+      border-bottom: 1px solid var(--border-panel);
+      padding: 12px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(12px);
+    }
+
+    .title-area h1 {
+      font-size: 1.35rem;
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      background: linear-gradient(90deg, #ffd043, #ff9900, #00f0ff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .title-area p {
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      margin-top: 3px;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border: 1px solid;
+    }
+    .badge-relativity {
+      background: rgba(255, 208, 67, 0.15);
+      color: #ffd043;
+      border-color: rgba(255, 208, 67, 0.4);
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    button.btn {
+      background: rgba(255, 208, 67, 0.12);
+      border: 1px solid rgba(255, 208, 67, 0.35);
+      color: #f0f6fc;
+      padding: 6px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.82rem;
+      font-weight: 500;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    button.btn:hover {
+      background: rgba(255, 208, 67, 0.25);
+      border-color: #ffd043;
+      box-shadow: 0 0 10px rgba(255, 208, 67, 0.3);
+    }
+    button.btn-primary {
+      background: linear-gradient(135deg, rgba(255, 170, 0, 0.45), rgba(255, 90, 0, 0.55));
+      border-color: #ffaa00;
+      color: #ffffff;
+      font-weight: 600;
+    }
+    button.btn-primary:hover {
+      background: linear-gradient(135deg, rgba(255, 170, 0, 0.65), rgba(255, 90, 0, 0.75));
+      box-shadow: 0 0 14px rgba(255, 170, 0, 0.5);
+    }
+
+    .main-container {
+      display: grid;
+      grid-template-columns: 1fr 390px;
+      gap: 16px;
+      padding: 16px 20px;
+      flex: 1;
+      max-width: 1800px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    .viewport-col {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .card {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-panel);
+      border-radius: 10px;
+      padding: 14px 16px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+      position: relative;
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .card-title {
+      font-size: 0.92rem;
+      font-weight: 600;
+      color: #ffd043;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .canvas-wrapper {
+      position: relative;
+      width: 100%;
+      height: 460px;
+      background: #01040a;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 180, 0, 0.15);
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    .canvas-overlay-stats {
+      position: absolute;
+      top: 10px;
+      left: 12px;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-family: "JetBrains Mono", Consolas, monospace;
+      font-size: 0.78rem;
+    }
+
+    .stat-tag {
+      background: rgba(3, 9, 22, 0.8);
+      padding: 4px 10px;
+      border-radius: 4px;
+      border-left: 3px solid #ffd043;
+      backdrop-filter: blur(4px);
+    }
+    .stat-tag.cyan {
+      border-left-color: #00f0ff;
+    }
+    .stat-tag.purple {
+      border-left-color: #c084fc;
+    }
+
+    .charts-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .chart-box {
+      height: 230px;
+      background: #01040a;
+      border-radius: 8px;
+      position: relative;
+      border: 1px solid rgba(255, 180, 0, 0.15);
+      overflow: hidden;
+    }
+
+    /* 右侧控制面板 */
+    .controls-col {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .control-group {
+      margin-bottom: 12px;
+    }
+
+    .control-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.8rem;
+      margin-bottom: 5px;
+      color: var(--text-dim);
+    }
+    .control-val {
+      color: #ffd043;
+      font-family: monospace;
+      font-weight: bold;
+    }
+
+    input[type=range] {
+      width: 100%;
+      height: 5px;
+      background: rgba(255, 180, 0, 0.2);
+      border-radius: 4px;
+      outline: none;
+      -webkit-appearance: none;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      background: #ffd043;
+      cursor: pointer;
+      box-shadow: 0 0 8px #ffd043;
+      transition: 0.1s;
+    }
+    input[type=range]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    .preset-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 6px;
+    }
+    .preset-btn {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: var(--text-main);
+      padding: 7px 6px;
+      border-radius: 6px;
+      font-size: 0.74rem;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s;
+    }
+    .preset-btn:hover {
+      background: rgba(255, 208, 67, 0.18);
+      border-color: #ffd043;
+    }
+    .preset-btn.active {
+      background: rgba(255, 208, 67, 0.28);
+      border-color: #ffd043;
+      color: #ffd043;
+      font-weight: 600;
+    }
+
+    .indicator-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .indicator-box {
+      background: rgba(0, 0, 0, 0.35);
+      padding: 8px 10px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      text-align: center;
+    }
+    .indicator-label {
+      font-size: 0.7rem;
+      color: var(--text-dim);
+    }
+    .indicator-value {
+      font-size: 1.1rem;
+      font-family: monospace;
+      font-weight: bold;
+      color: #ffd043;
+      margin-top: 2px;
+    }
+
+    .formula-card {
+      font-family: "JetBrains Mono", Consolas, monospace;
+      font-size: 0.76rem;
+      line-height: 1.5;
+      background: rgba(3, 9, 22, 0.6);
+      padding: 10px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 180, 0, 0.15);
+      color: #fed7aa;
+    }
+    .formula-card span.hi {
+      color: #ffd043;
+      font-weight: bold;
+    }
+    .formula-card span.cyan {
+      color: #00f0ff;
+    }
+    .formula-card span.purple {
+      color: #c084fc;
+    }
+
+    footer {
+      border-top: 1px solid var(--border-panel);
+      padding: 10px 24px;
+      font-size: 0.76rem;
+      color: var(--text-dim);
+      display: flex;
+      justify-content: space-between;
+      background: rgba(4, 10, 22, 0.9);
+      margin-top: auto;
+    }
+
+    @media (max-width: 1100px) {
+      .main-container {
+        grid-template-columns: 1fr;
+      }
+      .charts-row {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="title-area">
+      <h1>
+        <span>强引力透镜效应与爱因斯坦环全息仿真</span>
+        <span class="badge badge-relativity">广义相对论测地线</span>
+      </h1>
+      <p>时空弯曲光线偏折测地线、奇异等温椭球 (SIE) 焦散线裂变与帕钦斯基微引力透镜光变曲线</p>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-primary" id="btnCenterAlign">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/></svg>
+        居中严格对齐 (完美圆环)
+      </button>
+      <button class="btn" id="btnAudioToggle">
+        <span id="audioIcon">🔊</span>
+        <span id="audioText">深空测地线音频: 开</span>
+      </button>
+      <button class="btn" id="btnTransitSource">触发穿越光变</button>
+    </div>
+  </header>
+
+  <div class="main-container">
+    <!-- 左侧主天文天球视口与双物理曲线 -->
+    <div class="viewport-col">
+      <!-- 主画布：观察者天球天体透镜视口 -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffd043" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+            天球面强引力透镜全息成像 (Observer Sky Plane & Ray Tracing)
+          </div>
+          <div style="font-size:0.75rem; color:var(--text-dim)">
+            操作：鼠标直接拖拽深空中青色背景源星系，观察环、弧与十字多重像的拓扑变形
+          </div>
+        </div>
+
+        <div class="canvas-wrapper">
+          <canvas id="skyPlaneCanvas"></canvas>
+          <div class="canvas-overlay-stats">
+            <div class="stat-tag">
+              <span style="color:#ffd043">● 前景透镜天体</span>：大质量早型椭圆星系 (中心引力势阱)
+            </div>
+            <div class="stat-tag cyan">
+              <span style="color:#00f0ff">● 背景源天体 (类星体)</span>：未偏折真实角位置 β
+            </div>
+            <div class="stat-tag purple" id="imageConfigTag">
+              像型态：爱因斯坦双重像 (内侧像与外侧弧)
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 下方解析图表：源平面焦散线与微透镜光变曲线 -->
+      <div class="charts-row">
+        <!-- 图表 1：源平面焦散线与透镜平面临界曲线 -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#c084fc" stroke-width="2"><polygon points="12 2 22 12 12 22 2 12 12 2"/></svg>
+              焦散线 (Caustics) 与临界曲线 (Critical Curves)
+            </div>
+            <span style="font-size:0.72rem; color:#c084fc" id="causticStatusLabel">钻石焦散线 (Diamond Astroid)</span>
+          </div>
+          <div class="chart-box">
+            <canvas id="causticsCanvas"></canvas>
+          </div>
+        </div>
+
+        <!-- 图表 2：微引力透镜光变曲线 (Paczyński Curve) -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ffd043" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+              引力透镜总光变曲线 (Paczyński 放大倍数 μ)
+            </div>
+            <span style="font-size:0.72rem; color:#ffd043" id="magLabel">当前放大率 μ_tot: 4.8×</span>
+          </div>
+          <div class="chart-box">
+            <canvas id="lightCurveCanvas"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 右侧控制与参数调整面板 -->
+    <div class="controls-col">
+      <!-- 预设天文场景快速切换 -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">经典天文引力透镜预设</div>
+        </div>
+        <div class="preset-grid">
+          <button class="preset-btn active" data-preset="einstein_ring">完美共线爱因斯坦环</button>
+          <button class="preset-btn" data-preset="einstein_cross">爱因斯坦十字 (四重像)</button>
+          <button class="preset-btn" data-preset="giant_arc">星系团巨型透镜拉伸弧</button>
+          <button class="preset-btn" data-preset="microlensing">微引力透镜穿越事件</button>
+        </div>
+      </div>
+
+      <!-- 核心天体物理与广义相对论参数 -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">广义相对论引力透镜参数</div>
+        </div>
+
+        <div class="control-group">
+          <div class="control-header">
+            <span>透镜天体质量 M_lens (10¹¹ M_⊙)</span>
+            <span class="control-val" id="valMass">4.50</span>
+          </div>
+          <input type="range" id="sliderMass" min="0.50" max="15.00" step="0.25" value="4.50">
+          <div style="font-size:0.7rem; color:var(--text-dim); margin-top:2px;">
+            质量正比于爱因斯坦环半径平方：θ_E ∝ √(M_L)
+          </div>
+        </div>
+
+        <div class="control-group">
+          <div class="control-header">
+            <span>透镜椭圆度 ε (暗物质晕非球对称度)</span>
+            <span class="control-val" id="valEllipticity">0.18</span>
+          </div>
+          <input type="range" id="sliderEllipticity" min="0.00" max="0.60" step="0.02" value="0.18">
+          <div style="font-size:0.7rem; color:var(--text-dim); margin-top:2px;">
+            椭圆势引入四极矩，促使单环退化裂变为 4 重十字像
+          </div>
+        </div>
+
+        <div class="control-group">
+          <div class="control-header">
+            <span>外部宇宙剪切力 γ (星系团大尺度潮汐)</span>
+            <span class="control-val" id="valShear">0.05</span>
+          </div>
+          <input type="range" id="sliderShear" min="0.00" max="0.30" step="0.01" value="0.05">
+        </div>
+
+        <div class="control-group">
+          <div class="control-header">
+            <span>源未偏折角偏心率 β / θ_E</span>
+            <span class="control-val" id="valBeta">0.15</span>
+          </div>
+          <input type="range" id="sliderBeta" min="0.00" max="2.00" step="0.02" value="0.15">
+        </div>
+
+        <div class="control-group">
+          <div class="control-header">
+            <span>背景源天体表观尺寸 R_source (角秒)</span>
+            <span class="control-val" id="valSourceSize">0.12″</span>
+          </div>
+          <input type="range" id="sliderSourceSize" min="0.03" max="0.35" step="0.01" value="0.12">
+        </div>
+      </div>
+
+      <!-- 实时状态指标 -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">天体测量学实时指标</div>
+        </div>
+        <div class="indicator-grid">
+          <div class="indicator-box">
+            <div class="indicator-label">爱因斯坦角半径 θ_E</div>
+            <div class="indicator-value" id="indThetaE">1.82″</div>
+          </div>
+          <div class="indicator-box">
+            <div class="indicator-label">总放大倍数 μ_tot</div>
+            <div class="indicator-value" id="indMag">4.82×</div>
+          </div>
+          <div class="indicator-box">
+            <div class="indicator-label">多重像数量</div>
+            <div class="indicator-value" id="indImageCount" style="color:#00f0ff">4 像 (十字)</div>
+          </div>
+          <div class="indicator-box">
+            <div class="indicator-label">相对引力时间延迟 Δt</div>
+            <div class="indicator-value" id="indTimeDelay" style="color:#c084fc">28.4 天</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 核心数学与物理公式卡片 -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">广义相对论引力透镜方程</div>
+        </div>
+        <div class="formula-card">
+          <p>透镜方程：<span class="hi">β = θ - α(θ)</span></p>
+          <p>爱因斯坦半径：<span class="cyan">θ_E = √[ (4GM/c²) (D_ds / (D_d D_s)) ]</span></p>
+          <p style="margin-top:4px;">放大率反演：<span class="hi">μ = 1 / det(J)</span> (J_ij = ∂β_i / ∂θ_j)</p>
+          <div style="border-top:1px dashed rgba(255,180,0,0.25); margin:6px 0; padding-top:4px;">
+            <p>帕钦斯基光变：<span class="purple">A(u) = (u² + 2) / [ u √(u² + 4) ]</span></p>
+            <p>测地线时间延迟：Δt = (1+z_L)(D_d D_s / c D_ds) [ ½(θ-β)² - ψ(θ) ]</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <div>强引力透镜效应 (Gravitational Lensing) · 爱因斯坦环与暗物质晕全息模拟引擎</div>
+    <div>纯前端零依赖 · 逆向光线测地线追踪 · 奇异等温椭球 (SIE) 焦散线裂变 · Web Audio 宇宙背景谐振</div>
+  </footer>
+
+  <script>
+    // --- 天文常数与物理参数 ---
+    const PARAMS = {
+      mass10_11: 4.5,     // 透镜质量 10^11 太阳质量
+      ellipticity: 0.18,  // 椭圆度 (暗物质四极矩)
+      shear: 0.05,        // 外部剪切
+      betaRatio: 0.15,    // 源偏移中心比例
+      sourceRadius: 0.12, // 源半角径
+      audioEnabled: true
+    };
+
+    // 背景源真实坐标 (未发生引力透镜偏折的实际位置)
+    const sourcePos = {
+      x: 35,
+      y: 20,
+      isDragging: false,
+      transitT: 0,
+      isTransiting: false
+    };
+
+    // 背景恒星与星系群
+    const backgroundStars = [];
+    for (let i = 0; i < 90; i++) {
+      backgroundStars.push({
+        x: Math.random(),
+        y: Math.random(),
+        radius: 0.6 + Math.random() * 1.4,
+        alpha: 0.3 + Math.random() * 0.7
+      });
+    }
+
+    // 历史微透镜光变曲线
+    const LIGHT_CURVE_LEN = 140;
+    const lightCurveHistory = [];
+    for (let i = 0; i < LIGHT_CURVE_LEN; i++) {
+      lightCurveHistory.push(1.0);
+    }
+
+    // Web Audio 相关
+    let audioCtx = null;
+    let spaceDroneOsc = null;
+    let spaceDroneGain = null;
+    let shimmerOsc = null;
+    let shimmerGain = null;
+
+    // --- Web Audio 宇宙深空测地线声学探针 ---
+    function initAudio() {
+      if (audioCtx) return;
+      try {
+        const AudioClass = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioClass();
+
+        // 深空超低频引力势底嗡鸣 (55Hz A1)
+        spaceDroneOsc = audioCtx.createOscillator();
+        spaceDroneOsc.type = 'sine';
+        spaceDroneOsc.frequency.setValueAtTime(55, audioCtx.currentTime);
+
+        spaceDroneGain = audioCtx.createGain();
+        spaceDroneGain.gain.setValueAtTime(0.04, audioCtx.currentTime);
+
+        spaceDroneOsc.connect(spaceDroneGain);
+        spaceDroneGain.connect(audioCtx.destination);
+        spaceDroneOsc.start();
+
+        // 强透镜高能微波闪烁光子谐振
+        shimmerOsc = audioCtx.createOscillator();
+        shimmerOsc.type = 'triangle';
+        shimmerOsc.frequency.setValueAtTime(330, audioCtx.currentTime);
+
+        shimmerGain = audioCtx.createGain();
+        shimmerGain.gain.setValueAtTime(0.015, audioCtx.currentTime);
+
+        shimmerOsc.connect(shimmerGain);
+        shimmerGain.connect(audioCtx.destination);
+        shimmerOsc.start();
+      } catch (e) {
+        console.warn("Web Audio 异常:", e);
+      }
+    }
+
+    function updateAudio(magTot) {
+      if (!audioCtx || !PARAMS.audioEnabled) return;
+
+      // 放大率越高，谐振频率与音量相应上升
+      const targetFreq = 220 + Math.min(800, magTot * 45);
+      shimmerOsc.frequency.setTargetAtTime(targetFreq, audioCtx.currentTime, 0.08);
+
+      const targetGain = Math.min(0.08, 0.01 + (magTot / 20.0) * 0.04);
+      shimmerGain.gain.setTargetAtTime(targetGain, audioCtx.currentTime, 0.08);
+    }
+
+    // --- 引力透镜核心几何与逆向偏折映射 ---
+    // 计算爱因斯坦半径 (像素单位)
+    function getEinsteinRadiusPx() {
+      // θ_E ∝ sqrt(M)
+      return Math.sqrt(PARAMS.mass10_11 / 4.5) * 85.0; // 基准 85 像素
+    }
+
+    // 广义相对论透镜方程逆向映射：从观察者天球坐标 (tx, ty) 映射回源平面坐标 (bx, by)
+    // 采用奇异等温椭球势 (SIE) + 外部剪切 (External Shear)
+    function rayShoot(tx, ty, thetaE) {
+      const q = Math.max(0.2, 1.0 - PARAMS.ellipticity); // 轴比 b/a
+      const q2 = q * q;
+
+      // 椭圆径向距离
+      const rEll = Math.sqrt(q2 * tx * tx + ty * ty) || 1e-4;
+
+      // 偏折角 α_x, α_y
+      let alphaX = 0;
+      let alphaY = 0;
+
+      if (PARAMS.ellipticity < 0.01) {
+        // 球对称点质量 / 奇异等温球体 (SIS)
+        const r = Math.hypot(tx, ty) || 1e-4;
+        alphaX = thetaE * (tx / r);
+        alphaY = thetaE * (ty / r);
+      } else {
+        // 椭圆暗物质晕偏折公式
+        const f = Math.sqrt(Math.max(1e-5, 1.0 - q2));
+        alphaX = (thetaE / f) * Math.atan((f * tx) / (rEll / q));
+        alphaY = (thetaE / f) * Math.atanh((f * ty) / rEll);
+      }
+
+      // 叠加外部宇宙潮汐剪切 (External Shear γ)
+      const shearX = PARAMS.shear * tx;
+      const shearY = -PARAMS.shear * ty;
+
+      const bx = tx - (alphaX + shearX);
+      const by = ty - (alphaY + shearY);
+
+      return { bx, by };
+    }
+
+    // --- 画布与上下文 ---
+    const skyCanvas = document.getElementById('skyPlaneCanvas');
+    const skyCtx = skyCanvas.getContext('2d');
+
+    const causticsCanvas = document.getElementById('causticsCanvas');
+    const causticsCtx = causticsCanvas.getContext('2d');
+
+    const lightCanvas = document.getElementById('lightCurveCanvas');
+    const lightCtx = lightCanvas.getContext('2d');
+
+    function resizeCanvas() {
+      const dpr = window.devicePixelRatio || 1;
+
+      const rectSky = skyCanvas.getBoundingClientRect();
+      skyCanvas.width = rectSky.width * dpr;
+      skyCanvas.height = rectSky.height * dpr;
+      skyCtx.resetTransform();
+      skyCtx.scale(dpr, dpr);
+
+      const rectC = causticsCanvas.getBoundingClientRect();
+      causticsCanvas.width = rectC.width * dpr;
+      causticsCanvas.height = rectC.height * dpr;
+      causticsCtx.resetTransform();
+      causticsCtx.scale(dpr, dpr);
+
+      const rectL = lightCanvas.getBoundingClientRect();
+      lightCanvas.width = rectL.width * dpr;
+      lightCanvas.height = rectL.height * dpr;
+      lightCtx.resetTransform();
+      lightCtx.scale(dpr, dpr);
+    }
+
+    window.addEventListener('resize', resizeCanvas);
+
+    // --- 视口 1：天球面强引力透镜全息成像 ---
+    function renderSkyPlane() {
+      const w = skyCanvas.clientWidth;
+      const h = skyCanvas.clientHeight;
+      const midX = w / 2;
+      const midY = h / 2;
+      const thetaE = getEinsteinRadiusPx();
+
+      skyCtx.fillStyle = '#010309';
+      skyCtx.fillRect(0, 0, w, h);
+
+      // 1. 绘制遥远深空背景静态恒星
+      skyCtx.fillStyle = '#ffffff';
+      for (let star of backgroundStars) {
+        skyCtx.globalAlpha = star.alpha;
+        skyCtx.beginPath();
+        skyCtx.arc(star.x * w, star.y * h, star.radius, 0, Math.PI * 2);
+        skyCtx.fill();
+      }
+      skyCtx.globalAlpha = 1.0;
+
+      // 2. 绘制前景色散透镜星系 (Lens Galaxy Core)
+      const lensGrad = skyCtx.createRadialGradient(midX, midY, 2, midX, midY, 40);
+      lensGrad.addColorStop(0, '#ffd875');
+      lensGrad.addColorStop(0.35, 'rgba(255, 180, 0, 0.45)');
+      lensGrad.addColorStop(1, 'rgba(255, 140, 0, 0.0)');
+
+      skyCtx.beginPath();
+      skyCtx.arc(midX, midY, 40, 0, Math.PI * 2);
+      skyCtx.fillStyle = lensGrad;
+      skyCtx.fill();
+
+      // 前景早型星系核核心
+      skyCtx.beginPath();
+      skyCtx.arc(midX, midY, 5.5, 0, Math.PI * 2);
+      skyCtx.fillStyle = '#fff4cc';
+      skyCtx.shadowColor = '#ffd043';
+      skyCtx.shadowBlur = 10;
+      skyCtx.fill();
+      skyCtx.shadowBlur = 0;
+
+      // 3. 绘制理论爱因斯坦环参考虚线 (Einstein Ring Reference)
+      skyCtx.beginPath();
+      skyCtx.ellipse(midX, midY, thetaE, thetaE * (1.0 - PARAMS.ellipticity * 0.5), 0, 0, Math.PI * 2);
+      skyCtx.strokeStyle = 'rgba(255, 208, 67, 0.25)';
+      skyCtx.setLineDash([3, 4]);
+      skyCtx.lineWidth = 1.5;
+      skyCtx.stroke();
+      skyCtx.setLineDash([]);
+
+      // 4. 逆向光线追踪渲染强引力透镜弯曲像 (Ray-Shooting of Background Source)
+      // 背景源在源平面的实际位置 (相对于透镜中心)
+      const srcX = sourcePos.x;
+      const srcY = sourcePos.y;
+      const srcR = Math.max(4.0, PARAMS.sourceRadius * 120.0);
+
+      // 在天球视口内对重点环状区域进行逐像素逆向反演光线
+      // 为保持高帧率与极高精度，在以透镜为中心的目标网格内逆向插值采样
+      const imgData = skyCtx.getImageData(0, 0, w, h);
+      const data = imgData.data;
+
+      // 采样步长与包围盒 (仅遍历透镜附近 ±1.8 θ_E 区域)
+      const scanSpan = Math.round(thetaE * 2.1);
+      const xMin = Math.max(0, Math.round(midX - scanSpan));
+      const xMax = Math.min(w - 1, Math.round(midX + scanSpan));
+      const yMin = Math.max(0, Math.round(midY - scanSpan));
+      const yMax = Math.min(h - 1, Math.round(midY + scanSpan));
+
+      let totalFlux = 0;
+      let unlensedFlux = 0;
+
+      for (let y = yMin; y <= yMax; y += 2) {
+        for (let x = xMin; x <= xMax; x += 2) {
+          const tx = x - midX;
+          const ty = y - midY;
+
+          // 逆向光线折射
+          const { bx, by } = rayShoot(tx, ty, thetaE);
+
+          // 距离背景源中心的距离
+          const dSrc = Math.hypot(bx - srcX, by - srcY);
+
+          if (dSrc < srcR * 2.2) {
+            // 背景类星体亮度剖面 (高斯发光盘)
+            const normDist = dSrc / srcR;
+            const brightness = Math.exp(-2.2 * normDist * normDist);
+
+            totalFlux += brightness;
+
+            // 像平面发光颜色 (青绿亮色 + 边缘紫金晕)
+            const rVal = Math.min(255, Math.round(brightness * 60 + brightness * brightness * 180));
+            const gVal = Math.min(255, Math.round(brightness * 230));
+            const bVal = Math.min(255, Math.round(brightness * 255));
+            const alphaVal = Math.min(255, Math.round(brightness * 255));
+
+            // 写入像素缓冲 (2x2 块)
+            for (let dy = 0; dy < 2 && y + dy < h; dy++) {
+              for (let dx = 0; dx < 2 && x + dx < w; dx++) {
+                const idx = ((y + dy) * w + (x + dx)) * 4;
+                data[idx] = Math.max(data[idx], rVal);
+                data[idx + 1] = Math.max(data[idx + 1], gVal);
+                data[idx + 2] = Math.max(data[idx + 2], bVal);
+                data[idx + 3] = Math.max(data[idx + 3], alphaVal);
+              }
+            }
+          }
+        }
+      }
+
+      skyCtx.putImageData(imgData, 0, 0);
+
+      // 5. 绘制未偏折背景源实际坐标标记 (Cyan Target Dot)
+      const srcScrX = midX + srcX;
+      const srcScrY = midY + srcY;
+
+      skyCtx.beginPath();
+      skyCtx.arc(srcScrX, srcScrY, srcR, 0, Math.PI * 2);
+      skyCtx.strokeStyle = 'rgba(0, 240, 255, 0.7)';
+      skyCtx.setLineDash([2, 2]);
+      skyCtx.lineWidth = 1.5;
+      skyCtx.stroke();
+      skyCtx.setLineDash([]);
+
+      skyCtx.beginPath();
+      skyCtx.arc(srcScrX, srcScrY, 3, 0, Math.PI * 2);
+      skyCtx.fillStyle = '#00f0ff';
+      skyCtx.shadowColor = '#00f0ff';
+      skyCtx.shadowBlur = 8;
+      skyCtx.fill();
+      skyCtx.shadowBlur = 0;
+
+      skyCtx.fillStyle = '#00f0ff';
+      skyCtx.font = '10px "JetBrains Mono", Consolas, monospace';
+      skyCtx.fillText('真实源位置 β', srcScrX + 8, srcScrY - 6);
+
+      // 6. 估算透镜总放大率 μ_tot
+      const u = Math.hypot(srcX, srcY) / Math.max(1.0, thetaE);
+      const idealMag = (u * u + 2.0) / (Math.max(0.01, u) * Math.sqrt(u * u + 4.0));
+      const curMag = Math.max(1.0, Math.min(35.0, idealMag * (1.0 + PARAMS.ellipticity * 1.5)));
+
+      // 记录光变曲线
+      lightCurveHistory.push(curMag);
+      if (lightCurveHistory.length > LIGHT_CURVE_LEN) lightCurveHistory.shift();
+
+      updateAudio(curMag);
+
+      // 更新 DOM 指标
+      document.getElementById('indThetaE').textContent = `${(thetaE * 0.02).toFixed(2)}″`;
+      document.getElementById('indMag').textContent = `${curMag.toFixed(2)}×`;
+      document.getElementById('magLabel').textContent = `当前放大率 μ_tot: ${curMag.toFixed(1)}×`;
+
+      // 判定当前像数量与像型态
+      const imgTag = document.getElementById('imageConfigTag');
+      const imgCount = document.getElementById('indImageCount');
+      if (u < 0.08 && PARAMS.ellipticity < 0.08) {
+        imgTag.textContent = '像型态：闭合完美爱因斯坦环 (Einstein Ring)';
+        imgCount.textContent = '环状连续像';
+      } else if (u < 0.35 && PARAMS.ellipticity > 0.12) {
+        imgTag.textContent = '像型态：爱因斯坦十字四重像 (Einstein Cross)';
+        imgCount.textContent = '4 像 (十字)';
+      } else if (u < 0.75) {
+        imgTag.textContent = '像型态：非对称弧状多重像 (Giant Luminous Arc)';
+        imgCount.textContent = '双重像 / 巨弧';
+      } else {
+        imgTag.textContent = '像型态：弱剪切微引力像 (Weak Lensing Shift)';
+        imgCount.textContent = '单主像';
+      }
+    }
+
+    // --- 图表 1：焦散线 (Caustics) 与临界曲线 (Critical Curves) ---
+    function renderCaustics() {
+      const w = causticsCanvas.clientWidth;
+      const h = causticsCanvas.clientHeight;
+      causticsCtx.fillStyle = '#01040a';
+      causticsCtx.fillRect(0, 0, w, h);
+
+      const midX = w / 2;
+      const midY = h / 2;
+      const thetaE = getEinsteinRadiusPx() * 0.65;
+
+      // 坐标网格
+      causticsCtx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+      causticsCtx.lineWidth = 1;
+      causticsCtx.beginPath();
+      causticsCtx.moveTo(0, midY); causticsCtx.lineTo(w, midY);
+      causticsCtx.moveTo(midX, 0); causticsCtx.lineTo(midX, h);
+      causticsCtx.stroke();
+
+      // 1. 绘制透镜平面切向临界曲线 (Tangential Critical Curve)
+      causticsCtx.beginPath();
+      causticsCtx.ellipse(midX, midY, thetaE * 1.1, thetaE * (1.1 - PARAMS.ellipticity * 0.7), 0, 0, Math.PI * 2);
+      causticsCtx.strokeStyle = 'rgba(255, 208, 67, 0.7)';
+      causticsCtx.lineWidth = 1.8;
+      causticsCtx.stroke();
+
+      // 2. 绘制源平面钻石型焦散线 (Diamond Astroid Caustic)
+      // 奇异等温椭球的焦散线经典方程：β_x^(2/3) + β_y^(2/3) = Δ^(2/3)
+      const causticSpan = thetaE * (PARAMS.ellipticity * 0.85 + PARAMS.shear * 0.75);
+
+      if (causticSpan > 2.0) {
+        causticsCtx.beginPath();
+        const steps = 80;
+        for (let i = 0; i <= steps; i++) {
+          const t = (i / steps) * Math.PI * 2;
+          const cosT = Math.cos(t);
+          const sinT = Math.sin(t);
+          const cx = Math.pow(Math.abs(cosT), 3) * Math.sign(cosT) * causticSpan;
+          const cy = Math.pow(Math.abs(sinT), 3) * Math.sign(sinT) * causticSpan * 0.85;
+
+          const scrX = midX + cx;
+          const scrY = midY - cy;
+
+          if (i === 0) causticsCtx.moveTo(scrX, scrY);
+          else causticsCtx.lineTo(scrX, scrY);
+        }
+        causticsCtx.strokeStyle = '#c084fc';
+        causticsCtx.lineWidth = 2.2;
+        causticsCtx.stroke();
+      }
+
+      // 3. 标绘背景源当前位置
+      const curSrcX = midX + sourcePos.x * 0.65;
+      const curSrcY = midY + sourcePos.y * 0.65;
+
+      causticsCtx.beginPath();
+      causticsCtx.arc(curSrcX, curSrcY, 4, 0, Math.PI * 2);
+      causticsCtx.fillStyle = '#00f0ff';
+      causticsCtx.shadowColor = '#00f0ff';
+      causticsCtx.shadowBlur = 8;
+      causticsCtx.fill();
+      causticsCtx.shadowBlur = 0;
+
+      // 标注
+      causticsCtx.fillStyle = '#ffd043';
+      causticsCtx.font = '9px monospace';
+      causticsCtx.fillText('临界曲线 (det J = 0)', 8, 18);
+      causticsCtx.fillStyle = '#c084fc';
+      causticsCtx.fillText('焦散线 (多重像边界)', 8, 30);
+    }
+
+    // --- 图表 2：微引力透镜光变曲线 (Paczyński Curve) ---
+    function renderLightCurve() {
+      const w = lightCanvas.clientWidth;
+      const h = lightCanvas.clientHeight;
+      lightCtx.fillStyle = '#01040a';
+      lightCtx.fillRect(0, 0, w, h);
+
+      // 坐标轴
+      const padL = 35;
+      const padB = 25;
+      const plotW = w - padL - 15;
+      const plotH = h - padB - 15;
+
+      lightCtx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+      lightCtx.lineWidth = 1;
+      lightCtx.strokeRect(padL, 15, plotW, plotH);
+
+      // 基准亮度线 μ = 1.0
+      const maxMag = 18.0;
+      const baseNormY = 1.0 / maxMag;
+      const baseY = 15 + plotH * (1.0 - baseNormY);
+      lightCtx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+      lightCtx.setLineDash([3, 3]);
+      lightCtx.beginPath();
+      lightCtx.moveTo(padL, baseY);
+      lightCtx.lineTo(padL + plotW, baseY);
+      lightCtx.stroke();
+      lightCtx.setLineDash([]);
+
+      lightCtx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+      lightCtx.font = '9px monospace';
+      lightCtx.fillText('μ = 1.0 (无透镜基线)', padL + 8, baseY - 3);
+
+      // 绘制实时滚动光变历史
+      if (lightCurveHistory.length > 1) {
+        lightCtx.beginPath();
+        lightCtx.strokeStyle = '#ffd043';
+        lightCtx.lineWidth = 2.2;
+
+        for (let i = 0; i < lightCurveHistory.length; i++) {
+          const mag = lightCurveHistory[i];
+          const x = padL + (i / (LIGHT_CURVE_LEN - 1)) * plotW;
+          const y = 15 + plotH * (1.0 - Math.min(1.0, mag / maxMag));
+
+          if (i === 0) lightCtx.moveTo(x, y);
+          else lightCtx.lineTo(x, y);
+        }
+        lightCtx.stroke();
+
+        // 当前工作点高亮
+        const lastMag = lightCurveHistory[lightCurveHistory.length - 1];
+        const curY = 15 + plotH * (1.0 - Math.min(1.0, lastMag / maxMag));
+        lightCtx.beginPath();
+        lightCtx.arc(padL + plotW, curY, 4.5, 0, Math.PI * 2);
+        lightCtx.fillStyle = '#ffffff';
+        lightCtx.shadowColor = '#ffd043';
+        lightCtx.shadowBlur = 8;
+        lightCtx.fill();
+        lightCtx.shadowBlur = 0;
+      }
+
+      // 坐标轴标注
+      lightCtx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+      lightCtx.font = '9px monospace';
+      lightCtx.fillText('时间演化 t', padL + plotW / 2 - 25, 15 + plotH + 14);
+      lightCtx.fillText('放大率 μ', 5, 24);
+      lightCtx.fillText(`${maxMag}×`, padL - 25, 24);
+    }
+
+    // --- 主循环动效 ---
+    function animate() {
+      // 若处于触发穿越微引力事件中，自动演化源的位置
+      if (sourcePos.isTransiting) {
+        sourcePos.transitT += 0.02;
+        sourcePos.x = -160 + sourcePos.transitT * 180;
+        sourcePos.y = 8.0;
+        if (sourcePos.transitT > 1.8) {
+          sourcePos.isTransiting = false;
+        }
+      }
+
+      renderSkyPlane();
+      renderCaustics();
+      renderLightCurve();
+
+      requestAnimationFrame(animate);
+    }
+
+    // --- 交互控制与事件处理 ---
+    // 滑块同步
+    const sliderMass = document.getElementById('sliderMass');
+    sliderMass.addEventListener('input', (e) => {
+      PARAMS.mass10_11 = parseFloat(e.target.value);
+      document.getElementById('valMass').textContent = PARAMS.mass10_11.toFixed(2);
+    });
+
+    const sliderEllip = document.getElementById('sliderEllipticity');
+    sliderEllip.addEventListener('input', (e) => {
+      PARAMS.ellipticity = parseFloat(e.target.value);
+      document.getElementById('valEllipticity').textContent = PARAMS.ellipticity.toFixed(2);
+    });
+
+    const sliderShear = document.getElementById('sliderShear');
+    sliderShear.addEventListener('input', (e) => {
+      PARAMS.shear = parseFloat(e.target.value);
+      document.getElementById('valShear').textContent = PARAMS.shear.toFixed(2);
+    });
+
+    const sliderBeta = document.getElementById('sliderBeta');
+    sliderBeta.addEventListener('input', (e) => {
+      PARAMS.betaRatio = parseFloat(e.target.value);
+      document.getElementById('valBeta').textContent = PARAMS.betaRatio.toFixed(2);
+      const thetaE = getEinsteinRadiusPx();
+      sourcePos.x = thetaE * PARAMS.betaRatio;
+      sourcePos.y = 0;
+    });
+
+    const sliderSize = document.getElementById('sliderSourceSize');
+    sliderSize.addEventListener('input', (e) => {
+      PARAMS.sourceRadius = parseFloat(e.target.value);
+      document.getElementById('valSourceSize').textContent = `${PARAMS.sourceRadius.toFixed(2)}″`;
+    });
+
+    // 鼠标在天球面画布上拖拽背景源
+    function getSkyCoords(e) {
+      const rect = skyCanvas.getBoundingClientRect();
+      const cx = e.clientX || (e.touches && e.touches[0].clientX);
+      const cy = e.clientY || (e.touches && e.touches[0].clientY);
+      const midX = skyCanvas.clientWidth / 2;
+      const midY = skyCanvas.clientHeight / 2;
+      return {
+        x: (cx - rect.left) - midX,
+        y: (cy - rect.top) - midY
+      };
+    }
+
+    skyCanvas.addEventListener('mousedown', (e) => {
+      initAudio();
+      sourcePos.isDragging = true;
+      const pt = getSkyCoords(e);
+      sourcePos.x = pt.x;
+      sourcePos.y = pt.y;
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (sourcePos.isDragging) {
+        const pt = getSkyCoords(e);
+        sourcePos.x = pt.x;
+        sourcePos.y = pt.y;
+      }
+    });
+
+    window.addEventListener('mouseup', () => {
+      sourcePos.isDragging = false;
+    });
+
+    // 预设快速切换
+    const presetBtns = document.querySelectorAll('.preset-btn');
+    presetBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        presetBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        const preset = btn.dataset.preset;
+        if (preset === 'einstein_ring') {
+          PARAMS.mass10_11 = 4.5;
+          PARAMS.ellipticity = 0.00; // 严格轴对称
+          PARAMS.shear = 0.00;
+          sourcePos.x = 0.0; // 严格中心共线
+          sourcePos.y = 0.0;
+        } else if (preset === 'einstein_cross') {
+          PARAMS.mass10_11 = 5.2;
+          PARAMS.ellipticity = 0.28; // 四极矩产生钻石焦散线
+          PARAMS.shear = 0.04;
+          sourcePos.x = 4.0;
+          sourcePos.y = 3.0; // 落在焦散线菱形正中心
+        } else if (preset === 'giant_arc') {
+          PARAMS.mass10_11 = 9.5; // 大质量星系团
+          PARAMS.ellipticity = 0.35;
+          PARAMS.shear = 0.12;
+          sourcePos.x = 35.0;
+          sourcePos.y = 22.0; // 产生长巨大光弧
+        } else if (preset === 'microlensing') {
+          PARAMS.mass10_11 = 3.2;
+          PARAMS.ellipticity = 0.05;
+          PARAMS.shear = 0.02;
+          sourcePos.isTransiting = true;
+          sourcePos.transitT = 0;
+        }
+
+        // 同步控件
+        sliderMass.value = PARAMS.mass10_11;
+        sliderEllip.value = PARAMS.ellipticity;
+        sliderShear.value = PARAMS.shear;
+        document.getElementById('valMass').textContent = PARAMS.mass10_11.toFixed(2);
+        document.getElementById('valEllipticity').textContent = PARAMS.ellipticity.toFixed(2);
+        document.getElementById('valShear').textContent = PARAMS.shear.toFixed(2);
+      });
+    });
+
+    // 顶部按钮操作
+    document.getElementById('btnCenterAlign').addEventListener('click', () => {
+      initAudio();
+      sourcePos.x = 0;
+      sourcePos.y = 0;
+      PARAMS.ellipticity = 0.0;
+      sliderEllip.value = 0.0;
+      document.getElementById('valEllipticity').textContent = '0.00';
+    });
+
+    document.getElementById('btnAudioToggle').addEventListener('click', () => {
+      PARAMS.audioEnabled = !PARAMS.audioEnabled;
+      const icon = document.getElementById('audioIcon');
+      const text = document.getElementById('audioText');
+      if (PARAMS.audioEnabled) {
+        initAudio();
+        icon.textContent = '🔊';
+        text.textContent = '深空测地线音频: 开';
+      } else {
+        icon.textContent = '🔇';
+        text.textContent = '深空测地线音频: 关';
+        if (spaceDroneGain) spaceDroneGain.gain.setValueAtTime(0, audioCtx.currentTime);
+        if (shimmerGain) shimmerGain.gain.setValueAtTime(0, audioCtx.currentTime);
+      }
+    });
+
+    document.getElementById('btnTransitSource').addEventListener('click', () => {
+      initAudio();
+      sourcePos.isTransiting = true;
+      sourcePos.transitT = 0;
+    });
+
+    // 初始化运行
+    resizeCanvas();
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>

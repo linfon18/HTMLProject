@@ -1,0 +1,1363 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>卡西米尔效应与微机电量子真空力 - Casimir Effect & MEMS Quantum Vacuum</title>
+<style>
+  :root {
+    --bg-dark: #020617;
+    --panel-bg: rgba(15, 23, 42, 0.85);
+    --panel-border: rgba(99, 102, 241, 0.25);
+    --primary: #6366f1;
+    --accent-cyan: #06b6d4;
+    --accent-emerald: #10b981;
+    --accent-rose: #f43f5e;
+    --accent-amber: #f59e0b;
+    --accent-purple: #c084fc;
+    --text-main: #f8fafc;
+    --text-muted: #94a3b8;
+    --font-mono: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    user-select: none;
+  }
+
+  body {
+    background-color: var(--bg-dark);
+    color: var(--text-main);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+  }
+
+  /* 顶栏 HUD */
+  header {
+    background: rgba(2, 6, 23, 0.94);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--panel-border);
+    padding: 0.75rem 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 50;
+  }
+
+  .brand-group {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .brand-badge {
+    background: linear-gradient(135deg, #4f46e5, #06b6d4);
+    color: white;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 0.25rem 0.65rem;
+    border-radius: 6px;
+    letter-spacing: 0.08em;
+    box-shadow: 0 0 15px rgba(99, 102, 241, 0.4);
+  }
+
+  h1 {
+    font-size: 1.15rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    background: linear-gradient(to right, #ffffff, #c7d2fe, #38bdf8);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .nav-stats {
+    display: flex;
+    gap: 1.25rem;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+  }
+
+  .stat-chip {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .stat-label {
+    color: var(--text-muted);
+  }
+
+  .stat-val {
+    color: var(--accent-cyan);
+    font-weight: 600;
+  }
+
+  /* 主网格布局 */
+  main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 390px;
+    gap: 1rem;
+    padding: 1rem 1.5rem;
+    max-width: 1920px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  @media (max-width: 1180px) {
+    main {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  /* 左侧主模拟视窗 */
+  .simulation-view {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .canvas-card {
+    position: relative;
+    background: #01040f;
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    overflow: hidden;
+    height: 570px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.7);
+    display: flex;
+    flex-direction: column;
+  }
+
+  #mainCanvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    cursor: grab;
+  }
+
+  #mainCanvas:active {
+    cursor: grabbing;
+  }
+
+  /* 悬浮控制层 */
+  .canvas-overlay-top {
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    right: 1rem;
+    display: flex;
+    justify-content: space-between;
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  .mode-indicator {
+    background: rgba(15, 23, 42, 0.88);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--panel-border);
+    padding: 0.4rem 0.85rem;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.82rem;
+  }
+
+  .mode-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent-cyan);
+    box-shadow: 0 0 10px var(--accent-cyan);
+    animation: pulseGlow 1.8s infinite ease-in-out;
+  }
+
+  @keyframes pulseGlow {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.35; transform: scale(0.85); }
+  }
+
+  .canvas-overlay-bottom {
+    position: absolute;
+    bottom: 1rem;
+    left: 1rem;
+    right: 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  .toolbar {
+    display: flex;
+    gap: 0.5rem;
+    background: rgba(15, 23, 42, 0.9);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--panel-border);
+    padding: 0.4rem 0.6rem;
+    border-radius: 10px;
+    pointer-events: auto;
+  }
+
+  .btn {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: var(--text-main);
+    padding: 0.38rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    transition: all 0.2s ease;
+  }
+
+  .btn:hover {
+    background: rgba(99, 102, 241, 0.25);
+    border-color: rgba(99, 102, 241, 0.5);
+    transform: translateY(-1px);
+  }
+
+  .btn.active {
+    background: var(--primary);
+    border-color: #818cf8;
+    color: #ffffff;
+    box-shadow: 0 0 12px rgba(99, 102, 241, 0.4);
+  }
+
+  /* 底部快速诊断条 */
+  .quick-metrics {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.75rem;
+  }
+
+  .metric-card {
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    padding: 0.65rem 0.9rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .metric-title {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .metric-value {
+    font-family: var(--font-mono);
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #ffffff;
+    display: flex;
+    align-items: baseline;
+    gap: 0.3rem;
+  }
+
+  .metric-unit {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    font-weight: normal;
+  }
+
+  /* 右侧综合面板 */
+  aside {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+  }
+
+  .panel-box {
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    padding: 1.1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+    backdrop-filter: blur(12px);
+  }
+
+  .panel-box h2 {
+    font-size: 0.9rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    letter-spacing: 0.02em;
+    color: #e2e8f0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    padding-bottom: 0.5rem;
+  }
+
+  .panel-tag {
+    font-size: 0.7rem;
+    color: var(--accent-cyan);
+    font-family: var(--font-mono);
+    background: rgba(6, 182, 212, 0.1);
+    padding: 0.15rem 0.45rem;
+    border-radius: 4px;
+    border: 1px solid rgba(6, 182, 212, 0.2);
+  }
+
+  /* 模式网格 */
+  .mode-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+  }
+
+  .mode-btn {
+    background: rgba(15, 23, 42, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    padding: 0.65rem 0.6rem;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+
+  .mode-btn:hover {
+    border-color: rgba(99, 102, 241, 0.4);
+    background: rgba(30, 41, 59, 0.8);
+  }
+
+  .mode-btn.active {
+    background: rgba(99, 102, 241, 0.25);
+    border-color: var(--primary);
+    box-shadow: 0 0 15px rgba(99, 102, 241, 0.25);
+  }
+
+  .mode-btn-name {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #ffffff;
+  }
+
+  .mode-btn-desc {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    line-height: 1.25;
+  }
+
+  /* 控制滑块行 */
+  .control-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .control-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.78rem;
+  }
+
+  .control-title {
+    color: var(--text-muted);
+  }
+
+  .control-val {
+    font-family: var(--font-mono);
+    color: var(--accent-cyan);
+    font-weight: 500;
+  }
+
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 5px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.1);
+    outline: none;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--accent-cyan);
+    cursor: pointer;
+    box-shadow: 0 0 8px var(--accent-cyan);
+    transition: transform 0.1s;
+  }
+
+  input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+  }
+
+  /* 辅助图表 */
+  .chart-container {
+    position: relative;
+    width: 100%;
+    height: 135px;
+    background: #01040f;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    overflow: hidden;
+  }
+
+  .chart-canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  .formula-card {
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    padding: 0.65rem 0.8rem;
+    font-family: var(--font-mono);
+    font-size: 0.74rem;
+    color: #cbd5e1;
+    line-height: 1.5;
+  }
+
+  .formula-highlight {
+    color: var(--accent-amber);
+  }
+
+  .toast {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    background: rgba(15, 23, 42, 0.95);
+    border: 1px solid var(--accent-cyan);
+    color: #ffffff;
+    padding: 0.6rem 1.1rem;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    transform: translateY(10px);
+    z-index: 100;
+  }
+
+  .toast.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand-group">
+    <div class="brand-badge">QED QUANTUM VACUUM</div>
+    <h1>卡西米尔效应与微机电量子真空力全息交互</h1>
+  </div>
+  <div class="nav-stats">
+    <div class="stat-chip">
+      <span class="stat-label">真空压强 P_Casimir:</span>
+      <span class="stat-val" id="statCasimirPressure">-1.32 kPa</span>
+    </div>
+    <div class="stat-chip">
+      <span class="stat-label">当前纳米间隙 d:</span>
+      <span class="stat-val" id="statGapDist">120.0 nm</span>
+    </div>
+    <div class="stat-chip">
+      <span class="stat-label">微悬臂平衡状态:</span>
+      <span class="stat-val" id="statBalanceStatus" style="color:var(--accent-emerald);">STABLE</span>
+    </div>
+  </div>
+</header>
+
+<main>
+  <!-- 左侧主模拟视窗 -->
+  <div class="simulation-view">
+    <div class="canvas-card">
+      <canvas id="mainCanvas"></canvas>
+
+      <!-- 顶部 HUD 指示 -->
+      <div class="canvas-overlay-top">
+        <div class="mode-indicator">
+          <div class="mode-dot" id="modeDot"></div>
+          <span id="modeDisplayTitle">理想真空卡西米尔吸引态 (Vacuum Attraction)</span>
+        </div>
+        <div class="mode-indicator" style="font-family:var(--font-mono); font-size:0.78rem;">
+          <span>吸合崩塌边界: </span>
+          <span style="color:var(--accent-amber);" id="hudPullIn">d_crit = 64.0 nm</span>
+        </div>
+      </div>
+
+      <!-- 底部控制按钮 -->
+      <div class="canvas-overlay-bottom">
+        <div class="mode-indicator" style="font-family:var(--font-mono); font-size:0.75rem;">
+          <div>量子净作用力 F_net: <span style="color:var(--accent-rose);" id="hudNetForce">-18.4 nN</span></div>
+          <div>机械回复力 F_spring: <span style="color:var(--accent-emerald);" id="hudSpringForce">+17.8 nN</span></div>
+        </div>
+
+        <div class="toolbar">
+          <button class="btn" id="btnPlayPause">
+            <span id="playIcon">⏸</span> 暂停
+          </button>
+          <button class="btn" id="btnPerturb">⚡ 机械扰动</button>
+          <button class="btn" id="btnResetMem">🔄 复位悬臂</button>
+          <button class="btn active" id="btnVacuumModes">🌌 驻波模态</button>
+          <button class="btn active" id="btnAudio">🔊 声效</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 快速指标条 -->
+    <div class="quick-metrics">
+      <div class="metric-card">
+        <span class="metric-title">虚光子模式截断比</span>
+        <div class="metric-value">
+          <span id="metricModeRatio">0.14</span>
+          <span class="metric-unit">N_in / N_out</span>
+        </div>
+      </div>
+      <div class="metric-card">
+        <span class="metric-title">静电诱导引力 F_elec</span>
+        <div class="metric-value">
+          <span id="metricFElec">0.00</span>
+          <span class="metric-unit">nN</span>
+        </div>
+      </div>
+      <div class="metric-card">
+        <span class="metric-title">悬臂梁固有振动频率</span>
+        <div class="metric-value">
+          <span id="metricFreqRes">42.8</span>
+          <span class="metric-unit">kHz</span>
+        </div>
+      </div>
+      <div class="metric-card">
+        <span class="metric-title">DCE真实微波光子产率</span>
+        <div class="metric-value">
+          <span id="metricDCEPhotons" style="color:var(--accent-cyan);">0</span>
+          <span class="metric-unit">pairs/s</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 右侧交互与解析面板 -->
+  <aside>
+    <!-- 物理工况选择 -->
+    <div class="panel-box">
+      <h2>
+        <span>微机电工况与量子模式</span>
+        <span class="panel-tag">EXPERIMENT</span>
+      </h2>
+      <div class="mode-grid">
+        <div class="mode-btn active" data-mode="vacuum">
+          <div class="mode-btn-name">① 经典真空吸引</div>
+          <div class="mode-btn-desc">零点能模式截断，纯负辐射压强吸引</div>
+        </div>
+        <div class="mode-btn" data-mode="repulsive">
+          <div class="mode-btn-name">② 介电液体量子悬浮</div>
+          <div class="mode-btn-desc">ε₁&gt;ε_fluid&gt;ε₂反转为正排斥压强，自稳定</div>
+        </div>
+        <div class="mode-btn" data-mode="dce">
+          <div class="mode-btn-name">③ 动力学DCE光子激发</div>
+          <div class="mode-btn-desc">高频相对论振动边界将虚光子激发为真实光子对</div>
+        </div>
+        <div class="mode-btn" data-mode="collapse">
+          <div class="mode-btn-name">④ MEMS吸合崩塌失稳</div>
+          <div class="mode-btn-desc">突破弹性势能垒，发生不可逆接触粘附</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 几何与力学控制滑块 -->
+    <div class="panel-box">
+      <h2>
+        <span>微纳结构与静电力学参数</span>
+        <span class="panel-tag">CONTROLS</span>
+      </h2>
+
+      <div class="control-row">
+        <div class="control-header">
+          <span class="control-title">初始未受力静态间隙 d₀</span>
+          <span class="control-val" id="valD0">160 nm</span>
+        </div>
+        <input type="range" id="rangeD0" min="40" max="400" step="2" value="160">
+      </div>
+
+      <div class="control-row">
+        <div class="control-header">
+          <span class="control-title">微悬臂机械刚度系数 k</span>
+          <span class="control-val" id="valK">0.45 N/m</span>
+        </div>
+        <input type="range" id="rangeK" min="0.05" max="2.5" step="0.05" value="0.45">
+      </div>
+
+      <div class="control-row">
+        <div class="control-header">
+          <span class="control-title">偏置静电电压 V_bias</span>
+          <span class="control-val" id="valVbias">0.00 V</span>
+        </div>
+        <input type="range" id="rangeVbias" min="0.0" max="6.0" step="0.1" value="0.0">
+      </div>
+
+      <div class="control-row">
+        <div class="control-header">
+          <span class="control-title">介质粘性阻尼比 γ</span>
+          <span class="control-val" id="valGamma">0.15</span>
+        </div>
+        <input type="range" id="rangeGamma" min="0.02" max="0.6" step="0.02" value="0.15">
+      </div>
+    </div>
+
+    <!-- 图表 1：双对数 Casimir 力-间距曲线 -->
+    <div class="panel-box">
+      <h2>
+        <span>卡西米尔力-间隙特征曲线 log(F)-log(d)</span>
+        <span class="panel-tag">FORCE CURVE</span>
+      </h2>
+      <div class="chart-container">
+        <canvas class="chart-canvas" id="forceCanvas"></canvas>
+      </div>
+      <div class="formula-card">
+        <div>P_Casimir = - <span class="formula-highlight">(π² ħ c) / (240 d⁴)</span></div>
+        <div>F_Lifshitz = η(d, ω_p, T) · F_Casimir</div>
+      </div>
+    </div>
+
+    <!-- 图表 2：微机电总势能曲面 U_eff(d) -->
+    <div class="panel-box">
+      <h2>
+        <span>微机电总有效势能井 U_total(d)</span>
+        <span class="panel-tag">POTENTIAL WELL</span>
+      </h2>
+      <div class="chart-container">
+        <canvas class="chart-canvas" id="potentialCanvas"></canvas>
+      </div>
+    </div>
+  </aside>
+</main>
+
+<div class="toast" id="toast">微悬臂梁位置已复位</div>
+
+<script>
+/**
+ * 卡西米尔效应与微机电量子真空力 (Casimir Effect & MEMS Quantum Vacuum Force)
+ * 结合 QED 真空零点能模式截断、Lifshitz 色散修正与非线性动力学吸合仿真
+ */
+
+// 物理状态变量
+let d0 = 160.0;           // 未形变名义间隙 (nm)
+let currentD = 160.0;     // 实时瞬时间隙 (nm)
+let velD = 0.0;           // 悬臂梁振动速度 (nm/s)
+let kSpring = 0.45;       // 机械弹性刚度 (N/m)
+let vBias = 0.0;          // 静电偏置电压 (V)
+let damping = 0.15;       // 阻尼系数
+let isCollapsed = false;  // 是否发生拉脱吸附触底 (Stiction Collapse)
+let collapseTimer = 0;
+
+// 工况模式
+let currentMode = 'vacuum'; // 'vacuum', 'repulsive', 'dce', 'collapse'
+let isPlaying = true;
+let showModes = true;
+let audioEnabled = true;
+let simTime = 0;
+
+// DCE 真实光子辐射粒子系统
+let dcePhotons = [];
+const NUM_VIRTUAL_PAIRS = 40;
+let virtualPairs = [];
+
+function initVirtualPairs() {
+  virtualPairs = [];
+  for (let i = 0; i < NUM_VIRTUAL_PAIRS; i++) {
+    virtualPairs.push({
+      x: Math.random(),
+      y: Math.random(),
+      phase: Math.random() * Math.PI * 2,
+      life: Math.random() * 20 + 10,
+      inside: false
+    });
+  }
+}
+initVirtualPairs();
+
+// 物理力常数标度 (经数值缩放以便宏观微纳仿真显示)
+const HBAR_C_SCALE = 3.16e-26; // J·m
+const PLATE_AREA = 100e-12;    // 100 μm²
+const EPS_0 = 8.854e-12;       // F/m
+const MASS_CANTILEVER = 2.5e-11; // 25 ng 微悬臂梁有效质量
+
+// 计算卡西米尔力 F_casimir (单位：nN，负值为吸引，正值为排斥)
+function calcCasimirForce(gapNm) {
+  const dMeters = Math.max(12.0, gapNm) * 1e-9;
+  // 理想导体卡西米尔压强: P = - (pi^2 * hbar * c) / (240 * d^4)
+  const idealP = -(Math.PI * Math.PI * 3.1615e-26) / (240.0 * Math.pow(dMeters, 4));
+  let force = idealP * PLATE_AREA * 1e9; // 转换至 nN
+
+  // Lifshitz 修正因子：在极小间隙处因等离子体波长有限导致引力减弱
+  const lambdaP = 137.0; // 金的等离子体波长 (nm)
+  const etaLifshitz = 1.0 / (1.0 + 1.15 * (lambdaP / gapNm));
+  force *= etaLifshitz;
+
+  if (currentMode === 'repulsive') {
+    // 介电液体中的排斥卡西米尔力：在 ~65 nm 处存在自稳定平衡零点
+    const eqDist = 65.0;
+    const repScale = 1.25;
+    force = repScale * Math.abs(force) * Math.tanh((eqDist - gapNm) / 25.0);
+  }
+
+  return force;
+}
+
+// 计算静电力 F_elec (单位：nN)
+function calcElectrostaticForce(gapNm) {
+  if (vBias <= 0.001) return 0.0;
+  const dMeters = Math.max(12.0, gapNm) * 1e-9;
+  const f = - (0.5 * EPS_0 * PLATE_AREA * vBias * vBias) / (dMeters * dMeters);
+  return f * 1e9; // nN
+}
+
+// 微悬臂动力学二阶微分方程步进
+function stepDynamics() {
+  simTime += 0.016;
+
+  if (isCollapsed) {
+    // 维持接触吸附状态
+    currentD = 12.0;
+    velD = 0;
+    collapseTimer++;
+    return;
+  }
+
+  const dt = 0.0018; // 仿真微步长
+  for (let s = 0; s < 4; s++) {
+    const fCasimir = calcCasimirForce(currentD);
+    const fElec = calcElectrostaticForce(currentD);
+    const fSpring = kSpring * (d0 - currentD); // 弹性恢复力 (nN)
+
+    // 动力学 DCE 模式下的高频边界驱动力
+    let fDCE = 0;
+    if (currentMode === 'dce') {
+      fDCE = 12.0 * Math.sin(simTime * 280.0);
+      // 产生激发真实光子对
+      if (Math.random() < 0.35) {
+        dcePhotons.push({
+          x: Math.random() * 0.6 + 0.2,
+          y: currentD,
+          vx: (Math.random() - 0.5) * 4.5,
+          vy: (Math.random() < 0.5 ? 1 : -1) * (Math.random() * 3.5 + 2.0),
+          life: 45
+        });
+      }
+    }
+
+    const totalF = fCasimir + fElec + fSpring + fDCE;
+    // 加速度 a = F / m (经量纲归一化缩放)
+    const accel = (totalF * 1.8) - damping * velD;
+    velD += accel * dt;
+    currentD -= velD * dt;
+
+    // 碰撞检测与拉脱吸附判定
+    if (currentD <= 14.0) {
+      currentD = 12.0;
+      isCollapsed = true;
+      velD = 0;
+      playClickSound();
+      showToast('⚠️ 发生卡西米尔拉脱吸附崩塌 (Stiction Pull-in)!');
+      break;
+    }
+  }
+
+  // 更新 DCE 光子发射轨迹
+  for (let i = dcePhotons.length - 1; i >= 0; i--) {
+    const p = dcePhotons[i];
+    p.life--;
+    p.x += p.vx * 0.002;
+    p.y += p.vy * 0.4;
+    if (p.life <= 0) dcePhotons.splice(i, 1);
+  }
+}
+
+// 主渲染 Canvas
+const canvas = document.getElementById('mainCanvas');
+const ctx = canvas.getContext('2d');
+
+function resizeCanvas() {
+  const rect = canvas.parentElement.getBoundingClientRect();
+  canvas.width = rect.width;
+  canvas.height = rect.height;
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+// 全息微机电芯片与量子真空腔绘制
+function renderSimulation() {
+  const w = canvas.width;
+  const h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+
+  // 背景微弱量子晶格
+  ctx.strokeStyle = 'rgba(99, 102, 241, 0.05)';
+  ctx.lineWidth = 1;
+  const step = 30;
+  for (let x = 0; x < w; x += step) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+  }
+  for (let y = 0; y < h; y += step) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+  }
+
+  const cx = w * 0.5;
+  const cy = h * 0.48;
+  const plateW = Math.min(w * 0.65, 480);
+  const plateThickness = 28;
+
+  // 映射纳米间隙到画布像素高度 (12 nm ~ 400 nm -> 16 px ~ 220 px)
+  const gapPx = 16 + (currentD / 400.0) * 190;
+  const bottomY = cy + gapPx * 0.5;
+  const topY = cy - gapPx * 0.5;
+
+  // 1. 外部真空零点能涨落虚粒子对云雾
+  ctx.save();
+  for (let vp of virtualPairs) {
+    vp.phase += 0.08;
+    const alpha = Math.abs(Math.sin(vp.phase)) * 0.35;
+    const vx = (vp.x - 0.5) * (plateW + 120) + cx;
+    const vy = (vp.y < 0.5) ? topY - 25 - vp.y * 140 : bottomY + 25 + vp.y * 140;
+
+    ctx.fillStyle = `rgba(6, 182, 212, ${alpha})`;
+    ctx.beginPath();
+    ctx.arc(vx - 4, vy, 2.0, 0, Math.PI * 2);
+    ctx.arc(vx + 4, vy, 2.0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 虚光子对自发纠缠微弱连线
+    ctx.strokeStyle = `rgba(6, 182, 212, ${alpha * 0.5})`;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(vx - 4, vy);
+    ctx.lineTo(vx + 4, vy);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // 2. 板间电磁驻波模态 (几何截断机制可视化)
+  if (showModes) {
+    ctx.save();
+    const modesCount = Math.max(1, Math.floor(currentD / 32.0));
+    const modeSpacing = gapPx / modesCount;
+
+    for (let m = 1; m <= modesCount; m++) {
+      const modeY = topY + (m - 0.5) * modeSpacing;
+      ctx.strokeStyle = `rgba(99, 102, 241, ${0.15 + (m / modesCount) * 0.25})`;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      const waveSamples = 40;
+      for (let s = 0; s <= waveSamples; s++) {
+        const u = s / waveSamples;
+        const wx = (cx - plateW * 0.5) + u * plateW;
+        const amp = Math.sin(u * Math.PI * m) * (modeSpacing * 0.32) * Math.sin(simTime * 6.0 + m);
+        const wy = modeY + amp;
+        if (s === 0) ctx.moveTo(wx, wy);
+        else ctx.lineTo(wx, wy);
+      }
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // 3. DCE 真实微波光子对激发辐射
+  if (dcePhotons.length > 0) {
+    ctx.save();
+    for (let p of dcePhotons) {
+      const px = (cx - plateW * 0.5) + p.x * plateW;
+      const py = cy + (p.y - currentD * 0.5);
+      const alpha = p.life / 45.0;
+      ctx.fillStyle = `rgba(245, 158, 11, ${alpha})`;
+      ctx.shadowColor = '#f59e0b';
+      ctx.shadowBlur = 10;
+      ctx.beginPath();
+      ctx.arc(px, py, 3.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  // 4. 下固定电极板 (Substrate Electrode)
+  ctx.save();
+  const gradBottom = ctx.createLinearGradient(cx, bottomY, cx, bottomY + plateThickness);
+  gradBottom.addColorStop(0, '#334155');
+  gradBottom.addColorStop(1, '#0f172a');
+  ctx.fillStyle = gradBottom;
+  ctx.fillRect(cx - plateW * 0.5, bottomY, plateW, plateThickness);
+  ctx.strokeStyle = '#64748b';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(cx - plateW * 0.5, bottomY, plateW, plateThickness);
+
+  // 表面金反射层高亮
+  ctx.strokeStyle = '#f59e0b';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(cx - plateW * 0.5, bottomY);
+  ctx.lineTo(cx + plateW * 0.5, bottomY);
+  ctx.stroke();
+
+  ctx.fillStyle = '#94a3b8';
+  ctx.font = '10px var(--font-mono)';
+  ctx.textAlign = 'center';
+  ctx.fillText('固定基底金电极 (Fixed Ground Electrode)', cx, bottomY + 18);
+  ctx.restore();
+
+  // 5. 上移动微悬臂梁 (Movable Cantilever Plate)
+  ctx.save();
+  const gradTop = ctx.createLinearGradient(cx, topY - plateThickness, cx, topY);
+  gradTop.addColorStop(0, '#1e1b4b');
+  gradTop.addColorStop(1, '#4338ca');
+  ctx.fillStyle = gradTop;
+  ctx.fillRect(cx - plateW * 0.5, topY - plateThickness, plateW, plateThickness);
+  ctx.strokeStyle = '#818cf8';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(cx - plateW * 0.5, topY - plateThickness, plateW, plateThickness);
+
+  // 悬臂梁底反射面高亮
+  ctx.strokeStyle = '#06b6d4';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(cx - plateW * 0.5, topY);
+  ctx.lineTo(cx + plateW * 0.5, topY);
+  ctx.stroke();
+
+  // 悬臂梁固定端夹持柱 (Anchor)
+  ctx.fillStyle = '#1e293b';
+  ctx.fillRect(cx - plateW * 0.5 - 28, topY - plateThickness - 20, 28, plateThickness + 40);
+  ctx.strokeStyle = '#475569';
+  ctx.strokeRect(cx - plateW * 0.5 - 28, topY - plateThickness - 20, 28, plateThickness + 40);
+
+  ctx.fillStyle = '#ffffff';
+  ctx.font = '10px var(--font-mono)';
+  ctx.textAlign = 'center';
+  ctx.fillText('可动微悬臂梁 (MEMS Cantilever Beam)', cx, topY - 10);
+  ctx.restore();
+
+  // 6. 间隙标尺与纳米读数标注
+  ctx.save();
+  const rulerX = cx + plateW * 0.5 + 24;
+  ctx.strokeStyle = '#38bdf8';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(rulerX, topY);
+  ctx.lineTo(rulerX, bottomY);
+  ctx.moveTo(rulerX - 6, topY);
+  ctx.lineTo(rulerX + 6, topY);
+  ctx.moveTo(rulerX - 6, bottomY);
+  ctx.lineTo(rulerX + 6, bottomY);
+  ctx.stroke();
+
+  ctx.fillStyle = '#38bdf8';
+  ctx.font = '11px var(--font-mono)';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(`d = ${currentD.toFixed(1)} nm`, rulerX + 12, (topY + bottomY) * 0.5);
+
+  if (isCollapsed) {
+    ctx.fillStyle = '#f43f5e';
+    ctx.font = 'bold 12px var(--font-mono)';
+    ctx.fillText('【吸附粘滞 COLLAPSE】', rulerX + 12, (topY + bottomY) * 0.5 + 18);
+  }
+  ctx.restore();
+}
+
+// 辅助图表 1：双对数 Casimir 力-间距曲线
+const forceCanvas = document.getElementById('forceCanvas');
+const forceCtx = forceCanvas.getContext('2d');
+
+function renderForceChart() {
+  const w = forceCanvas.width = forceCanvas.parentElement.clientWidth;
+  const h = forceCanvas.height = forceCanvas.parentElement.clientHeight;
+  forceCtx.clearRect(0, 0, w, h);
+
+  const padL = 35;
+  const padR = 15;
+  const padT = 15;
+  const padB = 25;
+  const plotW = w - padL - padR;
+  const plotH = h - padT - padB;
+
+  // 网格
+  forceCtx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
+  forceCtx.lineWidth = 1;
+  for (let x = padL; x <= padL + plotW; x += plotW * 0.25) {
+    forceCtx.beginPath(); forceCtx.moveTo(x, padT); forceCtx.lineTo(x, padT + plotH); forceCtx.stroke();
+  }
+  for (let y = padT; y <= padT + plotH; y += plotH * 0.5) {
+    forceCtx.beginPath(); forceCtx.moveTo(padL, y); forceCtx.lineTo(padL + plotW, y); forceCtx.stroke();
+  }
+
+  // 坐标轴标签 (对数轴 log d: 20nm ~ 400nm)
+  forceCtx.fillStyle = '#64748b';
+  forceCtx.font = '9px var(--font-mono)';
+  forceCtx.fillText('20nm', padL, h - 8);
+  forceCtx.fillText('100nm', padL + plotW * 0.5 - 12, h - 8);
+  forceCtx.fillText('400nm', padL + plotW - 20, h - 8);
+  forceCtx.fillText('100nN', 2, padT + 8);
+  forceCtx.fillText('0.1nN', 2, padT + plotH);
+
+  // 1. 理论 -4 斜率曲线 (对数空间)
+  forceCtx.beginPath();
+  forceCtx.strokeStyle = '#c084fc';
+  forceCtx.lineWidth = 1.8;
+  const samples = 60;
+  for (let i = 0; i <= samples; i++) {
+    const t = i / samples;
+    const gNm = 20.0 * Math.pow(400.0 / 20.0, t);
+    const fc = Math.abs(calcCasimirForce(gNm));
+    // log10(F) 范围约 0.01 ~ 150 nN
+    const logF = (Math.log10(Math.max(0.01, fc)) + 2.0) / 4.2; // 归一化至 0~1
+    const px = padL + t * plotW;
+    const py = padT + plotH - Math.max(0, Math.min(1.0, logF)) * plotH;
+    if (i === 0) forceCtx.moveTo(px, py);
+    else forceCtx.lineTo(px, py);
+  }
+  forceCtx.stroke();
+
+  // 2. 机械弹性力曲线 F_spring = k*(d0 - d)
+  forceCtx.beginPath();
+  forceCtx.strokeStyle = '#10b981';
+  forceCtx.lineWidth = 1.5;
+  for (let i = 0; i <= samples; i++) {
+    const t = i / samples;
+    const gNm = 20.0 * Math.pow(400.0 / 20.0, t);
+    const fsp = Math.max(0.01, kSpring * (d0 - gNm));
+    const logF = (Math.log10(Math.max(0.01, fsp)) + 2.0) / 4.2;
+    const px = padL + t * plotW;
+    const py = padT + plotH - Math.max(0, Math.min(1.0, logF)) * plotH;
+    if (i === 0) forceCtx.moveTo(px, py);
+    else forceCtx.lineTo(px, py);
+  }
+  forceCtx.stroke();
+
+  // 当前工作间隙标记
+  const curT = Math.log(currentD / 20.0) / Math.log(400.0 / 20.0);
+  const curPx = padL + Math.max(0, Math.min(1.0, curT)) * plotW;
+  const curF = Math.abs(calcCasimirForce(currentD));
+  const curLogF = (Math.log10(Math.max(0.01, curF)) + 2.0) / 4.2;
+  const curPy = padT + plotH - Math.max(0, Math.min(1.0, curLogF)) * plotH;
+
+  forceCtx.fillStyle = '#f43f5e';
+  forceCtx.beginPath();
+  forceCtx.arc(curPx, curPy, 4.5, 0, Math.PI * 2);
+  forceCtx.fill();
+  forceCtx.strokeStyle = '#ffffff';
+  forceCtx.lineWidth = 1.2;
+  forceCtx.stroke();
+}
+
+// 辅助图表 2：微机电总有效势能井 U_total(d)
+const potCanvas = document.getElementById('potentialCanvas');
+const potCtx = potCanvas.getContext('2d');
+
+function renderPotentialChart() {
+  const w = potCanvas.width = potCanvas.parentElement.clientWidth;
+  const h = potCanvas.height = potCanvas.parentElement.clientHeight;
+  potCtx.clearRect(0, 0, w, h);
+
+  const padL = 35;
+  const padR = 15;
+  const padT = 15;
+  const padB = 25;
+  const plotW = w - padL - padR;
+  const plotH = h - padT - padB;
+
+  potCtx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
+  potCtx.lineWidth = 1;
+  potCtx.beginPath();
+  potCtx.moveTo(padL, padT + plotH * 0.5);
+  potCtx.lineTo(padL + plotW, padT + plotH * 0.5);
+  potCtx.stroke();
+
+  // 势能曲线: U(d) = 0.5*k*(d0 - d)^2 - int(F_casimir)
+  potCtx.beginPath();
+  potCtx.strokeStyle = '#38bdf8';
+  potCtx.lineWidth = 2;
+  const samples = 80;
+  let minU = 999;
+  let maxU = -999;
+  const uVals = [];
+
+  for (let i = 0; i <= samples; i++) {
+    const dVal = 18.0 + (i / samples) * 360.0;
+    // 弹性势能
+    const uSpring = 0.5 * kSpring * Math.pow((d0 - dVal), 2) * 1e-3;
+    // Casimir 势能 ~ -1/d^3
+    const uCasimir = - (120.0 / Math.pow(Math.max(15.0, dVal), 1.8));
+    const uTot = uSpring + uCasimir;
+    uVals.push(uTot);
+    if (uTot < minU) minU = uTot;
+    if (uTot > maxU) maxU = uTot;
+  }
+
+  for (let i = 0; i <= samples; i++) {
+    const px = padL + (i / samples) * plotW;
+    const normU = (uVals[i] - minU) / Math.max(0.1, maxU - minU);
+    const py = padT + plotH - normU * plotH * 0.85 - plotH * 0.08;
+    if (i === 0) potCtx.moveTo(px, py);
+    else potCtx.lineTo(px, py);
+  }
+  potCtx.stroke();
+
+  // 当前位置势能点
+  const curRatio = Math.max(0, Math.min(1.0, (currentD - 18.0) / 360.0));
+  const curIdx = Math.floor(curRatio * samples);
+  const curU = uVals[curIdx] || 0;
+  const curNormU = (curU - minU) / Math.max(0.1, maxU - minU);
+  const curPx = padL + curRatio * plotW;
+  const curPy = padT + plotH - curNormU * plotH * 0.85 - plotH * 0.08;
+
+  potCtx.fillStyle = '#f59e0b';
+  potCtx.beginPath();
+  potCtx.arc(curPx, curPy, 4.5, 0, Math.PI * 2);
+  potCtx.fill();
+  potCtx.strokeStyle = '#ffffff';
+  potCtx.lineWidth = 1.2;
+  potCtx.stroke();
+}
+
+// Web Audio 声学反馈
+let audioCtx = null;
+let noiseNode = null;
+let humOsc = null;
+
+function initAudio() {
+  if (audioCtx) return;
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextClass) return;
+  audioCtx = new AudioContextClass();
+
+  // 微波白噪声 (模拟零点能散粒噪声)
+  const bufferSize = audioCtx.sampleRate * 2;
+  const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+  const output = noiseBuffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) {
+    output[i] = (Math.random() * 2 - 1) * 0.008;
+  }
+  noiseNode = audioCtx.createBufferSource();
+  noiseNode.buffer = noiseBuffer;
+  noiseNode.loop = true;
+
+  const noiseFilter = audioCtx.createBiquadFilter();
+  noiseFilter.type = 'bandpass';
+  noiseFilter.frequency.value = 1800;
+  noiseFilter.Q.value = 3.0;
+
+  humOsc = audioCtx.createOscillator();
+  humOsc.type = 'sine';
+  humOsc.frequency.setValueAtTime(140, audioCtx.currentTime);
+  const humGain = audioCtx.createGain();
+  humGain.gain.setValueAtTime(0.015, audioCtx.currentTime);
+
+  noiseNode.connect(noiseFilter);
+  noiseFilter.connect(audioCtx.destination);
+  humOsc.connect(humGain);
+  humGain.connect(audioCtx.destination);
+
+  noiseNode.start();
+  humOsc.start();
+}
+
+function playClickSound() {
+  if (!audioCtx || !audioEnabled) return;
+  const osc = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  osc.type = 'triangle';
+  osc.frequency.setValueAtTime(820, audioCtx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(110, audioCtx.currentTime + 0.08);
+  g.gain.setValueAtTime(0.08, audioCtx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.08);
+  osc.connect(g);
+  g.connect(audioCtx.destination);
+  osc.start();
+  osc.stop(audioCtx.currentTime + 0.09);
+}
+
+function updateAudioFeedback() {
+  if (!audioCtx || !audioEnabled) return;
+  const targetHum = 90 + (300.0 / Math.max(20.0, currentD)) * 12.0;
+  humOsc.frequency.setTargetAtTime(Math.min(950, targetHum), audioCtx.currentTime, 0.08);
+}
+
+// HUD 指标与文本刷新
+function updateHUDMetrics() {
+  const fCasimir = calcCasimirForce(currentD);
+  const fElec = calcElectrostaticForce(currentD);
+  const fSpring = kSpring * (d0 - currentD);
+  const fNet = fCasimir + fElec + fSpring;
+
+  const areaM2 = PLATE_AREA;
+  const pKPa = (fCasimir * 1e-9 / areaM2) / 1000.0;
+  document.getElementById('statCasimirPressure').textContent = `${pKPa.toFixed(2)} kPa`;
+  document.getElementById('statGapDist').textContent = `${currentD.toFixed(1)} nm`;
+
+  const statusText = isCollapsed ? 'COLLAPSED' : (currentMode === 'repulsive' ? 'LEVITATED' : 'STABLE');
+  const statusEl = document.getElementById('statBalanceStatus');
+  statusEl.textContent = statusText;
+  statusEl.style.color = isCollapsed ? 'var(--accent-rose)' : (currentMode === 'repulsive' ? 'var(--accent-cyan)' : 'var(--accent-emerald)');
+
+  document.getElementById('hudNetForce').textContent = `${fNet.toFixed(1)} nN`;
+  document.getElementById('hudSpringForce').textContent = `${(fSpring >= 0 ? '+' : '')}${fSpring.toFixed(1)} nN`;
+
+  const pullInGap = (d0 * 0.4).toFixed(1);
+  document.getElementById('hudPullIn').textContent = `d_crit ≈ ${pullInGap} nm`;
+  document.getElementById('metricFElec').textContent = Math.abs(fElec).toFixed(2);
+  document.getElementById('metricModeRatio').textContent = (currentD / 600.0).toFixed(2);
+
+  const freqRes = (Math.sqrt(kSpring / MASS_CANTILEVER) / (2.0 * Math.PI) * 1e-3).toFixed(1);
+  document.getElementById('metricFreqRes').textContent = freqRes;
+  document.getElementById('metricDCEPhotons').textContent = currentMode === 'dce' ? '1.4×10⁶' : '0';
+}
+
+// 主仿真与动画循环
+let frameCount = 0;
+function animate() {
+  if (isPlaying) {
+    stepDynamics();
+  }
+
+  renderSimulation();
+
+  frameCount++;
+  if (frameCount % 4 === 0) {
+    updateHUDMetrics();
+    renderForceChart();
+    renderPotentialChart();
+    updateAudioFeedback();
+  }
+
+  requestAnimationFrame(animate);
+}
+requestAnimationFrame(animate);
+
+// 用户交互控制
+const modeBtns = document.querySelectorAll('.mode-btn');
+modeBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    modeBtns.forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentMode = btn.dataset.mode;
+    isCollapsed = false;
+
+    const titles = {
+      vacuum: '理想真空卡西米尔吸引态 (Vacuum Attraction)',
+      repulsive: '介电液体自稳定量子悬浮态 (Repulsive Levitation)',
+      dce: '动力学DCE光子激发态 (Dynamical Casimir Radiation)',
+      collapse: 'MEMS吸合崩塌失稳态 (Stiction Pull-in Collapse)'
+    };
+    document.getElementById('modeDisplayTitle').textContent = titles[currentMode];
+    if (currentMode === 'collapse') {
+      vBias = 4.5;
+      document.getElementById('rangeVbias').value = '4.5';
+      document.getElementById('valVbias').textContent = '4.50 V';
+    }
+    showToast(`工况已切换为: ${titles[currentMode]}`);
+  });
+});
+
+// 滑块绑定
+const rangeD0 = document.getElementById('rangeD0');
+rangeD0.addEventListener('input', (e) => {
+  d0 = parseFloat(e.target.value);
+  document.getElementById('valD0').textContent = `${Math.round(d0)} nm`;
+  if (!isCollapsed) currentD = d0;
+});
+
+const rangeK = document.getElementById('rangeK');
+rangeK.addEventListener('input', (e) => {
+  kSpring = parseFloat(e.target.value);
+  document.getElementById('valK').textContent = `${kSpring.toFixed(2)} N/m`;
+});
+
+const rangeVb = document.getElementById('rangeVbias');
+rangeVb.addEventListener('input', (e) => {
+  vBias = parseFloat(e.target.value);
+  document.getElementById('valVbias').textContent = `${vBias.toFixed(2)} V`;
+});
+
+const rangeGam = document.getElementById('rangeGamma');
+rangeGam.addEventListener('input', (e) => {
+  damping = parseFloat(e.target.value);
+  document.getElementById('valGamma').textContent = damping.toFixed(2);
+});
+
+// 按钮控制
+const btnPlayPause = document.getElementById('btnPlayPause');
+btnPlayPause.addEventListener('click', () => {
+  isPlaying = !isPlaying;
+  document.getElementById('playIcon').textContent = isPlaying ? '⏸' : '▶';
+  btnPlayPause.childNodes[2].textContent = isPlaying ? ' 暂停' : ' 继续';
+  initAudio();
+});
+
+document.getElementById('btnPerturb').addEventListener('click', () => {
+  if (!isCollapsed) {
+    velD += (Math.random() - 0.5) * 85.0;
+    showToast('已对微悬臂施加动量扰动');
+  }
+});
+
+document.getElementById('btnResetMem').addEventListener('click', () => {
+  isCollapsed = false;
+  currentD = d0;
+  velD = 0;
+  showToast('微悬臂位置已复位');
+});
+
+const btnVacModes = document.getElementById('btnVacuumModes');
+btnVacModes.addEventListener('click', () => {
+  showModes = !showModes;
+  btnVacModes.classList.toggle('active', showModes);
+});
+
+const btnAudio = document.getElementById('btnAudio');
+btnAudio.addEventListener('click', () => {
+  audioEnabled = !audioEnabled;
+  btnAudio.classList.toggle('active', audioEnabled);
+  if (audioEnabled) {
+    initAudio();
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  }
+});
+
+let toastTimer = null;
+function showToast(msg) {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    toast.classList.remove('show');
+  }, 2200);
+}
+
+window.addEventListener('click', () => {
+  if (audioEnabled) initAudio();
+}, { once: true });
+</script>
+
+</body>
+</html>

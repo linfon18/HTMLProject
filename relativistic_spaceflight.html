@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>相对论深空巡航与光行差模拟器 - Relativistic Spaceflight</title>
+<style>
+  :root {
+    --bg-color: #020208;
+    --accent-blue: #38bdf8;
+    --accent-violet: #818cf8;
+    --accent-amber: #f59e0b;
+    --accent-rose: #f43f5e;
+    --glass-bg: rgba(10, 15, 30, 0.78);
+    --glass-border: rgba(56, 189, 248, 0.25);
+  }
+
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    user-select: none;
+  }
+
+  body {
+    background-color: var(--bg-color);
+    color: #f1f5f9;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    overflow: hidden;
+    width: 100vw;
+    height: 100vh;
+  }
+
+  #viewport {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    cursor: crosshair;
+  }
+
+  /* 顶部科幻标头 */
+  .header-card {
+    position: absolute;
+    top: 24px;
+    left: 28px;
+    z-index: 10;
+    pointer-events: none;
+  }
+
+  .header-card h1 {
+    font-size: 1.6rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+    background: linear-gradient(135deg, #38bdf8, #818cf8, #f43f5e);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-transform: uppercase;
+    text-shadow: 0 0 25px rgba(56, 189, 248, 0.35);
+  }
+
+  .header-card .sub {
+    font-size: 0.85rem;
+    color: #94a3b8;
+    margin-top: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .pulse-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #38bdf8;
+    box-shadow: 0 0 10px #38bdf8;
+    animation: warpPulse 1.5s infinite ease-in-out;
+  }
+
+  @keyframes warpPulse {
+    0%, 100% { opacity: 0.3; transform: scale(0.9); }
+    50% { opacity: 1; transform: scale(1.2); }
+  }
+
+  /* 右上角相对论遥测面板 */
+  .telemetry-card {
+    position: absolute;
+    top: 24px;
+    right: 28px;
+    z-index: 10;
+    background: var(--glass-bg);
+    backdrop-filter: blur(16px);
+    border: 1px solid var(--glass-border);
+    border-radius: 14px;
+    padding: 16px 20px;
+    min-width: 280px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+    font-family: 'Courier New', monospace;
+  }
+
+  .telemetry-title {
+    font-size: 0.75rem;
+    color: var(--accent-blue);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    border-bottom: 1px solid rgba(56, 189, 248, 0.2);
+    padding-bottom: 5px;
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .tele-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.82rem;
+    margin-bottom: 5px;
+  }
+
+  .tele-row .lbl { color: #64748b; }
+  .tele-row .val { color: #f8fafc; font-weight: 600; }
+  .tele-row .val.gamma-high { color: var(--accent-rose); font-weight: 700; text-shadow: 0 0 8px var(--accent-rose); }
+
+  /* 驾驶舱 HUD 准星 */
+  .hud-crosshair {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 5;
+    pointer-events: none;
+    width: 60px;
+    height: 60px;
+    border: 1px dashed rgba(56, 189, 248, 0.3);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .hud-crosshair::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    background: var(--accent-blue);
+    border-radius: 50%;
+    box-shadow: 0 0 8px var(--accent-blue);
+  }
+
+  /* 底部飞控控制台 */
+  .dock {
+    position: absolute;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border);
+    border-radius: 18px;
+    padding: 14px 22px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    max-width: 94vw;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .ctrl-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .ctrl-item label {
+    font-size: 0.7rem;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .ctrl-item label span {
+    color: var(--accent-blue);
+    font-family: monospace;
+  }
+
+  .ctrl-item input[type="range"] {
+    -webkit-appearance: none;
+    width: 130px;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 2px;
+    outline: none;
+  }
+
+  .ctrl-item input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--accent-blue);
+    cursor: pointer;
+    box-shadow: 0 0 10px var(--accent-blue);
+    transition: transform 0.1s;
+  }
+
+  .ctrl-item input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.3);
+  }
+
+  .btn {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: #fff;
+    padding: 8px 14px;
+    border-radius: 10px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .btn:hover {
+    background: rgba(56, 189, 248, 0.2);
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 15px rgba(56, 189, 248, 0.3);
+    transform: translateY(-2px);
+  }
+
+  .btn.active {
+    background: var(--accent-blue);
+    color: #020208;
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 15px var(--accent-blue);
+  }
+
+  .hint-tip {
+    position: absolute;
+    bottom: 24px;
+    left: 28px;
+    z-index: 10;
+    pointer-events: none;
+    font-size: 0.75rem;
+    color: #64748b;
+    line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+
+<canvas id="viewport"></canvas>
+
+<div class="hud-crosshair"></div>
+
+<div class="header-card">
+  <h1>RELATIVISTIC SPACEFLIGHT</h1>
+  <div class="sub">
+    <div class="pulse-dot"></div>
+    <span>狭义相对论 · 光行差收缩 · 多普勒频移彩虹 · 洛伦兹射束</span>
+  </div>
+</div>
+
+<div class="telemetry-card">
+  <div class="telemetry-title">
+    <span>飞船仪表 (RELATIVITY)</span>
+    <span id="fps-val">60 FPS</span>
+  </div>
+  <div class="tele-row">
+    <span class="lbl">航速 β = v/c:</span>
+    <span class="val" id="tele-beta">0.850 c</span>
+  </div>
+  <div class="tele-row">
+    <span class="lbl">洛伦兹因子 γ:</span>
+    <span class="val" id="tele-gamma">1.897</span>
+  </div>
+  <div class="tele-row">
+    <span class="lbl">迎面蓝移因子 δ:</span>
+    <span class="val" id="tele-doppler">3.51x</span>
+  </div>
+  <div class="tele-row">
+    <span class="lbl">聚焦半角 θ'_90:</span>
+    <span class="val" id="tele-aberration">31.8°</span>
+  </div>
+  <div class="tele-row">
+    <span class="lbl">时间膨胀率 Δt/Δτ:</span>
+    <span class="val" id="tele-time">1s = 1.90s(基准)</span>
+  </div>
+</div>
+
+<div class="hint-tip">
+  🚀 拖拽画面 / 移动鼠标: 姿态调整飞船前进方向<br>
+  ⚡ 空格键: 瞬时点火激活曲率脉冲极速推进<br>
+  🌌 拖动航速滑块: 逼近光速体验爱因斯坦相对论世界
+</div>
+
+<div class="dock">
+  <div class="ctrl-item">
+    <label>航速速度 Beta <span id="val-beta">0.85c</span></label>
+    <input type="range" id="param-beta" min="0" max="0.999" step="0.005" value="0.85">
+  </div>
+  <div class="ctrl-item">
+    <label>视场角度 FOV <span id="val-fov">90°</span></label>
+    <input type="range" id="param-fov" min="60" max="140" step="2" value="90">
+  </div>
+
+  <button class="btn active" id="btn-doppler">🌈 多普勒频移: 开</button>
+  <button class="btn active" id="btn-beaming">💡 射束通量放大: 开</button>
+  <button class="btn" id="btn-sound">🔊 引擎音频: 关</button>
+  <button class="btn" id="btn-warp">⚡ 曲率跃迁冲刺</button>
+</div>
+
+<script>
+/**
+ * 相对论空间航行核心物理引擎 (Special Relativity Engine)
+ * 1. 相对论光行差公式 (Aberration of Light):
+ *    cos(θ') = (cos(θ) - β) / (1 - β * cos(θ))
+ * 2. 多普勒频移与蓝红移波长变换 (Relativistic Doppler Factor D):
+ *    D = sqrt(1 - β^2) / (1 - β * cos(θ))
+ * 3. 相对论射束效应辐射增强 (Relativistic Beaming):
+ *    I' = I * D^4 (辐射强度的四次方增强)
+ * 4. 洛伦兹因子:
+ *    γ = 1 / sqrt(1 - β^2)
+ */
+
+const canvas = document.getElementById('viewport');
+const ctx = canvas.getContext('2d');
+
+let width, height;
+function resize() {
+  width = canvas.width = window.innerWidth;
+  height = canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resize);
+resize();
+
+// 物理与飞船参数
+const ship = {
+  beta: 0.85,           // v/c
+  targetBeta: 0.85,
+  fov: 90 * Math.PI / 180,
+  rotX: 0,              // 俯仰 (Pitch)
+  rotY: 0,              // 偏航 (Yaw)
+  enableDoppler: true,
+  enableBeaming: true,
+  soundEnabled: false,
+  isWarping: false
+};
+
+// 恒星数据库 (生成三维球面分布恒星群)
+const STAR_COUNT = 3200;
+const stars = [];
+
+for (let i = 0; i < STAR_COUNT; i++) {
+  // 均匀球面随机采样
+  const u = Math.random() * 2 - 1;
+  const phi = Math.random() * Math.PI * 2;
+  const r = Math.sqrt(1 - u * u);
+
+  const x = r * Math.cos(phi);
+  const y = r * Math.sin(phi);
+  const z = u; // 初始面向 +Z 轴前进
+
+  // 原始静止系光谱温度 (Kelvin: 3000K 红矮星 ~ 12000K 蓝巨星)
+  const temp = 3500 + Math.random() * 7500;
+  const baseMag = 0.5 + Math.random() * 2.5;
+
+  stars.push({ x, y, z, temp, baseMag });
+}
+
+// Web Audio 引擎声合成
+let audioCtx = null;
+let humOsc = null;
+let humGain = null;
+
+function initAudio() {
+  if (audioCtx) return;
+  try {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    audioCtx = new AudioContext();
+
+    humOsc = audioCtx.createOscillator();
+    humGain = audioCtx.createGain();
+
+    humOsc.type = 'sawtooth';
+    humOsc.frequency.setValueAtTime(60, audioCtx.currentTime);
+
+    const filter = audioCtx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(300, audioCtx.currentTime);
+
+    humOsc.connect(filter);
+    filter.connect(humGain);
+    humGain.connect(audioCtx.destination);
+
+    humGain.gain.setValueAtTime(0.0001, audioCtx.currentTime);
+    humOsc.start();
+  } catch (e) {
+    console.warn("Audio Context Failed", e);
+  }
+}
+
+function updateEngineAudio(beta) {
+  if (!audioCtx || !ship.soundEnabled) return;
+  const targetFreq = 40 + beta * 220;
+  humOsc.frequency.setTargetAtTime(targetFreq, audioCtx.currentTime, 0.1);
+  humGain.gain.setTargetAtTime(0.045, audioCtx.currentTime, 0.1);
+}
+
+function stopAudio() {
+  if (humGain && audioCtx) {
+    humGain.gain.setTargetAtTime(0.0001, audioCtx.currentTime, 0.05);
+  }
+}
+
+// 黑体辐射温度转 RGB 色彩
+function kelvinToRGB(kelvin) {
+  const temp = kelvin / 100;
+  let red, green, blue;
+
+  // Red
+  if (temp <= 66) red = 255;
+  else {
+    red = temp - 60;
+    red = 329.698727446 * Math.pow(red, -0.1332047592);
+    red = Math.min(255, Math.max(0, red));
+  }
+
+  // Green
+  if (temp <= 66) {
+    green = temp;
+    green = 99.4708025861 * Math.log(green) - 161.1195681661;
+    green = Math.min(255, Math.max(0, green));
+  } else {
+    green = temp - 60;
+    green = 288.1221695283 * Math.pow(green, -0.0755148492);
+    green = Math.min(255, Math.max(0, green));
+  }
+
+  // Blue
+  if (temp >= 66) blue = 255;
+  else if (temp <= 19) blue = 0;
+  else {
+    blue = temp - 10;
+    blue = 138.5177312231 * Math.log(blue) - 305.0447927307;
+    blue = Math.min(255, Math.max(0, blue));
+  }
+
+  return { r: Math.round(red), g: Math.round(green), b: Math.round(blue) };
+}
+
+// 物理状态计算
+function updateRelativity(dt) {
+  // 平滑插值航速变化
+  ship.beta += (ship.targetBeta - ship.beta) * 0.06;
+
+  const beta = ship.beta;
+  const gamma = 1 / Math.sqrt(Math.max(0.0001, 1 - beta * beta));
+  const dopplerHead = Math.sqrt((1 + beta) / Math.max(0.0001, 1 - beta));
+
+  // 90度侧方入射光行差收缩角
+  const theta90_rad = Math.acos(-beta);
+  const theta90_deg = theta90_rad * 180 / Math.PI;
+
+  // 刷新遥测卡片
+  document.getElementById('tele-beta').textContent = beta.toFixed(3) + ' c';
+  const gammaElem = document.getElementById('tele-gamma');
+  gammaElem.textContent = gamma.toFixed(3);
+  if (gamma > 5.0) gammaElem.className = 'val gamma-high';
+  else gammaElem.className = 'val';
+
+  document.getElementById('tele-doppler').textContent = dopplerHead.toFixed(2) + 'x (蓝移)';
+  document.getElementById('tele-aberration').textContent = (180 - theta90_deg).toFixed(1) + '°';
+  document.getElementById('tele-time').textContent = `1s = ${gamma.toFixed(2)}s(基准)`;
+
+  updateEngineAudio(beta);
+}
+
+// 渲染相对论星空视界
+let frames = 0;
+let lastFpsTime = performance.now();
+
+function render() {
+  ctx.fillStyle = '#020208';
+  ctx.fillRect(0, 0, width, height);
+
+  const cx = width * 0.5;
+  const cy = height * 0.5;
+
+  const beta = ship.beta;
+  const gamma = 1 / Math.sqrt(Math.max(0.0001, 1 - beta * beta));
+
+  // 旋转矩阵应用于飞船视线方向
+  const cosPitch = Math.cos(ship.rotX);
+  const sinPitch = Math.sin(ship.rotX);
+  const cosYaw = Math.cos(ship.rotY);
+  const sinYaw = Math.sin(ship.rotY);
+
+  // 焦距 F
+  const fovFactor = (width * 0.5) / Math.tan(ship.fov * 0.5);
+
+  ctx.save();
+
+  for (let i = 0; i < stars.length; i++) {
+    const s = stars[i];
+
+    // 1. 飞船朝向旋转 (在静止坐标系中)
+    // 先偏航 Yaw (绕 Y 轴)
+    const x1 = s.x * cosYaw - s.z * sinYaw;
+    const z1 = s.z * cosYaw + s.x * sinYaw;
+
+    // 再俯仰 Pitch (绕 X 轴)
+    const y2 = s.y * cosPitch - z1 * sinPitch;
+    const z2 = z1 * cosPitch + s.y * sinPitch;
+    const x2 = x1;
+
+    // 2. 计算入射光线与前进轴 (+Z 方向) 夹角 θ
+    // 单位矢量：dot(v, zAxis) = z2
+    const cosTheta = z2; // 范围 [-1, 1]
+    const theta = Math.acos(Math.max(-1, Math.min(1, cosTheta)));
+
+    // 3. 相对论光行差变换 (Aberration Transformation)
+    // cos(θ') = (cos(θ) + β) / (1 + β * cos(θ))  [反向变换观察]
+    const cosThetaPrime = (cosTheta + beta) / (1 + beta * cosTheta);
+    const thetaPrime = Math.acos(Math.max(-1, Math.min(1, cosThetaPrime)));
+
+    // 计算畸变后的新方向矢量
+    const sinTheta = Math.sin(theta);
+    const sinThetaPrime = Math.sin(thetaPrime);
+
+    let xPrime = 0, yPrime = 0, zPrime = cosThetaPrime;
+    if (sinTheta > 0.0001) {
+      const scaleSin = sinThetaPrime / sinTheta;
+      xPrime = x2 * scaleSin;
+      yPrime = y2 * scaleSin;
+    }
+
+    // 仅渲染视野前方 (zPrime > 0)
+    if (zPrime <= 0.01) continue;
+
+    // 4. 多普勒频移 (Doppler Factor D)
+    // D = 1 / (gamma * (1 - beta * cosThetaPrime))
+    const D = 1 / (gamma * (1 - beta * cosThetaPrime));
+
+    // 计算视感表面温度 T' = T * D
+    let apparentTemp = s.temp;
+    if (ship.enableDoppler) {
+      apparentTemp = s.temp * D;
+      apparentTemp = Math.max(1000, Math.min(45000, apparentTemp));
+    }
+    const color = kelvinToRGB(apparentTemp);
+
+    // 5. 射束效应 (Beaming Factor): 迎面光强放大 D^4
+    let beamingFactor = 1.0;
+    if (ship.enableBeaming) {
+      beamingFactor = Math.pow(D, 2.5); // 适度衰减显示范围
+      beamingFactor = Math.max(0.1, Math.min(12.0, beamingFactor));
+    }
+
+    // 6. 透视投影到屏幕
+    const screenX = cx + (xPrime / zPrime) * fovFactor;
+    const screenY = cy - (yPrime / zPrime) * fovFactor;
+
+    if (screenX < -20 || screenX > width + 20 || screenY < -20 || screenY > height + 20) {
+      continue;
+    }
+
+    // 绘制恒星光斑
+    const starRadius = Math.max(1.0, s.baseMag * Math.min(3.5, Math.sqrt(beamingFactor)));
+    const alpha = Math.min(1.0, 0.4 + beamingFactor * 0.15);
+
+    ctx.fillStyle = `rgba(${color.r}, ${color.g}, ${color.b}, ${alpha})`;
+    ctx.beginPath();
+    ctx.arc(screenX, screenY, starRadius, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 高亮度恒星额外增加微发光晕
+    if (starRadius > 2.2) {
+      ctx.fillStyle = `rgba(${color.r}, ${color.g}, ${color.b}, 0.25)`;
+      ctx.beginPath();
+      ctx.arc(screenX, screenY, starRadius * 2.8, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // 绘制前方相对论聚束光锥指引环 (Headlight Aperture)
+  drawRelativisticCone(beta);
+
+  ctx.restore();
+
+  // FPS
+  frames++;
+  const now = performance.now();
+  if (now - lastFpsTime >= 1000) {
+    document.getElementById('fps-val').textContent = frames + ' FPS';
+    frames = 0;
+    lastFpsTime = now;
+  }
+}
+
+// 绘制相对论聚光发光外环
+function drawRelativisticCone(beta) {
+  if (beta < 0.2) return;
+  const cx = width * 0.5;
+  const cy = height * 0.5;
+
+  const theta90_Prime = Math.acos((0 + beta) / (1 + 0));
+  const fovFactor = (width * 0.5) / Math.tan(ship.fov * 0.5);
+  const ringRadius = Math.tan(theta90_Prime) * fovFactor;
+
+  if (ringRadius > 10 && ringRadius < Math.max(width, height)) {
+    ctx.strokeStyle = `rgba(56, 189, 248, ${Math.min(0.3, beta * 0.35)})`;
+    ctx.lineWidth = 1;
+    ctx.setLineDash([6, 6]);
+    ctx.beginPath();
+    ctx.arc(cx, cy, ringRadius, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+}
+
+// 鼠标交互控制飞行航向
+let isMouseDown = false;
+let lastMouseX = 0, lastMouseY = 0;
+
+canvas.addEventListener('mousedown', (e) => {
+  isMouseDown = true;
+  lastMouseX = e.clientX;
+  lastMouseY = e.clientY;
+});
+
+window.addEventListener('mousemove', (e) => {
+  if (!isMouseDown) return;
+  const dx = e.clientX - lastMouseX;
+  const dy = e.clientY - lastMouseY;
+
+  ship.rotY -= dx * 0.004;
+  ship.rotX = Math.max(-1.3, Math.min(1.3, ship.rotX - dy * 0.004));
+
+  lastMouseX = e.clientX;
+  lastMouseY = e.clientY;
+});
+
+window.addEventListener('mouseup', () => {
+  isMouseDown = false;
+});
+
+// UI 控制绑定
+const paramBeta = document.getElementById('param-beta');
+paramBeta.addEventListener('input', (e) => {
+  ship.targetBeta = parseFloat(e.target.value);
+  document.getElementById('val-beta').textContent = ship.targetBeta.toFixed(3) + 'c';
+});
+
+const paramFov = document.getElementById('param-fov');
+paramFov.addEventListener('input', (e) => {
+  const deg = parseInt(e.target.value);
+  ship.fov = deg * Math.PI / 180;
+  document.getElementById('val-fov').textContent = deg + '°';
+});
+
+const btnDoppler = document.getElementById('btn-doppler');
+btnDoppler.addEventListener('click', () => {
+  ship.enableDoppler = !ship.enableDoppler;
+  btnDoppler.textContent = '🌈 多普勒频移: ' + (ship.enableDoppler ? '开' : '关');
+  btnDoppler.classList.toggle('active', ship.enableDoppler);
+});
+
+const btnBeaming = document.getElementById('btn-beaming');
+btnBeaming.addEventListener('click', () => {
+  ship.enableBeaming = !ship.enableBeaming;
+  btnBeaming.textContent = '💡 射束通量放大: ' + (ship.enableBeaming ? '开' : '关');
+  btnBeaming.classList.toggle('active', ship.enableBeaming);
+});
+
+const btnSound = document.getElementById('btn-sound');
+btnSound.addEventListener('click', () => {
+  initAudio();
+  ship.soundEnabled = !ship.soundEnabled;
+  btnSound.textContent = '🔊 引擎音频: ' + (ship.soundEnabled ? '开' : '关');
+  btnSound.classList.toggle('active', ship.soundEnabled);
+  if (!ship.soundEnabled) stopAudio();
+  else updateEngineAudio(ship.beta);
+});
+
+// 曲率冲刺
+const btnWarp = document.getElementById('btn-warp');
+function triggerWarp() {
+  ship.targetBeta = 0.998;
+  paramBeta.value = 0.998;
+  document.getElementById('val-beta').textContent = '0.998c';
+  setTimeout(() => {
+    ship.targetBeta = 0.85;
+    paramBeta.value = 0.85;
+    document.getElementById('val-beta').textContent = '0.850c';
+  }, 2500);
+}
+btnWarp.addEventListener('click', triggerWarp);
+
+window.addEventListener('keydown', (e) => {
+  if (e.code === 'Space') {
+    triggerWarp();
+  }
+});
+
+// 动画主循环
+let lastTimestamp = performance.now();
+function loop(timestamp) {
+  const dt = (timestamp - lastTimestamp) / 1000;
+  lastTimestamp = timestamp;
+
+  updateRelativity(dt);
+  render();
+
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+</script>
+</body>
+</html>

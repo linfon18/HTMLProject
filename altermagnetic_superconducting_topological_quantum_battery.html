@@ -1,0 +1,1552 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>交错磁体-拓扑超导量子隐形电池与无耗散几何电荷充放电全息模拟器</title>
+  <style>
+    :root {
+      --bg-dark: #04060c;
+      --panel-bg: rgba(7, 13, 26, 0.78);
+      --panel-border: rgba(0, 240, 255, 0.28);
+      --neon-cyan: #00f0ff;
+      --neon-magenta: #ff0077;
+      --neon-gold: #ffd000;
+      --neon-green: #00ff88;
+      --neon-purple: #b537f2;
+      --text-main: #e8f4fc;
+      --text-dim: #7a94b0;
+      --font-mono: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* 顶部仪表栏 */
+    header {
+      height: 54px;
+      background: linear-gradient(180deg, rgba(10, 20, 40, 0.95) 0%, rgba(5, 10, 22, 0.8) 100%);
+      border-bottom: 1px solid var(--panel-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      z-index: 10;
+      box-shadow: 0 4px 25px rgba(0, 240, 255, 0.12);
+    }
+
+    .title-area {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .status-badge {
+      font-size: 10px;
+      font-family: var(--font-mono);
+      background: rgba(0, 240, 255, 0.12);
+      border: 1px solid var(--neon-cyan);
+      color: var(--neon-cyan);
+      padding: 2px 7px;
+      border-radius: 4px;
+      letter-spacing: 1px;
+      animation: pulse-glow 2.5s infinite alternate;
+    }
+
+    .milestone-badge {
+      font-size: 11px;
+      font-family: var(--font-mono);
+      font-weight: 700;
+      background: linear-gradient(135deg, rgba(255, 208, 0, 0.25), rgba(255, 0, 119, 0.25));
+      border: 1px solid var(--neon-gold);
+      color: var(--neon-gold);
+      padding: 2px 8px;
+      border-radius: 4px;
+      letter-spacing: 1px;
+      text-shadow: 0 0 8px rgba(255, 208, 0, 0.6);
+    }
+
+    h1 {
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      background: linear-gradient(90deg, #ffffff, var(--neon-cyan), var(--neon-gold));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .top-telemetry {
+      display: flex;
+      gap: 18px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+    }
+
+    .tel-item {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+    }
+
+    .tel-label {
+      font-size: 9px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+    }
+
+    .tel-val {
+      font-weight: 600;
+      color: var(--neon-cyan);
+    }
+
+    .tel-val.gold { color: var(--neon-gold); }
+    .tel-val.green { color: var(--neon-green); }
+    .tel-val.magenta { color: var(--neon-magenta); }
+
+    /* 主工作区布局 */
+    .workspace {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 310px 1fr 340px;
+      height: calc(100vh - 54px);
+      position: relative;
+    }
+
+    /* 侧边通用面板 */
+    .sidebar {
+      background: var(--panel-bg);
+      backdrop-filter: blur(14px);
+      border-right: 1px solid var(--panel-border);
+      display: flex;
+      flex-direction: column;
+      padding: 14px;
+      gap: 12px;
+      overflow-y: auto;
+      z-index: 5;
+    }
+
+    .sidebar.right {
+      border-right: none;
+      border-left: 1px solid var(--panel-border);
+    }
+
+    .panel-card {
+      background: rgba(11, 22, 44, 0.6);
+      border: 1px solid rgba(0, 240, 255, 0.15);
+      border-radius: 6px;
+      padding: 12px;
+      position: relative;
+    }
+
+    .card-title {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--neon-cyan);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .card-title::before {
+      content: '';
+      display: inline-block;
+      width: 3px;
+      height: 11px;
+      background: var(--neon-cyan);
+      border-radius: 2px;
+    }
+
+    /* 参数滑块控件 */
+    .control-row {
+      margin-bottom: 9px;
+    }
+
+    .control-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--text-dim);
+      margin-bottom: 3px;
+      font-family: var(--font-mono);
+    }
+
+    .control-header span:last-child {
+      color: var(--neon-cyan);
+      font-weight: 600;
+    }
+
+    input[type=range] {
+      width: 100%;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 2px;
+      outline: none;
+      -webkit-appearance: none;
+    }
+
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--neon-cyan);
+      box-shadow: 0 0 8px var(--neon-cyan);
+      cursor: pointer;
+      transition: transform 0.1s;
+    }
+
+    input[type=range]::-webkit-slider-thumb:hover {
+      transform: scale(1.3);
+    }
+
+    /* 工况与操作按钮群 */
+    .preset-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin-top: 4px;
+    }
+
+    .btn {
+      background: rgba(0, 240, 255, 0.08);
+      border: 1px solid rgba(0, 240, 255, 0.3);
+      color: var(--text-main);
+      padding: 7px 8px;
+      font-size: 10.5px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: var(--font-mono);
+      text-align: center;
+    }
+
+    .btn:hover {
+      background: rgba(0, 240, 255, 0.22);
+      border-color: var(--neon-cyan);
+      box-shadow: 0 0 10px rgba(0, 240, 255, 0.3);
+    }
+
+    .btn.active {
+      background: rgba(0, 240, 255, 0.28);
+      border-color: var(--neon-cyan);
+      color: #fff;
+      font-weight: 600;
+      box-shadow: 0 0 12px rgba(0, 240, 255, 0.4);
+    }
+
+    .action-btn {
+      width: 100%;
+      padding: 9px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-top: 6px;
+      border-radius: 4px;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all 0.2s;
+      font-family: var(--font-mono);
+    }
+
+    .action-btn.charge {
+      background: linear-gradient(135deg, rgba(0, 240, 255, 0.3), rgba(0, 140, 255, 0.3));
+      border-color: var(--neon-cyan);
+      color: #fff;
+    }
+
+    .action-btn.charge:hover {
+      background: linear-gradient(135deg, rgba(0, 240, 255, 0.5), rgba(0, 140, 255, 0.5));
+      box-shadow: 0 0 16px rgba(0, 240, 255, 0.5);
+    }
+
+    .action-btn.extract {
+      background: linear-gradient(135deg, rgba(255, 208, 0, 0.3), rgba(255, 90, 0, 0.3));
+      border-color: var(--neon-gold);
+      color: #fff;
+    }
+
+    .action-btn.extract:hover {
+      background: linear-gradient(135deg, rgba(255, 208, 0, 0.5), rgba(255, 90, 0, 0.5));
+      box-shadow: 0 0 16px rgba(255, 208, 0, 0.5);
+    }
+
+    .action-btn.lock {
+      background: linear-gradient(135deg, rgba(0, 255, 136, 0.25), rgba(0, 180, 100, 0.25));
+      border-color: var(--neon-green);
+      color: #fff;
+    }
+
+    .action-btn.lock:hover {
+      background: linear-gradient(135deg, rgba(0, 255, 136, 0.45), rgba(0, 180, 100, 0.45));
+      box-shadow: 0 0 16px rgba(0, 255, 136, 0.5);
+    }
+
+    .action-btn.audio {
+      background: rgba(181, 55, 242, 0.18);
+      border-color: var(--neon-purple);
+      color: #e5afff;
+    }
+
+    /* 中央全息渲染视口 */
+    .viewport-container {
+      position: relative;
+      background: radial-gradient(circle at 50% 50%, #081024 0%, #03060f 100%);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    #mainCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      cursor: grab;
+    }
+
+    #mainCanvas:active {
+      cursor: grabbing;
+    }
+
+    /* 视口浮动HUD标牌 */
+    .viewport-overlay {
+      position: absolute;
+      top: 14px;
+      left: 16px;
+      pointer-events: none;
+      font-family: var(--font-mono);
+    }
+
+    .overlay-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--neon-cyan);
+      letter-spacing: 1px;
+      margin-bottom: 4px;
+      text-shadow: 0 0 10px rgba(0, 240, 255, 0.6);
+    }
+
+    .overlay-subtitle {
+      font-size: 10px;
+      color: var(--text-dim);
+    }
+
+    /* 电池宏观能量柱 HUD */
+    .battery-hud {
+      position: absolute;
+      right: 18px;
+      bottom: 20px;
+      background: rgba(6, 14, 30, 0.85);
+      border: 1px solid var(--panel-border);
+      border-radius: 6px;
+      padding: 10px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+      min-width: 200px;
+    }
+
+    .bar-label-group {
+      display: flex;
+      justify-content: space-between;
+      color: var(--text-dim);
+      font-size: 10px;
+    }
+
+    .battery-level-track {
+      width: 100%;
+      height: 10px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 5px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .battery-level-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--neon-cyan), var(--neon-gold));
+      box-shadow: 0 0 10px var(--neon-cyan);
+      transition: width 0.15s ease-out;
+    }
+
+    /* 右侧双示波器 */
+    .scope-box {
+      width: 100%;
+      height: 180px;
+      background: #020409;
+      border: 1px solid rgba(0, 240, 255, 0.2);
+      border-radius: 4px;
+      margin-top: 6px;
+      position: relative;
+    }
+
+    .scope-box canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .scope-legend {
+      display: flex;
+      justify-content: space-between;
+      font-size: 9px;
+      font-family: var(--font-mono);
+      color: var(--text-dim);
+      margin-top: 4px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .legend-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+    }
+
+    /* 物理原理折叠与说明 */
+    .physics-notes {
+      font-size: 10.5px;
+      color: #92abc4;
+      line-height: 1.5;
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    .physics-formula {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--neon-gold);
+      background: rgba(0, 0, 0, 0.35);
+      padding: 4px 6px;
+      border-radius: 3px;
+      margin: 4px 0;
+      border-left: 2px solid var(--neon-gold);
+    }
+
+    /* 动效关键帧 */
+    @keyframes pulse-glow {
+      from { box-shadow: 0 0 4px rgba(0, 240, 255, 0.2); }
+      to { box-shadow: 0 0 12px rgba(0, 240, 255, 0.6); }
+    }
+
+    /* 滚动条 */
+    ::-webkit-scrollbar {
+      width: 5px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(0, 0, 0, 0.2);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(0, 240, 255, 0.25);
+      border-radius: 2px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(0, 240, 255, 0.5);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 顶部状态栏 -->
+  <header>
+    <div class="title-area">
+      <span class="milestone-badge">#300 SUPER MILESTONE</span>
+      <span class="status-badge" id="statusBadge">QUANTUM BATTERY READY</span>
+      <h1>交错磁体-拓扑超导量子隐形电池与无耗散几何电荷充放电全息模拟器</h1>
+    </div>
+    <div class="top-telemetry">
+      <div class="tel-item">
+        <span class="tel-label">存储量子态</span>
+        <span class="tel-val" id="topState">|G⟩ 基态</span>
+      </div>
+      <div class="tel-item">
+        <span class="tel-label">储能量 E(t)</span>
+        <span class="tel-val gold" id="topEnergy">0.00 meV</span>
+      </div>
+      <div class="tel-item">
+        <span class="tel-label">瞬态功率 P(t)</span>
+        <span class="tel-val green" id="topPower">0.00 μW</span>
+      </div>
+      <div class="tel-item">
+        <span class="tel-label">功提取率 W/E</span>
+        <span class="tel-val magenta" id="topErgotropy">0.0%</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- 主体工作区 -->
+  <div class="workspace">
+
+    <!-- 左侧参数与模式控制面板 -->
+    <div class="sidebar">
+      
+      <!-- 电池控制与工作模式 -->
+      <div class="panel-card">
+        <div class="card-title">电池操作与拓扑状态</div>
+        <button class="action-btn charge" id="btnToggleCharge">启动拓扑几何快充 (CHARGE)</button>
+        <button class="action-btn lock" id="btnToggleLock">马约拉纳宇称拓扑锁存 (LOCK)</button>
+        <button class="action-btn extract" id="btnFlashExtract">无耗散瞬间功提取 (EXTRACT)</button>
+        <button class="action-btn audio" id="btnAudioToggle">启动超导太赫兹声效 (AUDIO)</button>
+      </div>
+
+      <!-- 典型工况预设 -->
+      <div class="panel-card">
+        <div class="card-title">典型物理预设工况</div>
+        <div class="preset-grid">
+          <button class="btn active" id="preset1">① 经典慢充基准</button>
+          <button class="btn" id="preset2">② 超辐射几何快充</button>
+          <button class="btn" id="preset3">③ MZM宇称零放电</button>
+          <button class="btn" id="preset4">④ 极限Ergotropy提取</button>
+        </div>
+      </div>
+
+      <!-- 微观哈密顿量核心参数调节 -->
+      <div class="panel-card">
+        <div class="card-title">微观参数与交错磁场调控</div>
+
+        <div class="control-row">
+          <div class="control-header">
+            <span>交错磁体自旋劈裂 J_alt</span>
+            <span id="valJalt">60 meV</span>
+          </div>
+          <input type="range" id="slJalt" min="0" max="150" step="1" value="60">
+        </div>
+
+        <div class="control-row">
+          <div class="control-header">
+            <span>微波拉比驱动频率 Ω_R</span>
+            <span id="valOmega">12.5 GHz</span>
+          </div>
+          <input type="range" id="slOmega" min="1" max="40" step="0.5" value="12.5">
+        </div>
+
+        <div class="control-row">
+          <div class="control-header">
+            <span>电池并联阵列单元数 N</span>
+            <span id="valN">16 单元</span>
+          </div>
+          <input type="range" id="slN" min="1" max="64" step="1" value="16">
+        </div>
+
+        <div class="control-row">
+          <div class="control-header">
+            <span>超导配对能隙 Δ_0</span>
+            <span id="valDelta">1.80 meV</span>
+          </div>
+          <input type="range" id="slDelta" min="0.2" max="4.0" step="0.05" value="1.80">
+        </div>
+
+        <div class="control-row">
+          <div class="control-header">
+            <span>库仑阻塞充电能 E_C</span>
+            <span id="valEc">0.85 meV</span>
+          </div>
+          <input type="range" id="slEc" min="0.1" max="3.0" step="0.05" value="0.85">
+        </div>
+
+        <div class="control-row">
+          <div class="control-header">
+            <span>拓扑宇称保护度 P_topo</span>
+            <span id="valPtopo">94 %</span>
+          </div>
+          <input type="range" id="slPtopo" min="0" max="100" step="1" value="94">
+        </div>
+      </div>
+
+      <!-- 微观前沿物理说明 -->
+      <div class="panel-card">
+        <div class="card-title">物理学原理概要</div>
+        <div class="physics-notes">
+          交错磁体（Altermagnet）在零净磁化下破缺时间反演，其本征 $d$ 波自旋劈裂在约瑟夫森异质结界面诱发反常基态相移 $\varphi_0$。
+          <div class="physics-formula">E_ABS(φ) = ±Δ₀ √(1 - D sin²((φ - φ₀)/2))</div>
+          微波驱动场绕奇异拓扑回线激发非阿贝尔几何相（Wilczek-Zee 相位），将库珀对几何电荷无耗散泵入纳米岛。利用马约拉纳零能模宇称锁定实现自放电免疫。
+        </div>
+      </div>
+
+    </div>
+
+    <!-- 中间主交互视口 -->
+    <div class="viewport-container">
+      <canvas id="mainCanvas"></canvas>
+
+      <div class="viewport-overlay">
+        <div class="overlay-title">三维拓扑量子隐形电池全息相干场域</div>
+        <div class="overlay-subtitle">交错磁晶格 (d-Wave Spin Splitting) ⟷ 约瑟夫森ABS相移 ⟷ MZM量子电荷电容</div>
+      </div>
+
+      <!-- 能量柱 HUD -->
+      <div class="battery-hud">
+        <div class="bar-label-group">
+          <span>拓扑几何电荷储存量 Q_bat / Q_max</span>
+          <span id="hudChargePercent">0.0%</span>
+        </div>
+        <div class="battery-level-track">
+          <div class="battery-level-fill" id="hudBarFill"></div>
+        </div>
+        <div class="bar-label-group">
+          <span>超辐射加速比 P_max/P_classic</span>
+          <span id="hudSuperradianceScale" style="color:var(--neon-gold)">16.0x (N²)</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 右侧示波器与科学分析面板 -->
+    <div class="sidebar right">
+      
+      <!-- 示波器 1: 充电功率与 Ergotropy 功提取动力学 -->
+      <div class="panel-card">
+        <div class="card-title">示波器 I: 超辐射充电功率与功提取 Ergotropy</div>
+        <div class="scope-box">
+          <canvas id="scopePower"></canvas>
+        </div>
+        <div class="scope-legend">
+          <div class="legend-item">
+            <div class="legend-dot" style="background:var(--neon-green)"></div>
+            <span>量子功率 P_quant ∝ N²</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-dot" style="background:#7a94b0"></div>
+            <span>经典功率 P_clas ∝ N</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-dot" style="background:var(--neon-gold)"></div>
+            <span>可提取功 Ergotropy W</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 示波器 2: 安德列夫束缚态 (ABS) 能级与非阿贝尔几何相位 -->
+      <div class="panel-card">
+        <div class="card-title">示波器 II: 安德列夫束缚态能级与相移跃迁</div>
+        <div class="scope-box">
+          <canvas id="scopeAbs"></canvas>
+        </div>
+        <div class="scope-legend">
+          <div class="legend-item">
+            <div class="legend-dot" style="background:var(--neon-cyan)"></div>
+            <span>ABS能级 E_ABS(φ)</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-dot" style="background:var(--neon-magenta)"></div>
+            <span>自发相移 φ₀ 激发点</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-dot" style="background:var(--neon-purple)"></div>
+            <span>几何相位累积 γ_geo</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 能量热力学与量子特性量化读数 -->
+      <div class="panel-card">
+        <div class="card-title">量子热力学特征参量</div>
+        <div style="font-family: var(--font-mono); font-size: 11px; display:flex; flex-direction:column; gap:6px;">
+          <div style="display:flex; justify-content:space-between;">
+            <span style="color:var(--text-dim)">相干超辐射增益系数:</span>
+            <span id="statSuperGain" style="color:var(--neon-gold); font-weight:700;">16.00</span>
+          </div>
+          <div style="display:flex; justify-content:space-between;">
+            <span style="color:var(--text-dim)">交错磁异常基态相移 φ₀:</span>
+            <span id="statPhi0" style="color:var(--neon-cyan); font-weight:700;">0.84 π</span>
+          </div>
+          <div style="display:flex; justify-content:space-between;">
+            <span style="color:var(--text-dim)">马约拉纳宇称锁定寿命 τ_P:</span>
+            <span id="statLifetime" style="color:var(--neon-green); font-weight:700;">4.82 ms (免疫)</span>
+          </div>
+          <div style="display:flex; justify-content:space-between;">
+            <span style="color:var(--text-dim)">非阿贝尔贝里通量 γ_B:</span>
+            <span id="statBerryPhase" style="color:var(--neon-purple); font-weight:700;">1.00 π</span>
+          </div>
+          <div style="display:flex; justify-content:space-between;">
+            <span style="color:var(--text-dim)">瞬态放电脉冲峰值 I_pulse:</span>
+            <span id="statPeakCurrent" style="color:var(--neon-magenta); font-weight:700;">18.4 μA</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <script>
+    /**
+     * 交错磁体-拓扑超导量子隐形电池全息仿真引擎
+     * 核心物理机制：
+     * 1. 交错磁体 d 波自旋劈裂诱发约瑟夫森界面自发相移 φ_0 = arctan(J_alt / Δ_0)
+     * 2. 安德列夫束缚态 (ABS): E_ABS(φ) = ±Δ_0 * sqrt(1 - τ * sin^2((φ - φ_0)/2))
+     * 3. 闭合微波驱动路径下的非阿贝尔几何相充电 (Wilczek-Zee 相位)
+     * 4. 超辐射相干加速充电标度: P_max ∝ N^2 (Dick 型量子电池相干增益)
+     * 5. 马约拉纳费米子宇称锁存实现自放电拓扑免疫
+     */
+
+    // 系统状态
+    const STATE = {
+      // 物理参数
+      jalt: 60.0,      // 交错磁自旋劈裂强度 (meV)
+      omega: 12.5,     // 微波拉比频率 (GHz)
+      nUnits: 16,      // 电池单元数 N
+      delta: 1.80,     // 超导能隙 (meV)
+      ec: 0.85,        // 库仑阻塞能 (meV)
+      ptopo: 94.0,     // 拓扑保护度 (%)
+
+      // 电池工作模式: 'idle' | 'charging' | 'locked' | 'extracting'
+      mode: 'idle',
+      
+      // 动态储能量与电荷
+      charge: 0.0,     // 当前储能电荷 (0 ~ 1)
+      energy: 0.0,     // 存储能量 (meV)
+      maxEnergy: 0.0,  // 最大容量 (meV)
+      power: 0.0,      // 瞬时功率 (μW)
+      ergotropy: 0.0,  // 可提取功比例 (0 ~ 1)
+      phi0: 0.0,       // 自发相移 (rad)
+      berryPhase: 0.0, // 累积几何相 (rad)
+
+      // 动画与时间
+      time: 0,
+      phaseTime: 0,
+
+      // 示波器历史缓存
+      powerHistory: new Array(120).fill(0),
+      classicPowerHistory: new Array(120).fill(0),
+      ergotropyHistory: new Array(120).fill(0),
+
+      // 交互视角控制
+      camRotX: 0.42,
+      camRotY: -0.55,
+      camDist: 520,
+      isDragging: false,
+      lastMouseX: 0,
+      lastMouseY: 0
+    };
+
+    // 粒子系统 (库珀对、几何相微波光子、马约拉纳零能模激元)
+    const PARTICLES = [];
+    const MAX_PARTICLES = 160;
+
+    for (let i = 0; i < MAX_PARTICLES; i++) {
+      PARTICLES.push({
+        x: (Math.random() - 0.5) * 400,
+        y: (Math.random() - 0.5) * 120,
+        z: (Math.random() - 0.5) * 400,
+        vx: (Math.random() - 0.5) * 1.5,
+        vy: (Math.random() - 0.5) * 0.8,
+        vz: (Math.random() - 0.5) * 1.5,
+        life: Math.random() * 100,
+        maxLife: 60 + Math.random() * 80,
+        spin: Math.random() > 0.5 ? 1 : -1,
+        type: Math.floor(Math.random() * 3) // 0: 库珀对, 1: 几何相光子, 2: 拓扑边缘模式
+      });
+    }
+
+    // Canvas 获取
+    const mainCanvas = document.getElementById('mainCanvas');
+    const ctxMain = mainCanvas.getContext('2d');
+
+    const scopePowerCanvas = document.getElementById('scopePower');
+    const ctxPower = scopePowerCanvas.getContext('2d');
+
+    const scopeAbsCanvas = document.getElementById('scopeAbs');
+    const ctxAbs = scopeAbsCanvas.getContext('2d');
+
+    // Web Audio 合成器上下文
+    let audioCtx = null;
+    let oscRabi = null;
+    let oscSuperradiance = null;
+    let gainMaster = null;
+    let isAudioActive = false;
+
+    function initAudio() {
+      if (audioCtx) return;
+      try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioContext();
+        gainMaster = audioCtx.createGain();
+        gainMaster.gain.setValueAtTime(0.08, audioCtx.currentTime);
+        gainMaster.connect(audioCtx.destination);
+
+        // 微波拉比振荡声效
+        oscRabi = audioCtx.createOscillator();
+        oscRabi.type = 'sine';
+        oscRabi.frequency.setValueAtTime(320, audioCtx.currentTime);
+
+        const rabiGain = audioCtx.createGain();
+        rabiGain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+        oscRabi.connect(rabiGain);
+        rabiGain.connect(gainMaster);
+        oscRabi.start();
+
+        // 超辐射爆发相干声效
+        oscSuperradiance = audioCtx.createOscillator();
+        oscSuperradiance.type = 'sawtooth';
+        oscSuperradiance.frequency.setValueAtTime(140, audioCtx.currentTime);
+
+        const superGain = audioCtx.createGain();
+        superGain.gain.setValueAtTime(0.03, audioCtx.currentTime);
+        oscSuperradiance.connect(superGain);
+        superGain.connect(gainMaster);
+        oscSuperradiance.start();
+
+        isAudioActive = true;
+        document.getElementById('btnAudioToggle').innerText = '太赫兹声效已激活 (ON)';
+        document.getElementById('btnAudioToggle').style.borderColor = 'var(--neon-green)';
+        document.getElementById('btnAudioToggle').style.color = '#fff';
+      } catch (e) {
+        console.warn('Audio Init Warning:', e);
+      }
+    }
+
+    function updateAudio() {
+      if (!audioCtx || !isAudioActive) return;
+      const t = audioCtx.currentTime;
+      // 微波音调随拉比频率和相移联动
+      const targetFreq = 220 + STATE.omega * 16.0 + Math.sin(STATE.time * 4) * 20;
+      oscRabi.frequency.setTargetAtTime(targetFreq, t, 0.05);
+
+      // 超辐射相干声频随充放电功率激烈跃迁
+      const superFreq = 90 + (STATE.power / 2.0) + (STATE.mode === 'extracting' ? 400 : 0);
+      oscSuperradiance.frequency.setTargetAtTime(superFreq, t, 0.05);
+
+      // 音量动态调制
+      if (STATE.mode === 'charging') {
+        gainMaster.gain.setTargetAtTime(0.09, t, 0.1);
+      } else if (STATE.mode === 'extracting') {
+        gainMaster.gain.setTargetAtTime(0.18, t, 0.04);
+      } else if (STATE.mode === 'locked') {
+        gainMaster.gain.setTargetAtTime(0.03, t, 0.2);
+      } else {
+        gainMaster.gain.setTargetAtTime(0.04, t, 0.2);
+      }
+    }
+
+    // 物理模型计算与数值演化
+    function updatePhysics() {
+      STATE.time += 0.016;
+
+      // 1. 交错磁自发相移 φ_0:
+      const ratio = STATE.jalt / Math.max(0.1, STATE.delta * 25.0);
+      STATE.phi0 = Math.min(1.4, Math.atan(ratio)) * Math.PI;
+
+      // 2. 最大储能容量 E_max ∝ N * (Δ_0 + E_C):
+      STATE.maxEnergy = STATE.nUnits * (STATE.delta * 1.5 + STATE.ec * 0.8) * 12.0;
+
+      // 3. 超辐射相干增益因子 P_gain = (N^2 / N) = N:
+      const superradianceRatio = STATE.nUnits;
+
+      // 4. 模式演化状态机:
+      if (STATE.mode === 'charging') {
+        STATE.phaseTime += 0.03;
+        // 几何相充电速率:
+        const rate = (STATE.omega / 25.0) * (STATE.ptopo / 100.0) * 0.012;
+        STATE.charge = Math.min(1.0, STATE.charge + rate);
+        STATE.energy = STATE.charge * STATE.maxEnergy;
+
+        // 瞬时功率 P_quant = dE/dt * N^2 增益:
+        const instantD = Math.cos(STATE.charge * Math.PI * 0.5) * rate * STATE.maxEnergy * 65.0;
+        STATE.power = Number((instantD * (STATE.nUnits / 4.0)).toFixed(2));
+
+        // 经典对照功率:
+        const classicD = instantD * 0.25;
+
+        // Ergotropy 功提取比例 (受相干度和拓扑保护影响):
+        STATE.ergotropy = Math.min(0.99, (STATE.ptopo / 100.0) * 0.98);
+
+        // 记录历史
+        STATE.powerHistory.push(STATE.power);
+        STATE.powerHistory.shift();
+        STATE.classicPowerHistory.push(classicD);
+        STATE.classicPowerHistory.shift();
+        STATE.ergotropyHistory.push(STATE.ergotropy * 100);
+        STATE.ergotropyHistory.shift();
+
+        if (STATE.charge >= 1.0) {
+          STATE.mode = 'locked';
+          updateStatusText();
+        }
+      } else if (STATE.mode === 'extracting') {
+        // 瞬态超导功提取 (放电):
+        const dischargeRate = 0.045;
+        const dischargedDelta = Math.min(STATE.charge, dischargeRate);
+        STATE.charge = Math.max(0.0, STATE.charge - dischargedDelta);
+        STATE.energy = STATE.charge * STATE.maxEnergy;
+
+        // 巨峰值功率:
+        STATE.power = Number((dischargedDelta * STATE.maxEnergy * 180.0 * (STATE.nUnits / 8.0)).toFixed(2));
+        STATE.ergotropy = 0.96;
+
+        STATE.powerHistory.push(STATE.power);
+        STATE.powerHistory.shift();
+        STATE.classicPowerHistory.push(STATE.power * 0.2);
+        STATE.classicPowerHistory.shift();
+        STATE.ergotropyHistory.push(STATE.ergotropy * 100);
+        STATE.ergotropyHistory.shift();
+
+        if (STATE.charge <= 0.005) {
+          STATE.charge = 0;
+          STATE.energy = 0;
+          STATE.mode = 'idle';
+          updateStatusText();
+        }
+      } else if (STATE.mode === 'locked') {
+        // 马约拉纳宇称锁定：近乎零自放电
+        const leakRate = (1.0 - (STATE.ptopo / 100.0)) * 0.0003;
+        STATE.charge = Math.max(0.0, STATE.charge - leakRate);
+        STATE.energy = STATE.charge * STATE.maxEnergy;
+        STATE.power = 0.02;
+        STATE.ergotropy = (STATE.ptopo / 100.0) * 0.985;
+
+        STATE.powerHistory.push(STATE.power);
+        STATE.powerHistory.shift();
+        STATE.classicPowerHistory.push(0.01);
+        STATE.classicPowerHistory.shift();
+        STATE.ergotropyHistory.push(STATE.ergotropy * 100);
+        STATE.ergotropyHistory.shift();
+      } else {
+        // 空闲态
+        STATE.power = 0.00;
+        STATE.ergotropy = 0.00;
+        STATE.powerHistory.push(0);
+        STATE.powerHistory.shift();
+        STATE.classicPowerHistory.push(0);
+        STATE.classicPowerHistory.shift();
+        STATE.ergotropyHistory.push(0);
+        STATE.ergotropyHistory.shift();
+      }
+
+      // 5. 累积非阿贝尔贝里相位 γ_B = ∮ A·dR:
+      STATE.berryPhase = Number(((STATE.charge * Math.PI) + Math.sin(STATE.time * 2) * 0.05).toFixed(2));
+
+      // 6. 更新粒子动力学
+      for (let p of PARTICLES) {
+        if (STATE.mode === 'charging') {
+          // 向中心纳米电容岛旋转汇聚
+          const distSq = p.x * p.x + p.z * p.z + 1;
+          const fx = -p.x / Math.sqrt(distSq) * 1.8 - p.z * 0.02;
+          const fz = -p.z / Math.sqrt(distSq) * 1.8 + p.x * 0.02;
+          p.vx = p.vx * 0.95 + fx * 0.15;
+          p.vz = p.vz * 0.95 + fz * 0.15;
+        } else if (STATE.mode === 'extracting') {
+          // 向外部两极发散喷射功光束
+          p.vx += (Math.random() - 0.5) * 3.5;
+          p.vy += (Math.random() - 0.5) * 4.0;
+          p.vz += (Math.random() - 0.5) * 3.5;
+        } else if (STATE.mode === 'locked') {
+          // 在端点附近做拓扑马约拉纳驻波干涉振荡
+          p.vx = Math.sin(p.life * 0.15) * 0.6;
+          p.vz = Math.cos(p.life * 0.15) * 0.6;
+        } else {
+          // 自由弱漂移
+          p.vx *= 0.98;
+          p.vz *= 0.98;
+        }
+
+        p.x += p.vx;
+        p.y += p.vy;
+        p.z += p.vz;
+        p.life += 1;
+
+        if (p.life > p.maxLife || Math.abs(p.x) > 260 || Math.abs(p.z) > 260) {
+          p.life = 0;
+          p.x = (Math.random() - 0.5) * 360;
+          p.y = (Math.random() - 0.5) * 70;
+          p.z = (Math.random() - 0.5) * 360;
+          p.vx = (Math.random() - 0.5) * 1.2;
+          p.vz = (Math.random() - 0.5) * 1.2;
+        }
+      }
+    }
+
+    // 状态文本与 UI 刷新
+    function updateStatusText() {
+      const badge = document.getElementById('statusBadge');
+      const topState = document.getElementById('topState');
+
+      if (STATE.mode === 'charging') {
+        badge.innerText = 'TOPOLOGICAL CHARGING ACTIVE';
+        badge.style.borderColor = 'var(--neon-cyan)';
+        badge.style.color = 'var(--neon-cyan)';
+        topState.innerText = '|Ψ_charge⟩ 几何相泵浦';
+        topState.style.color = 'var(--neon-cyan)';
+      } else if (STATE.mode === 'locked') {
+        badge.innerText = 'MAJORANA PARITY LOCKED (ZERO DISCHARGE)';
+        badge.style.borderColor = 'var(--neon-green)';
+        badge.style.color = 'var(--neon-green)';
+        topState.innerText = '|Ψ_MZM⟩ 拓扑宇称锁存态';
+        topState.style.color = 'var(--neon-green)';
+      } else if (STATE.mode === 'extracting') {
+        badge.innerText = 'DISSIPATIONLESS FLASH EXTRACTION';
+        badge.style.borderColor = 'var(--neon-gold)';
+        badge.style.color = 'var(--neon-gold)';
+        topState.innerText = '|W_flash⟩ 极限功释放';
+        topState.style.color = 'var(--neon-gold)';
+      } else {
+        badge.innerText = 'QUANTUM BATTERY READY';
+        badge.style.borderColor = 'rgba(0, 240, 255, 0.4)';
+        badge.style.color = 'var(--neon-cyan)';
+        topState.innerText = '|G⟩ 基态蓄能就绪';
+        topState.style.color = 'var(--text-main)';
+      }
+    }
+
+    function updateTelemetryUI() {
+      document.getElementById('topEnergy').innerText = `${STATE.energy.toFixed(1)} meV`;
+      document.getElementById('topPower').innerText = `${STATE.power.toFixed(1)} μW`;
+      document.getElementById('topErgotropy').innerText = `${(STATE.ergotropy * 100).toFixed(1)}%`;
+
+      const chargePct = (STATE.charge * 100).toFixed(1);
+      document.getElementById('hudChargePercent').innerText = `${chargePct}%`;
+      document.getElementById('hudBarFill').style.width = `${chargePct}%`;
+
+      document.getElementById('statSuperGain').innerText = `${(STATE.nUnits).toFixed(1)}x (N²)`;
+      document.getElementById('statPhi0').innerText = `${(STATE.phi0 / Math.PI).toFixed(2)} π`;
+      
+      const lifetime = (STATE.ptopo > 80) ? (STATE.ptopo * 0.05).toFixed(2) + ' ms (拓扑保护)' : '0.12 ms (经典漏电)';
+      document.getElementById('statLifetime').innerText = lifetime;
+      document.getElementById('statBerryPhase').innerText = `${(STATE.berryPhase / Math.PI).toFixed(2)} π`;
+      document.getElementById('statPeakCurrent').innerText = `${(STATE.power * 0.12).toFixed(1)} μA`;
+    }
+
+    // 三维投影数学变换
+    function project3D(x, y, z, cx, cy) {
+      // 绕 Y 轴旋转
+      const cosY = Math.cos(STATE.camRotY);
+      const sinY = Math.sin(STATE.camRotY);
+      const x1 = x * cosY - z * sinY;
+      const z1 = z * cosY + x * sinY;
+
+      // 绕 X 轴俯仰
+      const cosX = Math.cos(STATE.camRotX);
+      const sinX = Math.sin(STATE.camRotX);
+      const y2 = y * cosX - z1 * sinX;
+      const z2 = z1 * cosX + y * sinX + STATE.camDist;
+
+      if (z2 <= 20) return null; // 裁剪后方
+      const fov = 420;
+      const scale = fov / z2;
+      return {
+        px: cx + x1 * scale,
+        py: cy + y2 * scale,
+        scale: scale,
+        depth: z2
+      };
+    }
+
+    // 绘制全息三维主视口
+    function renderMainView() {
+      const w = mainCanvas.width = mainCanvas.parentElement.clientWidth;
+      const h = mainCanvas.height = mainCanvas.parentElement.clientHeight;
+      const cx = w * 0.5;
+      const cy = h * 0.52;
+
+      ctxMain.clearRect(0, 0, w, h);
+
+      // 1. 背景全息网格
+      ctxMain.strokeStyle = 'rgba(0, 240, 255, 0.04)';
+      ctxMain.lineWidth = 1;
+      const gridCount = 10;
+      const gridStep = 45;
+      for (let i = -gridCount; i <= gridCount; i++) {
+        const pA = project3D(i * gridStep, 60, -gridCount * gridStep, cx, cy);
+        const pB = project3D(i * gridStep, 60, gridCount * gridStep, cx, cy);
+        if (pA && pB) {
+          ctxMain.beginPath();
+          ctxMain.moveTo(pA.px, pA.py);
+          ctxMain.lineTo(pB.px, pB.py);
+          ctxMain.stroke();
+        }
+        const pC = project3D(-gridCount * gridStep, 60, i * gridStep, cx, cy);
+        const pD = project3D(gridCount * gridStep, 60, i * gridStep, cx, cy);
+        if (pC && pD) {
+          ctxMain.beginPath();
+          ctxMain.moveTo(pC.px, pC.py);
+          ctxMain.lineTo(pD.px, pD.py);
+          ctxMain.stroke();
+        }
+      }
+
+      // 2. 绘制交错磁体（Altermagnet）超晶格基底 (d-Wave Spin Splitting Texture)
+      const latticeR = 180;
+      const rows = 8;
+      const cols = 8;
+      for (let r = -rows; r <= rows; r++) {
+        for (let c = -cols; c <= cols; c++) {
+          const lx = c * 24;
+          const lz = r * 24;
+          if (lx * lx + lz * lz > latticeR * latticeR) continue;
+
+          // d 波反铁磁子晶格交错自旋: S_z(k) ∝ cos(2θ)
+          const thetaL = Math.atan2(lz, lx);
+          const spinD = Math.cos(2 * thetaL);
+          const p = project3D(lx, 40, lz, cx, cy);
+          if (!p) continue;
+
+          ctxMain.beginPath();
+          ctxMain.arc(p.px, p.py, Math.max(1, 2.8 * p.scale), 0, Math.PI * 2);
+          if (spinD > 0) {
+            ctxMain.fillStyle = `rgba(0, 240, 255, ${0.25 + spinD * 0.45})`;
+          } else {
+            ctxMain.fillStyle = `rgba(255, 0, 119, ${0.25 + Math.abs(spinD) * 0.45})`;
+          }
+          ctxMain.fill();
+        }
+      }
+
+      // 3. 绘制超导纳米线与约瑟夫森结导轨回路 (Josephson Quantum Ring)
+      const ringRadius = 130;
+      const segs = 64;
+      ctxMain.beginPath();
+      for (let s = 0; s <= segs; s++) {
+        const ang = (s / segs) * Math.PI * 2;
+        const rx = Math.cos(ang) * ringRadius;
+        const rz = Math.sin(ang) * ringRadius;
+        const ry = Math.sin(ang * 4 + STATE.time * 3) * 6;
+        const p = project3D(rx, ry, rz, cx, cy);
+        if (p) {
+          if (s === 0) ctxMain.moveTo(p.px, p.py);
+          else ctxMain.lineTo(p.px, p.py);
+        }
+      }
+      ctxMain.strokeStyle = 'rgba(0, 240, 255, 0.6)';
+      ctxMain.lineWidth = 3.2;
+      ctxMain.stroke();
+
+      // 4. 绘制并联电池单元阵列 N (Quantum Battery Cells)
+      const cellCount = Math.min(32, STATE.nUnits);
+      for (let i = 0; i < cellCount; i++) {
+        const ang = (i / cellCount) * Math.PI * 2;
+        const cxpos = Math.cos(ang) * ringRadius;
+        const czpos = Math.sin(ang) * ringRadius;
+        const pCell = project3D(cxpos, -8, czpos, cx, cy);
+        if (pCell) {
+          ctxMain.beginPath();
+          const cellRadius = Math.max(3, 7 * pCell.scale);
+          ctxMain.arc(pCell.px, pCell.py, cellRadius, 0, Math.PI * 2);
+
+          // 储能充盈度映射色彩
+          const glowGrad = ctxMain.createRadialGradient(pCell.px, pCell.py, 1, pCell.px, pCell.py, cellRadius * 2);
+          if (STATE.charge > 0.05) {
+            glowGrad.addColorStop(0, 'rgba(255, 208, 0, 0.9)');
+            glowGrad.addColorStop(0.5, 'rgba(0, 240, 255, 0.5)');
+            glowGrad.addColorStop(1, 'rgba(0, 240, 255, 0)');
+          } else {
+            glowGrad.addColorStop(0, 'rgba(0, 240, 255, 0.5)');
+            glowGrad.addColorStop(1, 'rgba(0, 240, 255, 0)');
+          }
+          ctxMain.fillStyle = glowGrad;
+          ctxMain.fill();
+        }
+      }
+
+      // 5. 绘制中心拓扑量子电容隐形电池储能岛 (Topological Majorana Battery Island)
+      const pIsland = project3D(0, -12, 0, cx, cy);
+      if (pIsland) {
+        const baseRadius = Math.max(16, 32 * pIsland.scale);
+        const glowPulse = Math.sin(STATE.time * 6) * 4;
+        const islandR = baseRadius + glowPulse * STATE.charge;
+
+        ctxMain.beginPath();
+        const radGrad = ctxMain.createRadialGradient(pIsland.px, pIsland.py, 2, pIsland.px, pIsland.py, islandR * 2.2);
+        if (STATE.mode === 'locked') {
+          // 宇称锁定翠绿光辉
+          radGrad.addColorStop(0, '#ffffff');
+          radGrad.addColorStop(0.3, 'rgba(0, 255, 136, 0.85)');
+          radGrad.addColorStop(0.7, 'rgba(0, 180, 100, 0.35)');
+          radGrad.addColorStop(1, 'rgba(0, 255, 136, 0)');
+        } else if (STATE.charge > 0.1) {
+          // 高能金黄超导光辉
+          radGrad.addColorStop(0, '#ffffff');
+          radGrad.addColorStop(0.3, `rgba(255, 208, 0, ${0.7 + STATE.charge * 0.3})`);
+          radGrad.addColorStop(0.7, 'rgba(0, 240, 255, 0.4)');
+          radGrad.addColorStop(1, 'rgba(0, 240, 255, 0)');
+        } else {
+          // 基态冷蓝光晕
+          radGrad.addColorStop(0, 'rgba(255, 255, 255, 0.8)');
+          radGrad.addColorStop(0.4, 'rgba(0, 240, 255, 0.4)');
+          radGrad.addColorStop(1, 'rgba(0, 240, 255, 0)');
+        }
+        ctxMain.fillStyle = radGrad;
+        ctxMain.arc(pIsland.px, pIsland.py, islandR * 2.2, 0, Math.PI * 2);
+        ctxMain.fill();
+
+        // 核心量子点球体
+        ctxMain.beginPath();
+        ctxMain.arc(pIsland.px, pIsland.py, baseRadius, 0, Math.PI * 2);
+        ctxMain.fillStyle = STATE.mode === 'locked' ? '#00ff88' : (STATE.charge > 0.5 ? '#ffd000' : '#00f0ff');
+        ctxMain.shadowColor = STATE.mode === 'locked' ? '#00ff88' : '#00f0ff';
+        ctxMain.shadowBlur = 15;
+        ctxMain.fill();
+        ctxMain.shadowBlur = 0;
+
+        // 中心马约拉纳零能模宇称标牌
+        ctxMain.fillStyle = '#050a18';
+        ctxMain.font = `bold ${Math.round(11 * pIsland.scale)}px ${getComputedStyle(document.body).getPropertyValue('--font-mono')}`;
+        ctxMain.textAlign = 'center';
+        ctxMain.textBaseline = 'middle';
+        ctxMain.fillText(STATE.mode === 'locked' ? 'MZM 宇称锁存' : (STATE.charge > 0.8 ? '超相干满电' : 'QB 储能岛'), pIsland.px, pIsland.py);
+      }
+
+      // 6. 绘制微波驱动几何闭环螺旋波束 (Microwave Geometric Driving Fields)
+      if (STATE.mode === 'charging') {
+        ctxMain.beginPath();
+        const spirals = 48;
+        for (let sp = 0; sp <= spirals; sp++) {
+          const frac = sp / spirals;
+          const thetaSp = frac * Math.PI * 8 + STATE.time * 8;
+          const rSp = 25 + frac * 110;
+          const hSp = -60 + frac * 50;
+          const spX = Math.cos(thetaSp) * rSp;
+          const spZ = Math.sin(thetaSp) * rSp;
+          const pSp = project3D(spX, hSp, spZ, cx, cy);
+          if (pSp) {
+            if (sp === 0) ctxMain.moveTo(pSp.px, pSp.py);
+            else ctxMain.lineTo(pSp.px, pSp.py);
+          }
+        }
+        ctxMain.strokeStyle = 'rgba(255, 208, 0, 0.7)';
+        ctxMain.lineWidth = 2.5;
+        ctxMain.stroke();
+      }
+
+      // 7. 渲染微观准粒子系统 (库珀对流与几何相光子)
+      for (let p of PARTICLES) {
+        const pt = project3D(p.x, p.y, p.z, cx, cy);
+        if (!pt) continue;
+
+        const pRadius = Math.max(1.2, (p.type === 0 ? 3.2 : 2.0) * pt.scale);
+        ctxMain.beginPath();
+        ctxMain.arc(pt.px, pt.py, pRadius, 0, Math.PI * 2);
+
+        if (p.type === 0) {
+          // 库珀对
+          ctxMain.fillStyle = STATE.mode === 'charging' ? '#ffd000' : '#00f0ff';
+        } else if (p.type === 1) {
+          // 微波光子
+          ctxMain.fillStyle = '#ff0077';
+        } else {
+          // 拓扑边缘模式
+          ctxMain.fillStyle = '#00ff88';
+        }
+        ctxMain.fill();
+      }
+    }
+
+    // 绘制示波器 I: 超辐射充电功率与功提取 Ergotropy 动力学
+    function renderScopePower() {
+      const w = scopePowerCanvas.width = scopePowerCanvas.parentElement.clientWidth;
+      const h = scopePowerCanvas.height = scopePowerCanvas.parentElement.clientHeight;
+
+      ctxPower.clearRect(0, 0, w, h);
+
+      // 背景网格与零线
+      ctxPower.strokeStyle = 'rgba(255, 255, 255, 0.06)';
+      ctxPower.lineWidth = 1;
+      for (let y = 0; y < h; y += 30) {
+        ctxPower.beginPath();
+        ctxPower.moveTo(0, y);
+        ctxPower.lineTo(w, y);
+        ctxPower.stroke();
+      }
+
+      const len = STATE.powerHistory.length;
+      const maxPowerVal = Math.max(40, ...STATE.powerHistory, ...STATE.classicPowerHistory);
+
+      // 1. 经典功率对照曲线 (灰色虚线 P_classic ∝ N)
+      ctxPower.beginPath();
+      ctxPower.setLineDash([4, 4]);
+      for (let i = 0; i < len; i++) {
+        const x = (i / (len - 1)) * w;
+        const normY = STATE.classicPowerHistory[i] / maxPowerVal;
+        const y = h - 16 - normY * (h - 32);
+        if (i === 0) ctxPower.moveTo(x, y);
+        else ctxPower.lineTo(x, y);
+      }
+      ctxPower.strokeStyle = '#7a94b0';
+      ctxPower.lineWidth = 1.5;
+      ctxPower.stroke();
+      ctxPower.setLineDash([]);
+
+      // 2. 超辐射量子相干功率曲线 (霓虹绿 P_quant ∝ N^2)
+      ctxPower.beginPath();
+      for (let i = 0; i < len; i++) {
+        const x = (i / (len - 1)) * w;
+        const normY = STATE.powerHistory[i] / maxPowerVal;
+        const y = h - 16 - normY * (h - 32);
+        if (i === 0) ctxPower.moveTo(x, y);
+        else ctxPower.lineTo(x, y);
+      }
+      ctxPower.strokeStyle = '#00ff88';
+      ctxPower.lineWidth = 2.2;
+      ctxPower.stroke();
+
+      // 3. 功提取率 Ergotropy 比例曲线 (金黄色)
+      ctxPower.beginPath();
+      for (let i = 0; i < len; i++) {
+        const x = (i / (len - 1)) * w;
+        const normY = STATE.ergotropyHistory[i] / 100.0;
+        const y = h - 16 - normY * (h - 32);
+        if (i === 0) ctxPower.moveTo(x, y);
+        else ctxPower.lineTo(x, y);
+      }
+      ctxPower.strokeStyle = '#ffd000';
+      ctxPower.lineWidth = 1.8;
+      ctxPower.stroke();
+
+      // 标注刻度
+      ctxPower.fillStyle = '#7a94b0';
+      ctxPower.font = `9px ${getComputedStyle(document.body).getPropertyValue('--font-mono')}`;
+      ctxPower.fillText(`${maxPowerVal.toFixed(0)} μW`, 6, 12);
+      ctxPower.fillText('0', 6, h - 4);
+    }
+
+    // 绘制示波器 II: 安德列夫束缚态 (ABS) 能级与相移跃迁
+    function renderScopeAbs() {
+      const w = scopeAbsCanvas.width = scopeAbsCanvas.parentElement.clientWidth;
+      const h = scopeAbsCanvas.height = scopeAbsCanvas.parentElement.clientHeight;
+
+      ctxAbs.clearRect(0, 0, w, h);
+
+      // 中心零能线 (Fermi Level E = 0)
+      const midY = h * 0.5;
+      ctxAbs.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+      ctxAbs.lineWidth = 1;
+      ctxAbs.beginPath();
+      ctxAbs.moveTo(0, midY);
+      ctxAbs.lineTo(w, midY);
+      ctxAbs.stroke();
+
+      // 绘制 ABS 能谱曲线 E_ABS(φ) = ±Δ_0 * sqrt(1 - τ * sin^2((φ - φ_0)/2))
+      const points = 120;
+      const tau = 0.88; // 界面超导穿透率
+      const scaleY = (h * 0.42) / (STATE.delta * 1.2);
+
+      // 正能支
+      ctxAbs.beginPath();
+      for (let i = 0; i <= points; i++) {
+        const phi = (i / points) * 4 * Math.PI;
+        const eVal = STATE.delta * Math.sqrt(Math.max(0.01, 1.0 - tau * Math.pow(Math.sin((phi - STATE.phi0) / 2.0), 2)));
+        const x = (i / points) * w;
+        const y = midY - eVal * scaleY;
+        if (i === 0) ctxAbs.moveTo(x, y);
+        else ctxAbs.lineTo(x, y);
+      }
+      ctxAbs.strokeStyle = '#00f0ff';
+      ctxAbs.lineWidth = 2.0;
+      ctxAbs.stroke();
+
+      // 负能支
+      ctxAbs.beginPath();
+      for (let i = 0; i <= points; i++) {
+        const phi = (i / points) * 4 * Math.PI;
+        const eVal = -STATE.delta * Math.sqrt(Math.max(0.01, 1.0 - tau * Math.pow(Math.sin((phi - STATE.phi0) / 2.0), 2)));
+        const x = (i / points) * w;
+        const y = midY - eVal * scaleY;
+        if (i === 0) ctxAbs.moveTo(x, y);
+        else ctxAbs.lineTo(x, y);
+      }
+      ctxAbs.strokeStyle = '#00f0ff';
+      ctxAbs.lineWidth = 2.0;
+      ctxAbs.stroke();
+
+      // 自发相移激发点 φ_0 垂线与节点标注
+      const phi0Frac = ((STATE.phi0 % (4 * Math.PI)) / (4 * Math.PI));
+      const markerX = phi0Frac * w;
+      ctxAbs.strokeStyle = 'rgba(255, 0, 119, 0.7)';
+      ctxAbs.setLineDash([3, 3]);
+      ctxAbs.beginPath();
+      ctxAbs.moveTo(markerX, 0);
+      ctxAbs.lineTo(markerX, h);
+      ctxAbs.stroke();
+      ctxAbs.setLineDash([]);
+
+      // 绘制当前充放电工作相点
+      const currentPhi = ((STATE.phi0 + STATE.charge * Math.PI * 2) % (4 * Math.PI));
+      const curX = (currentPhi / (4 * Math.PI)) * w;
+      const curE = STATE.delta * Math.sqrt(Math.max(0.01, 1.0 - tau * Math.pow(Math.sin((currentPhi - STATE.phi0) / 2.0), 2)));
+      const curY = midY - curE * scaleY;
+
+      ctxAbs.beginPath();
+      ctxAbs.arc(curX, curY, 5, 0, Math.PI * 2);
+      ctxAbs.fillStyle = '#ffd000';
+      ctxAbs.shadowColor = '#ffd000';
+      ctxAbs.shadowBlur = 10;
+      ctxAbs.fill();
+      ctxAbs.shadowBlur = 0;
+
+      // 刻度
+      ctxAbs.fillStyle = '#7a94b0';
+      ctxAbs.font = `9px ${getComputedStyle(document.body).getPropertyValue('--font-mono')}`;
+      ctxAbs.fillText(`+Δ (${STATE.delta.toFixed(1)} meV)`, 6, 12);
+      ctxAbs.fillText(`-Δ (-${STATE.delta.toFixed(1)} meV)`, 6, h - 4);
+      ctxAbs.fillText(`自发相移 φ₀=${(STATE.phi0/Math.PI).toFixed(2)}π`, Math.min(w - 95, markerX + 4), midY - 6);
+    }
+
+    // 交互拖拽控制主三维视口
+    mainCanvas.addEventListener('mousedown', e => {
+      STATE.isDragging = true;
+      STATE.lastMouseX = e.clientX;
+      STATE.lastMouseY = e.clientY;
+    });
+
+    window.addEventListener('mouseup', () => {
+      STATE.isDragging = false;
+    });
+
+    window.addEventListener('mousemove', e => {
+      if (!STATE.isDragging) return;
+      const dx = e.clientX - STATE.lastMouseX;
+      const dy = e.clientY - STATE.lastMouseY;
+      STATE.camRotY += dx * 0.008;
+      STATE.camRotX = Math.max(0.05, Math.min(1.4, STATE.camRotX + dy * 0.008));
+      STATE.lastMouseX = e.clientX;
+      STATE.lastMouseY = e.clientY;
+    });
+
+    mainCanvas.addEventListener('wheel', e => {
+      e.preventDefault();
+      STATE.camDist = Math.max(260, Math.min(900, STATE.camDist + e.deltaY * 0.6));
+    }, { passive: false });
+
+    // 按钮事件绑定
+    document.getElementById('btnToggleCharge').addEventListener('click', () => {
+      initAudio();
+      if (STATE.mode === 'charging') {
+        STATE.mode = 'idle';
+      } else {
+        STATE.mode = 'charging';
+      }
+      updateStatusText();
+    });
+
+    document.getElementById('btnToggleLock').addEventListener('click', () => {
+      initAudio();
+      if (STATE.mode === 'locked') {
+        STATE.mode = 'idle';
+      } else {
+        STATE.mode = 'locked';
+      }
+      updateStatusText();
+    });
+
+    document.getElementById('btnFlashExtract').addEventListener('click', () => {
+      initAudio();
+      if (STATE.charge > 0.02) {
+        STATE.mode = 'extracting';
+      }
+      updateStatusText();
+    });
+
+    document.getElementById('btnAudioToggle').addEventListener('click', () => {
+      initAudio();
+    });
+
+    // 参数滑块绑定
+    function setupSlider(id, targetKey, displayId, unit, parser = parseFloat) {
+      const slider = document.getElementById(id);
+      slider.addEventListener('input', e => {
+        const val = parser(e.target.value);
+        STATE[targetKey] = val;
+        document.getElementById(displayId).innerText = `${val} ${unit}`;
+      });
+    }
+
+    setupSlider('slJalt', 'jalt', 'valJalt', 'meV');
+    setupSlider('slOmega', 'omega', 'valOmega', 'GHz');
+    setupSlider('slN', 'nUnits', 'valN', '单元', parseInt);
+    setupSlider('slDelta', 'delta', 'valDelta', 'meV');
+    setupSlider('slEc', 'ec', 'valEc', 'meV');
+    setupSlider('slPtopo', 'ptopo', 'valPtopo', '%');
+
+    // 典型工况预设切换
+    function applyPreset(btnId, config) {
+      document.querySelectorAll('.preset-grid .btn').forEach(b => b.classList.remove('active'));
+      document.getElementById(btnId).classList.add('active');
+
+      Object.assign(STATE, config);
+
+      document.getElementById('slJalt').value = STATE.jalt;
+      document.getElementById('valJalt').innerText = `${STATE.jalt} meV`;
+
+      document.getElementById('slOmega').value = STATE.omega;
+      document.getElementById('valOmega').innerText = `${STATE.omega} GHz`;
+
+      document.getElementById('slN').value = STATE.nUnits;
+      document.getElementById('valN').innerText = `${STATE.nUnits} 单元`;
+
+      document.getElementById('slDelta').value = STATE.delta;
+      document.getElementById('valDelta').innerText = `${STATE.delta} meV`;
+
+      document.getElementById('slEc').value = STATE.ec;
+      document.getElementById('valEc').innerText = `${STATE.ec} meV`;
+
+      document.getElementById('slPtopo').value = STATE.ptopo;
+      document.getElementById('valPtopo').innerText = `${STATE.ptopo} %`;
+
+      updateStatusText();
+    }
+
+    document.getElementById('preset1').addEventListener('click', () => {
+      applyPreset('preset1', {
+        jalt: 10, omega: 3.5, nUnits: 4, delta: 1.0, ec: 0.4, ptopo: 40, mode: 'charging'
+      });
+    });
+
+    document.getElementById('preset2').addEventListener('click', () => {
+      applyPreset('preset2', {
+        jalt: 85, omega: 24.0, nUnits: 36, delta: 2.4, ec: 1.2, ptopo: 96, mode: 'charging'
+      });
+    });
+
+    document.getElementById('preset3').addEventListener('click', () => {
+      applyPreset('preset3', {
+        jalt: 70, omega: 14.0, nUnits: 16, delta: 2.0, ec: 0.9, ptopo: 99, mode: 'locked', charge: 0.92
+      });
+    });
+
+    document.getElementById('preset4').addEventListener('click', () => {
+      applyPreset('preset4', {
+        jalt: 110, omega: 30.0, nUnits: 48, delta: 2.8, ec: 1.5, ptopo: 98, mode: 'extracting', charge: 0.98
+      });
+    });
+
+    // 动画循环
+    function animate() {
+      updatePhysics();
+      updateTelemetryUI();
+      updateAudio();
+
+      renderMainView();
+      renderScopePower();
+      renderScopeAbs();
+
+      requestAnimationFrame(animate);
+    }
+
+    // 启动仿真
+    animate();
+  </script>
+</body>
+</html>

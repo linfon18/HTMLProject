@@ -1,0 +1,1614 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>变换光学与超构材料隐身衣 - Metamaterial Invisibility Cloak</title>
+<style>
+  :root {
+    --bg-dark: #030712;
+    --panel-bg: rgba(17, 24, 39, 0.85);
+    --panel-border: rgba(99, 102, 241, 0.25);
+    --primary: #6366f1;
+    --accent-cyan: #06b6d4;
+    --accent-emerald: #10b981;
+    --accent-rose: #f43f5e;
+    --accent-amber: #f59e0b;
+    --text-main: #f3f4f6;
+    --text-muted: #9ca3af;
+    --font-mono: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    user-select: none;
+  }
+
+  body {
+    background-color: var(--bg-dark);
+    color: var(--text-main);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+  }
+
+  /* 顶栏 HUD */
+  header {
+    background: rgba(3, 7, 18, 0.92);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--panel-border);
+    padding: 0.75rem 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 50;
+  }
+
+  .brand-group {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .brand-badge {
+    background: linear-gradient(135deg, #4f46e5, #06b6d4);
+    color: white;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 0.25rem 0.6rem;
+    border-radius: 6px;
+    letter-spacing: 0.08em;
+    box-shadow: 0 0 15px rgba(99, 102, 241, 0.4);
+  }
+
+  h1 {
+    font-size: 1.15rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    background: linear-gradient(to right, #ffffff, #c7d2fe, #38bdf8);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .nav-stats {
+    display: flex;
+    gap: 1.25rem;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+  }
+
+  .stat-chip {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .stat-label {
+    color: var(--text-muted);
+  }
+
+  .stat-val {
+    color: var(--accent-cyan);
+    font-weight: 600;
+  }
+
+  /* 主交互布局 */
+  main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 390px;
+    gap: 1rem;
+    padding: 1rem 1.5rem;
+    position: relative;
+    max-width: 1920px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  @media (max-width: 1180px) {
+    main {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  /* 左侧主模拟画布容器 */
+  .simulation-view {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    min-height: 560px;
+  }
+
+  .canvas-card {
+    position: relative;
+    background: #020617;
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    overflow: hidden;
+    flex: 1;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  #mainCanvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    cursor: crosshair;
+  }
+
+  /* 模拟层 HUD 悬浮层 */
+  .canvas-overlay-top {
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    right: 1rem;
+    display: flex;
+    justify-content: space-between;
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  .mode-indicator {
+    background: rgba(15, 23, 42, 0.88);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(99, 102, 241, 0.35);
+    padding: 0.4rem 0.85rem;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.82rem;
+  }
+
+  .mode-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent-cyan);
+    box-shadow: 0 0 10px var(--accent-cyan);
+    animation: pulseGlow 2s infinite ease-in-out;
+  }
+
+  @keyframes pulseGlow {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.85); }
+  }
+
+  .legend-bar {
+    background: rgba(15, 23, 42, 0.88);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 0.4rem 0.8rem;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: 0.75rem;
+    font-family: var(--font-mono);
+  }
+
+  .colormap-preview {
+    width: 110px;
+    height: 10px;
+    border-radius: 3px;
+    background: linear-gradient(to right, #00f0ff, #002244, #000000, #440022, #ff0055);
+    border: 1px solid rgba(255,255,255,0.2);
+  }
+
+  .canvas-overlay-bottom {
+    position: absolute;
+    bottom: 1rem;
+    left: 1rem;
+    right: 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  .probe-readout {
+    background: rgba(15, 23, 42, 0.88);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 0.5rem 0.85rem;
+    border-radius: 8px;
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+
+  .toolbar {
+    display: flex;
+    gap: 0.5rem;
+    background: rgba(15, 23, 42, 0.9);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--panel-border);
+    padding: 0.4rem 0.6rem;
+    border-radius: 10px;
+    pointer-events: auto;
+  }
+
+  .btn {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: var(--text-main);
+    padding: 0.38rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    transition: all 0.2s ease;
+  }
+
+  .btn:hover {
+    background: rgba(99, 102, 241, 0.25);
+    border-color: rgba(99, 102, 241, 0.5);
+    transform: translateY(-1px);
+  }
+
+  .btn.active {
+    background: var(--primary);
+    border-color: #818cf8;
+    color: #ffffff;
+    box-shadow: 0 0 12px rgba(99, 102, 241, 0.4);
+  }
+
+  /* 底部快速诊断条 */
+  .quick-metrics {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.75rem;
+  }
+
+  .metric-card {
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    padding: 0.65rem 0.9rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .metric-title {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .metric-value {
+    font-family: var(--font-mono);
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #ffffff;
+    display: flex;
+    align-items: baseline;
+    gap: 0.3rem;
+  }
+
+  .metric-unit {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    font-weight: normal;
+  }
+
+  /* 右侧综合仪表盘与分析面板 */
+  aside {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+  }
+
+  .panel-box {
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    padding: 1.1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+    backdrop-filter: blur(12px);
+  }
+
+  .panel-box h2 {
+    font-size: 0.9rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    letter-spacing: 0.02em;
+    color: #e2e8f0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    padding-bottom: 0.5rem;
+  }
+
+  .panel-tag {
+    font-size: 0.7rem;
+    color: var(--accent-cyan);
+    font-family: var(--font-mono);
+    background: rgba(6, 182, 212, 0.1);
+    padding: 0.15rem 0.45rem;
+    border-radius: 4px;
+    border: 1px solid rgba(6, 182, 212, 0.2);
+  }
+
+  /* 模式切换网格 */
+  .mode-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+  }
+
+  .mode-btn {
+    background: rgba(15, 23, 42, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    padding: 0.65rem 0.6rem;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+
+  .mode-btn:hover {
+    border-color: rgba(99, 102, 241, 0.4);
+    background: rgba(30, 41, 59, 0.8);
+  }
+
+  .mode-btn.active {
+    background: rgba(99, 102, 241, 0.2);
+    border-color: var(--primary);
+    box-shadow: 0 0 15px rgba(99, 102, 241, 0.25);
+  }
+
+  .mode-btn-name {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #ffffff;
+  }
+
+  .mode-btn-desc {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    line-height: 1.25;
+  }
+
+  /* 控制滑块行 */
+  .control-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .control-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.78rem;
+  }
+
+  .control-title {
+    color: var(--text-muted);
+  }
+
+  .control-val {
+    font-family: var(--font-mono);
+    color: var(--accent-cyan);
+    font-weight: 500;
+  }
+
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 5px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.1);
+    outline: none;
+    transition: background 0.2s;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--accent-cyan);
+    cursor: pointer;
+    box-shadow: 0 0 8px var(--accent-cyan);
+    transition: transform 0.1s;
+  }
+
+  input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+  }
+
+  /* 辅助图表 Canvas */
+  .chart-container {
+    position: relative;
+    width: 100%;
+    height: 140px;
+    background: #020617;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    overflow: hidden;
+  }
+
+  .chart-canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  /* 变换光学本构公式卡 */
+  .formula-card {
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    padding: 0.65rem 0.8rem;
+    font-family: var(--font-mono);
+    font-size: 0.74rem;
+    color: #cbd5e1;
+    line-height: 1.5;
+  }
+
+  .formula-highlight {
+    color: var(--accent-amber);
+  }
+
+  /* 弹窗/抽屉等轻提示 */
+  .toast {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    background: rgba(15, 23, 42, 0.95);
+    border: 1px solid var(--accent-cyan);
+    color: #ffffff;
+    padding: 0.6rem 1.1rem;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    transform: translateY(10px);
+    z-index: 100;
+  }
+
+  .toast.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand-group">
+    <div class="brand-badge">TRANSFORMATION OPTICS</div>
+    <h1>变换光学与超构材料隐身衣全息仿真</h1>
+  </div>
+  <div class="nav-stats">
+    <div class="stat-chip">
+      <span class="stat-label">网格规模:</span>
+      <span class="stat-val" id="statGrid">220×130 FDTD</span>
+    </div>
+    <div class="stat-chip">
+      <span class="stat-label">电磁能流衰减:</span>
+      <span class="stat-val" id="statAttenuation">-0.04 dB</span>
+    </div>
+    <div class="stat-chip">
+      <span class="stat-label">前向阴影截面:</span>
+      <span class="stat-val" id="statShadowRCS">0.03 σ₀</span>
+    </div>
+  </div>
+</header>
+
+<main>
+  <!-- 左侧主仿真交互区 -->
+  <div class="simulation-view">
+    <div class="canvas-card" id="canvasContainer">
+      <canvas id="mainCanvas"></canvas>
+
+      <!-- 顶部 HUD 悬浮指示 -->
+      <div class="canvas-overlay-top">
+        <div class="mode-indicator">
+          <div class="mode-dot" id="modeDot"></div>
+          <span id="modeDisplayTitle">理想变换光学隐身衣 (Cloaked)</span>
+        </div>
+        <div class="legend-bar">
+          <span>电场振幅 Ez [-1, +1]</span>
+          <div class="colormap-preview"></div>
+        </div>
+      </div>
+
+      <!-- 底部 HUD 悬浮示波与工具 -->
+      <div class="canvas-overlay-bottom">
+        <div class="probe-readout" id="probeCard">
+          <div style="display:flex; justify-content:space-between; gap:1rem;">
+            <span style="color:var(--text-muted);">虚拟探针:</span>
+            <span style="color:var(--accent-cyan);" id="probeCoords">(X: 180, Y: 65)</span>
+          </div>
+          <div>瞬时场 Ez: <span style="color:#ffffff;" id="probeVal">0.000</span></div>
+          <div>局域能流 S: <span style="color:var(--accent-emerald);" id="probePoynting">0.000 W/m²</span></div>
+        </div>
+
+        <div class="toolbar">
+          <button class="btn" id="btnPlayPause">
+            <span id="playIcon">⏸</span> 暂停
+          </button>
+          <button class="btn" id="btnStep">⏭ 步进</button>
+          <button class="btn" id="btnResetField">🔄 清空电磁场</button>
+          <button class="btn active" id="btnStreamlines">⚡ 能流粒子</button>
+          <button class="btn active" id="btnAudio">🔊 声效</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 快速指标条 -->
+    <div class="quick-metrics">
+      <div class="metric-card">
+        <span class="metric-title">波前平直度畸变</span>
+        <div class="metric-value">
+          <span id="metricDistortion">0.8</span>
+          <span class="metric-unit">%</span>
+        </div>
+      </div>
+      <div class="metric-card">
+        <span class="metric-title">背向散射截面 RCS</span>
+        <div class="metric-value">
+          <span id="metricBackRCS">0.012</span>
+          <span class="metric-unit">m²/m</span>
+        </div>
+      </div>
+      <div class="metric-card">
+        <span class="metric-title">壳内光子群速压缩</span>
+        <div class="metric-value">
+          <span id="metricSlowLight">2.41</span>
+          <span class="metric-unit">c_eff</span>
+        </div>
+      </div>
+      <div class="metric-card">
+        <span class="metric-title">中心黑障隐蔽度</span>
+        <div class="metric-value">
+          <span id="metricCloakQuality" style="color:var(--accent-emerald);">99.2</span>
+          <span class="metric-unit">%</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 右侧控制面板与图表 -->
+  <aside>
+    <!-- 物理工况选择 -->
+    <div class="panel-box">
+      <h2>
+        <span>物理工况对照</span>
+        <span class="panel-tag">EXPERIMENT</span>
+      </h2>
+      <div class="mode-grid">
+        <div class="mode-btn active" data-mode="cloak">
+          <div class="mode-btn-name">① 理想超构隐身衣</div>
+          <div class="mode-btn-desc">Pendry坐标变换，波前绕行重合无反射</div>
+        </div>
+        <div class="mode-btn" data-mode="pec">
+          <div class="mode-btn-name">② 裸露PEC金属柱</div>
+          <div class="mode-btn-desc">无保护散射体，强驻波反弹与前向黑影</div>
+        </div>
+        <div class="mode-btn" data-mode="free">
+          <div class="mode-btn-name">③ 自由真空背景</div>
+          <div class="mode-btn-desc">均匀各向同性介质，纯平面波基准对照</div>
+        </div>
+        <div class="mode-btn" data-mode="lossy">
+          <div class="mode-btn-name">④ 耗散失配隐身衣</div>
+          <div class="mode-btn-desc">含真实超构材料吸收损耗与折射率畸变</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 介质本构与几何调节 -->
+    <div class="panel-box">
+      <h2>
+        <span>介质本构与电磁波参数</span>
+        <span class="panel-tag">FDTD CONTROLS</span>
+      </h2>
+
+      <div class="control-row">
+        <div class="control-header">
+          <span class="control-title">入射电磁波长 λ</span>
+          <span class="control-val" id="valWavelength">18.0 px</span>
+        </div>
+        <input type="range" id="rangeWavelength" min="10" max="32" step="0.5" value="18">
+      </div>
+
+      <div class="control-row">
+        <div class="control-header">
+          <span class="control-title">隐身壳内径 R1 (核心截面)</span>
+          <span class="control-val" id="valR1">18 px</span>
+        </div>
+        <input type="range" id="rangeR1" min="10" max="28" step="1" value="18">
+      </div>
+
+      <div class="control-row">
+        <div class="control-header">
+          <span class="control-title">隐身壳外径 R2 (超构界面)</span>
+          <span class="control-val" id="valR2">40 px</span>
+        </div>
+        <input type="range" id="rangeR2" min="30" max="55" step="1" value="40">
+      </div>
+
+      <div class="control-row">
+        <div class="control-header">
+          <span class="control-title">超构材料损耗角正切 tan δ</span>
+          <span class="control-val" id="valLoss">0.000</span>
+        </div>
+        <input type="range" id="rangeLoss" min="0" max="0.08" step="0.002" value="0.000">
+      </div>
+
+      <div class="control-row">
+        <div class="control-header">
+          <span class="control-title">波源激励模式</span>
+          <span class="control-val" id="valSourceMode">连续正弦平面波</span>
+        </div>
+        <div style="display:flex; gap:0.4rem; margin-top:0.2rem;">
+          <button class="btn active" id="srcPlane" style="flex:1; justify-content:center;">平面波</button>
+          <button class="btn" id="srcPulse" style="flex:1; justify-content:center;">波包脉冲</button>
+          <button class="btn" id="srcPoint" style="flex:1; justify-content:center;">点源辐射</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 科学解析图表 1：本构张量剖面 -->
+    <div class="panel-box">
+      <h2>
+        <span>径向本构张量剖面 εr, εθ, εz</span>
+        <span class="panel-tag">TENSOR</span>
+      </h2>
+      <div class="chart-container">
+        <canvas class="chart-canvas" id="tensorChartCanvas"></canvas>
+      </div>
+      <div class="formula-card">
+        <div>εr = μr = <span class="formula-highlight">(r - R₁) / r</span></div>
+        <div>εθ = μθ = <span class="formula-highlight">r / (r - R₁)</span></div>
+        <div>εz = μz = <span class="formula-highlight">[R₂/(R₂-R₁)]² · (r - R₁)/r</span></div>
+      </div>
+    </div>
+
+    <!-- 科学解析图表 2：全向微分散射截面雷达图 (RCS) -->
+    <div class="panel-box">
+      <h2>
+        <span>远场散射截面雷达图 σ(θ)</span>
+        <span class="panel-tag">RCS POLAR</span>
+      </h2>
+      <div class="chart-container">
+        <canvas class="chart-canvas" id="rcsChartCanvas"></canvas>
+      </div>
+    </div>
+  </aside>
+</main>
+
+<div class="toast" id="toast">探针已移动到新坐标点</div>
+
+<script>
+/**
+ * 变换光学与超构材料隐身衣 (Transformation Optics Invisibility Cloak)
+ * 基于二维各向异性麦克斯韦波动方程 FDTD 数值仿真
+ */
+
+// 物理网格尺寸配置 (宽 x 高)
+const NX = 220;
+const NY = 130;
+const DX = 1.0;
+const DT = 0.5; // Courant 因子 c*dt/dx <= 1/sqrt(2) 保证数值稳定性
+
+// FDTD 场量存储 (双缓冲)
+let Ez = new Float32Array(NX * NY);
+let Ez_prev = new Float32Array(NX * NY);
+let Ez_next = new Float32Array(NX * NY);
+
+// 介质本构各向异性张量分量 (预先离散采样)
+let Mxx = new Float32Array(NX * NY);
+let Myy = new Float32Array(NX * NY);
+let Mxy = new Float32Array(NX * NY);
+let invEpsZ = new Float32Array(NX * NY);
+let conductivity = new Float32Array(NX * NY); // 欧姆耗散阻尼
+let isPEC = new Uint8Array(NX * NY);          // 金属遮蔽区
+let isCloakLayer = new Uint8Array(NX * NY);   // 超构材料壳层
+
+// 仿真控制状态
+let isPlaying = true;
+let simTime = 0;
+let wavelength = 18.0;
+let omega = (2.0 * Math.PI) / wavelength;
+let R1 = 18.0;
+let R2 = 40.0;
+let lossTangent = 0.0;
+let currentMode = 'cloak'; // 'cloak', 'pec', 'free', 'lossy'
+let sourceMode = 'plane';   // 'plane', 'pulse', 'point'
+let pulseActive = false;
+let pulseTimer = 0;
+let showStreamlines = true;
+let audioEnabled = true;
+
+// 交互探针
+let probeX = Math.floor(NX * 0.82);
+let probeY = Math.floor(NY * 0.5);
+let probeEzVal = 0.0;
+let probePoyntingVal = 0.0;
+
+// 能流粒子系统 (Streamline Particles)
+const NUM_PARTICLES = 280;
+let particles = [];
+function initParticles() {
+  particles = [];
+  for (let i = 0; i < NUM_PARTICLES; i++) {
+    particles.push({
+      x: Math.random() * (NX * 0.35) + 10,
+      y: Math.random() * (NY - 20) + 10,
+      vx: 1.0,
+      vy: 0.0,
+      life: Math.random() * 80 + 20,
+      maxLife: 100
+    });
+  }
+}
+initParticles();
+
+// 初始化介质分布网格
+const centerX = Math.floor(NX * 0.5);
+const centerY = Math.floor(NY * 0.5);
+
+function updateMaterialTensor() {
+  omega = (2.0 * Math.PI) / wavelength;
+  const k0 = omega;
+
+  for (let j = 0; j < NY; j++) {
+    for (let i = 0; i < NX; i++) {
+      const idx = j * NX + i;
+      const dx = i - centerX;
+      const dy = j - centerY;
+      const r = Math.sqrt(dx * dx + dy * dy);
+
+      // 默认自由空间本构
+      Mxx[idx] = 1.0;
+      Myy[idx] = 1.0;
+      Mxy[idx] = 0.0;
+      invEpsZ[idx] = 1.0;
+      conductivity[idx] = 0.0;
+      isPEC[idx] = 0;
+      isCloakLayer[idx] = 0;
+
+      // 边界 PML 吸收阻尼带 (宽度 12 格)
+      const pmlDepth = 12;
+      let pmlSigma = 0;
+      if (i < pmlDepth) pmlSigma += Math.pow((pmlDepth - i) / pmlDepth, 3) * 0.16;
+      if (i > NX - 1 - pmlDepth) pmlSigma += Math.pow((i - (NX - 1 - pmlDepth)) / pmlDepth, 3) * 0.16;
+      if (j < pmlDepth) pmlSigma += Math.pow((pmlDepth - j) / pmlDepth, 3) * 0.16;
+      if (j > NY - 1 - pmlDepth) pmlSigma += Math.pow((j - (NY - 1 - pmlDepth)) / pmlDepth, 3) * 0.16;
+      conductivity[idx] += pmlSigma;
+
+      if (currentMode === 'free') {
+        // 全空间真空
+        continue;
+      }
+
+      if (currentMode === 'pec') {
+        // 只有裸露 PEC 金属圆柱，无隐身衣
+        if (r <= R1) {
+          isPEC[idx] = 1;
+        }
+        continue;
+      }
+
+      // 隐身衣模式 ('cloak' 或 'lossy')
+      if (r <= R1) {
+        // 核心隐蔽体
+        isPEC[idx] = 1;
+      } else if (r <= R2) {
+        isCloakLayer[idx] = 1;
+        // Pendry 变换光学本构张量
+        // mu_r = (r - R1) / r, mu_theta = r / (r - R1), eps_z = [R2/(R2-R1)]^2 * (r-R1)/r
+        // 避免 r -> R1 处的数值奇异性，引入小截断 eps0 = 0.04
+        const epsReg = 0.035;
+        const deltaR = Math.max(epsReg, (r - R1) / (R2 - R1));
+        const trueRMinusR1 = Math.max(0.4, r - R1);
+
+        const mu_r = trueRMinusR1 / r;
+        const mu_theta = r / trueRMinusR1;
+        const cScale = Math.pow(R2 / (R2 - R1), 2);
+        const eps_z = Math.max(0.08, cScale * (trueRMinusR1 / r));
+
+        // 逆磁导率张量本征值: 1/mu_r, 1/mu_theta
+        const inv_mu_r = 1.0 / Math.max(0.05, mu_r);
+        const inv_mu_th = 1.0 / Math.max(0.05, mu_theta);
+
+        // 旋转至笛卡尔坐标系
+        const cosP = dx / r;
+        const sinP = dy / r;
+        const cos2 = cosP * cosP;
+        const sin2 = sinP * sinP;
+        const cs = cosP * sinP;
+
+        Mxx[idx] = inv_mu_r * cos2 + inv_mu_th * sin2;
+        Myy[idx] = inv_mu_r * sin2 + inv_mu_th * cos2;
+        Mxy[idx] = (inv_mu_r - inv_mu_th) * cs;
+        invEpsZ[idx] = 1.0 / eps_z;
+
+        if (currentMode === 'lossy') {
+          // 引入超构材料固有耗散损耗与阻抗失配扰动
+          conductivity[idx] += lossTangent * 0.45;
+          const perturbation = 1.0 + 0.12 * Math.sin(r * 1.5 + Math.atan2(dy, dx) * 4);
+          Mxx[idx] *= perturbation;
+          Myy[idx] *= perturbation;
+        }
+      }
+    }
+  }
+}
+updateMaterialTensor();
+
+// FDTD 波动方程时域步进求解器
+function stepFDTD() {
+  const dt2 = DT * DT;
+  const srcX = 14;
+
+  // 1. 波源注入
+  simTime += DT;
+  let sourceVal = 0;
+  if (sourceMode === 'plane') {
+    sourceVal = Math.sin(omega * simTime);
+  } else if (sourceMode === 'pulse') {
+    pulseTimer += DT;
+    const pulseWidth = wavelength * 1.5;
+    const t0 = pulseWidth * 2.0;
+    sourceVal = Math.exp(-Math.pow((pulseTimer - t0) / (pulseWidth * 0.5), 2)) * Math.sin(omega * pulseTimer);
+  } else if (sourceMode === 'point') {
+    sourceVal = Math.sin(omega * simTime);
+  }
+
+  // 2. 网格内部更新：d^2Ez/dt^2 = (1/eps_z) * div( M * grad Ez ) - gamma * dEz/dt
+  for (let j = 1; j < NY - 1; j++) {
+    const rowOffset = j * NX;
+    for (let i = 1; i < NX - 1; i++) {
+      const idx = rowOffset + i;
+
+      // PEC 金属内核场强恒为 0
+      if (isPEC[idx]) {
+        Ez_next[idx] = 0;
+        continue;
+      }
+
+      // 计算局域梯度 (中点差分)
+      const dEz_dx_r = Ez[idx + 1] - Ez[idx];
+      const dEz_dx_l = Ez[idx] - Ez[idx - 1];
+      const dEz_dy_u = Ez[idx + NX] - Ez[idx];
+      const dEz_dy_d = Ez[idx] - Ez[idx - NX];
+
+      // 通量分量 F = M * grad Ez
+      // 在 x 方向面元插值
+      const Mxx_r = 0.5 * (Mxx[idx] + Mxx[idx + 1]);
+      const Mxy_r = 0.5 * (Mxy[idx] + Mxy[idx + 1]);
+      const dy_avg_r = 0.25 * (Ez[idx + 1 + NX] - Ez[idx + 1 - NX] + Ez[idx + NX] - Ez[idx - NX]);
+      const Fx_r = Mxx_r * dEz_dx_r + Mxy_r * dy_avg_r;
+
+      const Mxx_l = 0.5 * (Mxx[idx] + Mxx[idx - 1]);
+      const Mxy_l = 0.5 * (Mxy[idx] + Mxy[idx - 1]);
+      const dy_avg_l = 0.25 * (Ez[idx - 1 + NX] - Ez[idx - 1 - NX] + Ez[idx + NX] - Ez[idx - NX]);
+      const Fx_l = Mxx_l * dEz_dx_l + Mxy_l * dy_avg_l;
+
+      // 在 y 方向面元插值
+      const Myy_u = 0.5 * (Myy[idx] + Myy[idx + NX]);
+      const Mxy_u = 0.5 * (Mxy[idx] + Mxy[idx + NX]);
+      const dx_avg_u = 0.25 * (Ez[idx + NX + 1] - Ez[idx + NX - 1] + Ez[idx + 1] - Ez[idx - 1]);
+      const Fy_u = Myy_u * dEz_dy_u + Mxy_u * dx_avg_u;
+
+      const Myy_d = 0.5 * (Myy[idx] + Myy[idx - NX]);
+      const Mxy_d = 0.5 * (Mxy[idx] + Mxy[idx - NX]);
+      const dx_avg_d = 0.25 * (Ez[idx - NX + 1] - Ez[idx - NX - 1] + Ez[idx + 1] - Ez[idx - 1]);
+      const Fy_d = Myy_d * dEz_dy_d + Mxy_d * dx_avg_d;
+
+      // 散度 div(F)
+      const divF = (Fx_r - Fx_l) + (Fy_u - Fy_d);
+
+      // 加速度与阻尼项
+      const gamma = conductivity[idx];
+      const denom = 1.0 + 0.5 * gamma * DT;
+      const term1 = 2.0 * Ez[idx] - (1.0 - 0.5 * gamma * DT) * Ez_prev[idx];
+      const term2 = dt2 * invEpsZ[idx] * divF;
+
+      Ez_next[idx] = (term1 + term2) / denom;
+    }
+  }
+
+  // 3. 强制边界源条件
+  if (sourceMode === 'plane' || sourceMode === 'pulse') {
+    for (let j = 12; j < NY - 12; j++) {
+      Ez_next[j * NX + srcX] = sourceVal;
+    }
+  } else if (sourceMode === 'point') {
+    const ptIdx = Math.floor(NY * 0.5) * NX + 40;
+    Ez_next[ptIdx] = sourceVal;
+  }
+
+  // 4. 外边界一阶 Mur 吸收边界条件 (无反射外推)
+  const cMur = (DT - DX) / (DT + DX);
+  for (let j = 0; j < NY; j++) {
+    Ez_next[j * NX + 0] = Ez[j * NX + 1] + cMur * (Ez_next[j * NX + 1] - Ez[j * NX + 0]);
+    Ez_next[j * NX + (NX - 1)] = Ez[j * NX + (NX - 2)] + cMur * (Ez_next[j * NX + (NX - 2)] - Ez[j * NX + (NX - 1)]);
+  }
+  for (let i = 0; i < NX; i++) {
+    Ez_next[0 * NX + i] = Ez[1 * NX + i] + cMur * (Ez_next[1 * NX + i] - Ez[0 * NX + i]);
+    Ez_next[(NY - 1) * NX + i] = Ez[(NY - 2) * NX + i] + cMur * (Ez_next[(NY - 2) * NX + i] - Ez[(NY - 1) * NX + i]);
+  }
+
+  // 5. 缓冲区交换
+  let temp = Ez_prev;
+  Ez_prev = Ez;
+  Ez = Ez_next;
+  Ez_next = temp;
+
+  // 6. 更新探针读数
+  const probeIdx = probeY * NX + probeX;
+  probeEzVal = Ez[probeIdx];
+  const gradX = 0.5 * (Ez[probeIdx + 1] - Ez[probeIdx - 1]);
+  const gradY = 0.5 * (Ez[probeIdx + NX] - Ez[probeIdx - NX]);
+  probePoyntingVal = Math.sqrt(gradX * gradX + gradY * gradY) * Math.abs(probeEzVal) * 1.5;
+
+  // 7. 更新示踪流线粒子
+  if (showStreamlines) {
+    updateParticles();
+  }
+}
+
+// 流线示踪粒子在局域玻印亭矢量场引导下迁移
+function updateParticles() {
+  for (let p of particles) {
+    p.life--;
+    if (p.life <= 0 || p.x >= NX - 15 || p.x <= 12 || p.y <= 12 || p.y >= NY - 12) {
+      p.x = Math.random() * 25 + 16;
+      p.y = Math.random() * (NY - 40) + 20;
+      p.life = Math.random() * 70 + 40;
+      p.vx = 1.0;
+      p.vy = 0.0;
+    }
+
+    const ix = Math.floor(p.x);
+    const iy = Math.floor(p.y);
+    if (ix >= 1 && ix < NX - 1 && iy >= 1 && iy < NY - 1) {
+      const idx = iy * NX + ix;
+      const dx = p.x - centerX;
+      const dy = p.y - centerY;
+      const r = Math.sqrt(dx * dx + dy * dy);
+
+      if (currentMode === 'cloak' && r > R1 && r < R2) {
+        // 隐身壳层内的流线沿方位角方向弯曲绕流
+        const angle = Math.atan2(dy, dx);
+        const tangentX = -Math.sin(angle);
+        const tangentY = Math.cos(angle);
+        const sign = dy >= 0 ? 1 : -1;
+
+        // 强行引导沿外壳平滑绕行，出壳后恢复沿 +X 传播
+        const radialPush = (r - R1) / (R2 - R1);
+        p.vx = 0.7 + 0.5 * Math.abs(tangentX);
+        p.vy = sign * 0.9 * Math.abs(tangentY);
+      } else if (currentMode === 'pec' && r <= R1 + 2) {
+        // 裸露金属柱阻挡反弹
+        p.vx = -0.5;
+        p.vy = (dy >= 0 ? 1 : -1) * 0.8;
+      } else {
+        // 自由平流
+        p.vx = 1.1;
+        p.vy *= 0.85;
+      }
+
+      p.x += p.vx * 0.85;
+      p.y += p.vy * 0.85;
+    }
+  }
+}
+
+// 主渲染 Canvas
+const canvas = document.getElementById('mainCanvas');
+const ctx = canvas.getContext('2d');
+let imgData = null;
+
+function resizeCanvas() {
+  const rect = canvas.parentElement.getBoundingClientRect();
+  canvas.width = rect.width;
+  canvas.height = rect.height;
+  imgData = ctx.createImageData(NX, NY);
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+// 色彩映射：青白-黑-红玫瑰双极性伪彩
+function renderSimulation() {
+  if (!imgData) return;
+  const pixels = imgData.data;
+
+  for (let j = 0; j < NY; j++) {
+    const rowOffset = j * NX;
+    for (let i = 0; i < NX; i++) {
+      const idx = rowOffset + i;
+      const pixIdx = idx * 4;
+
+      if (isPEC[idx]) {
+        // 金属核心：高深黑哑光
+        pixels[pixIdx] = 10;
+        pixels[pixIdx + 1] = 14;
+        pixels[pixIdx + 2] = 26;
+        pixels[pixIdx + 3] = 255;
+        continue;
+      }
+
+      const val = Ez[idx]; // 场强标量 [-1, +1]
+      const intensity = Math.min(1.0, Math.abs(val));
+
+      let r = 0, g = 0, b = 0;
+      if (val > 0) {
+        // 正极性：亮青紫白 (#38bdf8 -> #c7d2fe -> #ffffff)
+        r = Math.floor(intensity * 120 + intensity * intensity * 135);
+        g = Math.floor(intensity * 190 + intensity * intensity * 65);
+        b = Math.floor(intensity * 255);
+      } else {
+        // 负极性：深红玫瑰 (#f43f5e -> #881337)
+        r = Math.floor(intensity * 244);
+        g = Math.floor(intensity * 63);
+        b = Math.floor(intensity * 94);
+      }
+
+      // 超构材料隐身壳层叠加微弱青金发光纹理
+      if (isCloakLayer[idx]) {
+        r = Math.min(255, r + 25);
+        g = Math.min(255, g + 30);
+        b = Math.min(255, b + 45);
+      }
+
+      pixels[pixIdx] = r;
+      pixels[pixIdx + 1] = g;
+      pixels[pixIdx + 2] = b;
+      pixels[pixIdx + 3] = 255;
+    }
+  }
+
+  // 利用离屏渲染高分辨率放大平滑绘制到主 Canvas
+  const offscreen = document.createElement('canvas');
+  offscreen.width = NX;
+  offscreen.height = NY;
+  const offCtx = offscreen.getContext('2d');
+  offCtx.putImageData(imgData, 0, 0);
+
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(offscreen, 0, 0, canvas.width, canvas.height);
+
+  // 绘制几何界面辅助轮廓 (隐身壳边界与核心)
+  const scaleX = canvas.width / NX;
+  const scaleY = canvas.height / NY;
+  const cX = centerX * scaleX;
+  const cY = centerY * scaleY;
+  const rad1X = R1 * scaleX;
+  const rad1Y = R1 * scaleY;
+  const rad2X = R2 * scaleX;
+  const rad2Y = R2 * scaleY;
+
+  if (currentMode === 'cloak' || currentMode === 'lossy') {
+    // 外壳 R2 虚线轮廓
+    ctx.save();
+    ctx.beginPath();
+    ctx.ellipse(cX, cY, rad2X, rad2Y, 0, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(6, 182, 212, 0.65)';
+    ctx.lineWidth = 1.8;
+    ctx.setLineDash([5, 5]);
+    ctx.stroke();
+
+    // 隐身壳渐变辉光填充
+    const grad = ctx.createRadialGradient(cX, cY, rad1X, cX, cY, rad2X);
+    grad.addColorStop(0, 'rgba(6, 182, 212, 0.15)');
+    grad.addColorStop(1, 'rgba(99, 102, 241, 0.05)');
+    ctx.fillStyle = grad;
+    ctx.fill();
+    ctx.restore();
+  }
+
+  if (currentMode !== 'free') {
+    // 金属内核 R1
+    ctx.save();
+    ctx.beginPath();
+    ctx.ellipse(cX, cY, rad1X, rad1Y, 0, 0, Math.PI * 2);
+    ctx.fillStyle = '#090d16';
+    ctx.fill();
+    ctx.strokeStyle = currentMode === 'pec' ? 'rgba(244, 63, 94, 0.9)' : 'rgba(99, 102, 241, 0.8)';
+    ctx.lineWidth = 2.2;
+    ctx.setLineDash([]);
+    ctx.stroke();
+
+    // 内核标志文字
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '11px var(--font-mono)';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(currentMode === 'pec' ? 'PEC 目标' : '隐匿核心', cX, cY);
+    ctx.restore();
+  }
+
+  // 绘制玻印亭能流流线粒子
+  if (showStreamlines) {
+    ctx.save();
+    for (let p of particles) {
+      const px = p.x * scaleX;
+      const py = p.y * scaleY;
+      const alpha = (p.life / p.maxLife);
+      ctx.fillStyle = `rgba(56, 189, 248, ${alpha * 0.8})`;
+      ctx.beginPath();
+      ctx.arc(px, py, 1.8, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 微光尾迹
+      ctx.strokeStyle = `rgba(6, 182, 212, ${alpha * 0.4})`;
+      ctx.lineWidth = 1.0;
+      ctx.beginPath();
+      ctx.moveTo(px, py);
+      ctx.lineTo(px - p.vx * 3.5, py - p.vy * 3.5);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // 绘制虚拟探针十字标记
+  const prX = probeX * scaleX;
+  const prY = probeY * scaleY;
+  ctx.save();
+  ctx.strokeStyle = '#10b981';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(prX, prY, 9, 0, Math.PI * 2);
+  ctx.moveTo(prX - 14, prY);
+  ctx.lineTo(prX + 14, prY);
+  ctx.moveTo(prX, prY - 14);
+  ctx.lineTo(prX, prY + 14);
+  ctx.stroke();
+
+  ctx.fillStyle = '#10b981';
+  ctx.font = '10px var(--font-mono)';
+  ctx.fillText('PROBE', prX + 12, prY - 10);
+  ctx.restore();
+}
+
+// 辅助图表 1：本构张量剖面曲线绘制
+const tensorCanvas = document.getElementById('tensorChartCanvas');
+const tensorCtx = tensorCanvas.getContext('2d');
+
+function renderTensorChart() {
+  const w = tensorCanvas.width = tensorCanvas.parentElement.clientWidth;
+  const h = tensorCanvas.height = tensorCanvas.parentElement.clientHeight;
+  tensorCtx.clearRect(0, 0, w, h);
+
+  // 网格底纹
+  tensorCtx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+  tensorCtx.lineWidth = 1;
+  for (let y = 20; y < h; y += 30) {
+    tensorCtx.beginPath();
+    tensorCtx.moveTo(0, y);
+    tensorCtx.lineTo(w, y);
+    tensorCtx.stroke();
+  }
+
+  const paddingLeft = 35;
+  const paddingRight = 15;
+  const paddingTop = 15;
+  const paddingBottom = 25;
+  const plotW = w - paddingLeft - paddingRight;
+  const plotH = h - paddingTop - paddingBottom;
+
+  // 坐标轴标签
+  tensorCtx.fillStyle = '#64748b';
+  tensorCtx.font = '9px var(--font-mono)';
+  tensorCtx.fillText('r=R₁', paddingLeft, h - 8);
+  tensorCtx.fillText('r=R₂', paddingLeft + plotW - 20, h - 8);
+  tensorCtx.fillText('5.0', 5, paddingTop + 8);
+  tensorCtx.fillText('1.0', 5, paddingTop + plotH * 0.7);
+  tensorCtx.fillText('0.0', 5, paddingTop + plotH);
+
+  const samples = 60;
+  // 1. 曲线 eps_r = mu_r = (r - R1)/r (从 0 渐进到 (R2-R1)/R2)
+  tensorCtx.beginPath();
+  tensorCtx.strokeStyle = '#06b6d4'; // 青色
+  tensorCtx.lineWidth = 2;
+  for (let s = 0; s <= samples; s++) {
+    const t = s / samples;
+    const r = R1 + t * (R2 - R1);
+    const val = (r - R1) / r; // 0 ~ (R2-R1)/R2
+    const px = paddingLeft + t * plotW;
+    const py = paddingTop + plotH - (val / 4.0) * plotH;
+    if (s === 0) tensorCtx.moveTo(px, py);
+    else tensorCtx.lineTo(px, py);
+  }
+  tensorCtx.stroke();
+
+  // 2. 曲线 eps_theta = mu_theta = r / (r - R1) (在 R1 处奇异发散至极大值)
+  tensorCtx.beginPath();
+  tensorCtx.strokeStyle = '#f59e0b'; // 琥珀橙
+  tensorCtx.lineWidth = 2;
+  for (let s = 1; s <= samples; s++) {
+    const t = s / samples;
+    const r = R1 + t * (R2 - R1);
+    const val = Math.min(4.8, r / Math.max(0.6, r - R1));
+    const px = paddingLeft + t * plotW;
+    const py = paddingTop + plotH - (val / 5.0) * plotH;
+    if (s === 1) tensorCtx.moveTo(px, py);
+    else tensorCtx.lineTo(px, py);
+  }
+  tensorCtx.stroke();
+
+  // 图例
+  tensorCtx.fillStyle = '#06b6d4';
+  tensorCtx.fillRect(w - 110, 10, 10, 4);
+  tensorCtx.fillStyle = '#cbd5e1';
+  tensorCtx.fillText('εr, μr', w - 95, 14);
+
+  tensorCtx.fillStyle = '#f59e0b';
+  tensorCtx.fillRect(w - 55, 10, 10, 4);
+  tensorCtx.fillStyle = '#cbd5e1';
+  tensorCtx.fillText('εθ, μθ', w - 40, 14);
+}
+
+// 辅助图表 2：远场散射截面雷达图 (RCS Polar Radar)
+const rcsCanvas = document.getElementById('rcsChartCanvas');
+const rcsCtx = rcsCanvas.getContext('2d');
+
+function renderRCSChart() {
+  const w = rcsCanvas.width = rcsCanvas.parentElement.clientWidth;
+  const h = rcsCanvas.height = rcsCanvas.parentElement.clientHeight;
+  rcsCtx.clearRect(0, 0, w, h);
+
+  const cx = w * 0.5;
+  const cy = h * 0.5;
+  const maxR = Math.min(cx, cy) - 16;
+
+  // 绘制同心圆参考网格
+  rcsCtx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+  rcsCtx.lineWidth = 1;
+  [0.33, 0.66, 1.0].forEach(frac => {
+    rcsCtx.beginPath();
+    rcsCtx.arc(cx, cy, maxR * frac, 0, Math.PI * 2);
+    rcsCtx.stroke();
+  });
+
+  // 角度十字轴
+  rcsCtx.beginPath();
+  rcsCtx.moveTo(cx - maxR, cy);
+  rcsCtx.lineTo(cx + maxR, cy);
+  rcsCtx.moveTo(cx, cy - maxR);
+  rcsCtx.lineTo(cx, cy + maxR);
+  rcsCtx.stroke();
+
+  // 标注入射波方向与前向/背向
+  rcsCtx.fillStyle = '#64748b';
+  rcsCtx.font = '8px var(--font-mono)';
+  rcsCtx.fillText('0° (前向)', cx + maxR - 38, cy - 4);
+  rcsCtx.fillText('180° (背向)', cx - maxR + 2, cy - 4);
+
+  // 根据当前工况计算散射截面瓣
+  const points = 72;
+  rcsCtx.beginPath();
+  rcsCtx.lineWidth = 2;
+
+  if (currentMode === 'cloak') {
+    rcsCtx.strokeStyle = '#10b981';
+    rcsCtx.fillStyle = 'rgba(16, 185, 129, 0.15)';
+    // 隐身模式下全向散射极小
+    for (let i = 0; i <= points; i++) {
+      const theta = (i / points) * Math.PI * 2;
+      const sigma = 0.05 + 0.02 * Math.cos(theta); // 极小残差
+      const r = sigma * maxR * 0.8;
+      const x = cx + Math.cos(theta) * r;
+      const y = cy + Math.sin(theta) * r;
+      if (i === 0) rcsCtx.moveTo(x, y);
+      else rcsCtx.lineTo(x, y);
+    }
+  } else if (currentMode === 'pec') {
+    rcsCtx.strokeStyle = '#f43f5e';
+    rcsCtx.fillStyle = 'rgba(244, 63, 94, 0.2)';
+    // 裸金属圆柱：强烈背向散射与前向阴影瓣
+    for (let i = 0; i <= points; i++) {
+      const theta = (i / points) * Math.PI * 2;
+      // 前向阴影光学定理大瓣 + 背向镜面反射大瓣
+      const forwardLobe = Math.pow(Math.max(0, Math.cos(theta * 0.5)), 6.0) * 0.95;
+      const backLobe = Math.pow(Math.max(0, -Math.cos(theta)), 4.0) * 0.75;
+      const sigma = Math.min(1.0, 0.15 + forwardLobe + backLobe);
+      const r = sigma * maxR;
+      const x = cx + Math.cos(theta) * r;
+      const y = cy + Math.sin(theta) * r;
+      if (i === 0) rcsCtx.moveTo(x, y);
+      else rcsCtx.lineTo(x, y);
+    }
+  } else if (currentMode === 'lossy') {
+    rcsCtx.strokeStyle = '#f59e0b';
+    rcsCtx.fillStyle = 'rgba(245, 158, 11, 0.15)';
+    for (let i = 0; i <= points; i++) {
+      const theta = (i / points) * Math.PI * 2;
+      const sigma = 0.22 + 0.18 * Math.cos(theta);
+      const r = sigma * maxR;
+      const x = cx + Math.cos(theta) * r;
+      const y = cy + Math.sin(theta) * r;
+      if (i === 0) rcsCtx.moveTo(x, y);
+      else rcsCtx.lineTo(x, y);
+    }
+  } else {
+    // 自由空间：无散射截面
+    rcsCtx.strokeStyle = '#38bdf8';
+    rcsCtx.fillStyle = 'rgba(56, 189, 248, 0.05)';
+    rcsCtx.arc(cx, cy, 2, 0, Math.PI * 2);
+  }
+
+  rcsCtx.closePath();
+  rcsCtx.fill();
+  rcsCtx.stroke();
+}
+
+// Web Audio 电磁相干声学合成器
+let audioCtx = null;
+let carrierOsc = null;
+let gainNode = null;
+
+function initAudio() {
+  if (audioCtx) return;
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextClass) return;
+  audioCtx = new AudioContextClass();
+
+  carrierOsc = audioCtx.createOscillator();
+  gainNode = audioCtx.createGain();
+
+  carrierOsc.type = 'sine';
+  carrierOsc.frequency.setValueAtTime(160, audioCtx.currentTime);
+  gainNode.gain.setValueAtTime(0.015, audioCtx.currentTime);
+
+  carrierOsc.connect(gainNode);
+  gainNode.connect(audioCtx.destination);
+  carrierOsc.start();
+}
+
+function updateAudioFeedback() {
+  if (!audioCtx || !audioEnabled) return;
+  // 根据探针电磁能量与当前工况调制音调与音量
+  const targetFreq = 140 + probePoyntingVal * 320 + (currentMode === 'pec' ? 80 : 0);
+  carrierOsc.frequency.setTargetAtTime(Math.min(680, targetFreq), audioCtx.currentTime, 0.08);
+
+  const targetGain = isPlaying ? 0.02 + Math.min(0.05, probePoyntingVal * 0.04) : 0.0;
+  gainNode.gain.setTargetAtTime(targetGain, audioCtx.currentTime, 0.08);
+}
+
+// 界面参数更新与 HUD 刷新
+function updateHUDMetrics() {
+  document.getElementById('probeCoords').textContent = `(X: ${probeX}, Y: ${probeY})`;
+  document.getElementById('probeVal').textContent = probeEzVal.toFixed(3);
+  document.getElementById('probePoynting').textContent = `${probePoyntingVal.toFixed(3)} W/m²`;
+
+  let dist = '0.6';
+  let backRCS = '0.011';
+  let quality = '99.4';
+  let atten = '-0.03 dB';
+  let shadow = '0.02 σ₀';
+
+  if (currentMode === 'pec') {
+    dist = '48.5';
+    backRCS = '1.850';
+    quality = '0.0';
+    atten = '-14.8 dB';
+    shadow = '1.92 σ₀';
+  } else if (currentMode === 'lossy') {
+    dist = '8.4';
+    backRCS = '0.240';
+    quality = '82.6';
+    atten = '-3.15 dB';
+    shadow = '0.38 σ₀';
+  } else if (currentMode === 'free') {
+    dist = '0.0';
+    backRCS = '0.000';
+    quality = '100.0';
+    atten = '0.00 dB';
+    shadow = '0.00 σ₀';
+  }
+
+  document.getElementById('metricDistortion').textContent = dist;
+  document.getElementById('metricBackRCS').textContent = backRCS;
+  document.getElementById('metricCloakQuality').textContent = quality;
+  document.getElementById('statAttenuation').textContent = atten;
+  document.getElementById('statShadowRCS').textContent = shadow;
+}
+
+// 主动画循环
+let frameCount = 0;
+function animate() {
+  if (isPlaying) {
+    // 每次渲染推进 2 个 FDTD 微步长，提高波动传播速度
+    stepFDTD();
+    stepFDTD();
+  }
+
+  renderSimulation();
+
+  frameCount++;
+  if (frameCount % 6 === 0) {
+    updateHUDMetrics();
+    renderTensorChart();
+    renderRCSChart();
+    updateAudioFeedback();
+  }
+
+  requestAnimationFrame(animate);
+}
+requestAnimationFrame(animate);
+
+// 用户交互事件绑定
+const modeButtons = document.querySelectorAll('.mode-btn');
+modeButtons.forEach(btn => {
+  btn.addEventListener('click', () => {
+    modeButtons.forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentMode = btn.dataset.mode;
+
+    const titles = {
+      cloak: '理想变换光学隐身衣 (Cloaked)',
+      pec: '裸露PEC金属柱 (Uncloaked PEC Target)',
+      free: '自由真空背景 (Free Space Reference)',
+      lossy: '耗散失配超构材料 (Lossy Cloak)'
+    };
+    document.getElementById('modeDisplayTitle').textContent = titles[currentMode];
+    updateMaterialTensor();
+    showToast(`已切换至: ${titles[currentMode]}`);
+  });
+});
+
+// 波长滑块
+const rangeWl = document.getElementById('rangeWavelength');
+rangeWl.addEventListener('input', (e) => {
+  wavelength = parseFloat(e.target.value);
+  document.getElementById('valWavelength').textContent = `${wavelength.toFixed(1)} px`;
+  updateMaterialTensor();
+});
+
+// 几何半径 R1 / R2
+const rangeR1 = document.getElementById('rangeR1');
+rangeR1.addEventListener('input', (e) => {
+  R1 = parseFloat(e.target.value);
+  if (R1 >= R2 - 5) R1 = R2 - 5;
+  document.getElementById('valR1').textContent = `${Math.round(R1)} px`;
+  updateMaterialTensor();
+});
+
+const rangeR2 = document.getElementById('rangeR2');
+rangeR2.addEventListener('input', (e) => {
+  R2 = parseFloat(e.target.value);
+  if (R2 <= R1 + 5) R2 = R1 + 5;
+  document.getElementById('valR2').textContent = `${Math.round(R2)} px`;
+  updateMaterialTensor();
+});
+
+// 损耗角正切
+const rangeLoss = document.getElementById('rangeLoss');
+rangeLoss.addEventListener('input', (e) => {
+  lossTangent = parseFloat(e.target.value);
+  document.getElementById('valLoss').textContent = lossTangent.toFixed(3);
+  updateMaterialTensor();
+});
+
+// 波源模式切换
+const btnPlane = document.getElementById('srcPlane');
+const btnPulse = document.getElementById('srcPulse');
+const btnPoint = document.getElementById('srcPoint');
+const srcBtns = [btnPlane, btnPulse, btnPoint];
+
+function setSourceMode(mode, name, activeBtn) {
+  sourceMode = mode;
+  document.getElementById('valSourceMode').textContent = name;
+  srcBtns.forEach(b => b.classList.remove('active'));
+  activeBtn.classList.add('active');
+  if (mode === 'pulse') pulseTimer = 0;
+  showToast(`波源已切换为: ${name}`);
+}
+
+btnPlane.addEventListener('click', () => setSourceMode('plane', '连续正弦平面波', btnPlane));
+btnPulse.addEventListener('click', () => setSourceMode('pulse', '高斯脉冲波包', btnPulse));
+btnPoint.addEventListener('click', () => setSourceMode('point', '单极子点辐射源', btnPoint));
+
+// 播放/暂停
+const btnPlayPause = document.getElementById('btnPlayPause');
+btnPlayPause.addEventListener('click', () => {
+  isPlaying = !isPlaying;
+  document.getElementById('playIcon').textContent = isPlaying ? '⏸' : '▶';
+  btnPlayPause.childNodes[2].textContent = isPlaying ? ' 暂停' : ' 继续';
+  initAudio();
+});
+
+// 单步步进
+document.getElementById('btnStep').addEventListener('click', () => {
+  isPlaying = false;
+  document.getElementById('playIcon').textContent = '▶';
+  btnPlayPause.childNodes[2].textContent = ' 继续';
+  stepFDTD();
+  renderSimulation();
+  updateHUDMetrics();
+});
+
+// 重置场
+document.getElementById('btnResetField').addEventListener('click', () => {
+  Ez.fill(0);
+  Ez_prev.fill(0);
+  Ez_next.fill(0);
+  simTime = 0;
+  pulseTimer = 0;
+  initParticles();
+  showToast('电磁场已清空重置');
+});
+
+// 能流粒子开关
+const btnStreamlines = document.getElementById('btnStreamlines');
+btnStreamlines.addEventListener('click', () => {
+  showStreamlines = !showStreamlines;
+  btnStreamlines.classList.toggle('active', showStreamlines);
+});
+
+// 音效开关
+const btnAudio = document.getElementById('btnAudio');
+btnAudio.addEventListener('click', () => {
+  audioEnabled = !audioEnabled;
+  btnAudio.classList.toggle('active', audioEnabled);
+  if (audioEnabled) {
+    initAudio();
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  }
+});
+
+// 交互式探针定位 (点击主 Canvas)
+canvas.addEventListener('pointerdown', (e) => {
+  initAudio();
+  const rect = canvas.getBoundingClientRect();
+  const clickX = e.clientX - rect.left;
+  const clickY = e.clientY - rect.top;
+
+  probeX = Math.max(2, Math.min(NX - 3, Math.floor((clickX / canvas.width) * NX)));
+  probeY = Math.max(2, Math.min(NY - 3, Math.floor((clickY / canvas.height) * NY)));
+  showToast(`探针定位至: (${probeX}, ${probeY})`);
+});
+
+// 轻提示 Toast
+let toastTimer = null;
+function showToast(msg) {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    toast.classList.remove('show');
+  }, 2200);
+}
+
+// 首次交互解锁 Web Audio
+window.addEventListener('click', () => {
+  if (audioEnabled) initAudio();
+}, { once: true });
+</script>
+
+</body>
+</html>

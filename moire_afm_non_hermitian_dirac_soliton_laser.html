@@ -1,0 +1,1364 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>反铁磁莫尔超晶格非厄米狄拉克-费米弧光子拓扑相变与激光拓扑边缘孤子全息模拟器</title>
+  <style>
+    :root {
+      --bg-dark: #030612;
+      --panel-bg: rgba(8, 15, 33, 0.84);
+      --card-bg: rgba(13, 24, 48, 0.76);
+      --border-soft: rgba(0, 240, 255, 0.22);
+      --border-bright: rgba(0, 255, 170, 0.65);
+      --cyan: #00f0ff;
+      --emerald: #00ffaa;
+      --purple: #b55fe6;
+      --gold: #ffcc00;
+      --crimson: #ff2a6d;
+      --text-main: #e6f3fd;
+      --text-sub: #7b9bb6;
+      --glow-cyan: 0 0 16px rgba(0, 240, 255, 0.45);
+      --glow-emerald: 0 0 16px rgba(0, 255, 170, 0.45);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    /* 背景星云梯度 */
+    body::before {
+      content: "";
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: radial-gradient(circle at 16% 24%, rgba(0, 240, 255, 0.05), transparent 45%),
+                  radial-gradient(circle at 84% 76%, rgba(181, 95, 230, 0.06), transparent 50%),
+                  radial-gradient(circle at 50% 50%, rgba(0, 255, 170, 0.03), transparent 60%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    header {
+      position: relative;
+      z-index: 10;
+      padding: 16px 28px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border-soft);
+      background: rgba(3, 6, 18, 0.85);
+      backdrop-filter: blur(14px);
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .badge-id {
+      background: linear-gradient(135deg, rgba(0, 240, 255, 0.25), rgba(181, 95, 230, 0.35));
+      border: 1px solid var(--cyan);
+      color: var(--cyan);
+      font-family: monospace;
+      font-size: 13px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 6px;
+      letter-spacing: 1px;
+      box-shadow: var(--glow-cyan);
+    }
+
+    h1 {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      background: linear-gradient(90deg, #ffffff, var(--cyan), var(--emerald));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .header-badges {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .status-tag {
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-family: monospace;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .status-tag.active {
+      background: rgba(0, 255, 170, 0.15);
+      border: 1px solid var(--emerald);
+      color: var(--emerald);
+    }
+
+    .status-tag.nh {
+      background: rgba(181, 95, 230, 0.15);
+      border: 1px solid var(--purple);
+      color: var(--purple);
+    }
+
+    .status-tag.lasing {
+      background: rgba(0, 240, 255, 0.15);
+      border: 1px solid var(--cyan);
+      color: var(--cyan);
+    }
+
+    .pulse-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: currentColor;
+      box-shadow: 0 0 8px currentColor;
+      animation: pulse 1.6s infinite ease-in-out;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 0.4; transform: scale(0.9); }
+      50% { opacity: 1; transform: scale(1.25); }
+    }
+
+    /* 主布局 */
+    .main-container {
+      position: relative;
+      z-index: 5;
+      display: grid;
+      grid-template-columns: 1fr 410px;
+      gap: 18px;
+      padding: 18px 24px;
+      flex: 1;
+    }
+
+    @media (max-width: 1200px) {
+      .main-container {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* 左侧全息渲染与波形区 */
+    .viewport-column {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .viewport-card {
+      position: relative;
+      background: var(--panel-bg);
+      border: 1px solid var(--border-soft);
+      border-radius: 12px;
+      overflow: hidden;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .card-header {
+      padding: 12px 18px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(13, 24, 48, 0.4);
+    }
+
+    .card-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--cyan);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      letter-spacing: 0.5px;
+    }
+
+    .canvas-hud-overlay {
+      position: absolute;
+      top: 54px;
+      left: 18px;
+      z-index: 10;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .hud-chip {
+      background: rgba(6, 12, 26, 0.78);
+      border: 1px solid rgba(0, 240, 255, 0.3);
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 11px;
+      color: var(--cyan);
+      backdrop-filter: blur(4px);
+    }
+
+    .hud-controls-hint {
+      position: absolute;
+      bottom: 14px;
+      right: 18px;
+      pointer-events: none;
+      font-size: 11px;
+      color: var(--text-sub);
+      background: rgba(3, 6, 18, 0.75);
+      padding: 4px 8px;
+      border-radius: 4px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    #mainCanvas {
+      width: 100%;
+      height: 480px;
+      display: block;
+      cursor: grab;
+      background: #02040e;
+    }
+
+    #mainCanvas:active {
+      cursor: grabbing;
+    }
+
+    /* 双通道示波器 */
+    .scopes-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    @media (max-width: 800px) {
+      .scopes-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .scope-box {
+      background: var(--panel-bg);
+      border: 1px solid var(--border-soft);
+      border-radius: 12px;
+      padding: 14px;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .scope-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      color: var(--text-sub);
+    }
+
+    .scope-tag {
+      font-family: monospace;
+      font-weight: 600;
+    }
+
+    .scope-canvas {
+      width: 100%;
+      height: 165px;
+      background: rgba(2, 5, 15, 0.85);
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      display: block;
+    }
+
+    /* 右侧控制栏 */
+    .control-column {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .panel-box {
+      background: var(--panel-bg);
+      border: 1px solid var(--border-soft);
+      border-radius: 12px;
+      padding: 18px;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
+    }
+
+    .panel-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-main);
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-left: 3px solid var(--cyan);
+      padding-left: 8px;
+    }
+
+    /* 预设工况矩阵 */
+    .presets-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .btn-preset {
+      background: rgba(13, 24, 48, 0.9);
+      border: 1px solid rgba(0, 240, 255, 0.25);
+      color: var(--text-main);
+      padding: 10px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.25s ease;
+      line-height: 1.3;
+    }
+
+    .btn-preset:hover {
+      border-color: var(--cyan);
+      background: rgba(0, 240, 255, 0.15);
+      box-shadow: 0 0 10px rgba(0, 240, 255, 0.3);
+      transform: translateY(-1px);
+    }
+
+    .btn-preset.active {
+      border-color: var(--emerald);
+      background: rgba(0, 255, 170, 0.18);
+      color: #ffffff;
+      box-shadow: 0 0 12px rgba(0, 255, 170, 0.4);
+    }
+
+    /* 滑块控件组 */
+    .sliders-container {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .slider-item {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .slider-label-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--text-sub);
+    }
+
+    .slider-val {
+      font-family: monospace;
+      color: var(--cyan);
+      font-weight: 600;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 5px;
+      border-radius: 3px;
+      background: rgba(255, 255, 255, 0.1);
+      outline: none;
+      transition: background 0.2s;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--cyan);
+      cursor: pointer;
+      box-shadow: 0 0 8px var(--cyan);
+      transition: transform 0.15s, background 0.15s;
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.25);
+      background: #ffffff;
+    }
+
+    /* 操作按钮组 */
+    .action-btn-row {
+      display: flex;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .btn-action {
+      flex: 1;
+      padding: 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.25s;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text-main);
+    }
+
+    .btn-action:hover {
+      background: rgba(255, 255, 255, 0.12);
+    }
+
+    .btn-audio {
+      border-color: rgba(181, 95, 230, 0.4);
+      color: #dfb2ff;
+    }
+
+    .btn-audio.active {
+      background: rgba(181, 95, 230, 0.25);
+      border-color: var(--purple);
+      box-shadow: 0 0 12px rgba(181, 95, 230, 0.4);
+      color: #ffffff;
+    }
+
+    /* 遥测 HUD 网格 */
+    .telemetry-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .telemetry-item {
+      background: rgba(13, 24, 48, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 8px;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .telemetry-item.highlight {
+      border-color: rgba(0, 240, 255, 0.3);
+      background: rgba(0, 240, 255, 0.04);
+    }
+
+    .tel-label {
+      font-size: 11px;
+      color: var(--text-sub);
+    }
+
+    .tel-value {
+      font-family: monospace;
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .tel-unit {
+      font-size: 11px;
+      color: var(--text-sub);
+      font-weight: 400;
+      margin-left: 2px;
+    }
+
+    /* 底部注释 */
+    footer {
+      position: relative;
+      z-index: 10;
+      padding: 14px 24px;
+      background: rgba(3, 6, 18, 0.9);
+      border-top: 1px solid var(--border-soft);
+      font-size: 12px;
+      color: var(--text-sub);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .theory-notes {
+      display: flex;
+      gap: 18px;
+      flex-wrap: wrap;
+    }
+
+    .theory-item strong {
+      color: var(--cyan);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 头部导航 -->
+  <header>
+    <div class="header-left">
+      <div class="badge-id">#336 EXP-PHYSICS</div>
+      <h1>反铁磁莫尔超晶格非厄米狄拉克-费米弧光子拓扑相变与激光拓扑边缘孤子全息模拟器</h1>
+    </div>
+    <div class="header-badges">
+      <div class="status-tag active" id="statusDirac">
+        <span class="pulse-dot"></span> 莫尔狄拉克能带折叠
+      </div>
+      <div class="status-tag nh" id="statusEP">
+        <span class="pulse-dot"></span> 奇异点EP费米弧相变
+      </div>
+      <div class="status-tag lasing" id="statusLasing">
+        <span class="pulse-dot"></span> 拓扑单模边缘孤子激射
+      </div>
+    </div>
+  </header>
+
+  <!-- 主交互体 -->
+  <main class="main-container">
+    
+    <!-- 左侧 3D 渲染与示波器 -->
+    <div class="viewport-column">
+      
+      <!-- 主全息视口 -->
+      <div class="viewport-card">
+        <div class="card-header">
+          <div class="card-title">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+              <polyline points="2 17 12 22 22 17"></polyline>
+              <polyline points="2 12 12 17 22 12"></polyline>
+            </svg>
+            莫尔光子晶格增益-损耗微腔阵列·非厄米动量费米弧与手征单向边缘孤子光束
+          </div>
+          <div style="font-size: 12px; color: var(--emerald); font-family: monospace;" id="fpsCounter">
+            60.0 FPS
+          </div>
+        </div>
+
+        <!-- 悬浮全息 HUD -->
+        <div class="canvas-hud-overlay">
+          <div class="hud-chip" id="hudEPDiff">奇异点动量分离: Δk_EP = 0.245 μm⁻¹ (拓扑费米弧)</div>
+          <div class="hud-chip" id="hudSolitonMode">边缘孤子传输: 单向无背向散射 (免疫无序)</div>
+        </div>
+
+        <canvas id="mainCanvas"></canvas>
+
+        <div class="hud-controls-hint">
+          鼠标左键拖拽旋转视角 · 滚轮缩放 · 双击重置视向
+        </div>
+      </div>
+
+      <!-- 双通道示波器 -->
+      <div class="scopes-grid">
+        
+        <!-- 通道 A: 单模激射光谱与边模抑制比 -->
+        <div class="scope-box">
+          <div class="scope-header">
+            <span class="scope-tag" style="color: var(--purple);">CH-A: 拓扑激光发射光谱 & 边模抑制比 (SMSR)</span>
+            <span id="smsrInfo" style="font-family: monospace; color: var(--gold);">SMSR = 52.8 dB</span>
+          </div>
+          <canvas id="scopeCanvasA" class="scope-canvas"></canvas>
+        </div>
+
+        <!-- 通道 B: 拓扑边缘孤子空间波形与相位 -->
+        <div class="scope-box">
+          <div class="scope-header">
+            <span class="scope-tag" style="color: var(--cyan);">CH-B: 边缘空间孤子分布 |ψ(s)|² ∝ sech²(s/w₀)</span>
+            <span id="solitonWidthInfo" style="font-family: monospace; color: var(--cyan);">τ = 1.42 ps</span>
+          </div>
+          <canvas id="scopeCanvasB" class="scope-canvas"></canvas>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- 右侧控制与读数仪表盘 -->
+    <div class="control-column">
+      
+      <!-- 预设工况矩阵 -->
+      <div class="panel-box">
+        <div class="panel-title">非厄米拓扑激光预设矩阵 (Regimes)</div>
+        <div class="presets-grid">
+          <button class="btn-preset active" id="preset1" onclick="applyPreset(1)">
+            ① 拓扑边缘孤子<br><span style="font-size:10px; opacity:0.8;">Topological Edge Soliton</span>
+          </button>
+          <button class="btn-preset" id="preset2" onclick="applyPreset(2)">
+            ② 奇异点费米弧相变<br><span style="font-size:10px; opacity:0.8;">EP Fermi Arc Split</span>
+          </button>
+          <button class="btn-preset" id="preset3" onclick="applyPreset(3)">
+            ③ 非线性超快脉冲<br><span style="font-size:10px; opacity:0.8;">Nonlinear Kerr Pulsing</span>
+          </button>
+          <button class="btn-preset" id="preset4" onclick="applyPreset(4)">
+            ④ 强无序免疫态<br><span style="font-size:10px; opacity:0.8;">Disorder Robust Limit</span>
+          </button>
+        </div>
+
+        <!-- 参数微调滑块 -->
+        <div class="sliders-container">
+          
+          <div class="slider-item">
+            <div class="slider-label-row">
+              <span>莫尔扭转魔角 (Twist Angle θ)</span>
+              <span class="slider-val" id="valTheta">2.25°</span>
+            </div>
+            <input type="range" id="slTheta" min="0.8" max="4.5" step="0.05" value="2.25" oninput="updateParams()">
+          </div>
+
+          <div class="slider-item">
+            <div class="slider-label-row">
+              <span>非厄米增益-损耗差 (Gain-Loss γ)</span>
+              <span class="slider-val" id="valGamma">1.60 meV</span>
+            </div>
+            <input type="range" id="slGamma" min="0.2" max="3.5" step="0.05" value="1.60" oninput="updateParams()">
+          </div>
+
+          <div class="slider-item">
+            <div class="slider-label-row">
+              <span>克尔非线性饱和 (Kerr Nonlinearity g_nl)</span>
+              <span class="slider-val" id="valGnl">2.40 a.u.</span>
+            </div>
+            <input type="range" id="slGnl" min="0.5" max="5.0" step="0.1" value="2.40" oninput="updateParams()">
+          </div>
+
+          <div class="slider-item">
+            <div class="slider-label-row">
+              <span>泵浦光注入功率 (Pump Power P_p)</span>
+              <span class="slider-val" id="valPpump">5.50 mW</span>
+            </div>
+            <input type="range" id="slPpump" min="0.5" max="12.0" step="0.1" value="5.50" oninput="updateParams()">
+          </div>
+
+          <div class="slider-item">
+            <div class="slider-label-row">
+              <span>微腔无序散射扰动 (Disorder σ)</span>
+              <span class="slider-val" id="valDisorder">0.05</span>
+            </div>
+            <input type="range" id="slDisorder" min="0.00" max="0.35" step="0.01" value="0.05" oninput="updateParams()">
+          </div>
+
+          <div class="slider-item">
+            <div class="slider-label-row">
+              <span>微腔品质因子 (Q-Factor ×10⁴)</span>
+              <span class="slider-val" id="valQfactor">2.80</span>
+            </div>
+            <input type="range" id="slQfactor" min="0.5" max="5.0" step="0.1" value="2.80" oninput="updateParams()">
+          </div>
+
+        </div>
+
+        <!-- 交互按钮组 -->
+        <div class="action-btn-row">
+          <button class="btn-action btn-audio" id="btnAudio" onclick="toggleAudio()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+              <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+            </svg>
+            <span id="audioText">激光声效: 关闭</span>
+          </button>
+          <button class="btn-action" onclick="resetDefaults()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M2.5 2v6h6M21.5 22v-6h-6"></path>
+              <path d="M22 11.5A10 10 0 0 0 3.2 7.2L2.5 8M2 12.5a10 10 0 0 0 18.8 4.3l.7-.8"></path>
+            </svg>
+            基态复位
+          </button>
+        </div>
+
+      </div>
+
+      <!-- 物理全息遥测读数 -->
+      <div class="panel-box">
+        <div class="panel-title">量子光动力学参量遥测 (Holographic Telemetry)</div>
+        <div class="telemetry-grid">
+          
+          <div class="telemetry-item highlight">
+            <span class="tel-label">边模抑制比 SMSR</span>
+            <div class="tel-value" id="telSmsr">52.8<span class="tel-unit">dB</span></div>
+          </div>
+
+          <div class="telemetry-item highlight">
+            <span class="tel-label">奇异点动量分离 Δk_EP</span>
+            <div class="tel-value" id="telDeltaKep">0.245<span class="tel-unit">μm⁻¹</span></div>
+          </div>
+
+          <div class="telemetry-item">
+            <span class="tel-label">激射本征线宽 Δν</span>
+            <div class="tel-value" id="telLinewidth">0.85<span class="tel-unit">kHz</span></div>
+          </div>
+
+          <div class="telemetry-item">
+            <span class="tel-label">孤子时域脉宽 τ_sol</span>
+            <div class="tel-value" id="telPulseWidth">1.42<span class="tel-unit">ps</span></div>
+          </div>
+
+          <div class="telemetry-item">
+            <span class="tel-label">光子手征拓扑陈数 C</span>
+            <div class="tel-value" id="telChern">+1<span class="tel-unit"> (Protected)</span></div>
+          </div>
+
+          <div class="telemetry-item">
+            <span class="tel-label">激射斜率效率 η_slope</span>
+            <div class="tel-value" id="telSlope">68.4<span class="tel-unit">%</span></div>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- 底部机制注释 -->
+  <footer>
+    <div class="theory-notes">
+      <div class="theory-item">
+        <strong>理论微观哈密顿量:</strong> H_NH = v_D (k_x σ_x + k_y σ_y) + i γ_5 σ_z + i γ₀ 𝕀 + g_nl |ψ|² ψ
+      </div>
+      <div class="theory-item">
+        <strong>非厄米拓扑相变:</strong> 空间反演/时间反演破缺与非均匀增益-损耗促使狄拉克点开裂为奇异点对与动量费米弧
+      </div>
+      <div class="theory-item">
+        <strong>非线性自聚焦边缘孤子:</strong> 克尔非线性平衡晶格色散，形成单向抗背散射拓扑孤子激光，SMSR >50dB，线宽压缩至亚kHz
+      </div>
+    </div>
+    <div style="font-family: monospace; color: var(--emerald);">
+      Moire Non-Hermitian Soliton Laser v2.5 · Zero Dependencies
+    </div>
+  </footer>
+
+  <!-- 仿真与渲染引擎 -->
+  <script>
+    // 物理状态对象
+    const STATE = {
+      theta: 2.25,       // 莫尔扭转角 (度)
+      gamma: 1.60,       // 非厄米增益-损耗差 (meV)
+      gnl: 2.40,         // 克尔非线性强度
+      ppump: 5.50,       // 泵浦功率 (mW)
+      disorder: 0.05,    // 无序强度
+      qfactor: 2.80,     // 品质因子 (x10^4)
+
+      // 衍生物理量
+      smsr: 52.8,        // dB
+      deltaKep: 0.245,   // μm^-1
+      linewidth: 0.85,   // kHz
+      pulsewidth: 1.42,  // ps
+      chern: 1,
+      slope: 68.4,       // %
+      isLasing: true,
+
+      // 3D 视角交互
+      rotX: 0.58,
+      rotY: -0.62,
+      zoom: 1.0,
+      isDragging: false,
+      lastMouseX: 0,
+      lastMouseY: 0
+    };
+
+    // Canvas 与 上下文
+    const canvas = document.getElementById('mainCanvas');
+    const ctx = canvas.getContext('2d');
+    const scopeA = document.getElementById('scopeCanvasA');
+    const ctxA = scopeA.getContext('2d');
+    const scopeB = document.getElementById('scopeCanvasB');
+    const ctxB = scopeB.getContext('2d');
+
+    // 时间与动效计数
+    let simTime = 0;
+    let lastFrameTime = performance.now();
+    let frameCount = 0;
+    let fpsTime = performance.now();
+
+    // Web Audio 引擎
+    let audioCtx = null;
+    let masterGain = null;
+    let lasingOsc = null;
+    let noiseNode = null;
+    let isAudioEnabled = false;
+
+    // 自适应重置尺寸
+    function resizeCanvases() {
+      const dpr = window.devicePixelRatio || 1;
+      
+      const rectMain = canvas.getBoundingClientRect();
+      canvas.width = rectMain.width * dpr;
+      canvas.height = rectMain.height * dpr;
+      ctx.scale(dpr, dpr);
+
+      const rectA = scopeA.getBoundingClientRect();
+      scopeA.width = rectA.width * dpr;
+      scopeA.height = rectA.height * dpr;
+      ctxA.scale(dpr, dpr);
+
+      const rectB = scopeB.getBoundingClientRect();
+      scopeB.width = rectB.width * dpr;
+      scopeB.height = rectB.height * dpr;
+      ctxB.scale(dpr, dpr);
+    }
+
+    // 计算衍生物理参量
+    function computePhysics() {
+      // 阈值判定: 泵浦功率必须克服线性损耗与无序散射
+      const thresholdPump = 1.2 + (STATE.disorder * 8.0) / (STATE.qfactor * 0.5);
+      STATE.isLasing = (STATE.ppump >= thresholdPump && STATE.gamma >= 0.4);
+
+      // 奇异点分离: Δk_EP ~ sqrt(γ^2 - γ_c^2) / v_D
+      STATE.deltaKep = 0.15 * Math.sqrt(Math.max(0.01, STATE.gamma * 1.5)) * (1.0 + (STATE.theta / 3.0) * 0.3);
+
+      if (STATE.isLasing) {
+        // 边模抑制比 SMSR (dB): 非厄米增益反差极大抑制体模竞争
+        STATE.smsr = Math.min(62.0, Math.max(25.0, 38.0 + (STATE.gamma * 8.5) + (STATE.gnl * 2.5) - (STATE.disorder * 25.0)));
+        
+        // 激光线宽: 随品质因子提高而反比变窄
+        STATE.linewidth = Math.max(0.12, (2.8 / (STATE.qfactor * 1.2)) * (1.0 + STATE.disorder * 2.0));
+
+        // 孤子脉宽: 克尔非线性平衡色散产生的孤子宽度
+        STATE.pulsewidth = Math.max(0.65, 2.5 / Math.sqrt(STATE.gnl * (STATE.ppump / 5.0) + 0.1));
+
+        // 斜率效率
+        STATE.slope = Math.min(85.0, Math.max(30.0, 52.0 + (STATE.gamma * 6.0) - (STATE.disorder * 40.0)));
+      } else {
+        STATE.smsr = 6.5;
+        STATE.linewidth = 45.0;
+        STATE.pulsewidth = 8.5;
+        STATE.slope = 12.0;
+      }
+
+      // 更新 DOM
+      document.getElementById('telSmsr').innerHTML = `${STATE.smsr.toFixed(1)}<span class="tel-unit">dB</span>`;
+      document.getElementById('telDeltaKep').innerHTML = `${STATE.deltaKep.toFixed(3)}<span class="tel-unit">μm⁻¹</span>`;
+      document.getElementById('telLinewidth').innerHTML = `${STATE.linewidth.toFixed(2)}<span class="tel-unit">kHz</span>`;
+      document.getElementById('telPulseWidth').innerHTML = `${STATE.pulsewidth.toFixed(2)}<span class="tel-unit">ps</span>`;
+      document.getElementById('telSlope').innerHTML = `${STATE.slope.toFixed(1)}<span class="tel-unit">%</span>`;
+
+      // 顶部徽章更新
+      const statusLasing = document.getElementById('statusLasing');
+      if (STATE.isLasing) {
+        statusLasing.className = 'status-tag lasing';
+        statusLasing.innerHTML = `<span class="pulse-dot"></span> 拓扑单模边缘孤子激射 (SMSR=${STATE.smsr.toFixed(0)}dB)`;
+      } else {
+        statusLasing.className = 'status-tag';
+        statusLasing.style.color = '#ff9900';
+        statusLasing.style.borderColor = 'rgba(255, 153, 0, 0.4)';
+        statusLasing.innerHTML = `<span class="pulse-dot"></span> 未起振 (低于阈值 P_th=${thresholdPump.toFixed(1)}mW)`;
+      }
+
+      document.getElementById('hudEPDiff').innerText = `奇异点动量分离: Δk_EP = ${STATE.deltaKep.toFixed(3)} μm⁻¹ (拓扑费米弧)`;
+      document.getElementById('smsrInfo').innerText = `SMSR = ${STATE.smsr.toFixed(1)} dB | Δν = ${STATE.linewidth.toFixed(2)} kHz`;
+      document.getElementById('solitonWidthInfo').innerText = `τ = ${STATE.pulsewidth.toFixed(2)} ps | C = +1`;
+
+      updateAudio();
+    }
+
+    // 参数微调响应
+    function updateParams() {
+      STATE.theta = parseFloat(document.getElementById('slTheta').value);
+      STATE.gamma = parseFloat(document.getElementById('slGamma').value);
+      STATE.gnl = parseFloat(document.getElementById('slGnl').value);
+      STATE.ppump = parseFloat(document.getElementById('slPpump').value);
+      STATE.disorder = parseFloat(document.getElementById('slDisorder').value);
+      STATE.qfactor = parseFloat(document.getElementById('slQfactor').value);
+
+      document.getElementById('valTheta').innerText = `${STATE.theta.toFixed(2)}°`;
+      document.getElementById('valGamma').innerText = `${STATE.gamma.toFixed(2)} meV`;
+      document.getElementById('valGnl').innerText = `${STATE.gnl.toFixed(2)} a.u.`;
+      document.getElementById('valPpump').innerText = `${STATE.ppump.toFixed(2)} mW`;
+      document.getElementById('valDisorder').innerText = `${STATE.disorder.toFixed(2)}`;
+      document.getElementById('valQfactor').innerText = `${STATE.qfactor.toFixed(2)}`;
+
+      computePhysics();
+    }
+
+    // 预设应用
+    function applyPreset(id) {
+      document.querySelectorAll('.btn-preset').forEach((b, idx) => {
+        b.classList.toggle('active', (idx + 1) === id);
+      });
+
+      if (id === 1) { // 拓扑边缘孤子
+        STATE.theta = 2.25;
+        STATE.gamma = 1.60;
+        STATE.gnl = 2.40;
+        STATE.ppump = 5.50;
+        STATE.disorder = 0.05;
+        STATE.qfactor = 2.80;
+      } else if (id === 2) { // 奇异点费米弧相变
+        STATE.theta = 1.80;
+        STATE.gamma = 2.80;
+        STATE.gnl = 1.20;
+        STATE.ppump = 7.20;
+        STATE.disorder = 0.02;
+        STATE.qfactor = 3.60;
+      } else if (id === 3) { // 非线性超快脉冲
+        STATE.theta = 3.20;
+        STATE.gamma = 2.10;
+        STATE.gnl = 4.20;
+        STATE.ppump = 9.80;
+        STATE.disorder = 0.08;
+        STATE.qfactor = 2.20;
+      } else if (id === 4) { // 强无序免疫态
+        STATE.theta = 2.00;
+        STATE.gamma = 1.80;
+        STATE.gnl = 3.10;
+        STATE.ppump = 6.20;
+        STATE.disorder = 0.28;
+        STATE.qfactor = 4.50;
+      }
+
+      document.getElementById('slTheta').value = STATE.theta;
+      document.getElementById('slGamma').value = STATE.gamma;
+      document.getElementById('slGnl').value = STATE.gnl;
+      document.getElementById('slPpump').value = STATE.ppump;
+      document.getElementById('slDisorder').value = STATE.disorder;
+      document.getElementById('slQfactor').value = STATE.qfactor;
+
+      updateParams();
+    }
+
+    function resetDefaults() {
+      applyPreset(1);
+    }
+
+    // 鼠标交互控制 3D 旋转与缩放
+    canvas.addEventListener('mousedown', (e) => {
+      STATE.isDragging = true;
+      STATE.lastMouseX = e.clientX;
+      STATE.lastMouseY = e.clientY;
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!STATE.isDragging) return;
+      const dx = e.clientX - STATE.lastMouseX;
+      const dy = e.clientY - STATE.lastMouseY;
+      STATE.rotY += dx * 0.007;
+      STATE.rotX += dy * 0.007;
+      STATE.rotX = Math.max(-1.4, Math.min(1.4, STATE.rotX));
+      STATE.lastMouseX = e.clientX;
+      STATE.lastMouseY = e.clientY;
+    });
+
+    window.addEventListener('mouseup', () => {
+      STATE.isDragging = false;
+    });
+
+    canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      STATE.zoom *= (e.deltaY > 0 ? 0.94 : 1.06);
+      STATE.zoom = Math.max(0.45, Math.min(2.5, STATE.zoom));
+    }, { passive: false });
+
+    canvas.addEventListener('dblclick', () => {
+      STATE.rotX = 0.58;
+      STATE.rotY = -0.62;
+      STATE.zoom = 1.0;
+    });
+
+    // 3D 投影函数
+    function project3D(x, y, z, width, height) {
+      const cosY = Math.cos(STATE.rotY);
+      const sinY = Math.sin(STATE.rotY);
+      const x1 = x * cosY - z * sinY;
+      const z1 = x * sinY + z * cosY;
+
+      const cosX = Math.cos(STATE.rotX);
+      const sinX = Math.sin(STATE.rotX);
+      const y2 = y * cosX - z1 * sinX;
+      const z2 = y * sinX + z1 * cosX;
+
+      const cameraDist = 480;
+      const fov = 380 * STATE.zoom;
+      const scale = fov / (cameraDist + z2);
+
+      return {
+        px: width / 2 + x1 * scale,
+        py: height / 2 + y2 * scale,
+        scale: scale,
+        depth: z2
+      };
+    }
+
+    // 绘制 3D 全息场景
+    function drawMainViewport(w, h) {
+      ctx.clearRect(0, 0, w, h);
+
+      // 1. 莫尔光子微腔晶格阵列 (微柱阵列与增益-损耗着色)
+      const rows = 11;
+      const cols = 11;
+      const spacing = 22;
+      const startX = -((cols - 1) * spacing) / 2;
+      const startZ = -((rows - 1) * spacing) / 2;
+      const yLattice = 40;
+
+      ctx.save();
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const x0 = startX + c * spacing;
+          const z0 = startZ + r * spacing;
+
+          // 莫尔干涉模式判定子晶格
+          const dist = Math.sqrt(x0 * x0 + z0 * z0);
+          const moireVal = Math.sin(dist / (STATE.theta * 4.5) + simTime * 0.8);
+          const isGain = ((r + c) % 2 === 0);
+
+          // 柱高度与颜色
+          const pillarHeight = 18 + (isGain ? (STATE.gamma * 6.0) : 0);
+          const pBase = project3D(x0, yLattice, z0, w, h);
+          const pTop = project3D(x0, yLattice - pillarHeight, z0, w, h);
+
+          // 绘制微柱
+          ctx.beginPath();
+          ctx.moveTo(pBase.px, pBase.py);
+          ctx.lineTo(pTop.px, pTop.py);
+          ctx.strokeStyle = isGain ? 'rgba(0, 240, 255, 0.45)' : 'rgba(255, 42, 109, 0.45)';
+          ctx.lineWidth = 3.0 * pBase.scale;
+          ctx.stroke();
+
+          // 微柱顶端微球
+          ctx.beginPath();
+          ctx.arc(pTop.px, pTop.py, 2.5 * pTop.scale, 0, Math.PI * 2);
+          ctx.fillStyle = isGain ? '#00f0ff' : '#ff2a6d';
+          ctx.fill();
+        }
+      }
+
+      // 2. 动量空间非厄米复能谱曲面与奇异点对 (渲染于上方空间)
+      drawNonHermitianRiemannSurface(0, -65, 0, w, h);
+
+      // 3. 边界手征单向拓扑边缘孤子光束环流
+      if (STATE.isLasing) {
+        drawTopologicalEdgeSoliton(startX - 12, startZ - 12, (cols - 1) * spacing + 24, (rows - 1) * spacing + 24, yLattice - 12, w, h);
+      }
+
+      ctx.restore();
+    }
+
+    // 辅助绘制非厄米奇异点与费米弧复能谱 Riemann 扭折面
+    function drawNonHermitianRiemannSurface(cx, cy, cz, w, h) {
+      const epSep = STATE.deltaKep * 420; // 奇异点视觉间距
+      const meshX = 14;
+      const meshZ = 10;
+      const sizeX = 120;
+      const sizeZ = 70;
+
+      ctx.save();
+      for (let ix = 0; ix < meshX; ix++) {
+        for (let iz = 0; iz < meshZ; iz++) {
+          const kx = -sizeX / 2 + (ix / (meshX - 1)) * sizeX;
+          const kz = -sizeZ / 2 + (iz / (meshZ - 1)) * sizeZ;
+
+          // 狄拉克点开裂为两奇异点 EP1=(-epSep/2, 0), EP2=(epSep/2, 0)
+          const d1 = Math.sqrt(Math.pow(kx + epSep / 2, 2) + kz * kz);
+          const d2 = Math.sqrt(Math.pow(kx - epSep / 2, 2) + kz * kz);
+          
+          // 非厄米本征能谱 E = ± sqrt(v^2 k^2 - γ^2)
+          const realE = Math.sqrt(d1 * d2) * 0.35;
+
+          const p1 = project3D(cx + kx, cy - realE, cz + kz, w, h);
+          const p2 = project3D(cx + kx, cy + realE, cz + kz, w, h);
+
+          ctx.beginPath();
+          ctx.arc(p1.px, p1.py, 1.2 * p1.scale, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(181, 95, 230, 0.4)';
+          ctx.fill();
+
+          ctx.beginPath();
+          ctx.arc(p2.px, p2.py, 1.2 * p2.scale, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(0, 255, 170, 0.4)';
+          ctx.fill();
+        }
+      }
+
+      // 连接两奇异点的拓扑费米弧 (开轨迹线)
+      ctx.beginPath();
+      const pEp1 = project3D(cx - epSep / 2, cy, cz, w, h);
+      const pEp2 = project3D(cx + epSep / 2, cy, cz, w, h);
+      ctx.moveTo(pEp1.px, pEp1.py);
+      ctx.lineTo(pEp2.px, pEp2.py);
+      ctx.strokeStyle = '#00ffaa';
+      ctx.lineWidth = 3.0;
+      ctx.shadowColor = '#00ffaa';
+      ctx.shadowBlur = 12;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      // 奇异点 EP 亮点标记
+      ctx.beginPath();
+      ctx.arc(pEp1.px, pEp1.py, 4.0 * pEp1.scale, 0, Math.PI * 2);
+      ctx.fillStyle = '#ffffff';
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(pEp2.px, pEp2.py, 4.0 * pEp2.scale, 0, Math.PI * 2);
+      ctx.fillStyle = '#ffffff';
+      ctx.fill();
+
+      ctx.restore();
+    }
+
+    // 辅助绘制手征非互易边界孤子
+    function drawTopologicalEdgeSoliton(x0, z0, lenX, lenZ, yPos, w, h) {
+      // 沿长方形边界顺时针单向闭合回路
+      const perimeter = 2 * (lenX + lenZ);
+      const loopTime = (simTime * 0.6 * (STATE.ppump / 4.0)) % 1.0;
+      const currentPos = loopTime * perimeter;
+
+      // 获取孤子光束中心在四条边的坐标
+      function getCoord(dist) {
+        if (dist < lenX) {
+          return { x: x0 + dist, z: z0 };
+        } else if (dist < lenX + lenZ) {
+          return { x: x0 + lenX, z: z0 + (dist - lenX) };
+        } else if (dist < 2 * lenX + lenZ) {
+          return { x: x0 + lenX - (dist - (lenX + lenZ)), z: z0 + lenZ };
+        } else {
+          return { x: x0, z: z0 + lenZ - (dist - (2 * lenX + lenZ)) };
+        }
+      }
+
+      // 绘制孤子彗星拖尾尾流
+      const tailCount = 20;
+      for (let t = tailCount; t >= 0; t--) {
+        const trailDist = (currentPos - t * 4.5 + perimeter) % perimeter;
+        const ptCoord = getCoord(trailDist);
+        const p = project3D(ptCoord.x, yPos, ptCoord.z, w, h);
+
+        const alpha = (1.0 - t / tailCount) * 0.85;
+        const rad = (1.0 - t / tailCount) * 7.0 + 2.0;
+
+        ctx.beginPath();
+        ctx.arc(p.px, p.py, rad * p.scale, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(0, 240, 255, ${alpha})`;
+        ctx.shadowColor = '#00f0ff';
+        ctx.shadowBlur = t === 0 ? 14 : 6;
+        ctx.fill();
+      }
+      ctx.shadowBlur = 0;
+    }
+
+    // 绘制示波器 A: 单模激射光谱与 SMSR
+    function drawScopeA() {
+      const w = scopeA.getBoundingClientRect().width;
+      const h = scopeA.getBoundingClientRect().height;
+      ctxA.clearRect(0, 0, w, h);
+
+      // 网格
+      ctxA.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+      ctxA.lineWidth = 1;
+      for (let i = 0; i <= 8; i++) {
+        ctxA.beginPath();
+        ctxA.moveTo((w / 8) * i, 0);
+        ctxA.lineTo((w / 8) * i, h);
+        ctxA.stroke();
+      }
+      for (let j = 0; j <= 4; j++) {
+        ctxA.beginPath();
+        ctxA.moveTo(0, (h / 4) * j);
+        ctxA.lineTo(w, (h / 4) * j);
+        ctxA.stroke();
+      }
+
+      const baseline = h - 22;
+      const cx = w / 2;
+
+      // 绘制背景竞争模式 (受到强抑制)
+      ctxA.beginPath();
+      ctxA.strokeStyle = 'rgba(255, 42, 109, 0.35)';
+      ctxA.lineWidth = 1.0;
+      for (let k = -4; k <= 4; k++) {
+        if (k === 0) continue;
+        const bx = cx + k * (w * 0.1);
+        const bHeight = (h * 0.18) * (1.0 - STATE.smsr / 70.0);
+        ctxA.moveTo(bx, baseline);
+        ctxA.lineTo(bx, baseline - Math.max(4, bHeight));
+      }
+      ctxA.stroke();
+
+      // 绘制拓扑单模激射超窄主峰
+      ctxA.beginPath();
+      ctxA.strokeStyle = '#00f0ff';
+      ctxA.lineWidth = 2.6;
+      ctxA.shadowColor = '#00f0ff';
+      ctxA.shadowBlur = 12;
+
+      const peakHeight = STATE.isLasing ? (h * 0.78) : (h * 0.2);
+      const halfWidth = Math.max(1.5, (STATE.linewidth / 5.0) * 8.0);
+
+      for (let x = 10; x < w - 10; x++) {
+        const dx = (x - cx) / halfWidth;
+        const lorenz = peakHeight / (1 + dx * dx);
+        const y = baseline - lorenz;
+
+        if (x === 10) ctxA.moveTo(x, y);
+        else ctxA.lineTo(x, y);
+      }
+      ctxA.stroke();
+      ctxA.shadowBlur = 0;
+
+      // 标尺文字
+      ctxA.fillStyle = '#ffcc00';
+      ctxA.font = '10px monospace';
+      ctxA.fillText(`SMSR = ${STATE.smsr.toFixed(1)} dB (Single-Mode)`, 16, 20);
+      ctxA.fillStyle = '#7b9bb6';
+      ctxA.fillText('Optical Frequency ν₀ = 193.4 THz', cx - 75, baseline + 16);
+    }
+
+    // 绘制示波器 B: 拓扑边缘孤子波形轮廓
+    function drawScopeB() {
+      const w = scopeB.getBoundingClientRect().width;
+      const h = scopeB.getBoundingClientRect().height;
+      ctxB.clearRect(0, 0, w, h);
+
+      // 网格
+      ctxB.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+      ctxB.lineWidth = 1;
+      for (let i = 0; i <= 8; i++) {
+        ctxB.beginPath();
+        ctxB.moveTo((w / 8) * i, 0);
+        ctxB.lineTo((w / 8) * i, h);
+        ctxB.stroke();
+      }
+      for (let j = 0; j <= 4; j++) {
+        ctxB.beginPath();
+        ctxB.moveTo(0, (h / 4) * j);
+        ctxB.lineTo(w, (h / 4) * j);
+        ctxB.stroke();
+      }
+
+      const baseline = h - 22;
+      const cx = w / 2;
+
+      // 绘制空间双曲正割 sech^2(s / w0) 孤子波包
+      ctxB.beginPath();
+      ctxB.strokeStyle = '#00ffaa';
+      ctxB.lineWidth = 2.4;
+      ctxB.shadowColor = '#00ffaa';
+      ctxB.shadowBlur = 10;
+
+      const numPoints = 120;
+      const w0 = Math.max(12, STATE.pulsewidth * 15.0);
+
+      for (let i = 0; i < numPoints; i++) {
+        const x = 12 + (i / (numPoints - 1)) * (w - 24);
+        const s = (x - cx) / w0;
+        const sech = 1 / Math.cosh(s);
+        const intensity = (sech * sech) * (h * 0.72) * (STATE.isLasing ? 1.0 : 0.2);
+        const y = baseline - intensity;
+
+        if (i === 0) ctxB.moveTo(x, y);
+        else ctxB.lineTo(x, y);
+      }
+      ctxB.stroke();
+      ctxB.shadowBlur = 0;
+
+      // 标尺文字
+      ctxB.fillStyle = '#00ffaa';
+      ctxB.font = '10px monospace';
+      ctxB.fillText(`|ψ|² sech² Soliton (τ = ${STATE.pulsewidth.toFixed(2)} ps)`, 16, 20);
+      ctxB.fillStyle = '#7b9bb6';
+      ctxB.fillText('Boundary Coordinate s (μm)', cx - 65, baseline + 16);
+    }
+
+    // Web Audio 初始化
+    function initAudio() {
+      if (audioCtx) return;
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioContextClass();
+
+      masterGain = audioCtx.createGain();
+      masterGain.gain.setValueAtTime(0.04, audioCtx.currentTime);
+      masterGain.connect(audioCtx.destination);
+
+      lasingOsc = audioCtx.createOscillator();
+      lasingOsc.type = 'sine';
+      lasingOsc.frequency.setValueAtTime(440, audioCtx.currentTime);
+
+      lasingOsc.connect(masterGain);
+      lasingOsc.start();
+    }
+
+    function updateAudio() {
+      if (!audioCtx || !isAudioEnabled) return;
+      const t = audioCtx.currentTime;
+      // 单模线宽越窄，音调越纯净
+      const targetFreq = 380 + (STATE.gamma * 45.0);
+      lasingOsc.frequency.setTargetAtTime(targetFreq, t, 0.05);
+
+      const targetGain = STATE.isLasing ? (0.045 * (STATE.ppump / 8.0)) : 0.005;
+      masterGain.gain.setTargetAtTime(Math.min(0.08, targetGain), t, 0.1);
+    }
+
+    function toggleAudio() {
+      if (!isAudioEnabled) {
+        initAudio();
+        if (audioCtx.state === 'suspended') {
+          audioCtx.resume();
+        }
+        isAudioEnabled = true;
+        document.getElementById('btnAudio').classList.add('active');
+        document.getElementById('audioText').innerText = '激光声效: 运行中';
+        updateAudio();
+      } else {
+        if (audioCtx) {
+          audioCtx.suspend();
+        }
+        isAudioEnabled = false;
+        document.getElementById('btnAudio').classList.remove('active');
+        document.getElementById('audioText').innerText = '激光声效: 关闭';
+      }
+    }
+
+    // 主渲染帧循环
+    function animLoop(now) {
+      const dt = (now - lastFrameTime) * 0.001;
+      lastFrameTime = now;
+      simTime += dt;
+
+      // 计算 FPS
+      frameCount++;
+      if (now - fpsTime >= 500) {
+        const curFps = (frameCount * 1000) / (now - fpsTime);
+        document.getElementById('fpsCounter').innerText = `${curFps.toFixed(1)} FPS`;
+        frameCount = 0;
+        fpsTime = now;
+      }
+
+      // 绘制场景与示波器
+      const rectMain = canvas.getBoundingClientRect();
+      drawMainViewport(rectMain.width, rectMain.height);
+      drawScopeA();
+      drawScopeB();
+
+      requestAnimationFrame(animLoop);
+    }
+
+    // 初始化监听
+    window.addEventListener('resize', resizeCanvases);
+
+    window.addEventListener('load', () => {
+      resizeCanvases();
+      computePhysics();
+      requestAnimationFrame(animLoop);
+    });
+  </script>
+</body>
+</html>

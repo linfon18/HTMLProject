@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>克拉尼声学共振板 - Chladni Resonance Sandbox</title>
+<style>
+  :root {
+    --bg-color: #05050a;
+    --accent-gold: #fbbf24;
+    --accent-cyan: #38bdf8;
+    --accent-violet: #a855f7;
+    --glass-bg: rgba(15, 20, 35, 0.75);
+    --glass-border: rgba(255, 255, 255, 0.12);
+  }
+
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    user-select: none;
+  }
+
+  body {
+    background-color: var(--bg-color);
+    color: #f1f5f9;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    overflow: hidden;
+    width: 100vw;
+    height: 100vh;
+  }
+
+  #viewport {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    cursor: crosshair;
+  }
+
+  /* 顶部科幻标题卡片 */
+  .header-card {
+    position: absolute;
+    top: 24px;
+    left: 28px;
+    z-index: 10;
+    pointer-events: none;
+  }
+
+  .header-card h1 {
+    font-size: 1.6rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+    background: linear-gradient(135deg, #fbbf24, #f43f5e, #a855f7);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-transform: uppercase;
+    text-shadow: 0 0 30px rgba(251, 191, 36, 0.3);
+  }
+
+  .header-card .sub {
+    font-size: 0.85rem;
+    color: #94a3b8;
+    margin-top: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .live-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #fbbf24;
+    box-shadow: 0 0 10px #fbbf24;
+    animation: liveGlow 1.8s infinite ease-in-out;
+  }
+
+  @keyframes liveGlow {
+    0%, 100% { opacity: 0.4; transform: scale(0.9); }
+    50% { opacity: 1; transform: scale(1.2); }
+  }
+
+  /* 右上角声学模态信息 */
+  .telemetry-card {
+    position: absolute;
+    top: 24px;
+    right: 28px;
+    z-index: 10;
+    background: var(--glass-bg);
+    backdrop-filter: blur(16px);
+    border: 1px solid var(--glass-border);
+    border-radius: 14px;
+    padding: 16px 20px;
+    min-width: 250px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+    font-family: 'Courier New', monospace;
+  }
+
+  .telemetry-title {
+    font-size: 0.75rem;
+    color: var(--accent-gold);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    border-bottom: 1px solid rgba(251, 191, 36, 0.2);
+    padding-bottom: 5px;
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .tele-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.82rem;
+    margin-bottom: 5px;
+  }
+
+  .tele-row .lbl { color: #64748b; }
+  .tele-row .val { color: #f8fafc; font-weight: 600; }
+
+  /* 悬浮控制底座 */
+  .dock {
+    position: absolute;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border);
+    border-radius: 18px;
+    padding: 14px 22px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    max-width: 92vw;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .ctrl-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .ctrl-item label {
+    font-size: 0.7rem;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .ctrl-item label span {
+    color: var(--accent-gold);
+    font-family: monospace;
+  }
+
+  .ctrl-item input[type="range"] {
+    -webkit-appearance: none;
+    width: 110px;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 2px;
+    outline: none;
+  }
+
+  .ctrl-item input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--accent-gold);
+    cursor: pointer;
+    box-shadow: 0 0 10px var(--accent-gold);
+    transition: transform 0.1s;
+  }
+
+  .ctrl-item input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.3);
+  }
+
+  .btn {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: #fff;
+    padding: 8px 14px;
+    border-radius: 10px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .btn:hover {
+    background: rgba(251, 191, 36, 0.2);
+    border-color: var(--accent-gold);
+    box-shadow: 0 0 15px rgba(251, 191, 36, 0.3);
+    transform: translateY(-2px);
+  }
+
+  .btn.active {
+    background: var(--accent-gold);
+    color: #05050a;
+    border-color: var(--accent-gold);
+    box-shadow: 0 0 15px var(--accent-gold);
+  }
+
+  /* 预设模态快捷栏 */
+  .presets-bar {
+    position: absolute;
+    top: 90px;
+    left: 28px;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 60vh;
+    overflow-y: auto;
+    padding-right: 6px;
+  }
+
+  .preset-chip {
+    background: rgba(15, 20, 35, 0.6);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #cbd5e1;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    font-family: monospace;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: left;
+  }
+
+  .preset-chip:hover, .preset-chip.active {
+    background: rgba(251, 191, 36, 0.25);
+    border-color: var(--accent-gold);
+    color: #fff;
+    transform: translateX(4px);
+  }
+
+  .hint-tip {
+    position: absolute;
+    bottom: 24px;
+    left: 28px;
+    z-index: 10;
+    pointer-events: none;
+    font-size: 0.75rem;
+    color: #64748b;
+    line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+
+<canvas id="viewport"></canvas>
+
+<div class="header-card">
+  <h1>CHLADNI RESONANCE</h1>
+  <div class="sub">
+    <div class="live-dot"></div>
+    <span>驻波声学几何 · 节点线自组织 · 模态干涉场</span>
+  </div>
+</div>
+
+<div class="presets-bar" id="presets-list">
+  <!-- 预设模态由 JS 注入 -->
+</div>
+
+<div class="telemetry-card">
+  <div class="telemetry-title">
+    <span>声学共振态 (ACOUSTICS)</span>
+    <span id="fps-val">60 FPS</span>
+  </div>
+  <div class="tele-row">
+    <span class="lbl">模态阶数 (m, n):</span>
+    <span class="val" id="tele-mn">(3, 5)</span>
+  </div>
+  <div class="tele-row">
+    <span class="lbl">固有共振频率:</span>
+    <span class="val" id="tele-freq">1042 Hz</span>
+  </div>
+  <div class="tele-row">
+    <span class="lbl">板形权重比 a/b:</span>
+    <span class="val" id="tele-ab">1.00 : 1.00</span>
+  </div>
+  <div class="tele-row">
+    <span class="lbl">活跃微粒数:</span>
+    <span class="val" id="tele-particles">16,000</span>
+  </div>
+  <div class="tele-row">
+    <span class="lbl">阻尼按压点:</span>
+    <span class="val" id="tele-damp">无</span>
+  </div>
+</div>
+
+<div class="hint-tip">
+  ✨ 点击/拖拽板面: 施加物理按压阻尼点<br>
+  🌊 右侧/预设快捷栏: 切换经典二维驻波模态<br>
+  🔊 音频模式: 实时听觉再现真实金属共振频率
+</div>
+
+<div class="dock">
+  <div class="ctrl-item">
+    <label>模态 M <span id="val-m">3</span></label>
+    <input type="range" id="param-m" min="1" max="12" step="1" value="3">
+  </div>
+  <div class="ctrl-item">
+    <label>模态 N <span id="val-n">5</span></label>
+    <input type="range" id="param-n" min="1" max="12" step="1" value="5">
+  </div>
+  <div class="ctrl-item">
+    <label>板形系数 a <span id="val-a">1.0</span></label>
+    <input type="range" id="param-a" min="-2.0" max="2.0" step="0.05" value="1.0">
+  </div>
+  <div class="ctrl-item">
+    <label>激振能量 Amp <span id="val-amp">1.0</span></label>
+    <input type="range" id="param-amp" min="0.2" max="3.0" step="0.1" value="1.0">
+  </div>
+  <div class="ctrl-item">
+    <label>微粒随机度 <span id="val-noise">0.15</span></label>
+    <input type="range" id="param-noise" min="0.01" max="0.5" step="0.01" value="0.15">
+  </div>
+
+  <button class="btn" id="btn-sound">🔊 扬声器: 关</button>
+  <button class="btn" id="btn-color">🎨 粒子色彩: 金砂</button>
+  <button class="btn" id="btn-scatter">🌪️ 重新播撒</button>
+  <button class="btn" id="btn-clear-damp">🧹 清除阻尼</button>
+</div>
+
+<script>
+/**
+ * 克拉尼图形物理引擎
+ * 方形自由薄板驻波方程：
+ * w(x, y) = a * cos(n * pi * x / L) * cos(m * pi * y / L) - b * cos(m * pi * x / L) * cos(n * pi * y / L)
+ * 微粒在声学加速度场 (∇|w|^2) 驱动下，从腹点（抗节点，振幅极大）滑移并聚集至节线（节点线，振幅为零）
+ */
+
+const canvas = document.getElementById('viewport');
+const ctx = canvas.getContext('2d');
+
+let width, height;
+let plateSize = 0;
+let plateLeft = 0;
+let plateTop = 0;
+
+function resize() {
+  width = canvas.width = window.innerWidth;
+  height = canvas.height = window.innerHeight;
+  // 克拉尼板居中自适应
+  plateSize = Math.min(width * 0.75, height * 0.75, 760);
+  plateLeft = (width - plateSize) / 2;
+  plateTop = (height - plateSize) / 2;
+}
+window.addEventListener('resize', resize);
+resize();
+
+// 物理与模拟状态
+const state = {
+  m: 3,
+  n: 5,
+  a: 1.0,
+  b: 1.0,
+  targetM: 3,
+  targetN: 5,
+  amplitude: 1.0,
+  noise: 0.15,
+  colorScheme: 'gold', // 'gold', 'neon', 'chalk', 'matrix'
+  soundEnabled: false,
+  dampingPoint: null // {x: 0, y: 0} 归一化在 [-1, 1]
+};
+
+// 预设经典克拉尼图谱列表
+const PRESETS = [
+  { name: '基础双向基波', m: 1, n: 2, a: 1.0, b: 1.0 },
+  { name: '经典四叶花环', m: 2, n: 3, a: 1.0, b: 1.0 },
+  { name: '克拉尼五角星簇', m: 3, n: 5, a: 1.0, b: 1.0 },
+  { name: '网格同心涡旋', m: 4, n: 4, a: 1.0, b: -1.0 },
+  { name: '晶体蜂窝阵列', m: 5, n: 6, a: 1.0, b: 1.0 },
+  { name: '高频量子干涉', m: 6, n: 7, a: 0.8, b: 1.2 },
+  { name: '非对称弦波', m: 3, n: 7, a: 1.4, b: 0.6 },
+  { name: '曼荼罗圣环', m: 7, n: 9, a: 1.0, b: 1.0 },
+  { name: '极限密纹场', m: 9, n: 11, a: 1.0, b: 1.0 }
+];
+
+// 初始化预设按钮
+const presetsContainer = document.getElementById('presets-list');
+PRESETS.forEach((p, idx) => {
+  const chip = document.createElement('div');
+  chip.className = 'preset-chip' + (idx === 2 ? ' active' : '');
+  chip.innerHTML = `<strong>${p.name}</strong><br>m=${p.m}, n=${p.n}`;
+  chip.onclick = () => {
+    document.querySelectorAll('.preset-chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    applyPreset(p);
+  };
+  presetsContainer.appendChild(chip);
+});
+
+function applyPreset(p) {
+  state.m = p.m;
+  state.n = p.n;
+  state.a = p.a;
+  state.b = p.b;
+  document.getElementById('param-m').value = p.m;
+  document.getElementById('param-n').value = p.n;
+  document.getElementById('param-a').value = p.a;
+  document.getElementById('val-m').textContent = p.m;
+  document.getElementById('val-n').textContent = p.n;
+  document.getElementById('val-a').textContent = p.a.toFixed(1);
+  updateAudioFreq();
+}
+
+// 庞大的微观沙粒系统
+const PARTICLE_COUNT = 16000;
+const particles = new Float32Array(PARTICLE_COUNT * 4); // [x, y, vx, vy] 归一化在 [-1, 1]
+
+function resetParticles() {
+  for (let i = 0; i < PARTICLE_COUNT; i++) {
+    const idx = i * 4;
+    // 随机播撒在 [-0.98, 0.98] 内部
+    particles[idx] = (Math.random() * 2 - 1) * 0.96;
+    particles[idx + 1] = (Math.random() * 2 - 1) * 0.96;
+    particles[idx + 2] = 0; // vx
+    particles[idx + 3] = 0; // vy
+  }
+}
+resetParticles();
+
+// 计算任意点 (x, y) [-1, 1] 的振幅与梯度
+function getPlateDisplacement(x, y) {
+  const m = state.m;
+  const n = state.n;
+  const a = state.a;
+  const b = state.b;
+
+  // 正方形板两端自由边界的经典位移解
+  const pi = Math.PI;
+  // 坐标映射到 [0, pi]
+  const px = (x + 1) * 0.5 * pi;
+  const py = (y + 1) * 0.5 * pi;
+
+  let val = a * Math.cos(n * px) * Math.cos(m * py) - b * Math.cos(m * px) * Math.cos(n * py);
+
+  // 若存在外部按压阻尼点，对附近振动进行强制衰减抑制
+  if (state.dampingPoint) {
+    const dx = x - state.dampingPoint.x;
+    const dy = y - state.dampingPoint.y;
+    const distSq = dx * dx + dy * dy;
+    const dampFactor = Math.min(1.0, distSq * 8.0);
+    val *= dampFactor;
+  }
+
+  return val;
+}
+
+// 估算振幅梯度的有限差分
+function getDisplacementGradient(x, y) {
+  const eps = 0.005;
+  const w = getPlateDisplacement(x, y);
+  const wx = getPlateDisplacement(x + eps, y);
+  const wy = getPlateDisplacement(x, y + eps);
+
+  // 梯度 ∇(|w|^2) = 2 * w * ∇w
+  const absW = Math.abs(w);
+  const gradX = 2 * w * (wx - w) / eps;
+  const gradY = 2 * w * (wy - w) / eps;
+
+  return { absW, gradX, gradY };
+}
+
+// Web Audio 声学振动音效合成
+let audioCtx = null;
+let toneOsc1 = null;
+let toneOsc2 = null;
+let masterGain = null;
+
+function initAudio() {
+  if (audioCtx) return;
+  try {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    audioCtx = new AudioContext();
+
+    toneOsc1 = audioCtx.createOscillator();
+    toneOsc2 = audioCtx.createOscillator();
+    masterGain = audioCtx.createGain();
+
+    toneOsc1.type = 'sine';
+    toneOsc2.type = 'triangle';
+
+    const filter = audioCtx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.Q.setValueAtTime(3.0, audioCtx.currentTime);
+
+    toneOsc1.connect(filter);
+    toneOsc2.connect(filter);
+    filter.connect(masterGain);
+    masterGain.connect(audioCtx.destination);
+
+    masterGain.gain.setValueAtTime(0.0001, audioCtx.currentTime);
+
+    toneOsc1.start();
+    toneOsc2.start();
+    updateAudioFreq();
+  } catch (e) {
+    console.warn("Audio Context Failed", e);
+  }
+}
+
+// 物理刚板共振固有频率模型：f ~ (m^2 + n^2) * baseFreq
+function updateAudioFreq() {
+  const baseFreq = 38.0;
+  const f = (state.m * state.m + state.n * state.n) * baseFreq;
+  const clampedF = Math.min(3200, Math.max(80, f));
+
+  document.getElementById('tele-freq').textContent = Math.round(clampedF) + ' Hz';
+
+  if (!audioCtx || !state.soundEnabled) return;
+  toneOsc1.frequency.setTargetAtTime(clampedF, audioCtx.currentTime, 0.08);
+  toneOsc2.frequency.setTargetAtTime(clampedF * 1.5, audioCtx.currentTime, 0.08);
+  masterGain.gain.setTargetAtTime(0.05, audioCtx.currentTime, 0.08);
+}
+
+function stopAudio() {
+  if (masterGain && audioCtx) {
+    masterGain.gain.setTargetAtTime(0.0001, audioCtx.currentTime, 0.05);
+  }
+}
+
+// 物理更新步
+function updatePhysics() {
+  const forceScale = 0.022 * state.amplitude;
+  const friction = 0.92;
+  const noiseAmt = state.noise * 0.008;
+
+  for (let i = 0; i < PARTICLE_COUNT; i++) {
+    const idx = i * 4;
+    let x = particles[idx];
+    let y = particles[idx + 1];
+    let vx = particles[idx + 2];
+    let vy = particles[idx + 3];
+
+    const { absW, gradX, gradY } = getDisplacementGradient(x, y);
+
+    // 核心声辐射力：微粒受到背离振动腹点的推力，指向振幅最小的节点线
+    // F ~ - ∇(|w|^2)
+    const fx = -gradX * forceScale;
+    const fy = -gradY * forceScale;
+
+    // 添加受激微粒随机热运动
+    const rx = (Math.random() - 0.5) * noiseAmt * (absW + 0.1);
+    const ry = (Math.random() - 0.5) * noiseAmt * (absW + 0.1);
+
+    vx = (vx + fx + rx) * friction;
+    vy = (vy + fy + ry) * friction;
+
+    x += vx;
+    y += vy;
+
+    // 边缘弹性反射阻尼
+    const bound = 0.98;
+    if (x > bound) { x = bound; vx = -Math.abs(vx) * 0.5; }
+    if (x < -bound) { x = -bound; vx = Math.abs(vx) * 0.5; }
+    if (y > bound) { y = bound; vy = -Math.abs(vy) * 0.5; }
+    if (y < -bound) { y = -bound; vy = Math.abs(vy) * 0.5; }
+
+    particles[idx] = x;
+    particles[idx + 1] = y;
+    particles[idx + 2] = vx;
+    particles[idx + 3] = vy;
+  }
+
+  // 遥测更新
+  document.getElementById('tele-mn').textContent = `(${state.m}, ${state.n})`;
+  document.getElementById('tele-ab').textContent = `${state.a.toFixed(2)} : ${state.b.toFixed(2)}`;
+}
+
+// 渲染循环
+let lastFpsTime = performance.now();
+let frames = 0;
+
+function render() {
+  ctx.fillStyle = '#05050a';
+  ctx.fillRect(0, 0, width, height);
+
+  // 1. 绘制外部暗调光晕与金属板边缘基座
+  drawChladniPlate();
+
+  // 2. 绘制微粒点云（通过 ImageData 批量高速像素写入）
+  drawParticles();
+
+  // 3. 绘制阻尼触摸点
+  if (state.dampingPoint) {
+    const screenX = plateLeft + (state.dampingPoint.x + 1) * 0.5 * plateSize;
+    const screenY = plateTop + (state.dampingPoint.y + 1) * 0.5 * plateSize;
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(screenX, screenY, 14, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(239, 68, 68, 0.4)';
+    ctx.fill();
+    ctx.strokeStyle = '#ef4444';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(screenX, screenY, 4, 0, Math.PI * 2);
+    ctx.fillStyle = '#ffffff';
+    ctx.fill();
+    ctx.restore();
+  }
+
+  frames++;
+  const now = performance.now();
+  if (now - lastFpsTime >= 1000) {
+    document.getElementById('fps-val').textContent = frames + ' FPS';
+    frames = 0;
+    lastFpsTime = now;
+  }
+}
+
+// 绘制金属板底盘
+function drawChladniPlate() {
+  ctx.save();
+  // 底部深邃阴影
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+  ctx.shadowBlur = 40;
+  ctx.shadowOffsetY = 15;
+
+  // 金属板主体
+  ctx.fillStyle = '#0a0d18';
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+  ctx.lineWidth = 2;
+  ctx.fillRect(plateLeft, plateTop, plateSize, plateSize);
+  ctx.strokeRect(plateLeft, plateTop, plateSize, plateSize);
+
+  // 四周紧固螺柱装饰
+  const boltR = 5;
+  const boltInset = 16;
+  const bolts = [
+    [plateLeft + boltInset, plateTop + boltInset],
+    [plateLeft + plateSize - boltInset, plateTop + boltInset],
+    [plateLeft + boltInset, plateTop + plateSize - boltInset],
+    [plateLeft + plateSize - boltInset, plateTop + plateSize - boltInset]
+  ];
+
+  ctx.fillStyle = '#334155';
+  ctx.strokeStyle = '#64748b';
+  ctx.lineWidth = 1;
+  bolts.forEach(([bx, by]) => {
+    ctx.beginPath();
+    ctx.arc(bx, by, boltR, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  });
+
+  // 中心激振触针标记
+  const cx = plateLeft + plateSize / 2;
+  const cy = plateTop + plateSize / 2;
+  ctx.beginPath();
+  ctx.arc(cx, cy, 3, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(251, 191, 36, 0.5)';
+  ctx.fill();
+
+  ctx.restore();
+}
+
+// 粒子高速渲染
+function drawParticles() {
+  const pSize = plateSize;
+  const pLeft = plateLeft;
+  const pTop = plateTop;
+
+  let r = 251, g = 191, b = 36; // 默认金砂
+  if (state.colorScheme === 'neon') { r = 56; g = 189; b = 248; }
+  else if (state.colorScheme === 'chalk') { r = 241; g = 245; b = 249; }
+  else if (state.colorScheme === 'matrix') { r = 34; g = 197; b = 94; }
+
+  ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+
+  for (let i = 0; i < PARTICLE_COUNT; i++) {
+    const idx = i * 4;
+    const px = pLeft + (particles[idx] + 1) * 0.5 * pSize;
+    const py = pTop + (particles[idx + 1] + 1) * 0.5 * pSize;
+
+    // 绘制 1.5px 微细颗粒
+    ctx.fillRect(px, py, 1.6, 1.6);
+  }
+}
+
+// 交互与阻尼按压
+let isDraggingPlate = false;
+
+function setDampingFromMouse(clientX, clientY) {
+  const normX = ((clientX - plateLeft) / plateSize) * 2 - 1;
+  const normY = ((clientY - plateTop) / plateSize) * 2 - 1;
+
+  if (normX >= -1 && normX <= 1 && normY >= -1 && normY <= 1) {
+    state.dampingPoint = { x: normX, y: normY };
+    document.getElementById('tele-damp').textContent = `(${normX.toFixed(2)}, ${normY.toFixed(2)})`;
+  }
+}
+
+canvas.addEventListener('mousedown', (e) => {
+  if (e.button === 0) {
+    isDraggingPlate = true;
+    setDampingFromMouse(e.clientX, e.clientY);
+  }
+});
+
+window.addEventListener('mousemove', (e) => {
+  if (isDraggingPlate) {
+    setDampingFromMouse(e.clientX, e.clientY);
+  }
+});
+
+window.addEventListener('mouseup', () => {
+  isDraggingPlate = false;
+});
+
+// 触摸适配
+canvas.addEventListener('touchstart', (e) => {
+  if (e.touches.length === 1) {
+    isDraggingPlate = true;
+    setDampingFromMouse(e.touches[0].clientX, e.touches[0].clientY);
+  }
+}, { passive: true });
+
+canvas.addEventListener('touchmove', (e) => {
+  if (isDraggingPlate && e.touches.length === 1) {
+    setDampingFromMouse(e.touches[0].clientX, e.touches[0].clientY);
+  }
+}, { passive: true });
+
+window.addEventListener('touchend', () => {
+  isDraggingPlate = false;
+});
+
+// UI 控制绑定
+const paramM = document.getElementById('param-m');
+const paramN = document.getElementById('param-n');
+const paramA = document.getElementById('param-a');
+const paramAmp = document.getElementById('param-amp');
+const paramNoise = document.getElementById('param-noise');
+
+paramM.addEventListener('input', (e) => {
+  state.m = parseInt(e.target.value);
+  document.getElementById('val-m').textContent = state.m;
+  updateAudioFreq();
+});
+
+paramN.addEventListener('input', (e) => {
+  state.n = parseInt(e.target.value);
+  document.getElementById('val-n').textContent = state.n;
+  updateAudioFreq();
+});
+
+paramA.addEventListener('input', (e) => {
+  state.a = parseFloat(e.target.value);
+  document.getElementById('val-a').textContent = state.a.toFixed(1);
+});
+
+paramAmp.addEventListener('input', (e) => {
+  state.amplitude = parseFloat(e.target.value);
+  document.getElementById('val-amp').textContent = state.amplitude.toFixed(1);
+});
+
+paramNoise.addEventListener('input', (e) => {
+  state.noise = parseFloat(e.target.value);
+  document.getElementById('val-noise').textContent = state.noise.toFixed(2);
+});
+
+// 按钮控制
+const btnSound = document.getElementById('btn-sound');
+btnSound.addEventListener('click', () => {
+  initAudio();
+  state.soundEnabled = !state.soundEnabled;
+  btnSound.textContent = '🔊 扬声器: ' + (state.soundEnabled ? '开' : '关');
+  btnSound.classList.toggle('active', state.soundEnabled);
+  if (!state.soundEnabled) stopAudio();
+  else updateAudioFreq();
+});
+
+const btnColor = document.getElementById('btn-color');
+const schemes = [
+  { id: 'gold', name: '金砂' },
+  { id: 'neon', name: '霓虹青' },
+  { id: 'chalk', name: '白垩粉' },
+  { id: 'matrix', name: '量子绿' }
+];
+let colorIndex = 0;
+btnColor.addEventListener('click', () => {
+  colorIndex = (colorIndex + 1) % schemes.length;
+  state.colorScheme = schemes[colorIndex].id;
+  btnColor.textContent = '🎨 粒子色彩: ' + schemes[colorIndex].name;
+});
+
+document.getElementById('btn-scatter').addEventListener('click', () => {
+  resetParticles();
+});
+
+document.getElementById('btn-clear-damp').addEventListener('click', () => {
+  state.dampingPoint = null;
+  document.getElementById('tele-damp').textContent = '无';
+});
+
+// 启动动画主帧
+function loop() {
+  updatePhysics();
+  render();
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+</script>
+</body>
+</html>

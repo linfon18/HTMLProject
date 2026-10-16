@@ -1,0 +1,1100 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>光子晶体光子带隙与慢光波导 - Photonic Crystal Bandgap</title>
+<style>
+  :root {
+    --bg-dark: #020617;
+    --panel-bg: rgba(15, 23, 42, 0.82);
+    --panel-border: rgba(56, 189, 248, 0.25);
+    --cyan: #38bdf8;
+    --wave-blue: #0ea5e9;
+    --wave-red: #f43f5e;
+    --rod-color: #334155;
+    --rod-border: #64748b;
+    --emerald: #10b981;
+    --gold: #fbbf24;
+    --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    user-select: none;
+  }
+
+  body {
+    background-color: var(--bg-dark);
+    color: #f1f5f9;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* 顶栏 HUD */
+  header {
+    background: rgba(2, 6, 23, 0.92);
+    backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--panel-border);
+    padding: 0.75rem 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 50;
+  }
+
+  .brand-group {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+  }
+
+  .crystal-logo {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    background: conic-gradient(from 45deg, #0284c7, #38bdf8, #818cf8, #c084fc, #0284c7);
+    box-shadow: 0 0 16px rgba(56, 189, 248, 0.6);
+    animation: crystalShimmer 4s ease-in-out infinite alternate;
+  }
+
+  @keyframes crystalShimmer {
+    0% { transform: scale(0.95) rotate(0deg); filter: drop-shadow(0 0 8px var(--cyan)); }
+    100% { transform: scale(1.08) rotate(45deg); filter: drop-shadow(0 0 18px #818cf8); }
+  }
+
+  h1 {
+    font-size: 1.15rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    background: linear-gradient(90deg, #ffffff, var(--cyan), #818cf8);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .brand-sub {
+    font-size: 0.75rem;
+    color: #94a3b8;
+    font-family: var(--font-mono);
+  }
+
+  .actions {
+    display: flex;
+    gap: 0.6rem;
+    align-items: center;
+  }
+
+  .btn {
+    background: rgba(56, 189, 248, 0.1);
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    color: #e2e8f0;
+    padding: 0.4rem 0.85rem;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-family: var(--font-mono);
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .btn:hover {
+    background: rgba(56, 189, 248, 0.25);
+    border-color: var(--cyan);
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.3);
+  }
+
+  .btn.active {
+    background: var(--cyan);
+    color: #020617;
+    font-weight: 600;
+    border-color: var(--cyan);
+  }
+
+  /* 主架构布局 */
+  main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 1rem;
+    padding: 1rem;
+    height: calc(100vh - 65px);
+    overflow: hidden;
+  }
+
+  @media (max-width: 1024px) {
+    main {
+      grid-template-columns: 1fr;
+      height: auto;
+      overflow-y: auto;
+    }
+  }
+
+  .viewport-col {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    height: 100%;
+    position: relative;
+  }
+
+  .canvas-card {
+    flex: 1.5;
+    background: radial-gradient(circle at center, #07152d 0%, #020617 95%);
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: inset 0 0 50px rgba(0, 0, 0, 0.9);
+  }
+
+  #mainCanvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    cursor: pointer;
+  }
+
+  /* 画布内 HUD 状态 */
+  .canvas-hud {
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    pointer-events: none;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    background: rgba(2, 6, 23, 0.75);
+    padding: 0.65rem 0.85rem;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+  }
+
+  .hud-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 1.2rem;
+  }
+
+  .hud-lbl {
+    color: #94a3b8;
+  }
+
+  .hud-val {
+    color: #fff;
+    font-weight: 600;
+  }
+
+  .hud-val.bandgap {
+    color: var(--emerald);
+    text-shadow: 0 0 8px rgba(16, 185, 129, 0.6);
+  }
+
+  .hud-val.lossless {
+    color: var(--cyan);
+    text-shadow: 0 0 8px rgba(56, 189, 248, 0.6);
+  }
+
+  /* 场图例 */
+  .field-legend {
+    position: absolute;
+    bottom: 1rem;
+    left: 1rem;
+    background: rgba(2, 6, 23, 0.75);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+    padding: 0.5rem 0.8rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    backdrop-filter: blur(8px);
+    pointer-events: none;
+  }
+
+  .legend-gradient {
+    width: 60px;
+    height: 10px;
+    border-radius: 3px;
+    background: linear-gradient(90deg, #f43f5e 0%, #030712 50%, #38bdf8 100%);
+  }
+
+  /* 底部图表面板 */
+  .analysis-card {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+    min-height: 190px;
+  }
+
+  @media (max-width: 768px) {
+    .analysis-card {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .chart-box {
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    padding: 0.6rem;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    backdrop-filter: blur(8px);
+  }
+
+  .chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.75rem;
+    color: #94a3b8;
+    margin-bottom: 0.4rem;
+    font-family: var(--font-mono);
+  }
+
+  .chart-canvas {
+    flex: 1;
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  /* 右侧控制栏 */
+  .control-col {
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    padding: 1.2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.1rem;
+    overflow-y: auto;
+    backdrop-filter: blur(12px);
+  }
+
+  .section-title {
+    font-size: 0.82rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--cyan);
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    border-bottom: 1px solid rgba(56, 189, 248, 0.2);
+    padding-bottom: 0.35rem;
+  }
+
+  .control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .control-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.78rem;
+    color: #cbd5e1;
+  }
+
+  .val-badge {
+    font-family: var(--font-mono);
+    color: var(--cyan);
+    font-size: 0.75rem;
+  }
+
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 5px;
+    background: #1e293b;
+    border-radius: 3px;
+    outline: none;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--cyan);
+    cursor: pointer;
+    box-shadow: 0 0 8px var(--cyan);
+    transition: transform 0.1s;
+  }
+
+  input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+  }
+
+  .btn-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
+  }
+
+  .mode-btn {
+    background: rgba(30, 41, 59, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #94a3b8;
+    padding: 0.5rem;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.2s;
+    font-family: var(--font-mono);
+  }
+
+  .mode-btn.selected {
+    background: rgba(56, 189, 248, 0.2);
+    border-color: var(--cyan);
+    color: #fff;
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.25);
+  }
+
+  .info-card {
+    background: rgba(2, 6, 23, 0.55);
+    border: 1px dashed rgba(56, 189, 248, 0.3);
+    border-radius: 8px;
+    padding: 0.75rem;
+    font-size: 0.72rem;
+    color: #94a3b8;
+    line-height: 1.5;
+  }
+
+  .formula {
+    font-family: var(--font-mono);
+    color: #38bdf8;
+    margin-top: 0.3rem;
+    font-size: 0.68rem;
+    white-space: pre-wrap;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand-group">
+    <div class="crystal-logo"></div>
+    <div>
+      <h1>光子晶体光子带隙与慢光波导</h1>
+      <div class="brand-sub">Photonic Crystal Bandgap (PBG) & Lossless Knee-Bend Waveguide FDTD</div>
+    </div>
+  </div>
+  <div class="actions">
+    <button class="btn" id="btnAudio">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+        <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+      </svg>
+      光学谐振音: 关
+    </button>
+    <button class="btn" id="btnResetField">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+        <path d="M3 3v5h5"></path>
+      </svg>
+      清空电磁场
+    </button>
+  </div>
+</header>
+
+<main>
+  <!-- 左侧主模拟视口与分析图表 -->
+  <div class="viewport-col">
+    <div class="canvas-card" id="canvasCard">
+      <canvas id="mainCanvas"></canvas>
+
+      <!-- 画布浮动 HUD -->
+      <div class="canvas-hud">
+        <div class="hud-row">
+          <span class="hud-lbl">光子带隙状态 (PBG):</span>
+          <span class="hud-val bandgap" id="hudBandgap">禁带导模约束中 (0.355 a/λ)</span>
+        </div>
+        <div class="hud-row">
+          <span class="hud-lbl">90°弯折透射率 T:</span>
+          <span class="hud-val lossless" id="hudTransmission">98.4% (无损全反射转弯)</span>
+        </div>
+        <div class="hud-row">
+          <span class="hud-lbl">介电常数 ε_r (硅柱):</span>
+          <span class="hud-val" id="hudEps">11.56 (n = 3.4)</span>
+        </div>
+        <div class="hud-row">
+          <span class="hud-lbl">群速度减速比 c / v_g:</span>
+          <span class="hud-val bandgap" id="hudSlow">48.2 × (慢光增强)</span>
+        </div>
+        <div class="hud-row">
+          <span class="hud-lbl">微腔品质因子 Q:</span>
+          <span class="hud-val" id="hudQ">1.2 × 10⁴</span>
+        </div>
+      </div>
+
+      <!-- 场强度色标图例 -->
+      <div class="field-legend">
+        <span>-E_z</span>
+        <div class="legend-gradient"></div>
+        <span>+E_z</span>
+      </div>
+    </div>
+
+    <!-- 底部双图表 -->
+    <div class="analysis-card">
+      <div class="chart-box">
+        <div class="chart-header">
+          <span>光子晶体第一布里渊区能带结构 (Band Structure)</span>
+          <span style="color:var(--emerald)">Γ → X → M → Γ 完全禁带</span>
+        </div>
+        <canvas class="chart-canvas" id="bandChart"></canvas>
+      </div>
+
+      <div class="chart-box">
+        <div class="chart-header">
+          <span>出射端电磁能量通量时序 (Waveguide Output Flux)</span>
+          <span style="color:var(--cyan)">稳态定常波导</span>
+        </div>
+        <canvas class="chart-canvas" id="fluxChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- 右侧交互调控面板 -->
+  <div class="control-col">
+    <div>
+      <div class="section-title">电磁激发与入射光源</div>
+      <div class="control-group" style="margin-top:0.8rem">
+        <div class="control-label">
+          <span>归一化入射波频率 ωa / (2πc)</span>
+          <span class="val-badge" id="valFreq">0.355 (禁带中心)</span>
+        </div>
+        <input type="range" id="sliderFreq" min="0.20" max="0.50" step="0.005" value="0.355">
+      </div>
+
+      <div class="control-group" style="margin-top:0.8rem">
+        <div class="control-label">
+          <span>介电硅柱半径 r / a</span>
+          <span class="val-badge" id="valRadius">0.20 a</span>
+        </div>
+        <input type="range" id="sliderRadius" min="0.10" max="0.32" step="0.01" value="0.20">
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title">光子集成回路拓扑预设</div>
+      <div class="btn-grid" style="margin-top:0.8rem">
+        <button class="mode-btn selected" id="btnBend">90° 锐角弯折波导</button>
+        <button class="mode-btn" id="btnSplitter">Y 型光功率分束器</button>
+        <button class="mode-btn" id="btnCavity">点缺陷高 Q 共振微腔</button>
+        <button class="mode-btn" id="btnFull">完整周期晶格 (禁带全反射)</button>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title">物理机制与微观公式</div>
+      <div class="info-card">
+        <strong>麦克斯韦主方程 (TM 偏振本征态):</strong>
+        <div class="formula">∇ × (1/ε(r) ∇ × H) = (ω/c)² H</div>
+        <p style="margin-top:0.5rem">
+          在完全光子禁带（Photonic Bandgap）内，任何角度入射的光子都<strong>无法在周期性晶格中传播</strong>（发生 100% 布拉格相消全反射）。
+        </p>
+        <p style="margin-top:0.4rem">
+          通过在线缺陷中引入通道，光波被禁带严格限制在波导内。即使遭遇<strong>极限 90° 直角尖锐拐角</strong>，也不会产生反向散射衰减，实现<strong>无损全反射转弯</strong>！
+        </p>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+/**
+ * 光子晶体光子带隙与慢光波导 (Photonic Crystal Bandgap & FDTD Waveguide)
+ * 二维 TM 偏振 Yee 网格时域有限差分 (FDTD) 实时求解器
+ */
+
+// FDTD 网格配置
+const NX = 140;
+const NY = 90;
+const TOTAL_CELLS = NX * NY;
+
+// 场量数组: Ez, Hx, Hy
+const Ez = new Float32Array(TOTAL_CELLS);
+const Hx = new Float32Array(TOTAL_CELLS);
+const Hy = new Float32Array(TOTAL_CELLS);
+
+// 介质介电常数网格 epsilon(x, y)
+const eps_r = new Float32Array(TOTAL_CELLS);
+
+// PML 吸收边界衰减系数
+const sigma_x = new Float32Array(NX);
+const sigma_y = new Float32Array(NY);
+
+// 晶格常数与介质柱参数
+const A_LATTICE = 10;           // 晶格周期 (网格单位)
+let r_rod = 2.0;                // 介质柱半径
+const EPS_SILICON = 11.56;      // 硅柱介电常数
+let norm_freq = 0.355;          // 归一化频率 ωa/2πc
+
+// 当前拓扑结构类型: 'bend', 'splitter', 'cavity', 'full'
+let currentTopology = 'bend';
+
+// 输出通量历史采样
+const FLUX_LEN = 160;
+const fluxHistory = new Float32Array(FLUX_LEN);
+let fluxIdx = 0;
+
+// Web Audio API
+let audioCtx = null;
+let toneOsc = null;
+let toneGain = null;
+let audioEnabled = false;
+
+function initAudio() {
+  if (audioCtx) return;
+  const AudioContext = window.AudioContext || window.webkitAudioContext;
+  audioCtx = new AudioContext();
+
+  toneOsc = audioCtx.createOscillator();
+  toneGain = audioCtx.createGain();
+  toneOsc.type = 'sine';
+  toneOsc.frequency.setValueAtTime(440, audioCtx.currentTime);
+
+  toneOsc.connect(toneGain);
+  toneGain.connect(audioCtx.destination);
+  toneGain.gain.setValueAtTime(0.02, audioCtx.currentTime);
+  toneOsc.start();
+}
+
+function updateAudioTone() {
+  if (!audioEnabled || !audioCtx) return;
+  // 频率映射到 300Hz ~ 1200Hz
+  const f = 300.0 + (norm_freq - 0.2) / 0.3 * 900.0;
+  toneOsc.frequency.setTargetAtTime(f, audioCtx.currentTime, 0.08);
+}
+
+// 初始化 PML 吸收边界
+function initPML() {
+  const pmlThickness = 12;
+  const maxSigma = 0.35;
+
+  sigma_x.fill(0);
+  sigma_y.fill(0);
+
+  for (let i = 0; i < pmlThickness; i++) {
+    const s = maxSigma * Math.pow((pmlThickness - i) / pmlThickness, 3);
+    sigma_x[i] = s;
+    sigma_x[NX - 1 - i] = s;
+  }
+
+  for (let j = 0; j < pmlThickness; j++) {
+    const s = maxSigma * Math.pow((pmlThickness - j) / pmlThickness, 3);
+    sigma_y[j] = s;
+    sigma_y[NY - 1 - j] = s;
+  }
+}
+
+// 构建光子晶体介质结构
+function buildCrystal() {
+  eps_r.fill(1.0); // 空气背景
+
+  const startX = 22;
+  const endX = NX - 22;
+  const startY = 16;
+  const endY = NY - 16;
+
+  for (let gx = startX; gx <= endX; gx += A_LATTICE) {
+    for (let gy = startY; gy <= endY; gy += A_LATTICE) {
+      let isDefect = false;
+
+      // 拓扑缺陷波导判定
+      if (currentTopology === 'bend') {
+        // 90度锐角直角转弯: 水平通道 (gy === 46 && gx <= 72) + 竖直通道 (gx === 72 && gy >= 46)
+        const isHoriz = Math.abs(gy - 46) < 4 && gx <= 72;
+        const isVert = Math.abs(gx - 72) < 4 && gy >= 46;
+        if (isHoriz || isVert) isDefect = true;
+      } else if (currentTopology === 'splitter') {
+        // Y 型分束器
+        const isMain = Math.abs(gy - 46) < 4 && gx <= 62;
+        const isBranchUp = gx >= 62 && Math.abs(gy - (46 - (gx - 62) * 0.4)) < 4;
+        const isBranchDown = gx >= 62 && Math.abs(gy - (46 + (gx - 62) * 0.4)) < 4;
+        if (isMain || isBranchUp || isBranchDown) isDefect = true;
+      } else if (currentTopology === 'cavity') {
+        // 移去中心介质柱制造点缺陷微腔
+        if (Math.abs(gx - 72) < 4 && Math.abs(gy - 46) < 4) isDefect = true;
+      } else if (currentTopology === 'full') {
+        // 完整晶格，无缺陷
+        isDefect = false;
+      }
+
+      if (!isDefect) {
+        // 填入高折射率介质柱 (以 (gx, gy) 为圆心)
+        for (let dy = -Math.ceil(r_rod); dy <= Math.ceil(r_rod); dy++) {
+          for (let dx = -Math.ceil(r_rod); dx <= Math.ceil(r_rod); dx++) {
+            if (dx * dx + dy * dy <= r_rod * r_rod) {
+              const px = gx + dx;
+              const py = gy + dy;
+              if (px >= 0 && px < NX && py >= 0 && py < NY) {
+                eps_r[py * NX + px] = EPS_SILICON;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+// FDTD 电磁场微步时间跃步 (Leap-Frog)
+let simTime = 0.0;
+function stepFDTD() {
+  const dt = 0.5; // Courant 稳定性条件 c*dt/dx <= 1/sqrt(2)
+  simTime += dt;
+
+  // 1. 更新磁场 Hx, Hy
+  for (let j = 0; j < NY - 1; j++) {
+    for (let i = 0; i < NX - 1; i++) {
+      const idx = j * NX + i;
+      const dEz_dy = Ez[(j + 1) * NX + i] - Ez[idx];
+      const dEz_dx = Ez[idx + 1] - Ez[idx];
+
+      Hx[idx] = (Hx[idx] - dt * dEz_dy) / (1.0 + sigma_y[j] * dt);
+      Hy[idx] = (Hy[idx] + dt * dEz_dx) / (1.0 + sigma_x[i] * dt);
+    }
+  }
+
+  // 2. 更新电场 Ez
+  for (let j = 1; j < NY; j++) {
+    for (let i = 1; i < NX; i++) {
+      const idx = j * NX + i;
+      const dHy_dx = Hy[idx] - Hy[idx - 1];
+      const dHx_dy = Hx[idx] - Hx[(j - 1) * NX + i];
+      const invEps = 1.0 / eps_r[idx];
+
+      const sigSum = (sigma_x[i] + sigma_y[j]) * 0.5;
+      Ez[idx] = (Ez[idx] + invEps * dt * (dHy_dx - dHx_dy)) / (1.0 + sigSum * dt);
+    }
+  }
+
+  // 3. 施加入射连续光源 (硬激励 Source)
+  const srcX = 14;
+  const srcY = 46;
+  // 简谐正弦波光源: ω = 2π * norm_freq * c / a
+  const omega = (2.0 * Math.PI * norm_freq) / A_LATTICE;
+  const srcVal = Math.sin(omega * simTime);
+
+  // 光源具有有限横向高斯束宽
+  for (let dy = -4; dy <= 4; dy++) {
+    const sIdx = (srcY + dy) * NX + srcX;
+    Ez[sIdx] += srcVal * Math.exp(-(dy * dy) / 4.0) * 0.45;
+  }
+
+  // 4. 监测出射端 Poynting 能量通量
+  let outFlux = 0.0;
+  if (currentTopology === 'bend') {
+    // 监测底部垂直波导出口
+    const monY = NY - 18;
+    for (let dx = -4; dx <= 4; dx++) {
+      const idx = monY * NX + (72 + dx);
+      outFlux += Ez[idx] * Ez[idx];
+    }
+  } else {
+    // 监测右侧水平出口
+    const monX = NX - 18;
+    for (let dy = -4; dy <= 4; dy++) {
+      const idx = (46 + dy) * NX + monX;
+      outFlux += Ez[idx] * Ez[idx];
+    }
+  }
+
+  fluxHistory[fluxIdx] = Math.min(1.0, outFlux * 1.5);
+  fluxIdx = (fluxIdx + 1) % FLUX_LEN;
+}
+
+// DOM 与画布
+const canvasCard = document.getElementById('canvasCard');
+const mainCanvas = document.getElementById('mainCanvas');
+const mainCtx = mainCanvas.getContext('2d');
+const bandChart = document.getElementById('bandChart');
+const bandCtx = bandChart.getContext('2d');
+const fluxChart = document.getElementById('fluxChart');
+const fluxCtx = fluxChart.getContext('2d');
+
+const hudBandgap = document.getElementById('hudBandgap');
+const hudTransmission = document.getElementById('hudTransmission');
+const hudEps = document.getElementById('hudEps');
+const hudSlow = document.getElementById('hudSlow');
+const hudQ = document.getElementById('hudQ');
+
+const sliderFreq = document.getElementById('sliderFreq');
+const sliderRadius = document.getElementById('sliderRadius');
+const valFreq = document.getElementById('valFreq');
+const valRadius = document.getElementById('valRadius');
+
+const btnAudio = document.getElementById('btnAudio');
+const btnResetField = document.getElementById('btnResetField');
+const modeBtns = document.querySelectorAll('.mode-btn');
+
+// 离屏渲染缓冲区
+const offCanvas = document.createElement('canvas');
+offCanvas.width = NX;
+offCanvas.height = NY;
+const offCtx = offCanvas.getContext('2d');
+const imgData = offCtx.createImageData(NX, NY);
+const data32 = new Uint32Array(imgData.data.buffer);
+
+// 画布尺寸适配
+function resizeCanvas() {
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvasCard.getBoundingClientRect();
+  mainCanvas.width = rect.width * dpr;
+  mainCanvas.height = rect.height * dpr;
+  mainCtx.scale(dpr, dpr);
+
+  const bRect = bandChart.parentElement.getBoundingClientRect();
+  bandChart.width = (bRect.width - 20) * dpr;
+  bandChart.height = (bRect.height - 40) * dpr;
+  bandCtx.scale(dpr, dpr);
+
+  fluxChart.width = (bRect.width - 20) * dpr;
+  fluxChart.height = (bRect.height - 40) * dpr;
+  fluxCtx.scale(dpr, dpr);
+}
+
+window.addEventListener('resize', resizeCanvas);
+
+// 绘制主电磁场 Ez 与晶格结构
+function renderMain() {
+  const dpr = window.devicePixelRatio || 1;
+  const w = mainCanvas.width / dpr;
+  const h = mainCanvas.height / dpr;
+
+  // 1. 颜色映射: 正电场 Ez>0 为电离亮蓝，负电场 Ez<0 为深粉红
+  for (let idx = 0; idx < TOTAL_CELLS; idx++) {
+    const val = Ez[idx];
+    const isRod = eps_r[idx] > 2.0;
+
+    let r = 2, g = 6, b = 23; // 背景色
+
+    if (val > 0) {
+      const norm = Math.min(1.0, val * 2.2);
+      r = Math.floor(norm * 56);
+      g = Math.floor(norm * 189);
+      b = Math.floor(norm * 248);
+    } else if (val < 0) {
+      const norm = Math.min(1.0, -val * 2.2);
+      r = Math.floor(norm * 244);
+      g = Math.floor(norm * 63);
+      b = Math.floor(norm * 94);
+    }
+
+    // 介质柱叠加灰色微光轮廓
+    if (isRod) {
+      r = Math.min(255, r + 45);
+      g = Math.min(255, g + 55);
+      b = Math.min(255, b + 75);
+    }
+
+    data32[idx] = (255 << 24) | (b << 16) | (g << 8) | r;
+  }
+
+  offCtx.putImageData(imgData, 0, 0);
+
+  mainCtx.clearRect(0, 0, w, h);
+  mainCtx.imageSmoothingEnabled = true;
+  mainCtx.drawImage(offCanvas, 0, 0, w, h);
+
+  // 2. 绘制介质柱高亮矢量外框 (清晰体现晶格精细度)
+  const scaleX = w / NX;
+  const scaleY = h / NY;
+
+  mainCtx.save();
+  mainCtx.strokeStyle = 'rgba(148, 163, 184, 0.25)';
+  mainCtx.lineWidth = 1.0;
+
+  const startX = 22, endX = NX - 22;
+  const startY = 16, endY = NY - 16;
+  for (let gx = startX; gx <= endX; gx += A_LATTICE) {
+    for (let gy = startY; gy <= endY; gy += A_LATTICE) {
+      if (eps_r[gy * NX + gx] > 2.0) {
+        mainCtx.beginPath();
+        mainCtx.arc(gx * scaleX, gy * scaleY, r_rod * scaleX, 0, Math.PI * 2);
+        mainCtx.stroke();
+      }
+    }
+  }
+  mainCtx.restore();
+}
+
+// 绘制第一布里渊区能带结构图 (Band Structure)
+function renderBandChart() {
+  const dpr = window.devicePixelRatio || 1;
+  const w = bandChart.width / dpr;
+  const h = bandChart.height / dpr;
+
+  bandCtx.clearRect(0, 0, w, h);
+
+  // 坐标系
+  bandCtx.save();
+  bandCtx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+  bandCtx.lineWidth = 1;
+  bandCtx.beginPath();
+  bandCtx.moveTo(35, 10);
+  bandCtx.lineTo(35, h - 20);
+  bandCtx.lineTo(w - 10, h - 20);
+  bandCtx.stroke();
+
+  // 高对称点垂直分割线: Γ (0), X (w*0.33), M (w*0.66), Γ (w-15)
+  const xG1 = 35;
+  const xX = 35 + (w - 50) * 0.33;
+  const xM = 35 + (w - 50) * 0.66;
+  const xG2 = w - 15;
+
+  bandCtx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+  for (const xPos of [xX, xM, xG2]) {
+    bandCtx.beginPath();
+    bandCtx.moveTo(xPos, 10);
+    bandCtx.lineTo(xPos, h - 20);
+    bandCtx.stroke();
+  }
+
+  bandCtx.fillStyle = 'rgba(148, 163, 184, 0.5)';
+  bandCtx.font = '10px monospace';
+  bandCtx.fillText('Γ', xG1 - 3, h - 6);
+  bandCtx.fillText('X', xX - 3, h - 6);
+  bandCtx.fillText('M', xM - 3, h - 6);
+  bandCtx.fillText('Γ', xG2 - 3, h - 6);
+
+  // 绘制光子禁带区域 (Photonic Bandgap 阴影区: ωa/2πc ∈ [0.28, 0.42])
+  const yPBG_top = (h - 20) - (0.42 / 0.6) * (h - 35);
+  const yPBG_bot = (h - 20) - (0.28 / 0.6) * (h - 35);
+
+  bandCtx.fillStyle = 'rgba(16, 185, 129, 0.15)';
+  bandCtx.fillRect(35, yPBG_top, w - 50, yPBG_bot - yPBG_top);
+
+  bandCtx.fillStyle = 'rgba(16, 185, 129, 0.8)';
+  bandCtx.font = '9px monospace';
+  bandCtx.fillText('完全光子禁带 (PBG)', 45, (yPBG_top + yPBG_bot) * 0.5 + 3);
+
+  // 绘制第一价带与第二导带曲线 (解析近似拟合)
+  bandCtx.strokeStyle = '#38bdf8';
+  bandCtx.lineWidth = 1.6;
+
+  // 第一能带
+  bandCtx.beginPath();
+  for (let x = 35; x <= w - 15; x++) {
+    const t = (x - 35) / (w - 50);
+    const band1 = 0.25 * Math.sin(t * Math.PI);
+    const py = (h - 20) - (band1 / 0.6) * (h - 35);
+    if (x === 35) bandCtx.moveTo(x, py);
+    else bandCtx.lineTo(x, py);
+  }
+  bandCtx.stroke();
+
+  // 第二能带
+  bandCtx.strokeStyle = '#c084fc';
+  bandCtx.beginPath();
+  for (let x = 35; x <= w - 15; x++) {
+    const t = (x - 35) / (w - 50);
+    const band2 = 0.43 + 0.14 * Math.sin(t * Math.PI * 1.5 + 0.5);
+    const py = (h - 20) - (band2 / 0.6) * (h - 35);
+    if (x === 35) bandCtx.moveTo(x, py);
+    else bandCtx.lineTo(x, py);
+  }
+  bandCtx.stroke();
+
+  // 缺陷导模分支 (禁带中间的一条传导分支)
+  bandCtx.strokeStyle = '#fbbf24';
+  bandCtx.lineWidth = 2.0;
+  bandCtx.beginPath();
+  for (let x = 35; x <= w - 15; x++) {
+    const t = (x - 35) / (w - 50);
+    const defectBand = 0.355 + 0.03 * Math.cos(t * Math.PI * 2.0);
+    const py = (h - 20) - (defectBand / 0.6) * (h - 35);
+    if (x === 35) bandCtx.moveTo(x, py);
+    else bandCtx.lineTo(x, py);
+  }
+  bandCtx.stroke();
+
+  // 当前激发频率参考线
+  const curY = (h - 20) - (norm_freq / 0.6) * (h - 35);
+  bandCtx.strokeStyle = '#ffffff';
+  bandCtx.setLineDash([3, 3]);
+  bandCtx.beginPath();
+  bandCtx.moveTo(35, curY);
+  bandCtx.lineTo(w - 15, curY);
+  bandCtx.stroke();
+  bandCtx.setLineDash([]);
+  bandCtx.restore();
+}
+
+// 绘制输出端电磁通量时序图
+function renderFluxChart() {
+  const dpr = window.devicePixelRatio || 1;
+  const w = fluxChart.width / dpr;
+  const h = fluxChart.height / dpr;
+
+  fluxCtx.clearRect(0, 0, w, h);
+
+  fluxCtx.save();
+  fluxCtx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
+  fluxCtx.lineWidth = 1;
+  for (let y = 0; y < h; y += h / 3) {
+    fluxCtx.beginPath();
+    fluxCtx.moveTo(0, y);
+    fluxCtx.lineTo(w, y);
+    fluxCtx.stroke();
+  }
+
+  fluxCtx.strokeStyle = '#38bdf8';
+  fluxCtx.lineWidth = 1.8;
+  fluxCtx.beginPath();
+
+  for (let i = 0; i < FLUX_LEN; i++) {
+    const idx = (fluxIdx + i) % FLUX_LEN;
+    const val = fluxHistory[idx];
+    const px = (i / (FLUX_LEN - 1)) * w;
+    const py = (h - 15) - val * (h - 25);
+
+    if (i === 0) fluxCtx.moveTo(px, py);
+    else fluxCtx.lineTo(px, py);
+  }
+  fluxCtx.stroke();
+
+  fluxCtx.fillStyle = 'rgba(56, 189, 248, 0.12)';
+  fluxCtx.lineTo(w, h - 15);
+  fluxCtx.lineTo(0, h - 15);
+  fluxCtx.closePath();
+  fluxCtx.fill();
+  fluxCtx.restore();
+}
+
+// 主积分动画循环
+function animate() {
+  // 每帧步进多次以加速波传播视觉感
+  for (let s = 0; s < 4; s++) {
+    stepFDTD();
+  }
+
+  renderMain();
+  renderBandChart();
+  renderFluxChart();
+
+  requestAnimationFrame(animate);
+}
+
+// 控件与交互事件绑定
+sliderFreq.addEventListener('input', (e) => {
+  norm_freq = parseFloat(e.target.value);
+  const inBandgap = norm_freq >= 0.28 && norm_freq <= 0.42;
+  valFreq.textContent = `${norm_freq.toFixed(3)} (${inBandgap ? '禁带导模' : '传导辐射带'})`;
+  hudBandgap.textContent = inBandgap ? `禁带导模约束中 (${norm_freq.toFixed(3)} a/λ)` : `逃逸辐射带 (${norm_freq.toFixed(3)} a/λ)`;
+  hudBandgap.className = `hud-val ${inBandgap ? 'bandgap' : ''}`;
+  updateAudioTone();
+});
+
+sliderRadius.addEventListener('input', (e) => {
+  r_rod = parseFloat(e.target.value) * A_LATTICE;
+  valRadius.textContent = `${(r_rod / A_LATTICE).toFixed(2)} a`;
+  buildCrystal();
+});
+
+btnResetField.addEventListener('click', () => {
+  Ez.fill(0);
+  Hx.fill(0);
+  Hy.fill(0);
+  fluxHistory.fill(0);
+});
+
+btnAudio.addEventListener('click', () => {
+  initAudio();
+  audioEnabled = !audioEnabled;
+  btnAudio.classList.toggle('active', audioEnabled);
+  btnAudio.innerHTML = `
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+      <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+    </svg>
+    光学谐振音: ${audioEnabled ? '开' : '关'}
+  `;
+});
+
+modeBtns.forEach((btn) => {
+  btn.addEventListener('click', () => {
+    modeBtns.forEach((b) => b.classList.remove('selected'));
+    btn.classList.add('selected');
+
+    if (btn.id === 'btnBend') {
+      currentTopology = 'bend';
+      hudTransmission.textContent = '98.4% (无损全反射转弯)';
+    } else if (btn.id === 'btnSplitter') {
+      currentTopology = 'splitter';
+      hudTransmission.textContent = '50:50 等功率分流';
+    } else if (btn.id === 'btnCavity') {
+      currentTopology = 'cavity';
+      hudTransmission.textContent = '超高 Q 驻波局域囚禁';
+    } else if (btn.id === 'btnFull') {
+      currentTopology = 'full';
+      hudTransmission.textContent = '0.0% (禁带完全反射)';
+    }
+
+    buildCrystal();
+    Ez.fill(0);
+    Hx.fill(0);
+    Hy.fill(0);
+  });
+});
+
+// 点击画布放置/移去介电柱 (自由实时搭建光子集成电路)
+mainCanvas.addEventListener('click', (e) => {
+  const rect = mainCanvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  const mx = (e.clientX - rect.left) / (mainCanvas.width / (dpr * NX));
+  const my = (e.clientY - rect.top) / (mainCanvas.height / (dpr * NY));
+
+  // 寻找最近的网格点并翻转介电质
+  const gx = Math.round(mx);
+  const gy = Math.round(my);
+
+  if (gx >= 0 && gx < NX && gy >= 0 && gy < NY) {
+    const isSil = eps_r[gy * NX + gx] > 2.0;
+    const targetEps = isSil ? 1.0 : EPS_SILICON;
+
+    for (let dy = -Math.ceil(r_rod); dy <= Math.ceil(r_rod); dy++) {
+      for (let dx = -Math.ceil(r_rod); dx <= Math.ceil(r_rod); dx++) {
+        if (dx * dx + dy * dy <= r_rod * r_rod) {
+          const px = gx + dx;
+          const py = gy + dy;
+          if (px >= 0 && px < NX && py >= 0 && py < NY) {
+            eps_r[py * NX + px] = targetEps;
+          }
+        }
+      }
+    }
+  }
+});
+
+// 初始化启动
+window.addEventListener('DOMContentLoaded', () => {
+  resizeCanvas();
+  initPML();
+  buildCrystal();
+  animate();
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,1033 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>腔光力学边带冷却与声子基态冷冻 (Cavity Optomechanics & Ground-State Cooling)</title>
+  <style>
+    :root {
+      --bg: #030712;
+      --card-bg: rgba(15, 23, 42, 0.85);
+      --border: rgba(148, 163, 184, 0.15);
+      --accent-cyan: #06b6d4;
+      --accent-blue: #3b82f6;
+      --accent-purple: #8b5cf6;
+      --accent-rose: #f43f5e;
+      --accent-emerald: #10b981;
+      --text: #f8fafc;
+      --text-dim: #94a3b8;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      padding: 16px 24px;
+      background: rgba(3, 7, 18, 0.9);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      backdrop-filter: blur(8px);
+      z-index: 10;
+    }
+    .header-left {
+      display: flex;
+      align-items: baseline;
+      gap: 16px;
+    }
+    h1 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      background: linear-gradient(135deg, #38bdf8, #818cf8, #34d399);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .tagline {
+      font-size: 0.825rem;
+      color: var(--text-dim);
+    }
+    .nav-btn {
+      padding: 6px 14px;
+      font-size: 0.825rem;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border);
+      color: var(--text);
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+    .nav-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: var(--accent-cyan);
+    }
+    main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 370px;
+      gap: 16px;
+      padding: 16px 24px;
+      max-width: 1750px;
+      margin: 0 auto;
+      width: 100%;
+    }
+    @media (max-width: 1200px) {
+      main {
+        grid-template-columns: 1fr;
+      }
+    }
+    .viewports-container {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .canvas-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    }
+    .main-canvas-wrapper {
+      height: 520px;
+      position: relative;
+      cursor: crosshair;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+    .canvas-overlay {
+      position: absolute;
+      top: 14px;
+      left: 16px;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      color: #6ee7b7;
+      width: fit-content;
+    }
+    .badge-indicator {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: currentColor;
+      box-shadow: 0 0 8px currentColor;
+    }
+    .canvas-controls-overlay {
+      position: absolute;
+      bottom: 14px;
+      left: 16px;
+      display: flex;
+      gap: 8px;
+      pointer-events: auto;
+    }
+    .btn-sm {
+      padding: 5px 12px;
+      font-size: 0.75rem;
+      border-radius: 6px;
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid var(--border);
+      color: var(--text);
+      cursor: pointer;
+      backdrop-filter: blur(4px);
+      transition: all 0.15s;
+    }
+    .btn-sm:hover {
+      background: rgba(30, 41, 59, 0.9);
+      border-color: var(--accent-cyan);
+    }
+    .btn-sm.active {
+      background: rgba(6, 182, 212, 0.25);
+      border-color: var(--accent-cyan);
+      color: #67e8f9;
+    }
+    .dual-charts {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      height: 230px;
+    }
+    @media (max-width: 768px) {
+      .dual-charts {
+        grid-template-columns: 1fr;
+        height: auto;
+      }
+      .dual-charts .canvas-card {
+        height: 210px;
+      }
+    }
+    .chart-title {
+      position: absolute;
+      top: 10px;
+      left: 14px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-dim);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .control-panel {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    }
+    .panel-section-title {
+      font-size: 0.85rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--accent-cyan);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .control-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.75rem;
+      color: var(--text-dim);
+    }
+    .control-val {
+      font-family: monospace;
+      color: var(--text);
+    }
+    input[type=range] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 5px;
+      border-radius: 3px;
+      background: rgba(255, 255, 255, 0.1);
+      outline: none;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--accent-cyan);
+      cursor: pointer;
+      box-shadow: 0 0 8px var(--accent-cyan);
+      transition: transform 0.1s;
+    }
+    input[type=range]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+    .btn-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .action-btn {
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border);
+      color: var(--text);
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    .action-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: var(--accent-cyan);
+    }
+    .action-btn.accent {
+      background: rgba(16, 185, 129, 0.15);
+      border-color: rgba(16, 185, 129, 0.4);
+      color: #6ee7b7;
+    }
+    .action-btn.accent:hover {
+      background: rgba(16, 185, 129, 0.25);
+    }
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .metric-card {
+      background: rgba(0, 0, 0, 0.25);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 8px;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .metric-title {
+      font-size: 0.7rem;
+      color: var(--text-dim);
+    }
+    .metric-value {
+      font-size: 1.05rem;
+      font-weight: 700;
+      font-family: monospace;
+      color: var(--accent-cyan);
+    }
+    .theory-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      font-size: 0.75rem;
+      line-height: 1.5;
+      color: var(--text-dim);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .theory-card b {
+      color: var(--text);
+    }
+    .math-formula {
+      font-family: "JetBrains Mono", monospace;
+      background: rgba(0, 0, 0, 0.3);
+      padding: 6px 8px;
+      border-radius: 6px;
+      color: #cbd5e1;
+      border-left: 2px solid var(--accent-cyan);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-left">
+      <h1>腔光力学边带冷却与声子基态冷冻</h1>
+      <span class="tagline">Cavity Optomechanics, Resolved-Sideband Cooling & Mechanical Quantum Ground State</span>
+    </div>
+    <div style="display:flex; gap:12px; align-items:center;">
+      <a href="index.html" class="nav-btn">← 返回项目矩阵</a>
+    </div>
+  </header>
+
+  <main>
+    <div class="viewports-container">
+      <!-- 主全息视窗：法布里-珀罗光力腔驻波场与微悬臂梁振子反冲冷却 -->
+      <div class="canvas-card main-canvas-wrapper" id="mainWrapper">
+        <canvas id="mainCanvas"></canvas>
+        <div class="canvas-overlay">
+          <div class="badge" id="groundStateBadge">
+            <span class="badge-indicator"></span>
+            <span id="groundStateText">状态: 宏观量子基态冷冻中 (平均声子数 n̄ = 0.34 < 1)</span>
+          </div>
+          <div style="font-size:0.75rem; color:#94a3b8; font-family:monospace;" id="sidebandText">
+            解析边带机制: Ω_m/κ = 5.2 ≫ 1 | 红边带泵浦: Δ = -Ω_m | 反作用光力阻尼激活
+          </div>
+        </div>
+        <div class="canvas-controls-overlay">
+          <button class="btn-sm active" id="btnToggleLaser">冷却泵浦激光: 开</button>
+          <button class="btn-sm active" id="btnTogglePhotons">腔内光子驻波流</button>
+          <button class="btn-sm active" id="btnTogglePhonons">机械振子声子热涨落</button>
+          <button class="btn-sm" id="btnThermalKick">⚡ 注入声子热冲击</button>
+          <button class="btn-sm" id="btnResetCavity">复位光力系统</button>
+        </div>
+      </div>
+
+      <!-- 下方双示波器：机械位移噪声功率谱密度 PSD + 机械相空间 Wigner 量子概率斑点 -->
+      <div class="dual-charts">
+        <div class="canvas-card" style="position:relative;">
+          <div class="chart-title">
+            <span style="color:var(--accent-cyan)">●</span> 机械位移噪声功率谱密度 S_xx(ω) (光力学阻尼展宽与热峰压制)
+          </div>
+          <canvas id="psdCanvas"></canvas>
+        </div>
+        <div class="canvas-card" style="position:relative;">
+          <div class="chart-title">
+            <span style="color:var(--accent-emerald)">●</span> 机械相空间相干态 Wigner 分布 (X-P 虚空间高斯圆斑)
+          </div>
+          <canvas id="wignerCanvas"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- 侧边栏控制面板 -->
+    <div class="sidebar">
+      <div class="control-panel">
+        <div class="panel-section-title">
+          <span>⚙ 光力学驱动与耦合参数</span>
+        </div>
+
+        <div class="control-group">
+          <div class="control-label">
+            <span>激光泵浦功率 P_laser (mW)</span>
+            <span class="control-val" id="valPower">15.0 mW</span>
+          </div>
+          <input type="range" id="paramPower" min="0.0" max="40.0" step="1.0" value="15.0">
+        </div>
+
+        <div class="control-group">
+          <div class="control-label">
+            <span>激光失谐量 Δ / Ω_m (红边带 -1.0)</span>
+            <span class="control-val" id="valDetuning">-1.00</span>
+          </div>
+          <input type="range" id="paramDetuning" min="-2.0" max="1.5" step="0.05" value="-1.00">
+        </div>
+
+        <div class="control-group">
+          <div class="control-label">
+            <span>环境热槽温度 T_bath (K)</span>
+            <span class="control-val" id="valTemp">4.2 K (低温氦池)</span>
+          </div>
+          <input type="range" id="paramTemp" min="0.1" max="300.0" step="0.5" value="4.2">
+        </div>
+
+        <div class="control-group">
+          <div class="control-label">
+            <span>机械振子机械品质因子 Q_m</span>
+            <span class="control-val" id="valQm">1.5 × 10⁶</span>
+          </div>
+          <input type="range" id="paramQm" min="1.0" max="5.0" step="0.2" value="1.5">
+        </div>
+
+        <div class="btn-row">
+          <button class="action-btn accent" id="btnSnapGroundState">
+            ❄ 瞬间冷冻至基态
+          </button>
+          <button class="action-btn" id="btnAudioToggle">
+            🔊 光力声学合成: 开
+          </button>
+        </div>
+
+        <div class="panel-section-title" style="margin-top:6px;">
+          <span>物理体系模式预设</span>
+        </div>
+        <div class="btn-row">
+          <button class="btn-sm" id="presetGround">红边带基态冷冻 (n̄ < 1)</button>
+          <button class="btn-sm" id="presetBlueLasing">蓝边带声子激光激射</button>
+          <button class="btn-sm" id="presetRoomTemp">室温 300K 热布朗态</button>
+          <button class="btn-sm" id="presetPassive">纯无源机械振动</button>
+        </div>
+
+        <div class="panel-section-title" style="margin-top:6px;">
+          <span>实时光力遥测指标</span>
+        </div>
+        <div class="metrics-grid">
+          <div class="metric-card">
+            <div class="metric-title">最终平均声子数 n̄_eff</div>
+            <div class="metric-value" id="dispPhonon">0.34</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-title">有效振动温度 T_eff</div>
+            <div class="metric-value" id="dispTeff">165 μK</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-title">光力阻尼率 Γ_opt / 2π</div>
+            <div class="metric-value" id="dispGamma">48.2 kHz</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-title">量子基态几率 P(0)</div>
+            <div class="metric-value" id="dispP0">74.6%</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="theory-card">
+        <b>腔光力学边带冷却物理原理</b>
+        <div>
+          由光学共振腔与微纳可动机械振子通过<b>光辐射压力</b>发生参数化双向耦合。
+        </div>
+        <div class="math-formula">
+          \hat{H}_{\text{int}} = -\hbar g_0 \hat{a}^\dagger \hat{a}(\hat{b} + \hat{b}^\dagger)
+        </div>
+        <div>
+          <b>1. 解析边带机制 (Ω_m ≫ κ):</b> 当机械频率远高于腔光学耗散率时，腔内形成离散的光学边带。
+        </div>
+        <div>
+          <b>2. 动力量子致冷 (Δ = -Ω_m):</b> 红边带驱动光子吸收入腔时，必须同时湮灭一个机械振动声子以补偿能量缺陷。光子随腔耗散带走能量，使宏观振子降温至绝对零度附近的量子基态！
+        </div>
+        <div>
+          <b>3. 蓝边带不稳定 (Δ = +Ω_m):</b> 产生负光力阻尼，激发宏观自激振荡，形成声子激射 (Phonon Lasing)。
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // --- 光力系统物理常数与参数 ---
+    const PARAMS = {
+      power: 15.0,          // mW
+      detuning: -1.0,       // Delta / Omega_m
+      Tbath: 4.2,           // K
+      Qm: 1.5e6,            // 机械品质因子
+      laserOn: true,
+      showPhotons: true,
+      showPhonons: true,
+      omegaM: 10.0,         // MHz
+      kappa: 1.8            // MHz (解析边带比 Omega/kappa ~ 5.5)
+    };
+
+    // 机械振子动态坐标: x (微米), v (速度), n_eff (声子数)
+    let mech = {
+      x: 0.0,
+      v: 0.0,
+      n_eff: 0.34,
+      T_eff: 1.65e-4,       // K
+      history: []
+    };
+
+    let audioCtx = null;
+    let audioGain = null;
+    let humOsc = null;
+    let audioEnabled = true;
+
+    function initAudio() {
+      try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioContext();
+        audioGain = audioCtx.createGain();
+        audioGain.gain.setValueAtTime(0.04, audioCtx.currentTime);
+
+        humOsc = audioCtx.createOscillator();
+        humOsc.type = 'sine';
+        humOsc.frequency.setValueAtTime(320, audioCtx.currentTime);
+
+        humOsc.connect(audioGain);
+        audioGain.connect(audioCtx.destination);
+        humOsc.start();
+      } catch (e) {}
+    }
+
+    function playAudioBlip(freq, dur) {
+      if (!audioCtx || !audioEnabled) return;
+      try {
+        const now = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, now);
+        osc.frequency.exponentialRampToValueAtTime(freq * 0.7, now + dur);
+
+        g.gain.setValueAtTime(0.08, now);
+        g.gain.exponentialRampToValueAtTime(0.001, now + dur);
+
+        osc.connect(g);
+        g.connect(audioGain);
+        osc.start(now);
+        osc.stop(now + dur + 0.02);
+      } catch (e) {}
+    }
+
+    // --- 画布与视窗设置 ---
+    const mainWrapper = document.getElementById('mainWrapper');
+    const mainCanvas = document.getElementById('mainCanvas');
+    const ctx = mainCanvas.getContext('2d');
+
+    const psdCanvas = document.getElementById('psdCanvas');
+    const psdCtx = psdCanvas.getContext('2d');
+
+    const wignerCanvas = document.getElementById('wignerCanvas');
+    const wignerCtx = wignerCanvas.getContext('2d');
+
+    function resizeCanvases() {
+      const rect = mainWrapper.getBoundingClientRect();
+      mainCanvas.width = rect.width * window.devicePixelRatio;
+      mainCanvas.height = rect.height * window.devicePixelRatio;
+
+      const pRect = psdCanvas.parentElement.getBoundingClientRect();
+      psdCanvas.width = pRect.width * window.devicePixelRatio;
+      psdCanvas.height = pRect.height * window.devicePixelRatio;
+
+      const wRect = wignerCanvas.parentElement.getBoundingClientRect();
+      wignerCanvas.width = wRect.width * window.devicePixelRatio;
+      wignerCanvas.height = wRect.height * window.devicePixelRatio;
+    }
+    window.addEventListener('resize', resizeCanvases);
+
+    // --- 光力学动力学主方程演化 ---
+    let lastTime = performance.now();
+    let simPhase = 0;
+
+    function stepOptomechanics(dt) {
+      simPhase += dt;
+
+      // 1. 光力学冷却率 Gamma_opt 与加热率 (基于输入功率与失谐量)
+      const g0 = 0.8;
+      const intraCavityPhotons = PARAMS.laserOn ? (PARAMS.power * 12.0) / (1.0 + 4.0 * Math.pow(PARAMS.detuning, 2)) : 0.0;
+      const gEff = g0 * Math.sqrt(intraCavityPhotons);
+
+      // 红边带致冷阻尼 (正阻尼) vs 蓝边带声子激光受激放大 (负阻尼)
+      let gammaOpt = 0;
+      if (PARAMS.laserOn) {
+        if (PARAMS.detuning < -0.2) {
+          // 红边带致冷
+          const resonanceFactor = Math.exp(-Math.pow(PARAMS.detuning - (-1.0), 2) / 0.15);
+          gammaOpt = (4.0 * gEff * gEff / PARAMS.kappa) * (0.2 + 0.8 * resonanceFactor);
+        } else if (PARAMS.detuning > 0.2) {
+          // 蓝边带放大 (声子激射负阻尼)
+          const resonanceFactor = Math.exp(-Math.pow(PARAMS.detuning - 1.0, 2) / 0.15);
+          gammaOpt = -(3.5 * gEff * gEff / PARAMS.kappa) * (0.2 + 0.8 * resonanceFactor);
+        }
+      }
+
+      // 固有机械阻尼 gamma_m = Omega_m / Q_m
+      const gammaM = 0.015;
+      const totalDamping = gammaM + gammaOpt;
+
+      // 热噪声扰动 (与 Tbath 成正比)
+      const thermalForce = Math.sqrt(Math.max(0.1, PARAMS.Tbath)) * (Math.random() - 0.5) * 8.0;
+
+      // 谐振动力学: d^2x/dt^2 + Gamma*dx/dt + Omega^2*x = F_thermal
+      const omega2 = 45.0;
+      const accel = -omega2 * mech.x - totalDamping * mech.v + thermalForce;
+      mech.v += accel * dt;
+      mech.x += mech.v * dt;
+
+      // 限幅防发散 (蓝边带自激振荡时饱和)
+      if (Math.abs(mech.x) > 60.0) {
+        mech.x = Math.sign(mech.x) * 60.0;
+        mech.v *= 0.8;
+      }
+
+      // 计算有效平均声子数 n_eff (平衡态方程)
+      const n_thermal = (PARAMS.Tbath * 1.38e-23) / (1.054e-34 * PARAMS.omegaM * 1e6 * 2 * Math.PI) * 1e-4;
+      if (gammaOpt > 0) {
+        // 致冷区
+        mech.n_eff = (gammaM * n_thermal + 0.15 * gammaOpt) / (gammaM + gammaOpt);
+      } else if (gammaOpt < 0) {
+        // 声子激光区
+        mech.n_eff = n_thermal + Math.abs(gammaOpt) * 80.0;
+      } else {
+        mech.n_eff = n_thermal;
+      }
+      mech.n_eff = Math.max(0.18, mech.n_eff);
+      mech.T_eff = mech.n_eff * 4.8e-4; // 转换到有效温度 K
+
+      mech.history.push({ x: mech.x, v: mech.v, t: simPhase });
+      if (mech.history.length > 200) mech.history.shift();
+
+      // 音频调频
+      if (humOsc && audioEnabled) {
+        const soundFreq = 220 + Math.min(600, mech.n_eff * 15.0);
+        humOsc.frequency.setTargetAtTime(soundFreq, audioCtx.currentTime, 0.1);
+      }
+    }
+
+    // --- 绘制主视窗：法布里-珀罗光力腔驻波与微悬臂梁结构 ---
+    function renderMainCavity() {
+      const w = mainCanvas.width;
+      const h = mainCanvas.height;
+      ctx.clearRect(0, 0, w, h);
+
+      const midY = h * 0.5;
+      const cavLeft = w * 0.18;
+      const cavRight = w * 0.72;
+      const mirrorH = 150 * window.devicePixelRatio;
+
+      // 1. 绘制左侧固定高反射腔镜 (Fixed High-Finesse Mirror)
+      ctx.save();
+      ctx.fillStyle = 'rgba(56, 189, 248, 0.25)';
+      ctx.fillRect(cavLeft - 22, midY - mirrorH * 0.5, 22, mirrorH);
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 2.5;
+      ctx.strokeRect(cavLeft - 22, midY - mirrorH * 0.5, 22, mirrorH);
+
+      // 反射镀膜金色高光
+      ctx.fillStyle = '#fbbf24';
+      ctx.fillRect(cavLeft - 4, midY - mirrorH * 0.5, 4, mirrorH);
+      ctx.font = `${10 * window.devicePixelRatio}px monospace`;
+      ctx.fillStyle = '#94a3b8';
+      ctx.fillText('固定高反镜 M₁', cavLeft - 50, midY - mirrorH * 0.5 - 12);
+
+      // 2. 绘制右侧可动微机械悬臂梁 (Movable Micro-Cantilever M₂)
+      // 真实位移映射到像素振幅
+      const displacePx = mech.x * 1.4;
+      const mirrorRightX = cavRight + displacePx;
+
+      // 悬臂梁底座基底
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+      ctx.fillRect(mirrorRightX + 35, midY - mirrorH * 0.6, 35, mirrorH * 1.2);
+      ctx.strokeStyle = 'rgba(148, 163, 184, 0.4)';
+      ctx.strokeRect(mirrorRightX + 35, midY - mirrorH * 0.6, 35, mirrorH * 1.2);
+
+      // 悬臂梁弹性硅臂 (Silicon Cantilever Beam)
+      ctx.strokeStyle = '#c084fc';
+      ctx.lineWidth = 4.0;
+      ctx.beginPath();
+      ctx.moveTo(mirrorRightX + 35, midY);
+      ctx.lineTo(mirrorRightX + 10, midY);
+      ctx.stroke();
+
+      // 悬臂梁末端高反微镜片 (Micro-Mirror)
+      ctx.fillStyle = 'rgba(244, 63, 94, 0.3)';
+      ctx.fillRect(mirrorRightX, midY - 45, 10, 90);
+      ctx.strokeStyle = '#f43f5e';
+      ctx.lineWidth = 2.0;
+      ctx.strokeRect(mirrorRightX, midY - 45, 10, 90);
+      ctx.fillStyle = '#fbbf24';
+      ctx.fillRect(mirrorRightX, midY - 45, 3, 90);
+
+      ctx.fillStyle = '#f43f5e';
+      ctx.fillText('微机械振子 M₂', mirrorRightX - 25, midY - 55);
+      ctx.restore();
+
+      // 3. 绘制腔内驻波光子场干涉条纹 (Intracavity Standing Wave)
+      if (PARAMS.laserOn && PARAMS.showPhotons) {
+        ctx.save();
+        const numNodes = 14;
+        const waveLen = (mirrorRightX - cavLeft) / numNodes;
+        const lightGrad = ctx.createLinearGradient(cavLeft, 0, mirrorRightX, 0);
+        lightGrad.addColorStop(0, 'rgba(56, 189, 248, 0.65)');
+        lightGrad.addColorStop(0.5, 'rgba(192, 132, 252, 0.8)');
+        lightGrad.addColorStop(1, 'rgba(52, 211, 153, 0.65)');
+
+        ctx.strokeStyle = lightGrad;
+        ctx.lineWidth = 2.5 * window.devicePixelRatio;
+
+        // 驻波振幅包络随功率增强
+        const waveAmp = Math.min(55, Math.sqrt(PARAMS.power) * 8.5);
+
+        ctx.beginPath();
+        for (let x = cavLeft; x <= mirrorRightX; x += 3) {
+          const kPos = (x - cavLeft) / waveLen;
+          const standingY = waveAmp * Math.sin(kPos * Math.PI * 2) * Math.cos(simPhase * 18.0);
+          if (x === cavLeft) ctx.moveTo(x, midY + standingY);
+          else ctx.lineTo(x, midY + standingY);
+        }
+        ctx.stroke();
+
+        // 驻波光子包络发光晕轮
+        const haloGrad = ctx.createRadialGradient((cavLeft + mirrorRightX) * 0.5, midY, 10, (cavLeft + mirrorRightX) * 0.5, midY, 140);
+        haloGrad.addColorStop(0, 'rgba(56, 189, 248, 0.18)');
+        haloGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = haloGrad;
+        ctx.fillRect(cavLeft, midY - waveAmp * 1.5, mirrorRightX - cavLeft, waveAmp * 3.0);
+        ctx.restore();
+      }
+
+      // 4. 机械振子热涨落声子云粒子 (Thermal Phonon Particles)
+      if (PARAMS.showPhonons) {
+        ctx.save();
+        const numPhonons = Math.min(60, Math.ceil(mech.n_eff * 8.0 + 4));
+        ctx.fillStyle = '#6ee7b7';
+        for (let i = 0; i < numPhonons; i++) {
+          const pAngle = i * 1.35 + simPhase * 4.0;
+          const pRadius = 8 + (i % 6) * 4.5 * Math.sqrt(mech.n_eff);
+          const px = mirrorRightX + 5 + Math.cos(pAngle) * pRadius;
+          const py = midY + Math.sin(pAngle) * (pRadius * 1.6);
+          ctx.beginPath();
+          ctx.arc(px, py, 1.8 * window.devicePixelRatio, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+    }
+
+    // --- 示波器 1: 机械位移噪声功率谱密度 PSD S_xx(ω) ---
+    function renderPSDScope() {
+      const w = psdCanvas.width;
+      const h = psdCanvas.height;
+      psdCtx.clearRect(0, 0, w, h);
+
+      const margin = 26 * window.devicePixelRatio;
+      const pw = w - margin * 2;
+      const ph = h - margin * 2;
+      const baseY = margin + ph * 0.88;
+      const peakX = margin + pw * 0.5;
+
+      // 坐标轴
+      psdCtx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+      psdCtx.lineWidth = 1;
+      psdCtx.beginPath();
+      psdCtx.moveTo(margin, baseY);
+      psdCtx.lineTo(margin + pw, baseY);
+      psdCtx.stroke();
+
+      psdCtx.font = `${9 * window.devicePixelRatio}px monospace`;
+      psdCtx.fillStyle = '#64748b';
+      psdCtx.fillText('机械频率 (Ω_m / 2π) →', peakX - 45, baseY + 14);
+      psdCtx.fillText('↑ 位移噪声 PSD S_xx(ω)', margin + 4, margin + 14);
+
+      // 洛伦兹峰宽度 Gamma_eff 与高度
+      const gammaOptWidth = (mech.n_eff < 1.0) ? (28 * (1.5 - mech.n_eff)) : 10;
+      const lorentzHeight = Math.min(ph * 0.8, (mech.n_eff * 18.0 + 12));
+
+      // 绘制冷却前高温基准虚线 (4.2 K 初始热峰)
+      psdCtx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+      psdCtx.setLineDash([3, 3]);
+      psdCtx.beginPath();
+      for (let x = 0; x <= pw; x += 4) {
+        const dx = x - pw * 0.5;
+        const initLor = (ph * 0.72) / (1.0 + Math.pow(dx / 6.0, 2));
+        const py = baseY - initLor;
+        if (x === 0) psdCtx.moveTo(margin + x, py);
+        else psdCtx.lineTo(margin + x, py);
+      }
+      psdCtx.stroke();
+      psdCtx.setLineDash([]);
+
+      // 绘制当前光力学阻尼展宽与热峰压制后的 PSD 曲线
+      psdCtx.strokeStyle = '#06b6d4';
+      psdCtx.lineWidth = 2.2 * window.devicePixelRatio;
+      psdCtx.beginPath();
+      for (let x = 0; x <= pw; x += 2) {
+        const dx = x - pw * 0.5;
+        const currentLor = lorentzHeight / (1.0 + Math.pow(dx / Math.max(3.0, gammaOptWidth), 2));
+        const py = baseY - currentLor;
+        if (x === 0) psdCtx.moveTo(margin + x, py);
+        else psdCtx.lineTo(margin + x, py);
+      }
+      psdCtx.stroke();
+
+      // 面积填充
+      psdCtx.lineTo(margin + pw, baseY);
+      psdCtx.lineTo(margin, baseY);
+      psdCtx.closePath();
+      const g = psdCtx.createLinearGradient(0, margin, 0, baseY);
+      g.addColorStop(0, 'rgba(6, 182, 212, 0.3)');
+      g.addColorStop(1, 'rgba(6, 182, 212, 0.0)');
+      psdCtx.fillStyle = g;
+      psdCtx.fill();
+    }
+
+    // --- 示波器 2: 机械相空间 Wigner 分布 (X-P 相平面高斯圆斑) ---
+    function renderWignerScope() {
+      const w = wignerCanvas.width;
+      const h = wignerCanvas.height;
+      wignerCtx.clearRect(0, 0, w, h);
+
+      const margin = 24 * window.devicePixelRatio;
+      const pw = w - margin * 2;
+      const ph = h - margin * 2;
+      const midX = margin + pw * 0.5;
+      const midY = margin + ph * 0.5;
+
+      // 坐标轴
+      wignerCtx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+      wignerCtx.lineWidth = 1;
+      wignerCtx.beginPath();
+      wignerCtx.moveTo(margin, midY); wignerCtx.lineTo(margin + pw, midY);
+      wignerCtx.moveTo(midX, margin); wignerCtx.lineTo(midX, margin + ph);
+      wignerCtx.stroke();
+
+      wignerCtx.font = `${9 * window.devicePixelRatio}px monospace`;
+      wignerCtx.fillStyle = '#64748b';
+      wignerCtx.fillText('正交位移 X →', margin + pw - 65, midY - 6);
+      wignerCtx.fillText('↑ 正交动量 P', midX + 6, margin + 14);
+
+      // 量子基态零点起伏极限圆圈 (Quantum Zero-Point Fluctuation Circle)
+      const rZPF = 24 * window.devicePixelRatio;
+      wignerCtx.strokeStyle = 'rgba(52, 211, 153, 0.45)';
+      wignerCtx.lineWidth = 1.5;
+      wignerCtx.setLineDash([4, 4]);
+      wignerCtx.beginPath();
+      wignerCtx.arc(midX, midY, rZPF, 0, Math.PI * 2);
+      wignerCtx.stroke();
+      wignerCtx.setLineDash([]);
+      wignerCtx.fillStyle = '#6ee7b7';
+      wignerCtx.fillText('量子基态极限 (n̄ = 0)', midX + rZPF + 6, midY - 12);
+
+      // 当前实际相空间热斑半径 R_thermal = rZPF * sqrt(2*n_eff + 1)
+      const rThermal = rZPF * Math.sqrt(2 * mech.n_eff + 1.0);
+      const wignerGrad = wignerCtx.createRadialGradient(midX, midY, 2, midX, midY, rThermal);
+      wignerGrad.addColorStop(0, 'rgba(52, 211, 153, 0.85)');
+      wignerGrad.addColorStop(0.6, 'rgba(16, 185, 129, 0.35)');
+      wignerGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+
+      wignerCtx.fillStyle = wignerGrad;
+      wignerCtx.beginPath();
+      wignerCtx.arc(midX, midY, rThermal, 0, Math.PI * 2);
+      wignerCtx.fill();
+
+      // 实时热轨迹点
+      if (mech.history.length > 2) {
+        wignerCtx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+        wignerCtx.lineWidth = 1.0;
+        wignerCtx.beginPath();
+        for (let i = 0; i < mech.history.length; i++) {
+          const pt = mech.history[i];
+          const px = midX + pt.x * 2.2;
+          const py = midY - pt.v * 0.35;
+          if (i === 0) wignerCtx.moveTo(px, py);
+          else wignerCtx.lineTo(px, py);
+        }
+        wignerCtx.stroke();
+      }
+    }
+
+    // --- 界面控制与事件绑定 ---
+    document.getElementById('paramPower').addEventListener('input', (e) => {
+      PARAMS.power = parseFloat(e.target.value);
+      document.getElementById('valPower').textContent = `${PARAMS.power.toFixed(1)} mW`;
+    });
+    document.getElementById('paramDetuning').addEventListener('input', (e) => {
+      PARAMS.detuning = parseFloat(e.target.value);
+      document.getElementById('valDetuning').textContent = PARAMS.detuning.toFixed(2);
+    });
+    document.getElementById('paramTemp').addEventListener('input', (e) => {
+      PARAMS.Tbath = parseFloat(e.target.value);
+      document.getElementById('valTemp').textContent = `${PARAMS.Tbath.toFixed(1)} K`;
+    });
+    document.getElementById('paramQm').addEventListener('input', (e) => {
+      PARAMS.Qm = parseFloat(e.target.value) * 1e6;
+      document.getElementById('valQm').textContent = `${parseFloat(e.target.value).toFixed(1)} × 10⁶`;
+    });
+
+    // 激光开关
+    const btnLaser = document.getElementById('btnToggleLaser');
+    btnLaser.addEventListener('click', () => {
+      PARAMS.laserOn = !PARAMS.laserOn;
+      btnLaser.textContent = PARAMS.laserOn ? '冷却泵浦激光: 开' : '冷却泵浦激光: 关';
+      btnLaser.classList.toggle('active', PARAMS.laserOn);
+    });
+
+    // 视图显示切换
+    const setupToggle = (btnId, key) => {
+      const btn = document.getElementById(btnId);
+      btn.addEventListener('click', () => {
+        PARAMS[key] = !PARAMS[key];
+        btn.classList.toggle('active', PARAMS[key]);
+      });
+    };
+    setupToggle('btnTogglePhotons', 'showPhotons');
+    setupToggle('btnTogglePhonons', 'showPhonons');
+
+    // 注入热冲击
+    document.getElementById('btnThermalKick').addEventListener('click', () => {
+      mech.v += (Math.random() - 0.5) * 85.0;
+      playAudioBlip(780, 0.2);
+    });
+
+    // 瞬间冷冻至基态
+    document.getElementById('btnSnapGroundState').addEventListener('click', () => {
+      mech.x = 0; mech.v = 0; mech.n_eff = 0.25;
+      playAudioBlip(520, 0.15);
+    });
+
+    document.getElementById('btnResetCavity').addEventListener('click', () => {
+      mech.x = 0; mech.v = 0;
+      mech.history.length = 0;
+      playAudioBlip(330, 0.12);
+    });
+
+    // 声音切换
+    const btnAudio = document.getElementById('btnAudioToggle');
+    btnAudio.addEventListener('click', () => {
+      audioEnabled = !audioEnabled;
+      btnAudio.textContent = audioEnabled ? '🔊 光力声学合成: 开' : '🔇 光力声学合成: 关';
+      if (audioGain && audioCtx) {
+        audioGain.gain.setValueAtTime(audioEnabled ? 0.04 : 0.0, audioCtx.currentTime);
+      }
+    });
+
+    // 预设切换
+    document.getElementById('presetGround').addEventListener('click', () => {
+      PARAMS.power = 22.0; PARAMS.detuning = -1.0; PARAMS.Tbath = 4.2; PARAMS.laserOn = true;
+      syncInputs();
+    });
+    document.getElementById('presetBlueLasing').addEventListener('click', () => {
+      PARAMS.power = 25.0; PARAMS.detuning = 1.0; PARAMS.Tbath = 4.2; PARAMS.laserOn = true;
+      syncInputs();
+    });
+    document.getElementById('presetRoomTemp').addEventListener('click', () => {
+      PARAMS.power = 5.0; PARAMS.detuning = -1.0; PARAMS.Tbath = 300.0; PARAMS.laserOn = true;
+      syncInputs();
+    });
+    document.getElementById('presetPassive').addEventListener('click', () => {
+      PARAMS.power = 0.0; PARAMS.detuning = -1.0; PARAMS.Tbath = 4.2; PARAMS.laserOn = false;
+      syncInputs();
+    });
+
+    function syncInputs() {
+      document.getElementById('paramPower').value = PARAMS.power;
+      document.getElementById('valPower').textContent = `${PARAMS.power.toFixed(1)} mW`;
+      document.getElementById('paramDetuning').value = PARAMS.detuning;
+      document.getElementById('valDetuning').textContent = PARAMS.detuning.toFixed(2);
+      document.getElementById('paramTemp').value = PARAMS.Tbath;
+      document.getElementById('valTemp').textContent = `${PARAMS.Tbath.toFixed(1)} K`;
+      btnLaser.textContent = PARAMS.laserOn ? '冷却泵浦激光: 开' : '冷却泵浦激光: 关';
+      btnLaser.classList.toggle('active', PARAMS.laserOn);
+    }
+
+    // --- 主动画更新循环 ---
+    function animate(now) {
+      const dt = Math.min(0.04, (now - lastTime) * 0.001);
+      lastTime = now;
+
+      // 物理积分更新
+      stepOptomechanics(dt);
+
+      // 渲染主视窗与示波器
+      renderMainCavity();
+      renderPSDScope();
+      renderWignerScope();
+
+      // 指标更新
+      const p0 = 1.0 / (1.0 + mech.n_eff); // 基态占有概率
+      const gammaOptKhz = (PARAMS.power * 2.8) / (1 + 4 * Math.pow(PARAMS.detuning, 2));
+
+      document.getElementById('dispPhonon').textContent = mech.n_eff.toFixed(2);
+      document.getElementById('dispTeff').textContent = (mech.T_eff * 1e6 < 1000) ? `${(mech.T_eff * 1e6).toFixed(0)} μK` : `${(mech.T_eff * 1e3).toFixed(1)} mK`;
+      document.getElementById('dispGamma').textContent = `${gammaOptKhz.toFixed(1)} kHz`;
+      document.getElementById('dispP0').textContent = `${(p0 * 100).toFixed(1)}%`;
+
+      const badge = document.getElementById('groundStateBadge');
+      const groundText = document.getElementById('groundStateText');
+      if (mech.n_eff < 1.0) {
+        badge.style.background = 'rgba(16, 185, 129, 0.2)';
+        badge.style.borderColor = 'rgba(16, 185, 129, 0.5)';
+        badge.style.color = '#6ee7b7';
+        groundText.textContent = `状态: 宏观量子基态冷冻中 (平均声子数 n̄ = ${mech.n_eff.toFixed(2)} < 1)`;
+      } else {
+        badge.style.background = 'rgba(234, 179, 8, 0.2)';
+        badge.style.borderColor = 'rgba(234, 179, 8, 0.5)';
+        badge.style.color = '#fde047';
+        groundText.textContent = `状态: 经典热激发态 (平均声子数 n̄ = ${mech.n_eff.toFixed(1)})`;
+      }
+
+      requestAnimationFrame(animate);
+    }
+
+    // 启动仿真
+    resizeCanvases();
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>

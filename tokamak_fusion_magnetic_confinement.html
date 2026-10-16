@@ -1,0 +1,1136 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>托卡马克聚变磁约束与粒子轨道 - Tokamak Plasma Equilibrium</title>
+<style>
+  :root {
+    --bg-dark: #020617;
+    --panel-bg: rgba(15, 23, 42, 0.82);
+    --panel-border: rgba(56, 189, 248, 0.25);
+    --primary: #38bdf8;
+    --cyan: #22d3ee;
+    --hot-pink: #f43f5e;
+    --plasma-purple: #c084fc;
+    --fusion-orange: #fb923c;
+    --tokamak-gold: #fbbf24;
+    --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    user-select: none;
+  }
+
+  body {
+    background-color: var(--bg-dark);
+    color: #f1f5f9;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* 顶栏 HUD */
+  header {
+    background: rgba(2, 6, 23, 0.92);
+    backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--panel-border);
+    padding: 0.75rem 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 50;
+  }
+
+  .brand-group {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+  }
+
+  .fusion-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #fff 0%, var(--hot-pink) 40%, var(--fusion-orange) 75%, transparent 100%);
+    box-shadow: 0 0 18px var(--fusion-orange);
+    animation: pulsePlasma 2.5s infinite alternate;
+  }
+
+  @keyframes pulsePlasma {
+    0% { transform: scale(0.92); filter: drop-shadow(0 0 10px var(--fusion-orange)); }
+    100% { transform: scale(1.15); filter: drop-shadow(0 0 22px var(--hot-pink)); }
+  }
+
+  h1 {
+    font-size: 1.15rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    background: linear-gradient(90deg, #ffffff, var(--cyan), var(--fusion-orange));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .brand-sub {
+    font-size: 0.75rem;
+    color: #94a3b8;
+    font-family: var(--font-mono);
+  }
+
+  .actions {
+    display: flex;
+    gap: 0.6rem;
+    align-items: center;
+  }
+
+  .btn {
+    background: rgba(56, 189, 248, 0.1);
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    color: #e2e8f0;
+    padding: 0.4rem 0.85rem;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-family: var(--font-mono);
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .btn:hover {
+    background: rgba(56, 189, 248, 0.25);
+    border-color: var(--primary);
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.3);
+  }
+
+  .btn.active {
+    background: var(--fusion-orange);
+    color: #020617;
+    font-weight: 600;
+    border-color: var(--fusion-orange);
+  }
+
+  /* 主网格架构 */
+  main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 1rem;
+    padding: 1rem;
+    height: calc(100vh - 65px);
+    overflow: hidden;
+  }
+
+  @media (max-width: 1024px) {
+    main {
+      grid-template-columns: 1fr;
+      height: auto;
+      overflow-y: auto;
+    }
+  }
+
+  .viewport-col {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    height: 100%;
+    position: relative;
+  }
+
+  .canvas-card {
+    flex: 1.5;
+    background: radial-gradient(circle at center, #07152d 0%, #020617 95%);
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: inset 0 0 50px rgba(0, 0, 0, 0.9);
+  }
+
+  #mainCanvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    cursor: crosshair;
+  }
+
+  /* 画布内 HUD 状态栏 */
+  .canvas-hud {
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    pointer-events: none;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    background: rgba(2, 6, 23, 0.75);
+    padding: 0.65rem 0.85rem;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+  }
+
+  .hud-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 1.2rem;
+  }
+
+  .hud-lbl {
+    color: #94a3b8;
+  }
+
+  .hud-val {
+    color: #fff;
+    font-weight: 600;
+  }
+
+  .hud-val.hot {
+    color: var(--fusion-orange);
+    text-shadow: 0 0 8px rgba(251, 146, 60, 0.6);
+  }
+
+  /* 粒子图例 */
+  .orbit-legend {
+    position: absolute;
+    bottom: 1rem;
+    left: 1rem;
+    background: rgba(2, 6, 23, 0.75);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+    padding: 0.5rem 0.8rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    backdrop-filter: blur(8px);
+    pointer-events: none;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .legend-line {
+    width: 16px;
+    height: 3px;
+    border-radius: 2px;
+  }
+
+  /* 下方分析图表 */
+  .analysis-card {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+    min-height: 190px;
+  }
+
+  @media (max-width: 768px) {
+    .analysis-card {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .chart-box {
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    padding: 0.6rem;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    backdrop-filter: blur(8px);
+  }
+
+  .chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.75rem;
+    color: #94a3b8;
+    margin-bottom: 0.4rem;
+    font-family: var(--font-mono);
+  }
+
+  .chart-canvas {
+    flex: 1;
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  /* 右侧控制栏 */
+  .control-col {
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    padding: 1.2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.1rem;
+    overflow-y: auto;
+    backdrop-filter: blur(12px);
+  }
+
+  .section-title {
+    font-size: 0.82rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    border-bottom: 1px solid rgba(56, 189, 248, 0.2);
+    padding-bottom: 0.35rem;
+  }
+
+  .control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .control-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.78rem;
+    color: #cbd5e1;
+  }
+
+  .val-badge {
+    font-family: var(--font-mono);
+    color: var(--cyan);
+    font-size: 0.75rem;
+  }
+
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 5px;
+    background: #1e293b;
+    border-radius: 3px;
+    outline: none;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--primary);
+    cursor: pointer;
+    box-shadow: 0 0 8px var(--primary);
+    transition: transform 0.1s;
+  }
+
+  input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+  }
+
+  .btn-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
+  }
+
+  .mode-btn {
+    background: rgba(30, 41, 59, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #94a3b8;
+    padding: 0.5rem;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.2s;
+    font-family: var(--font-mono);
+  }
+
+  .mode-btn.selected {
+    background: rgba(56, 189, 248, 0.2);
+    border-color: var(--primary);
+    color: #fff;
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.25);
+  }
+
+  .info-card {
+    background: rgba(2, 6, 23, 0.55);
+    border: 1px dashed rgba(56, 189, 248, 0.3);
+    border-radius: 8px;
+    padding: 0.75rem;
+    font-size: 0.72rem;
+    color: #94a3b8;
+    line-height: 1.5;
+  }
+
+  .formula {
+    font-family: var(--font-mono);
+    color: #38bdf8;
+    margin-top: 0.3rem;
+    font-size: 0.68rem;
+    white-space: pre-wrap;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand-group">
+    <div class="fusion-icon"></div>
+    <div>
+      <h1>托卡马克聚变磁约束与粒子轨道</h1>
+      <div class="brand-sub">Tokamak Equilibrium (Grad-Shafranov) & Guiding-Center Drift Orbits</div>
+    </div>
+  </div>
+  <div class="actions">
+    <button class="btn" id="btnAudio">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+        <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+      </svg>
+      线圈磁鸣: 关
+    </button>
+    <button class="btn" id="btnInjectAlpha">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"></circle>
+        <line x1="12" y1="8" x2="12" y2="12"></line>
+        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+      </svg>
+      注入 3.5MeV α粒子
+    </button>
+    <button class="btn" id="btnClearTrails">清除轨迹</button>
+  </div>
+</header>
+
+<main>
+  <!-- 左侧主模拟视口与分析图表 -->
+  <div class="viewport-col">
+    <div class="canvas-card" id="canvasCard">
+      <canvas id="mainCanvas"></canvas>
+
+      <!-- 画布浮动 HUD -->
+      <div class="canvas-hud">
+        <div class="hud-row">
+          <span class="hud-lbl">核心等离子体温 T_i:</span>
+          <span class="hud-val hot" id="hudTemp">18.5 keV (~2.15亿°C)</span>
+        </div>
+        <div class="hud-row">
+          <span class="hud-lbl">大环中心磁场 B_0:</span>
+          <span class="hud-val" id="hudB0">5.30 T</span>
+        </div>
+        <div class="hud-row">
+          <span class="hud-lbl">等离子体总电流 I_p:</span>
+          <span class="hud-val" id="hudIp">15.0 MA</span>
+        </div>
+        <div class="hud-row">
+          <span class="hud-lbl">边缘安全因子 q_95:</span>
+          <span class="hud-val" id="hudQ95">3.42 (稳定窗口)</span>
+        </div>
+        <div class="hud-row">
+          <span class="hud-lbl">聚变功率增益 Q:</span>
+          <span class="hud-val hot" id="hudGain">Q = 10.8 (净产能)</span>
+        </div>
+      </div>
+
+      <!-- 粒子轨道图例 -->
+      <div class="orbit-legend">
+        <div class="legend-item">
+          <div class="legend-line" style="background:#fb923c"></div>
+          <span>捕获粒子 (香蕉轨道 Banana Orbit)</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-line" style="background:#38bdf8"></div>
+          <span>通行粒子 (Passing Orbit)</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-line" style="background:#f43f5e"></div>
+          <span>3.5 MeV 聚变高能 α 粒子</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 底部双图表 -->
+    <div class="analysis-card">
+      <div class="chart-box">
+        <div class="chart-header">
+          <span>安全因子剖面 q(r) & 剪切率</span>
+          <span style="color:var(--primary)">q_0=1.05 → q_edge=4.2</span>
+        </div>
+        <canvas class="chart-canvas" id="qChart"></canvas>
+      </div>
+
+      <div class="chart-box">
+        <div class="chart-header">
+          <span>等离子体温度与压力剖面 P(ψ)</span>
+          <span style="color:var(--fusion-orange)">高约束模式 (H-Mode 基座)</span>
+        </div>
+        <canvas class="chart-canvas" id="profileChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- 右侧交互调控面板 -->
+  <div class="control-col">
+    <div>
+      <div class="section-title">磁场与等离子体平衡</div>
+      <div class="control-group" style="margin-top:0.8rem">
+        <div class="control-label">
+          <span>环向磁场 B_0 (Toroidal Field)</span>
+          <span class="val-badge" id="valB0">5.3 T</span>
+        </div>
+        <input type="range" id="sliderB0" min="2.0" max="8.0" step="0.1" value="5.3">
+      </div>
+
+      <div class="control-group" style="margin-top:0.8rem">
+        <div class="control-label">
+          <span>等离子体电流 I_p (Plasma Current)</span>
+          <span class="val-badge" id="valIp">15.0 MA</span>
+        </div>
+        <input type="range" id="sliderIp" min="5.0" max="20.0" step="0.5" value="15.0">
+      </div>
+
+      <div class="control-group" style="margin-top:0.8rem">
+        <div class="control-label">
+          <span>截面拉长比 κ (Elongation)</span>
+          <span class="val-badge" id="valKappa">1.75</span>
+        </div>
+        <input type="range" id="sliderKappa" min="1.0" max="2.1" step="0.05" value="1.75">
+      </div>
+
+      <div class="control-group" style="margin-top:0.8rem">
+        <div class="control-label">
+          <span>截面三角形变 δ (Triangularity)</span>
+          <span class="val-badge" id="valDelta">0.35</span>
+        </div>
+        <input type="range" id="sliderDelta" min="0.0" max="0.6" step="0.02" value="0.35">
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title">粒子投射角与束流注入</div>
+      <div class="control-group" style="margin-top:0.8rem">
+        <div class="control-label">
+          <span>测试粒子投射角 Pitch Angle (v_∥ / v)</span>
+          <span class="val-badge" id="valPitch">0.42 (捕获态)</span>
+        </div>
+        <input type="range" id="sliderPitch" min="0.05" max="0.95" step="0.01" value="0.42">
+      </div>
+
+      <div class="control-group" style="margin-top:0.8rem">
+        <span class="control-label" style="margin-bottom:0.3rem">预设放电平衡模式</span>
+        <div class="btn-grid">
+          <button class="mode-btn selected" id="btnModeITER">ITER 标准放电</button>
+          <button class="mode-btn" id="btnModeSPARC">SPARC 强磁场</button>
+          <button class="mode-btn" id="btnModeEAST">EAST 稳态超导</button>
+          <button class="mode-btn" id="btnModeNegative">负三角形变 (NT)</button>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title">物理机制与微观公式</div>
+      <div class="info-card">
+        <strong>Grad-Shafranov 2D 磁平衡方程:</strong>
+        <div class="formula">Δ*ψ = -μ₀ R² p'(ψ) - F F'(ψ)</div>
+        <p style="margin-top:0.5rem">
+          强环向场与等离子体电流感应的极向场形成<strong>闭合嵌套扭曲磁面（Flux Surfaces）</strong>。
+        </p>
+        <p style="margin-top:0.4rem">
+          在内侧强磁场（$B \propto 1/R$）与外侧弱磁场之间，由于<strong>磁矩 $\mu = m v_\perp^2 / (2B)$ 守恒</strong>，部分粒子被两端磁镜反射，其导心形成经典的<strong>香蕉轨道（Banana Orbit）</strong>！
+        </p>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+/**
+ * 托卡马克聚变磁约束与粒子轨道 (Tokamak Plasma & Guiding-Center Orbits)
+ * Grad-Shafranov 磁面解析解 + 导心漂移 (Grad-B & Curvature Drifts) 积分器
+ */
+
+// 几何与磁场基准参数 (以 ITER 类 D 型截面为基准: R0=6.2m, a=2.0m)
+let R0 = 6.2;
+let a = 2.0;
+let B0 = 5.3;
+let Ip_MA = 15.0;
+let kappa = 1.75;
+let delta = 0.35;
+let testPitch = 0.42;
+
+// 粒子测试群体
+const particles = [];
+const alphaParticles = [];
+const MAX_TRAIL = 220;
+
+// 音频上下文 (螺线管大电流嗡鸣与高频回旋辐射)
+let audioCtx = null;
+let humOsc = null;
+let humGain = null;
+let audioEnabled = false;
+
+function initAudio() {
+  if (audioCtx) return;
+  const AudioContext = window.AudioContext || window.webkitAudioContext;
+  audioCtx = new AudioContext();
+
+  humOsc = audioCtx.createOscillator();
+  humGain = audioCtx.createGain();
+  humOsc.type = 'sawtooth';
+  humOsc.frequency.setValueAtTime(50.0, audioCtx.currentTime);
+
+  const filter = audioCtx.createBiquadFilter();
+  filter.type = 'lowpass';
+  filter.frequency.setValueAtTime(260.0, audioCtx.currentTime);
+
+  humOsc.connect(filter);
+  filter.connect(humGain);
+  humGain.connect(audioCtx.destination);
+  humGain.gain.setValueAtTime(0.02, audioCtx.currentTime);
+  humOsc.start();
+}
+
+function updateAudioPitch() {
+  if (!audioEnabled || !audioCtx) return;
+  const f = 40.0 + (B0 / 8.0) * 45.0;
+  humOsc.frequency.setTargetAtTime(f, audioCtx.currentTime, 0.1);
+}
+
+// 计算极向磁通函数 ψ(R, Z) 及其梯度
+function getFlux(R, Z) {
+  // Miller / Solov'ev 解析拟合模型
+  const dR = R - R0;
+  const termX = (dR * dR) / (a * a);
+  const termY = (Z * Z) / (kappa * kappa * a * a);
+  const termTri = -2.0 * delta * (dR * Z * Z) / (a * a * a);
+  // 归一化极向通量: 磁轴处 ψ=0, 最外闭合面 LCFS 处 ψ=1
+  return Math.max(0, termX + termY + termTri);
+}
+
+function getMagneticField(R, Z) {
+  const eps = 0.02;
+  const psiC = getFlux(R, Z);
+  const dPsi_dR = (getFlux(R + eps, Z) - getFlux(R - eps, Z)) / (2.0 * eps);
+  const dPsi_dZ = (getFlux(R, Z + eps) - getFlux(R, Z - eps)) / (2.0 * eps);
+
+  // 极向场 B_R = -(1/R) dψ/dZ, B_Z = (1/R) dψ/dR
+  const polFactor = 0.18 * (Ip_MA / 15.0);
+  const BR = -(1.0 / R) * dPsi_dZ * polFactor;
+  const BZ = (1.0 / R) * dPsi_dR * polFactor;
+  // 环向场 Bt = B0 * R0 / R (1/R 强磁场梯度)
+  const Bt = (B0 * R0) / R;
+
+  const B_mag = Math.sqrt(BR * BR + BZ * BZ + Bt * Bt);
+  return { BR, BZ, Bt, B_mag, psi: psiC };
+}
+
+// 粒子对象生成器
+function createParticle(isAlpha = false, customR = null, customZ = null) {
+  const initR = customR !== null ? customR : R0 + (Math.random() * 0.9 + 0.3) * a;
+  const initZ = customZ !== null ? customZ : (Math.random() - 0.5) * 0.8 * a;
+  const speed = isAlpha ? 4.2 : 2.5; // 无量纲相对速度
+  const pitch = isAlpha ? (Math.random() * 0.8 + 0.1) : testPitch;
+
+  return {
+    R: initR,
+    Z: initZ,
+    phi: Math.random() * Math.PI * 2,
+    v_par: speed * pitch,
+    v_perp: speed * Math.sqrt(Math.max(0.01, 1.0 - pitch * pitch)),
+    speed: speed,
+    mu: 0, // 磁矩守恒项
+    trail: [],
+    isAlpha: isAlpha,
+    color: isAlpha ? '#f43f5e' : (pitch < 0.5 ? '#fb923c' : '#38bdf8')
+  };
+}
+
+// 初始化粒子群
+function resetParticles() {
+  particles.length = 0;
+  alphaParticles.length = 0;
+
+  // 生成典型香蕉轨道与通行轨道粒子
+  for (let i = 0; i < 18; i++) {
+    const p = createParticle(false);
+    const B_info = getMagneticField(p.R, p.Z);
+    p.mu = (p.v_perp * p.v_perp) / B_info.B_mag;
+    particles.push(p);
+  }
+
+  // 注入初始 α 粒子
+  for (let i = 0; i < 4; i++) {
+    const ap = createParticle(true, R0 + 0.2 * a, 0.1 * a);
+    const B_info = getMagneticField(ap.R, ap.Z);
+    ap.mu = (ap.v_perp * ap.v_perp) / B_info.B_mag;
+    alphaParticles.push(ap);
+  }
+}
+
+// 导心动力学微步推进
+function stepGuidingCenter(p, dt) {
+  const B_curr = getMagneticField(p.R, p.Z);
+
+  // 1. 磁镜效应减速与反弹判定: v_par² = v² - 2*μ*B
+  const v_perp2 = p.mu * B_curr.B_mag;
+  const v_par2_remain = p.speed * p.speed - v_perp2;
+
+  if (v_par2_remain <= 0) {
+    // 达到强磁场内侧反射点，发生磁镜反转！
+    p.v_par = -p.v_par;
+  } else {
+    const sign = p.v_par >= 0 ? 1 : -1;
+    p.v_par = sign * Math.sqrt(v_par2_remain);
+  }
+
+  // 2. 梯度与曲率漂移速度 v_D (垂直于极面主要向下/向上)
+  const gradDriftScale = (p.isAlpha ? 0.38 : 0.16) / B_curr.B_mag;
+  const v_drift_Z = -gradDriftScale * (p.v_par * p.v_par + 0.5 * v_perp2);
+
+  // 3. 沿螺旋磁力线极向平流
+  const bR = B_curr.BR / B_curr.B_mag;
+  const bZ = B_curr.BZ / B_curr.B_mag;
+  const dR = p.v_par * bR;
+  const dZ = p.v_par * bZ + v_drift_Z;
+
+  p.R += dR * dt;
+  p.Z += dZ * dt;
+  p.phi += (B_curr.Bt / (B_curr.B_mag * p.R)) * p.v_par * dt;
+
+  // 边界保护: 超出第一壁则重新注入
+  if (getFlux(p.R, p.Z) > 1.35 || p.R < R0 - a * 1.2 || p.R > R0 + a * 1.4) {
+    p.R = R0 + (Math.random() * 0.7 + 0.1) * a;
+    p.Z = (Math.random() - 0.5) * 0.6 * a;
+    p.v_par = p.speed * testPitch;
+    const B_new = getMagneticField(p.R, p.Z);
+    p.mu = (p.speed * p.speed * (1.0 - testPitch * testPitch)) / B_new.B_mag;
+    p.trail.length = 0;
+  }
+
+  // 轨迹点记录
+  p.trail.push({ R: p.R, Z: p.Z });
+  if (p.trail.length > MAX_TRAIL) {
+    p.trail.shift();
+  }
+}
+
+// DOM 与画布
+const canvasCard = document.getElementById('canvasCard');
+const mainCanvas = document.getElementById('mainCanvas');
+const mainCtx = mainCanvas.getContext('2d');
+const qChart = document.getElementById('qChart');
+const qCtx = qChart.getContext('2d');
+const profileChart = document.getElementById('profileChart');
+const pCtx = profileChart.getContext('2d');
+
+const hudTemp = document.getElementById('hudTemp');
+const hudB0 = document.getElementById('hudB0');
+const hudIp = document.getElementById('hudIp');
+const hudQ95 = document.getElementById('hudQ95');
+const hudGain = document.getElementById('hudGain');
+
+const sliderB0 = document.getElementById('sliderB0');
+const sliderIp = document.getElementById('sliderIp');
+const sliderKappa = document.getElementById('sliderKappa');
+const sliderDelta = document.getElementById('sliderDelta');
+const sliderPitch = document.getElementById('sliderPitch');
+const valB0 = document.getElementById('valB0');
+const valIp = document.getElementById('valIp');
+const valKappa = document.getElementById('valKappa');
+const valDelta = document.getElementById('valDelta');
+const valPitch = document.getElementById('valPitch');
+
+const btnAudio = document.getElementById('btnAudio');
+const btnInjectAlpha = document.getElementById('btnInjectAlpha');
+const btnClearTrails = document.getElementById('btnClearTrails');
+const modeBtns = document.querySelectorAll('.mode-btn');
+
+// 画布尺寸适配
+function resizeCanvas() {
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvasCard.getBoundingClientRect();
+  mainCanvas.width = rect.width * dpr;
+  mainCanvas.height = rect.height * dpr;
+  mainCtx.scale(dpr, dpr);
+
+  const qRect = qChart.parentElement.getBoundingClientRect();
+  qChart.width = (qRect.width - 20) * dpr;
+  qChart.height = (qRect.height - 40) * dpr;
+  qCtx.scale(dpr, dpr);
+
+  profileChart.width = (qRect.width - 20) * dpr;
+  profileChart.height = (qRect.height - 40) * dpr;
+  pCtx.scale(dpr, dpr);
+}
+
+window.addEventListener('resize', resizeCanvas);
+
+// 坐标映射: 物理空间 (R, Z) 映射到 Canvas 像素坐标
+function toPixel(R, Z, w, h) {
+  const scale = Math.min(w / (3.2 * a), h / (2.6 * kappa * a));
+  const cx = w * 0.48;
+  const cy = h * 0.5;
+  const px = cx + (R - R0) * scale;
+  const py = cy - Z * scale;
+  return { px, py, scale };
+}
+
+// 绘制托卡马克极面磁约束全景
+function renderMain() {
+  const dpr = window.devicePixelRatio || 1;
+  const w = mainCanvas.width / dpr;
+  const h = mainCanvas.height / dpr;
+
+  mainCtx.clearRect(0, 0, w, h);
+
+  // 1. 绘制中央螺线管 (Central Solenoid CS) 与极向场线圈 PF
+  const { px: csX, py: csY, scale } = toPixel(R0 - a * 1.35, 0, w, h);
+  mainCtx.save();
+  mainCtx.fillStyle = 'rgba(30, 41, 59, 0.7)';
+  mainCtx.strokeStyle = 'rgba(56, 189, 248, 0.35)';
+  mainCtx.lineWidth = 1.5;
+  const csW = 28;
+  const csH = 2.4 * kappa * a * scale;
+  mainCtx.fillRect(csX - csW, csY - csH * 0.5, csW, csH);
+  mainCtx.strokeRect(csX - csW, csY - csH * 0.5, csW, csH);
+
+  // 螺线管绕线纹理
+  mainCtx.strokeStyle = 'rgba(251, 191, 36, 0.3)';
+  for (let y = csY - csH * 0.5; y < csY + csH * 0.5; y += 10) {
+    mainCtx.beginPath();
+    mainCtx.moveTo(csX - csW, y);
+    mainCtx.lineTo(csX, y);
+    mainCtx.stroke();
+  }
+  mainCtx.restore();
+
+  // 2. 绘制 D 型嵌套闭合磁面 (Nested Flux Surfaces ψ = const)
+  const fluxLevels = [0.08, 0.2, 0.35, 0.52, 0.7, 0.88, 1.0];
+  const stepsTheta = 70;
+
+  for (let f = 0; f < fluxLevels.length; f++) {
+    const psiVal = fluxLevels[f];
+    const rFlux = Math.sqrt(psiVal) * a;
+    const isLCFS = f === fluxLevels.length - 1;
+
+    mainCtx.save();
+    mainCtx.beginPath();
+    for (let i = 0; i <= stepsTheta; i++) {
+      const th = (i / stepsTheta) * Math.PI * 2;
+      // Miller 几何解析参数方程
+      const R_th = R0 + rFlux * Math.cos(th + Math.asin(delta) * Math.sin(th));
+      const Z_th = kappa * rFlux * Math.sin(th);
+      const { px, py } = toPixel(R_th, Z_th, w, h);
+
+      if (i === 0) mainCtx.moveTo(px, py);
+      else mainCtx.lineTo(px, py);
+    }
+    mainCtx.closePath();
+
+    if (isLCFS) {
+      // 最外闭合磁面 (LCFS)
+      mainCtx.strokeStyle = '#38bdf8';
+      mainCtx.lineWidth = 2.2;
+      mainCtx.shadowColor = '#38bdf8';
+      mainCtx.shadowBlur = 10;
+      mainCtx.stroke();
+    } else {
+      // 内部磁面
+      const alpha = 0.15 + (1.0 - psiVal) * 0.35;
+      mainCtx.strokeStyle = `rgba(56, 189, 248, ${alpha})`;
+      mainCtx.lineWidth = 1.0;
+      mainCtx.stroke();
+    }
+    mainCtx.restore();
+  }
+
+  // 3. 等离子体中心热核发光 (Core Fusion Glow)
+  const { px: coreX, py: coreY } = toPixel(R0 + 0.15 * a, 0, w, h);
+  const coreGrad = mainCtx.createRadialGradient(coreX, coreY, 5, coreX, coreY, 0.7 * a * scale);
+  coreGrad.addColorStop(0, 'rgba(255, 255, 255, 0.85)');
+  coreGrad.addColorStop(0.25, 'rgba(251, 146, 60, 0.6)');
+  coreGrad.addColorStop(0.65, 'rgba(192, 132, 252, 0.25)');
+  coreGrad.addColorStop(1, 'rgba(2, 6, 23, 0.0)');
+
+  mainCtx.save();
+  mainCtx.fillStyle = coreGrad;
+  mainCtx.beginPath();
+  mainCtx.arc(coreX, coreY, 0.7 * a * scale, 0, Math.PI * 2);
+  mainCtx.fill();
+  mainCtx.restore();
+
+  // 4. 绘制粒子轨道与导心回旋轨迹
+  mainCtx.save();
+  // 通行与捕获普通离子
+  for (const p of particles) {
+    if (p.trail.length > 1) {
+      mainCtx.beginPath();
+      for (let i = 0; i < p.trail.length; i++) {
+        const pt = p.trail[i];
+        const { px, py } = toPixel(pt.R, pt.Z, w, h);
+        if (i === 0) mainCtx.moveTo(px, py);
+        else mainCtx.lineTo(px, py);
+      }
+      mainCtx.strokeStyle = p.color;
+      mainCtx.lineWidth = 1.6;
+      mainCtx.stroke();
+    }
+
+    // 粒子当前位置与回旋拉莫尔圆环
+    const { px, py } = toPixel(p.R, p.Z, w, h);
+    mainCtx.fillStyle = '#ffffff';
+    mainCtx.shadowColor = p.color;
+    mainCtx.shadowBlur = 8;
+    mainCtx.beginPath();
+    mainCtx.arc(px, py, 2.5, 0, Math.PI * 2);
+    mainCtx.fill();
+  }
+
+  // 聚变 3.5 MeV 高能 α 粒子 (显著的加粗高亮红白光轨)
+  for (const ap of alphaParticles) {
+    if (ap.trail.length > 1) {
+      mainCtx.beginPath();
+      for (let i = 0; i < ap.trail.length; i++) {
+        const pt = ap.trail[i];
+        const { px, py } = toPixel(pt.R, pt.Z, w, h);
+        if (i === 0) mainCtx.moveTo(px, py);
+        else mainCtx.lineTo(px, py);
+      }
+      mainCtx.strokeStyle = '#f43f5e';
+      mainCtx.lineWidth = 2.4;
+      mainCtx.shadowColor = '#f43f5e';
+      mainCtx.shadowBlur = 12;
+      mainCtx.stroke();
+    }
+
+    const { px, py } = toPixel(ap.R, ap.Z, w, h);
+    mainCtx.fillStyle = '#ffffff';
+    mainCtx.shadowColor = '#f43f5e';
+    mainCtx.shadowBlur = 14;
+    mainCtx.beginPath();
+    mainCtx.arc(px, py, 3.8, 0, Math.PI * 2);
+    mainCtx.fill();
+  }
+  mainCtx.restore();
+}
+
+// 绘制安全因子剖面 q(r)
+function renderQChart() {
+  const dpr = window.devicePixelRatio || 1;
+  const w = qChart.width / dpr;
+  const h = qChart.height / dpr;
+
+  qCtx.clearRect(0, 0, w, h);
+
+  // 背景网格与有理磁面参考线 (q=1, q=2, q=3)
+  qCtx.save();
+  qCtx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
+  qCtx.lineWidth = 1;
+
+  const qMax = 5.0;
+  for (let qVal = 1; qVal <= 4; qVal++) {
+    const y = h - (qVal / qMax) * (h - 20) - 10;
+    qCtx.beginPath();
+    qCtx.moveTo(0, y);
+    qCtx.lineTo(w, y);
+    qCtx.stroke();
+
+    qCtx.fillStyle = 'rgba(148, 163, 184, 0.4)';
+    qCtx.font = '10px monospace';
+    qCtx.fillText(`q=${qVal}`, 5, y - 3);
+  }
+
+  // q 剖面曲线: q(r) = q0 + (q_edge - q0) * (r/a)^2
+  const q0 = 1.05;
+  const q_edge = 3.8 + (8.0 - B0) * 0.4 - (Ip_MA - 15.0) * 0.12;
+
+  qCtx.strokeStyle = '#38bdf8';
+  qCtx.lineWidth = 2.0;
+  qCtx.beginPath();
+
+  for (let i = 0; i <= 60; i++) {
+    const rNorm = i / 60;
+    const qVal = q0 + (q_edge - q0) * Math.pow(rNorm, 2.2);
+    const px = rNorm * (w - 20) + 10;
+    const py = h - (qVal / qMax) * (h - 20) - 10;
+
+    if (i === 0) qCtx.moveTo(px, py);
+    else qCtx.lineTo(px, py);
+  }
+  qCtx.stroke();
+  qCtx.restore();
+}
+
+// 绘制压力与温度 H 模剖面 (含边缘基座 Pedestal)
+function renderProfileChart() {
+  const dpr = window.devicePixelRatio || 1;
+  const w = profileChart.width / dpr;
+  const h = profileChart.height / dpr;
+
+  pCtx.clearRect(0, 0, w, h);
+
+  pCtx.save();
+  pCtx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
+  pCtx.lineWidth = 1;
+  for (let y = 0; y < h; y += h / 3) {
+    pCtx.beginPath();
+    pCtx.moveTo(0, y);
+    pCtx.lineTo(w, y);
+    pCtx.stroke();
+  }
+
+  // H-Mode 压力基座曲线 (tanh 陡峭台阶)
+  pCtx.strokeStyle = '#fb923c';
+  pCtx.lineWidth = 2.0;
+  pCtx.beginPath();
+
+  for (let i = 0; i <= 80; i++) {
+    const rNorm = i / 80; // 0 是中心, 1 是边缘
+    // 中心抛物形 + 边缘基座跃变
+    const pCore = Math.pow(1.0 - Math.min(1.0, rNorm * rNorm), 1.6);
+    const pPedestal = 0.5 * (1.0 - Math.tanh((rNorm - 0.88) / 0.05)) * 0.35;
+    const pTotal = pCore * 0.65 + pPedestal;
+
+    const px = rNorm * (w - 20) + 10;
+    const py = h - pTotal * (h - 25) - 10;
+
+    if (i === 0) pCtx.moveTo(px, py);
+    else pCtx.lineTo(px, py);
+  }
+  pCtx.stroke();
+
+  // 填充渐变辉光
+  pCtx.fillStyle = 'rgba(251, 146, 60, 0.12)';
+  pCtx.lineTo(w - 10, h - 10);
+  pCtx.lineTo(10, h - 10);
+  pCtx.closePath();
+  pCtx.fill();
+  pCtx.restore();
+}
+
+// 主积分循环
+function animate() {
+  const dt = 0.035;
+  for (let s = 0; s < 3; s++) {
+    for (const p of particles) stepGuidingCenter(p, dt);
+    for (const ap of alphaParticles) stepGuidingCenter(ap, dt);
+  }
+
+  renderMain();
+  renderQChart();
+  renderProfileChart();
+
+  requestAnimationFrame(animate);
+}
+
+// 事件与控件监听
+sliderB0.addEventListener('input', (e) => {
+  B0 = parseFloat(e.target.value);
+  valB0.textContent = `${B0.toFixed(1)} T`;
+  hudB0.textContent = `${B0.toFixed(2)} T`;
+  updateAudioPitch();
+});
+
+sliderIp.addEventListener('input', (e) => {
+  Ip_MA = parseFloat(e.target.value);
+  valIp.textContent = `${Ip_MA.toFixed(1)} MA`;
+  hudIp.textContent = `${Ip_MA.toFixed(1)} MA`;
+});
+
+sliderKappa.addEventListener('input', (e) => {
+  kappa = parseFloat(e.target.value);
+  valKappa.textContent = kappa.toFixed(2);
+});
+
+sliderDelta.addEventListener('input', (e) => {
+  delta = parseFloat(e.target.value);
+  valDelta.textContent = delta.toFixed(2);
+});
+
+sliderPitch.addEventListener('input', (e) => {
+  testPitch = parseFloat(e.target.value);
+  const isTrapped = testPitch < 0.48;
+  valPitch.textContent = `${testPitch.toFixed(2)} (${isTrapped ? '香蕉捕获态' : '通行态'})`;
+  for (const p of particles) {
+    p.v_par = p.speed * testPitch;
+    const B_curr = getMagneticField(p.R, p.Z);
+    p.mu = (p.speed * p.speed * (1.0 - testPitch * testPitch)) / B_curr.B_mag;
+    p.color = isTrapped ? '#fb923c' : '#38bdf8';
+  }
+});
+
+btnInjectAlpha.addEventListener('click', () => {
+  for (let i = 0; i < 3; i++) {
+    const ap = createParticle(true, R0 + (Math.random() - 0.5) * 0.4 * a, (Math.random() - 0.5) * 0.3 * a);
+    const B_info = getMagneticField(ap.R, ap.Z);
+    ap.mu = (ap.v_perp * ap.v_perp) / B_info.B_mag;
+    alphaParticles.push(ap);
+  }
+});
+
+btnClearTrails.addEventListener('click', () => {
+  for (const p of particles) p.trail.length = 0;
+  for (const ap of alphaParticles) ap.trail.length = 0;
+});
+
+btnAudio.addEventListener('click', () => {
+  initAudio();
+  audioEnabled = !audioEnabled;
+  btnAudio.classList.toggle('active', audioEnabled);
+  btnAudio.innerHTML = `
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+      <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+    </svg>
+    线圈磁鸣: ${audioEnabled ? '开' : '关'}
+  `;
+});
+
+modeBtns.forEach((btn) => {
+  btn.addEventListener('click', () => {
+    modeBtns.forEach((b) => b.classList.remove('selected'));
+    btn.classList.add('selected');
+
+    if (btn.id === 'btnModeITER') {
+      B0 = 5.3; Ip_MA = 15.0; kappa = 1.75; delta = 0.35;
+    } else if (btn.id === 'btnModeSPARC') {
+      B0 = 7.8; Ip_MA = 8.7; kappa = 1.95; delta = 0.42;
+    } else if (btn.id === 'btnModeEAST') {
+      B0 = 3.5; Ip_MA = 6.0; kappa = 1.65; delta = 0.45;
+    } else if (btn.id === 'btnModeNegative') {
+      B0 = 4.8; Ip_MA = 12.0; kappa = 1.6; delta = -0.32;
+    }
+
+    sliderB0.value = B0; valB0.textContent = `${B0.toFixed(1)} T`; hudB0.textContent = `${B0.toFixed(2)} T`;
+    sliderIp.value = Ip_MA; valIp.textContent = `${Ip_MA.toFixed(1)} MA`; hudIp.textContent = `${Ip_MA.toFixed(1)} MA`;
+    sliderKappa.value = kappa; valKappa.textContent = kappa.toFixed(2);
+    sliderDelta.value = delta; valDelta.textContent = delta.toFixed(2);
+    resetParticles();
+    updateAudioPitch();
+  });
+});
+
+// 初始化启动
+window.addEventListener('DOMContentLoaded', () => {
+  resizeCanvas();
+  resetParticles();
+  animate();
+});
+</script>
+</body>
+</html>

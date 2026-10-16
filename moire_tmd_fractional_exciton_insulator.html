@@ -1,0 +1,1075 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>莫尔TMD分数激子绝缘体与手征边缘超流全息模拟器</title>
+  <style>
+    :root {
+      --bg: #02050f;
+      --panel-bg: rgba(6, 13, 31, 0.78);
+      --panel-border: rgba(0, 240, 255, 0.22);
+      --accent-cyan: #00f0ff;
+      --accent-magenta: #ff0077;
+      --accent-gold: #ffb700;
+      --accent-purple: #a855f7;
+      --accent-emerald: #10b981;
+      --text-main: #e2e8f0;
+      --text-dim: #94a3b8;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+    body {
+      background: var(--bg);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Noto Sans", sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      padding: 14px 24px;
+      background: linear-gradient(180deg, rgba(10, 24, 52, 0.95) 0%, rgba(2, 5, 15, 0.8) 100%);
+      border-bottom: 1px solid var(--panel-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.6);
+      position: relative;
+      z-index: 10;
+    }
+    .title-group h1 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      background: linear-gradient(90deg, var(--accent-cyan), var(--accent-purple), var(--accent-magenta));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .badge {
+      font-size: 0.7rem;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: rgba(168, 85, 247, 0.15);
+      border: 1px solid var(--accent-purple);
+      color: var(--accent-purple);
+      font-family: monospace;
+      font-weight: bold;
+    }
+    .hud-metrics {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+    }
+    .metric-card {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 6px;
+      padding: 4px 12px;
+      text-align: center;
+      min-width: 95px;
+    }
+    .metric-val {
+      font-size: 1.05rem;
+      font-family: "Courier New", Courier, monospace;
+      font-weight: 700;
+      color: var(--accent-cyan);
+    }
+    .metric-card:nth-child(2) .metric-val { color: var(--accent-purple); }
+    .metric-card:nth-child(3) .metric-val { color: var(--accent-gold); }
+    .metric-card:nth-child(4) .metric-val { color: var(--accent-emerald); }
+    .metric-lbl {
+      font-size: 0.65rem;
+      color: var(--text-dim);
+      text-transform: uppercase;
+    }
+
+    .main-layout {
+      display: grid;
+      grid-template-columns: 1fr 380px;
+      gap: 14px;
+      padding: 14px 24px;
+      flex: 1;
+    }
+    @media (max-width: 1200px) {
+      .main-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+    .viewport-column {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .panel {
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+      position: relative;
+      backdrop-filter: blur(8px);
+    }
+    .panel-header {
+      padding: 10px 16px;
+      background: rgba(255,255,255,0.02);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+    .panel-header .tag {
+      font-size: 0.68rem;
+      color: var(--text-dim);
+      font-family: monospace;
+    }
+    .canvas-container {
+      position: relative;
+      width: 100%;
+      height: 420px;
+      background: radial-gradient(circle at 50% 50%, #0a1738 0%, #02050f 100%);
+    }
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .scopes-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+    @media (max-width: 900px) {
+      .scopes-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+    .scope-box {
+      height: 220px;
+      background: #010309;
+      position: relative;
+    }
+
+    /* Controls Sidebar */
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .control-group {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .group-title {
+      font-size: 0.8rem;
+      font-weight: bold;
+      color: var(--accent-cyan);
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      border-left: 3px solid var(--accent-cyan);
+      padding-left: 8px;
+      margin-bottom: 2px;
+    }
+    .preset-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .btn {
+      background: rgba(0, 240, 255, 0.08);
+      border: 1px solid rgba(0, 240, 255, 0.25);
+      color: var(--text-main);
+      padding: 8px 10px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-align: center;
+    }
+    .btn:hover {
+      background: rgba(0, 240, 255, 0.2);
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 12px rgba(0, 240, 255, 0.3);
+      color: #fff;
+    }
+    .btn.active {
+      background: linear-gradient(135deg, rgba(168, 85, 247, 0.3) 0%, rgba(0, 240, 255, 0.3) 100%);
+      border-color: var(--accent-purple);
+      color: #fff;
+      font-weight: 600;
+      box-shadow: 0 0 14px rgba(168, 85, 247, 0.4);
+    }
+    .slider-row {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .slider-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.72rem;
+    }
+    .slider-name {
+      color: var(--text-dim);
+    }
+    .slider-val {
+      font-family: monospace;
+      color: var(--accent-cyan);
+      font-weight: bold;
+    }
+    input[type=range] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 4px;
+      border-radius: 2px;
+      background: rgba(255, 255, 255, 0.1);
+      outline: none;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--accent-purple);
+      cursor: pointer;
+      box-shadow: 0 0 8px var(--accent-purple);
+      transition: transform 0.1s;
+    }
+    input[type=range]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    .audio-btn {
+      background: rgba(168, 85, 247, 0.12);
+      border: 1px solid var(--accent-purple);
+      color: var(--accent-purple);
+      padding: 10px;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: bold;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.2s;
+    }
+    .audio-btn:hover {
+      background: rgba(168, 85, 247, 0.25);
+      box-shadow: 0 0 16px rgba(168, 85, 247, 0.4);
+    }
+    .audio-btn.active {
+      background: var(--accent-purple);
+      color: white;
+      box-shadow: 0 0 20px rgba(168, 85, 247, 0.6);
+    }
+
+    .theory-box {
+      font-size: 0.72rem;
+      line-height: 1.5;
+      color: #94a3b8;
+      background: rgba(0,0,0,0.3);
+      padding: 12px;
+      border-radius: 6px;
+      border: 1px dashed rgba(255,255,255,0.1);
+    }
+    .theory-box b {
+      color: var(--accent-purple);
+    }
+    .math-eq {
+      font-family: monospace;
+      color: var(--accent-cyan);
+      background: rgba(0, 240, 255, 0.08);
+      padding: 2px 5px;
+      border-radius: 4px;
+      display: inline-block;
+      margin: 2px 0;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="title-group">
+      <h1>
+        莫尔TMD分数激子绝缘体与手征边缘超流全息模拟器
+        <span class="badge">#237 MOIRE-TMD-FEI</span>
+      </h1>
+    </div>
+    <div class="hud-metrics">
+      <div class="metric-card">
+        <div class="metric-val" id="metric-filling">ν = 1/3</div>
+        <div class="metric-lbl">激子填充因子 ν_ex</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-val" id="metric-gap">24.5 meV</div>
+        <div class="metric-lbl">不可压缩能隙 Δ_FEI</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-val" id="metric-pol">84.2 %</div>
+        <div class="metric-lbl">谷圆偏极化 P_circ</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-val" id="metric-flow">3.40 μA</div>
+        <div class="metric-lbl">手征激子边缘流 J_edge</div>
+      </div>
+    </div>
+  </header>
+
+  <div class="main-layout">
+    <!-- Viewport Column -->
+    <div class="viewport-column">
+      <div class="panel">
+        <div class="panel-header">
+          <span>莫尔双层 TMD 层间偶极激子三角超晶格与手征反向边缘超流 (Interlayer Exciton Lattice & Edge Flow)</span>
+          <span class="tag">WSe₂/MoTe₂ 异质结 | e⁻(上层) + h⁺(下层) 偶极自组织</span>
+        </div>
+        <div class="canvas-container">
+          <canvas id="mainCanvas"></canvas>
+        </div>
+      </div>
+
+      <div class="scopes-grid">
+        <div class="panel">
+          <div class="panel-header">
+            <span>激子不可压缩态密度与化学势台阶 (Exciton DOS & Chemical Potential Steps)</span>
+            <span class="tag">dμ/dn_ex | ν=1/3, 2/3, 1 硬能隙</span>
+          </div>
+          <div class="scope-box">
+            <canvas id="gapCanvas"></canvas>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <span>光致发光二向色性与谷激子输运 (Circular Photoluminescence & Valley Transport)</span>
+            <span class="tag">σ⁺ 与 σ⁻ 发光峰 | 谷自旋锁相</span>
+          </div>
+          <div class="scope-box">
+            <canvas id="plCanvas"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Controls Sidebar -->
+    <div class="sidebar">
+      <div class="panel">
+        <div class="panel-header">
+          <span>量子相与填充工况预设 (Regimes)</span>
+          <span class="tag">Presets</span>
+        </div>
+        <div class="control-group">
+          <div class="preset-grid">
+            <button class="btn active" id="btn-p1" onclick="applyPreset(1)">ν=1/3 分数激子绝缘体</button>
+            <button class="btn" id="btn-p2" onclick="applyPreset(2)">ν=1 整数激子莫特相</button>
+            <button class="btn" id="btn-p3" onclick="applyPreset(3)">强电场手征边缘流</button>
+            <button class="btn" id="btn-p4" onclick="applyPreset(4)">高温量子融化流体</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <span>莫尔势阱与外场调控参数</span>
+          <span class="tag">Parameters</span>
+        </div>
+        <div class="control-group">
+          <div class="slider-row">
+            <div class="slider-labels">
+              <span class="slider-name">激子填充因子 ν_ex</span>
+              <span class="slider-val" id="val-filling">0.33 (1/3)</span>
+            </div>
+            <input type="range" id="slider-filling" min="0.10" max="1.30" step="0.01" value="0.33">
+          </div>
+
+          <div class="slider-row">
+            <div class="slider-labels">
+              <span class="slider-name">垂直电位移场 D_z</span>
+              <span class="slider-val" id="val-displacement">0.65 V/nm</span>
+            </div>
+            <input type="range" id="slider-displacement" min="-1.5" max="1.5" step="0.05" value="0.65">
+          </div>
+
+          <div class="slider-row">
+            <div class="slider-labels">
+              <span class="slider-name">莫尔转角 θ</span>
+              <span class="slider-val" id="val-theta">2.10°</span>
+            </div>
+            <input type="range" id="slider-theta" min="1.0" max="4.5" step="0.05" value="2.10">
+          </div>
+
+          <div class="slider-row">
+            <div class="slider-labels">
+              <span class="slider-name">层间偶极排斥能 U_dipole</span>
+              <span class="slider-val" id="val-dipole">35.0 meV</span>
+            </div>
+            <input type="range" id="slider-dipole" min="10.0" max="60.0" step="1.0" value="35.0">
+          </div>
+
+          <div class="slider-row">
+            <div class="slider-labels">
+              <span class="slider-name">系统温度 T</span>
+              <span class="slider-val" id="val-temp">4.2 K</span>
+            </div>
+            <input type="range" id="slider-temp" min="0.5" max="60.0" step="0.5" value="4.2">
+          </div>
+
+          <button class="audio-btn" id="audioToggle" onclick="toggleAudio()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+            </svg>
+            启动激子谷光致相干荧光声效合成
+          </button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <span>物理机理与强关联能谱解析</span>
+          <span class="tag">Theory</span>
+        </div>
+        <div class="control-group">
+          <div class="theory-box">
+            <b>莫尔 TMD 分数激子绝缘体 (FEI)：</b>
+            在扭转 <span class="math-eq">\text{WSe}_2/\text{MoTe}_2</span> 双层异质结中，顶层电子与底层空穴通过库仑吸引形成长寿命的垂直层间激子。
+            <br><br>
+            当填充因子处于分数 <span class="math-eq">\nu_{\text{ex}} = 1/3, 2/3</span> 时，激子间的强偶极-偶极长程排斥与莫尔超晶格势能发生量子阻挫相干，自发锁定为完全能隙化的<b>分数激子维格纳晶体</b>，压缩率 <span class="math-eq">\kappa = 0</span>；
+            在样品边界，破缺时间反演的谷霍尔机制激发出<b>反向手征激子边缘超流</b>，并呈现超高圆偏振发光不对称性。
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- 物理状态与莫尔激子内核 ---
+    const STATE = {
+      // 参数
+      nuFilling: 0.33,   // 填充因子
+      dispField: 0.65,   // 电位移场 (V/nm)
+      thetaDeg: 2.10,    // 莫尔转角
+      uDipole: 35.0,     // 偶极相互作用 (meV)
+      tempK: 4.2,        // 温度 (K)
+      preset: 1,
+
+      // 实时测量指标
+      fillingLabel: "ν = 1/3",
+      gapEnergy: 24.5,   // meV
+      polarization: 84.2,// %
+      edgeCurrent: 3.40, // μA
+      time: 0,
+
+      // 莫尔超晶格格点与激子粒子
+      moireSites: [],
+      edgeParticles: []
+    };
+
+    // 初始化莫尔三角晶格
+    function initMoireLattice() {
+      STATE.moireSites = [];
+      const cols = 12;
+      const rows = 8;
+      const spacing = 46;
+
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const offsetX = (r % 2) * (spacing * 0.5);
+          const x = c * spacing + offsetX + 45;
+          const y = r * (spacing * 0.866) + 50;
+
+          // 根据晶格几何标注堆叠类型 (AA, AB, BA)
+          const siteType = (c + r * 2) % 3; // 0: AA 势阱中心
+          STATE.moireSites.push({
+            x, y,
+            type: siteType,
+            occupied: false,
+            phase: Math.random() * Math.PI * 2
+          });
+        }
+      }
+
+      // 初始化手征边缘流粒子
+      STATE.edgeParticles = [];
+      for (let i = 0; i < 60; i++) {
+        STATE.edgeParticles.push({
+          pos: Math.random(),
+          speed: 0.18 + Math.random() * 0.08,
+          layer: Math.random() > 0.5 ? 'electron' : 'hole'
+        });
+      }
+    }
+    initMoireLattice();
+
+    // 预设模式切换
+    function applyPreset(p) {
+      STATE.preset = p;
+      document.querySelectorAll('.preset-grid .btn').forEach((btn, idx) => {
+        btn.classList.toggle('active', (idx + 1) === p);
+      });
+
+      if (p === 1) {
+        // ν=1/3 分数相
+        STATE.nuFilling = 0.33;
+        STATE.dispField = 0.65;
+        STATE.thetaDeg = 2.10;
+        STATE.uDipole = 35.0;
+        STATE.tempK = 4.2;
+      } else if (p === 2) {
+        // ν=1 整数相
+        STATE.nuFilling = 1.00;
+        STATE.dispField = 0.20;
+        STATE.thetaDeg = 2.10;
+        STATE.uDipole = 28.0;
+        STATE.tempK = 6.5;
+      } else if (p === 3) {
+        // 强电场手征流
+        STATE.nuFilling = 0.67;
+        STATE.dispField = 1.25;
+        STATE.thetaDeg = 1.85;
+        STATE.uDipole = 42.0;
+        STATE.tempK = 2.0;
+      } else if (p === 4) {
+        // 高温融化
+        STATE.nuFilling = 0.45;
+        STATE.dispField = 0.40;
+        STATE.thetaDeg = 3.20;
+        STATE.uDipole = 15.0;
+        STATE.tempK = 48.0;
+      }
+
+      syncInputs();
+      updateAudioTone();
+    }
+
+    function syncInputs() {
+      document.getElementById('slider-filling').value = STATE.nuFilling;
+      document.getElementById('val-filling').textContent = STATE.nuFilling.toFixed(2);
+
+      document.getElementById('slider-displacement').value = STATE.dispField;
+      document.getElementById('val-displacement').textContent = STATE.dispField.toFixed(2) + ' V/nm';
+
+      document.getElementById('slider-theta').value = STATE.thetaDeg;
+      document.getElementById('val-theta').textContent = STATE.thetaDeg.toFixed(2) + '°';
+
+      document.getElementById('slider-dipole').value = STATE.uDipole;
+      document.getElementById('val-dipole').textContent = STATE.uDipole.toFixed(1) + ' meV';
+
+      document.getElementById('slider-temp').value = STATE.tempK;
+      document.getElementById('val-temp').textContent = STATE.tempK.toFixed(1) + ' K';
+    }
+
+    // 交互滑块监听
+    document.getElementById('slider-filling').addEventListener('input', e => {
+      STATE.nuFilling = parseFloat(e.target.value);
+      document.getElementById('val-filling').textContent = STATE.nuFilling.toFixed(2);
+      updateAudioTone();
+    });
+    document.getElementById('slider-displacement').addEventListener('input', e => {
+      STATE.dispField = parseFloat(e.target.value);
+      document.getElementById('val-displacement').textContent = STATE.dispField.toFixed(2) + ' V/nm';
+      updateAudioTone();
+    });
+    document.getElementById('slider-theta').addEventListener('input', e => {
+      STATE.thetaDeg = parseFloat(e.target.value);
+      document.getElementById('val-theta').textContent = STATE.thetaDeg.toFixed(2) + '°';
+    });
+    document.getElementById('slider-dipole').addEventListener('input', e => {
+      STATE.uDipole = parseFloat(e.target.value);
+      document.getElementById('val-dipole').textContent = STATE.uDipole.toFixed(1) + ' meV';
+    });
+    document.getElementById('slider-temp').addEventListener('input', e => {
+      STATE.tempK = parseFloat(e.target.value);
+      document.getElementById('val-temp').textContent = STATE.tempK.toFixed(1) + ' K';
+    });
+
+    // --- 微观微积分与物理演化步进 ---
+    function stepPhysics(dt) {
+      STATE.time += dt;
+
+      // 判断当前是否处于不可压缩分数平台 (1/3, 2/3, 1.0)
+      const isThird = Math.abs(STATE.nuFilling - 0.33) < 0.05;
+      const isTwoThird = Math.abs(STATE.nuFilling - 0.67) < 0.05;
+      const isOne = Math.abs(STATE.nuFilling - 1.00) < 0.06;
+
+      let gap = 0;
+      if (isThird) {
+        STATE.fillingLabel = "ν = 1/3 (分数晶体)";
+        gap = STATE.uDipole * 0.72 * (1.0 - Math.min(1.0, STATE.tempK / 35.0));
+      } else if (isTwoThird) {
+        STATE.fillingLabel = "ν = 2/3 (分数相)";
+        gap = STATE.uDipole * 0.65 * (1.0 - Math.min(1.0, STATE.tempK / 30.0));
+      } else if (isOne) {
+        STATE.fillingLabel = "ν = 1 (莫特绝缘)";
+        gap = STATE.uDipole * 1.15 * (1.0 - Math.min(1.0, STATE.tempK / 50.0));
+      } else {
+        STATE.fillingLabel = `ν = ${STATE.nuFilling.toFixed(2)} (压缩液体)`;
+        gap = Math.max(0.2, 3.5 * Math.exp(-STATE.tempK / 15.0));
+      }
+      STATE.gapEnergy = Math.max(0.1, gap).toFixed(1);
+
+      // 谷圆偏极化率与手征边缘超流
+      const thermalMelt = Math.exp(-STATE.tempK / 25.0);
+      const polBase = (0.75 + Math.abs(STATE.dispField) * 0.18) * thermalMelt;
+      STATE.polarization = Math.min(96.0, polBase * 100).toFixed(1);
+
+      const edgeSpeedMod = Math.abs(STATE.dispField) * 1.8 + 0.5;
+      STATE.edgeCurrent = (2.2 * edgeSpeedMod * (gap / 20.0) * thermalMelt).toFixed(2);
+
+      // 格点占据分布更新
+      STATE.moireSites.forEach((site, idx) => {
+        if (isThird) {
+          // 仅占据 AA 势阱 (1/3 分数有序点阵)
+          site.occupied = site.type === 0;
+        } else if (isTwoThird) {
+          site.occupied = site.type !== 0;
+        } else if (isOne) {
+          site.occupied = true;
+        } else {
+          // 液体杂乱随机占据
+          site.occupied = (idx % 10) < Math.floor(STATE.nuFilling * 10);
+        }
+      });
+
+      // 边缘流粒子步进
+      const dir = STATE.dispField >= 0 ? 1 : -1;
+      STATE.edgeParticles.forEach(p => {
+        p.pos = (p.pos + p.speed * dir * dt * 0.35) % 1.0;
+        if (p.pos < 0) p.pos += 1.0;
+      });
+
+      // 同步 HUD
+      document.getElementById('metric-filling').textContent = STATE.fillingLabel;
+      document.getElementById('metric-gap').textContent = `${STATE.gapEnergy} meV`;
+      document.getElementById('metric-pol').textContent = `${STATE.polarization} %`;
+      document.getElementById('metric-flow').textContent = `${STATE.edgeCurrent} μA`;
+    }
+
+    // --- 画布渲染系统 ---
+    const mainCanvas = document.getElementById('mainCanvas');
+    const mCtx = mainCanvas.getContext('2d');
+    const gapCanvas = document.getElementById('gapCanvas');
+    const gCtx = gapCanvas.getContext('2d');
+    const plCanvas = document.getElementById('plCanvas');
+    const pCtx = plCanvas.getContext('2d');
+
+    function resizeCanvases() {
+      const dpr = window.devicePixelRatio || 1;
+
+      const rectM = mainCanvas.parentElement.getBoundingClientRect();
+      mainCanvas.width = rectM.width * dpr;
+      mainCanvas.height = rectM.height * dpr;
+      mCtx.resetTransform();
+      mCtx.scale(dpr, dpr);
+
+      const rectG = gapCanvas.parentElement.getBoundingClientRect();
+      gapCanvas.width = rectG.width * dpr;
+      gapCanvas.height = rectG.height * dpr;
+      gCtx.resetTransform();
+      gCtx.scale(dpr, dpr);
+
+      const rectP = plCanvas.parentElement.getBoundingClientRect();
+      plCanvas.width = rectP.width * dpr;
+      plCanvas.height = rectP.height * dpr;
+      pCtx.resetTransform();
+      pCtx.scale(dpr, dpr);
+    }
+    window.addEventListener('resize', resizeCanvases);
+    setTimeout(resizeCanvases, 50);
+
+    // 1. 主画布：莫尔双层超晶格与层间激子点阵
+    function drawMain() {
+      const w = mainCanvas.width / (window.devicePixelRatio || 1);
+      const h = mainCanvas.height / (window.devicePixelRatio || 1);
+      const cx = w * 0.5;
+      const cy = h * 0.5;
+
+      mCtx.clearRect(0, 0, w, h);
+
+      // 样品六角外围轮廓
+      const rSample = Math.min(w, h) * 0.42;
+      mCtx.save();
+      mCtx.beginPath();
+      for (let i = 0; i < 6; i++) {
+        const angle = (i / 6) * Math.PI * 2;
+        const px = cx + rSample * Math.cos(angle);
+        const py = cy + rSample * Math.sin(angle);
+        if (i === 0) mCtx.moveTo(px, py);
+        else mCtx.lineTo(px, py);
+      }
+      mCtx.closePath();
+      mCtx.clip();
+
+      // 内部莫尔超晶格势能底色
+      mCtx.fillStyle = 'rgba(6, 18, 42, 0.95)';
+      mCtx.fill();
+
+      // 莫尔三角超晶格微势阱背景
+      STATE.moireSites.forEach(site => {
+        mCtx.fillStyle = site.type === 0 ? 'rgba(0, 240, 255, 0.08)' : 'rgba(168, 85, 247, 0.05)';
+        mCtx.beginPath();
+        mCtx.arc(site.x, site.y, 16, 0, Math.PI * 2);
+        mCtx.fill();
+
+        // 晶格势阱边框
+        mCtx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
+        mCtx.lineWidth = 1;
+        mCtx.stroke();
+      });
+
+      // 渲染层间激子 (顶层电子 e- 与 底层空穴 h+ 的偶极对)
+      STATE.moireSites.forEach(site => {
+        if (!site.occupied) return;
+
+        // 激子垂直偶极子投影微位移
+        const dipOffset = 5;
+
+        // 顶层电子 (青色高亮负电核心)
+        mCtx.fillStyle = '#00f0ff';
+        mCtx.shadowColor = '#00f0ff';
+        mCtx.shadowBlur = 8;
+        mCtx.beginPath();
+        mCtx.arc(site.x, site.y - dipOffset, 3.8, 0, Math.PI * 2);
+        mCtx.fill();
+
+        // 底层空穴 (洋红色高亮正电核心)
+        mCtx.fillStyle = '#ff0077';
+        mCtx.shadowColor = '#ff0077';
+        mCtx.shadowBlur = 8;
+        mCtx.beginPath();
+        mCtx.arc(site.x, site.y + dipOffset, 3.8, 0, Math.PI * 2);
+        mCtx.fill();
+
+        // 层间偶极吸引微连线
+        mCtx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+        mCtx.lineWidth = 1.2;
+        mCtx.beginPath();
+        mCtx.moveTo(site.x, site.y - dipOffset);
+        mCtx.lineTo(site.x, site.y + dipOffset);
+        mCtx.stroke();
+        mCtx.shadowBlur = 0;
+      });
+
+      mCtx.restore();
+
+      // 绘制六角样品样品边界
+      mCtx.strokeStyle = 'rgba(0, 240, 255, 0.4)';
+      mCtx.lineWidth = 2;
+      mCtx.beginPath();
+      for (let i = 0; i < 6; i++) {
+        const angle = (i / 6) * Math.PI * 2;
+        const px = cx + rSample * Math.cos(angle);
+        const py = cy + rSample * Math.sin(angle);
+        if (i === 0) mCtx.moveTo(px, py);
+        else mCtx.lineTo(px, py);
+      }
+      mCtx.closePath();
+      mCtx.stroke();
+
+      // 绘制样品边缘手征激子流线与粒子
+      const getHexagonPoint = (s) => {
+        const totalSides = 6;
+        const seg = s * totalSides;
+        const i = Math.floor(seg);
+        const f = seg - i;
+        const a1 = (i / totalSides) * Math.PI * 2;
+        const a2 = ((i + 1) / totalSides) * Math.PI * 2;
+        const x1 = cx + rSample * Math.cos(a1);
+        const y1 = cy + rSample * Math.sin(a1);
+        const x2 = cx + rSample * Math.cos(a2);
+        const y2 = cy + rSample * Math.sin(a2);
+        return { x: x1 + (x2 - x1) * f, y: y1 + (y2 - y1) * f };
+      };
+
+      // 边缘流发光光环
+      mCtx.strokeStyle = 'rgba(168, 85, 247, 0.85)';
+      mCtx.lineWidth = 3.5;
+      mCtx.shadowColor = 'rgba(168, 85, 247, 0.9)';
+      mCtx.shadowBlur = 12;
+      mCtx.beginPath();
+      for (let i = 0; i < 6; i++) {
+        const angle = (i / 6) * Math.PI * 2;
+        const px = cx + rSample * Math.cos(angle);
+        const py = cy + rSample * Math.sin(angle);
+        if (i === 0) mCtx.moveTo(px, py);
+        else mCtx.lineTo(px, py);
+      }
+      mCtx.closePath();
+      mCtx.stroke();
+      mCtx.shadowBlur = 0;
+
+      // 渲染手征边缘流粒子
+      STATE.edgeParticles.forEach(p => {
+        const pt = getHexagonPoint(p.pos);
+        mCtx.fillStyle = p.layer === 'electron' ? '#00f0ff' : '#ff0077';
+        mCtx.shadowColor = mCtx.fillStyle;
+        mCtx.shadowBlur = 6;
+        mCtx.beginPath();
+        mCtx.arc(pt.x, pt.y, 3, 0, Math.PI * 2);
+        mCtx.fill();
+        mCtx.shadowBlur = 0;
+      });
+
+      // HUD 标注
+      mCtx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+      mCtx.font = '11px monospace';
+      mCtx.fillText(`莫尔 TMD 异质结 (转角 θ = ${STATE.thetaDeg.toFixed(2)}°) | ${STATE.fillingLabel}`, 25, 22);
+      mCtx.fillStyle = 'rgba(168, 85, 247, 0.9)';
+      mCtx.fillText(`手征激子反向边缘超流 J_edge = ${STATE.edgeCurrent} μA (电子/空穴双向无耗散巡航)`, 25, 40);
+      mCtx.fillStyle = 'rgba(255, 183, 0, 0.9)';
+      mCtx.fillText(`垂直偶极矩 p_z || D_z (${STATE.dispField.toFixed(2)} V/nm) | 能隙: ${STATE.gapEnergy} meV`, 25, 58);
+    }
+
+    // 2. 示波器 1：不可压缩态密度与化学势台阶
+    function drawGapScope() {
+      const w = gapCanvas.width / (window.devicePixelRatio || 1);
+      const h = gapCanvas.height / (window.devicePixelRatio || 1);
+
+      gCtx.clearRect(0, 0, w, h);
+
+      // 标尺网格
+      gCtx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+      gCtx.lineWidth = 1;
+      for (let y = 0; y < h; y += 35) {
+        gCtx.beginPath();
+        gCtx.moveTo(0, y);
+        gCtx.lineTo(w, y);
+        gCtx.stroke();
+      }
+      for (let x = 0; x < w; x += 45) {
+        gCtx.beginPath();
+        gCtx.moveTo(x, 0);
+        gCtx.lineTo(x, h);
+        gCtx.stroke();
+      }
+
+      // 绘制不可压缩度峰曲线 dμ/dn (在 ν=1/3, 2/3, 1 出现硬能隙尖峰)
+      const N = 100;
+      gCtx.beginPath();
+      for (let i = 0; i < N; i++) {
+        const nu = (i / (N - 1)) * 1.3;
+        // 在 0.333, 0.667, 1.0 处添加洛伦兹能隙峰
+        const p1 = 28.0 / (1.0 + ((nu - 0.333) / 0.025) ** 2);
+        const p2 = 22.0 / (1.0 + ((nu - 0.667) / 0.025) ** 2);
+        const p3 = 38.0 / (1.0 + ((nu - 1.000) / 0.035) ** 2);
+        const background = 3.0 + nu * 2.0;
+        const total = p1 + p2 + p3 + background;
+
+        const px = (i / (N - 1)) * (w - 50) + 25;
+        const py = h - 35 - (total / 45.0) * (h - 60);
+
+        if (i === 0) gCtx.moveTo(px, py);
+        else gCtx.lineTo(px, py);
+      }
+      gCtx.strokeStyle = 'rgba(0, 240, 255, 0.85)';
+      gCtx.lineWidth = 2.2;
+      gCtx.stroke();
+
+      // 当前填充因子位置标记线
+      const curX = 25 + (STATE.nuFilling / 1.3) * (w - 50);
+      gCtx.strokeStyle = 'rgba(255, 183, 0, 0.7)';
+      gCtx.setLineDash([3, 3]);
+      gCtx.beginPath();
+      gCtx.moveTo(curX, 25);
+      gCtx.lineTo(curX, h - 35);
+      gCtx.stroke();
+      gCtx.setLineDash([]);
+
+      gCtx.fillStyle = '#ffb700';
+      gCtx.beginPath();
+      gCtx.arc(curX, h - 35, 4, 0, Math.PI * 2);
+      gCtx.fill();
+
+      // 文字
+      gCtx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+      gCtx.font = '10px monospace';
+      gCtx.fillText('ν=0', 25, h - 14);
+      gCtx.fillText('ν=1/3', 25 + (0.333 / 1.3) * (w - 50) - 14, h - 14);
+      gCtx.fillText('ν=2/3', 25 + (0.667 / 1.3) * (w - 50) - 14, h - 14);
+      gCtx.fillText('ν=1', 25 + (1.0 / 1.3) * (w - 50) - 8, h - 14);
+
+      gCtx.fillStyle = 'rgba(0, 240, 255, 0.9)';
+      gCtx.fillText(`不可压缩度 dμ/dn [能隙: ${STATE.gapEnergy} meV]`, 25, 20);
+    }
+
+    // 3. 示波器 2：光致发光二向色性与谷激子输运
+    function drawPlScope() {
+      const w = plCanvas.width / (window.devicePixelRatio || 1);
+      const h = plCanvas.height / (window.devicePixelRatio || 1);
+
+      pCtx.clearRect(0, 0, w, h);
+
+      // 标尺网格
+      pCtx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+      pCtx.lineWidth = 1;
+      for (let y = 0; y < h; y += 35) {
+        pCtx.beginPath();
+        pCtx.moveTo(0, y);
+        pCtx.lineTo(w, y);
+        pCtx.stroke();
+      }
+      for (let x = 0; x < w; x += 45) {
+        pCtx.beginPath();
+        pCtx.moveTo(x, 0);
+        pCtx.lineTo(x, h);
+        pCtx.stroke();
+      }
+
+      // 绘制 σ+ (右旋) 与 σ- (左旋) 圆偏振发光峰
+      const N = 80;
+      const polFrac = parseFloat(STATE.polarization) / 100.0;
+      const peakPlus = 0.88 * polFrac;
+      const peakMinus = 0.88 * (1.0 - polFrac);
+
+      // σ+ 发光曲线 (洋红)
+      pCtx.beginPath();
+      for (let i = 0; i < N; i++) {
+        const eNorm = (i / (N - 1)) * 2.0 - 1.0;
+        const val = peakPlus * Math.exp(-eNorm * eNorm * 18.0) + 0.04;
+        const px = (i / (N - 1)) * (w - 50) + 25;
+        const py = h - 35 - val * (h - 65);
+        if (i === 0) pCtx.moveTo(px, py);
+        else pCtx.lineTo(px, py);
+      }
+      pCtx.strokeStyle = '#ff0077';
+      pCtx.lineWidth = 2.2;
+      pCtx.stroke();
+
+      // σ- 发光曲线 (青色)
+      pCtx.beginPath();
+      for (let i = 0; i < N; i++) {
+        const eNorm = (i / (N - 1)) * 2.0 - 1.0;
+        const val = peakMinus * Math.exp(-eNorm * eNorm * 18.0) + 0.04;
+        const px = (i / (N - 1)) * (w - 50) + 25;
+        const py = h - 35 - val * (h - 65);
+        if (i === 0) pCtx.moveTo(px, py);
+        else pCtx.lineTo(px, py);
+      }
+      pCtx.strokeStyle = '#00f0ff';
+      pCtx.lineWidth = 2;
+      pCtx.stroke();
+
+      // 文字
+      pCtx.fillStyle = '#ff0077';
+      pCtx.font = '10px monospace';
+      pCtx.fillText('— σ⁺ 光致发光 (K 谷激子)', 25, 22);
+
+      pCtx.fillStyle = '#00f0ff';
+      pCtx.fillText('— σ⁻ 光致发光 (K\' 谷激子)', 25, 38);
+
+      pCtx.fillStyle = 'rgba(168, 85, 247, 0.9)';
+      pCtx.fillText(`谷极化度 P_circ = ${STATE.polarization}%`, w - 160, 22);
+    }
+
+    // --- Web Audio 激子谷光致相干荧光声效合成 ---
+    let audioCtx = null;
+    let masterGain = null;
+    let plOsc1 = null;
+    let plOsc2 = null;
+    let isAudioActive = false;
+
+    function toggleAudio() {
+      if (!isAudioActive) {
+        initAudio();
+        document.getElementById('audioToggle').classList.add('active');
+        document.getElementById('audioToggle').innerHTML = `
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+          </svg>
+          停止激子音频合成
+        `;
+        isAudioActive = true;
+      } else {
+        if (masterGain) {
+          masterGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.08);
+        }
+        document.getElementById('audioToggle').classList.remove('active');
+        document.getElementById('audioToggle').innerHTML = `
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+          </svg>
+          启动激子谷光致相干荧光声效合成
+        `;
+        isAudioActive = false;
+      }
+    }
+
+    function initAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+
+      masterGain = audioCtx.createGain();
+      masterGain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+      masterGain.connect(audioCtx.destination);
+
+      plOsc1 = audioCtx.createOscillator();
+      plOsc2 = audioCtx.createOscillator();
+
+      plOsc1.type = 'sine';
+      plOsc2.type = 'triangle';
+
+      const baseF = 210;
+      plOsc1.frequency.setValueAtTime(baseF, audioCtx.currentTime);
+      plOsc2.frequency.setValueAtTime(baseF * 1.333, audioCtx.currentTime);
+
+      const g1 = audioCtx.createGain();
+      const g2 = audioCtx.createGain();
+      g1.gain.setValueAtTime(0.3, audioCtx.currentTime);
+      g2.gain.setValueAtTime(0.12, audioCtx.currentTime);
+
+      plOsc1.connect(g1);
+      plOsc2.connect(g2);
+      g1.connect(masterGain);
+      g2.connect(masterGain);
+
+      plOsc1.start();
+      plOsc2.start();
+    }
+
+    function updateAudioTone() {
+      if (!isAudioActive || !audioCtx) return;
+      const baseF = 210 + STATE.nuFilling * 75 + Math.abs(STATE.dispField) * 25;
+      plOsc1.frequency.setTargetAtTime(Math.max(80, baseF), audioCtx.currentTime, 0.05);
+      plOsc2.frequency.setTargetAtTime(Math.max(120, baseF * 1.333), audioCtx.currentTime, 0.05);
+    }
+
+    // --- 动画主循环 ---
+    let lastTime = performance.now();
+    function animate() {
+      const now = performance.now();
+      const dt = Math.min(0.05, (now - lastTime) / 1000);
+      lastTime = now;
+
+      stepPhysics(dt);
+      drawMain();
+      drawGapScope();
+      drawPlScope();
+
+      requestAnimationFrame(animate);
+    }
+    requestAnimationFrame(animate);
+
+    // 初始参数同步
+    syncInputs();
+  </script>
+</body>
+</html>

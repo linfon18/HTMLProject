@@ -1,0 +1,1411 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>超流氦泉效应与双流体动力学 - Superfluid Helium Fountain & Two-Fluid Hydrodynamics</title>
+<style>
+  :root {
+    --bg-dark: #020617;
+    --panel-bg: rgba(15, 23, 42, 0.85);
+    --panel-border: rgba(56, 189, 248, 0.22);
+    --primary: #38bdf8;
+    --accent-cyan: #06b6d4;
+    --accent-emerald: #10b981;
+    --accent-purple: #c084fc;
+    --accent-rose: #f43f5e;
+    --accent-amber: #f59e0b;
+    --text-main: #f8fafc;
+    --text-muted: #94a3b8;
+    --font-mono: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    user-select: none;
+  }
+
+  body {
+    background-color: var(--bg-dark);
+    color: var(--text-main);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+  }
+
+  /* 顶栏 HUD */
+  header {
+    background: rgba(2, 6, 23, 0.94);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--panel-border);
+    padding: 0.75rem 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 50;
+  }
+
+  .brand-group {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .brand-badge {
+    background: linear-gradient(135deg, #0284c7, #38bdf8);
+    color: white;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 0.25rem 0.65rem;
+    border-radius: 6px;
+    letter-spacing: 0.08em;
+    box-shadow: 0 0 15px rgba(56, 189, 248, 0.4);
+  }
+
+  h1 {
+    font-size: 1.15rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    background: linear-gradient(to right, #ffffff, #bae6fd, #38bdf8);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .nav-stats {
+    display: flex;
+    gap: 1.25rem;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+  }
+
+  .stat-chip {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .stat-label {
+    color: var(--text-muted);
+  }
+
+  .stat-val {
+    color: var(--primary);
+    font-weight: 600;
+  }
+
+  /* 主网格布局 */
+  main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 390px;
+    gap: 1rem;
+    padding: 1rem 1.5rem;
+    max-width: 1920px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  @media (max-width: 1180px) {
+    main {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  /* 左侧主模拟视窗 */
+  .simulation-view {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .canvas-card {
+    position: relative;
+    background: #01040f;
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    overflow: hidden;
+    height: 570px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.7);
+    display: flex;
+    flex-direction: column;
+  }
+
+  #mainCanvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    cursor: crosshair;
+  }
+
+  /* 悬浮控制层 */
+  .canvas-overlay-top {
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    right: 1rem;
+    display: flex;
+    justify-content: space-between;
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  .mode-indicator {
+    background: rgba(15, 23, 42, 0.88);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--panel-border);
+    padding: 0.4rem 0.85rem;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.82rem;
+  }
+
+  .mode-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--primary);
+    box-shadow: 0 0 10px var(--primary);
+    animation: pulseGlow 1.8s infinite ease-in-out;
+  }
+
+  @keyframes pulseGlow {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.35; transform: scale(0.85); }
+  }
+
+  .canvas-overlay-bottom {
+    position: absolute;
+    bottom: 1rem;
+    left: 1rem;
+    right: 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  .toolbar {
+    display: flex;
+    gap: 0.5rem;
+    background: rgba(15, 23, 42, 0.9);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--panel-border);
+    padding: 0.4rem 0.6rem;
+    border-radius: 10px;
+    pointer-events: auto;
+  }
+
+  .btn {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: var(--text-main);
+    padding: 0.38rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    transition: all 0.2s ease;
+  }
+
+  .btn:hover {
+    background: rgba(56, 189, 248, 0.25);
+    border-color: rgba(56, 189, 248, 0.5);
+    transform: translateY(-1px);
+  }
+
+  .btn.active {
+    background: #0284c7;
+    border-color: #38bdf8;
+    color: #ffffff;
+    box-shadow: 0 0 12px rgba(56, 189, 248, 0.4);
+  }
+
+  /* 底部快速诊断条 */
+  .quick-metrics {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.75rem;
+  }
+
+  .metric-card {
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    padding: 0.65rem 0.9rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .metric-title {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .metric-value {
+    font-family: var(--font-mono);
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #ffffff;
+    display: flex;
+    align-items: baseline;
+    gap: 0.3rem;
+  }
+
+  .metric-unit {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    font-weight: normal;
+  }
+
+  /* 右侧综合面板 */
+  aside {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+  }
+
+  .panel-box {
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    padding: 1.1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+    backdrop-filter: blur(12px);
+  }
+
+  .panel-box h2 {
+    font-size: 0.9rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    letter-spacing: 0.02em;
+    color: #e2e8f0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    padding-bottom: 0.5rem;
+  }
+
+  .panel-tag {
+    font-size: 0.7rem;
+    color: var(--primary);
+    font-family: var(--font-mono);
+    background: rgba(56, 189, 248, 0.1);
+    padding: 0.15rem 0.45rem;
+    border-radius: 4px;
+    border: 1px solid rgba(56, 189, 248, 0.2);
+  }
+
+  /* 模式网格 */
+  .mode-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+  }
+
+  .mode-btn {
+    background: rgba(15, 23, 42, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    padding: 0.65rem 0.6rem;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+
+  .mode-btn:hover {
+    border-color: rgba(56, 189, 248, 0.4);
+    background: rgba(30, 41, 59, 0.8);
+  }
+
+  .mode-btn.active {
+    background: rgba(2, 132, 199, 0.25);
+    border-color: var(--primary);
+    box-shadow: 0 0 15px rgba(56, 189, 248, 0.25);
+  }
+
+  .mode-btn-name {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #ffffff;
+  }
+
+  .mode-btn-desc {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    line-height: 1.25;
+  }
+
+  /* 控制滑块行 */
+  .control-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .control-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.78rem;
+  }
+
+  .control-title {
+    color: var(--text-muted);
+  }
+
+  .control-val {
+    font-family: var(--font-mono);
+    color: var(--primary);
+    font-weight: 500;
+  }
+
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 5px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.1);
+    outline: none;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--primary);
+    cursor: pointer;
+    box-shadow: 0 0 8px var(--primary);
+    transition: transform 0.1s;
+  }
+
+  input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+  }
+
+  /* 辅助图表 */
+  .chart-container {
+    position: relative;
+    width: 100%;
+    height: 135px;
+    background: #01040f;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    overflow: hidden;
+  }
+
+  .chart-canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  .formula-card {
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    padding: 0.65rem 0.8rem;
+    font-family: var(--font-mono);
+    font-size: 0.74rem;
+    color: #cbd5e1;
+    line-height: 1.5;
+  }
+
+  .formula-highlight {
+    color: var(--accent-amber);
+  }
+
+  .toast {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    background: rgba(15, 23, 42, 0.95);
+    border: 1px solid var(--primary);
+    color: #ffffff;
+    padding: 0.6rem 1.1rem;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    transform: translateY(10px);
+    z-index: 100;
+  }
+
+  .toast.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand-group">
+    <div class="brand-badge">MACROSCOPIC QUANTUM</div>
+    <h1>超流氦泉效应与双流体动力学全息仿真</h1>
+  </div>
+  <div class="nav-stats">
+    <div class="stat-chip">
+      <span class="stat-label">相变温度 T_λ:</span>
+      <span class="stat-val">2.172 K</span>
+    </div>
+    <div class="stat-chip">
+      <span class="stat-label">超流组分占比 ρs/ρ:</span>
+      <span class="stat-val" id="statSuperRatio">82.4 %</span>
+    </div>
+    <div class="stat-chip">
+      <span class="stat-label">伦敦热机械压强 ΔP:</span>
+      <span class="stat-val" id="statFountainP">1.48 kPa</span>
+    </div>
+  </div>
+</header>
+
+<main>
+  <!-- 左侧主模拟视窗 -->
+  <div class="simulation-view">
+    <div class="canvas-card">
+      <canvas id="mainCanvas"></canvas>
+
+      <!-- 顶部 HUD 指示 -->
+      <div class="canvas-overlay-top">
+        <div class="mode-indicator">
+          <div class="mode-dot" id="modeDot"></div>
+          <span id="modeDisplayTitle">伦敦热机械氦喷泉激射态 (Fountain Jet)</span>
+        </div>
+        <div class="mode-indicator" style="font-family:var(--font-mono); font-size:0.78rem;">
+          <span>化学势平衡: </span>
+          <span style="color:var(--accent-emerald);">dμ = -S·dT + (1/ρ)·dP = 0</span>
+        </div>
+      </div>
+
+      <!-- 底部控制按钮 -->
+      <div class="canvas-overlay-bottom">
+        <div class="mode-indicator" style="font-family:var(--font-mono); font-size:0.75rem;">
+          <div>超流射流高度 h: <span style="color:var(--primary);" id="hudFountainHeight">28.5 cm</span></div>
+          <div>喷嘴流速 v_jet: <span style="color:var(--accent-cyan);" id="hudJetVelocity">2.36 m/s</span></div>
+        </div>
+
+        <div class="toolbar">
+          <button class="btn" id="btnPlayPause">
+            <span id="playIcon">⏸</span> 暂停
+          </button>
+          <button class="btn" id="btnThermalPulse">🔥 热脉冲</button>
+          <button class="btn" id="btnReset">🔄 复位杜瓦</button>
+          <button class="btn active" id="btnStreamlines">🌊 超流流线</button>
+          <button class="btn active" id="btnAudio">🔊 声效</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 快速指标条 -->
+    <div class="quick-metrics">
+      <div class="metric-card">
+        <span class="metric-title">超漏塞纳米通透阻抗</span>
+        <div class="metric-value">
+          <span id="metricImpedance">0.00</span>
+          <span class="metric-unit">Pa·s/m³ (ηs=0)</span>
+        </div>
+      </div>
+      <div class="metric-card">
+        <span class="metric-title">正常流体黏滞度 η_n</span>
+        <div class="metric-value">
+          <span id="metricViscosity">1.45</span>
+          <span class="metric-unit">μPa·s</span>
+        </div>
+      </div>
+      <div class="metric-card">
+        <span class="metric-title">第二声波波速 u₂</span>
+        <div class="metric-value">
+          <span id="metricSecondSound">19.8</span>
+          <span class="metric-unit">m/s</span>
+        </div>
+      </div>
+      <div class="metric-card">
+        <span class="metric-title">朗道临界速度警戒</span>
+        <div class="metric-value">
+          <span id="metricLandauStatus" style="color:var(--accent-emerald);">SUB-CRITICAL</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 右侧交互与解析面板 -->
+  <aside>
+    <!-- 物理工况选择 -->
+    <div class="panel-box">
+      <h2>
+        <span>量子流体力学实验模式</span>
+        <span class="panel-tag">EXPERIMENT</span>
+      </h2>
+      <div class="mode-grid">
+        <div class="mode-btn active" data-mode="fountain">
+          <div class="mode-btn-name">① 伦敦热机械喷泉</div>
+          <div class="mode-btn-desc">超漏塞过滤正常流体，温差诱导巨大压强激射</div>
+        </div>
+        <div class="mode-btn" data-mode="rollin">
+          <div class="mode-btn-name">② 罗林超流膜爬壁</div>
+          <div class="mode-btn-desc">范德华表面吸附力，零粘度薄膜翻越烧杯溢出</div>
+        </div>
+        <div class="mode-btn" data-mode="second_sound">
+          <div class="mode-btn-name">③ 第二声波热脉冲</div>
+          <div class="mode-btn-desc">超流与正常流体反相振荡，纯温度波动传播</div>
+        </div>
+        <div class="mode-btn" data-mode="vortex">
+          <div class="mode-btn-name">④ 朗道临界涡线紊流</div>
+          <div class="mode-btn-desc">突破临界速度，量子化涡核缠结产生相互摩擦</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 热力学与微加热参数 -->
+    <div class="panel-box">
+      <h2>
+        <span>低温热力学与超漏控制</span>
+        <span class="panel-tag">CONTROLS</span>
+      </h2>
+
+      <div class="control-row">
+        <div class="control-header">
+          <span class="control-title">杜瓦氦浴温度 T (临界 2.172 K)</span>
+          <span class="control-val" id="valTemperature">1.60 K</span>
+        </div>
+        <input type="range" id="rangeTemperature" min="1.0" max="3.0" step="0.02" value="1.60">
+      </div>
+
+      <div class="control-row">
+        <div class="control-header">
+          <span class="control-title">微加热丝功率 P_heater</span>
+          <span class="control-val" id="valPower">45 mW</span>
+        </div>
+        <input type="range" id="rangePower" min="0" max="120" step="2" value="45">
+      </div>
+
+      <div class="control-row">
+        <div class="control-header">
+          <span class="control-title">超漏塞纳米孔径 (Superleak)</span>
+          <span class="control-val" id="valPoreSize">8.0 nm</span>
+        </div>
+        <input type="range" id="rangePoreSize" min="2.0" max="40.0" step="1.0" value="8.0">
+      </div>
+
+      <div class="control-row">
+        <div class="control-header">
+          <span class="control-title">毛细管喷嘴直径 d_nozzle</span>
+          <span class="control-val" id="valNozzle">0.40 mm</span>
+        </div>
+        <input type="range" id="rangeNozzle" min="0.1" max="1.0" step="0.05" value="0.40">
+      </div>
+    </div>
+
+    <!-- 图表 1：双流体组分随温度相变曲线 -->
+    <div class="panel-box">
+      <h2>
+        <span>氦-4 双流体密度组分 ρs/ρ 与 ρn/ρ</span>
+        <span class="panel-tag">TWO-FLUID</span>
+      </h2>
+      <div class="chart-container">
+        <canvas class="chart-canvas" id="twoFluidCanvas"></canvas>
+      </div>
+      <div class="formula-card">
+        <div>ρ = ρs(T) + ρn(T) (当 T &lt; T_λ)</div>
+        <div>ρs/ρ = 1 - <span class="formula-highlight">(T / T_λ)^5.6</span></div>
+      </div>
+    </div>
+
+    <!-- 图表 2：伦敦热机械压强与喷泉高度 -->
+    <div class="panel-box">
+      <h2>
+        <span>伦敦压强 ΔP 与喷泉高度 h(ΔT)</span>
+        <span class="panel-tag">FOUNTAIN PRESSURE</span>
+      </h2>
+      <div class="chart-container">
+        <canvas class="chart-canvas" id="pressureCanvas"></canvas>
+      </div>
+    </div>
+  </aside>
+</main>
+
+<div class="toast" id="toast">已注入微秒级第二声波热脉冲</div>
+
+<script>
+/**
+ * 超流氦泉效应与双流体动力学 (Superfluid Helium Fountain & Two-Fluid Hydrodynamics)
+ * 结合 Landau-Tisza 双流体模型、London 热机械效应与 Rollin 薄膜爬壁全息仿真
+ */
+
+// 物理状态参数
+let bathTemp = 1.60;      // 氦浴基底温度 (K)
+let heaterPower = 45.0;   // 加热功率 (mW)
+let poreSize = 8.0;       // 超漏孔径 (nm)
+let nozzleDiam = 0.40;    // 喷嘴口径 (mm)
+let currentMode = 'fountain'; // 'fountain', 'rollin', 'second_sound', 'vortex'
+let isPlaying = true;
+let showStreamlines = true;
+let audioEnabled = true;
+let simTime = 0;
+
+const T_LAMBDA = 2.172;   // 氦-4 临界相变 Lambda 点温度 (K)
+const RHO_HELIUM = 145.0; // 液氦密度 (kg/m³)
+const G_ACCEL = 9.81;
+
+// 动态动力学变量
+let deltaT = 0.0;         // 喷泉管内与外温差 (K)
+let fountainP = 0.0;      // 伦敦热机械压强 (Pa)
+let jetHeight = 0.0;      // 喷射高度 (cm)
+let jetVelocity = 0.0;    // 喷嘴流速 (m/s)
+let rollinFilmLevel = 0.0;// 罗林薄膜爬升进度 (0~1)
+let secondSoundWave = 0.0;// 第二声波瞬时热振荡
+
+// 喷泉喷射射流粒子系统
+let fountainParticles = [];
+const MAX_FOUNTAIN_PARTICLES = 160;
+
+// 超流体原子微观无黏流线系统
+let superfluidAtoms = [];
+const NUM_SUPER_ATOMS = 60;
+function initSuperfluidAtoms() {
+  superfluidAtoms = [];
+  for (let i = 0; i < NUM_SUPER_ATOMS; i++) {
+    superfluidAtoms.push({
+      x: Math.random() * 80 + 10,
+      y: Math.random() * 60 + 10,
+      vx: 0,
+      vy: -1.5,
+      isSuper: Math.random() < 0.8
+    });
+  }
+}
+initSuperfluidAtoms();
+
+// 罗林薄膜滴落液滴系统
+let rollinDroplets = [];
+
+// 计算双流体组分比例
+function getSuperfluidFraction(T) {
+  if (T >= T_LAMBDA) return 0.0;
+  return Math.max(0.0, Math.min(1.0, 1.0 - Math.pow(T / T_LAMBDA, 5.6)));
+}
+
+// 计算比熵 S(T) (J/(kg·K))
+function getEntropy(T) {
+  if (T < T_LAMBDA) {
+    return 1550.0 * Math.pow(T / T_LAMBDA, 5.6);
+  } else {
+    return 1550.0 + 350.0 * (T - T_LAMBDA);
+  }
+}
+
+// 低温双流体动力学步进求解
+function stepHydrodynamics() {
+  simTime += 0.02;
+
+  const rhoSFrac = getSuperfluidFraction(bathTemp);
+  const isSuperfluid = bathTemp < T_LAMBDA;
+
+  if (!isSuperfluid) {
+    // 超过相变温度为普通 He-I 流体：无喷泉效应、无超流爬壁
+    deltaT = heaterPower * 0.0008;
+    fountainP = 0.0;
+    jetHeight = 0.0;
+    jetVelocity = 0.0;
+    rollinFilmLevel = 0.0;
+    return;
+  }
+
+  // 1. 喷泉管内加热温差 ΔT
+  // 加热功率与超流热对流传导平衡
+  const superleakConduct = (poreSize / 8.0) * rhoSFrac;
+  const targetDeltaT = (heaterPower * 0.0035) / Math.max(0.1, superleakConduct * 1.5 + 0.2);
+  deltaT += (targetDeltaT - deltaT) * 0.08;
+
+  // 2. 伦敦热机械压强 ΔP = ρ * S * ΔT
+  const S = getEntropy(bathTemp);
+  fountainP = RHO_HELIUM * S * deltaT; // Pa
+
+  // 3. 喷泉喷射高度与速度
+  // 压强水头 h = ΔP / (ρ * g)
+  const theoreticalH = (fountainP / (RHO_HELIUM * G_ACCEL)) * 100.0; // cm
+  jetHeight += (theoreticalH - jetHeight) * 0.12;
+
+  // 喷嘴截面流速 v = sqrt(2 * ΔP / ρ)
+  jetVelocity = Math.sqrt(Math.max(0, 2.0 * fountainP / RHO_HELIUM));
+
+  // 4. 生成喷泉粒子
+  if (currentMode === 'fountain' && jetHeight > 2.0) {
+    const spawnCount = Math.floor(Math.min(8, jetHeight * 0.25 + 1));
+    for (let k = 0; k < spawnCount; k++) {
+      if (fountainParticles.length < MAX_FOUNTAIN_PARTICLES) {
+        fountainParticles.push({
+          x: 0.0, // 喷嘴中心相对坐标
+          y: 0.0,
+          vx: (Math.random() - 0.5) * (0.8 + jetHeight * 0.04),
+          vy: -(Math.random() * 0.4 + 0.8) * Math.sqrt(jetHeight) * 1.6,
+          life: 45
+        });
+      }
+    }
+  }
+
+  // 更新喷泉粒子运动 (重力抛物线)
+  for (let i = fountainParticles.length - 1; i >= 0; i--) {
+    const p = fountainParticles[i];
+    p.life--;
+    p.x += p.vx * 0.8;
+    p.y += p.vy * 0.8;
+    p.vy += 0.28; // 重力加速度
+    if (p.life <= 0 || p.y > 10.0) {
+      fountainParticles.splice(i, 1);
+    }
+  }
+
+  // 5. 罗林薄膜爬壁模拟
+  if (currentMode === 'rollin') {
+    rollinFilmLevel = Math.min(1.0, rollinFilmLevel + 0.005 * rhoSFrac);
+    if (rollinFilmLevel >= 0.95 && Math.random() < 0.18) {
+      rollinDroplets.push({ x: 0, y: 0, vy: 0.5, life: 30 });
+    }
+  } else {
+    rollinFilmLevel = Math.max(0.0, rollinFilmLevel - 0.02);
+  }
+
+  for (let i = rollinDroplets.length - 1; i >= 0; i--) {
+    const d = rollinDroplets[i];
+    d.life--;
+    d.y += d.vy;
+    d.vy += 0.2;
+    if (d.life <= 0) rollinDroplets.splice(i, 1);
+  }
+
+  // 6. 第二声波热脉冲模式
+  if (currentMode === 'second_sound') {
+    secondSoundWave = Math.sin(simTime * 18.0) * Math.exp(-((simTime * 2.0) % 3.0));
+  }
+}
+
+// 主渲染 Canvas
+const canvas = document.getElementById('mainCanvas');
+const ctx = canvas.getContext('2d');
+
+function resizeCanvas() {
+  const rect = canvas.parentElement.getBoundingClientRect();
+  canvas.width = rect.width;
+  canvas.height = rect.height;
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+// 全息双层杜瓦低温恒温器与超流喷泉渲染
+function renderSimulation() {
+  const w = canvas.width;
+  const h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+
+  // 背景微弱量子微波晶格
+  ctx.strokeStyle = 'rgba(56, 189, 248, 0.04)';
+  ctx.lineWidth = 1;
+  const step = 32;
+  for (let x = 0; x < w; x += step) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+  }
+  for (let y = 0; y < h; y += step) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+  }
+
+  const cx = w * 0.5;
+  const cy = h * 0.62;
+
+  // 1. 杜瓦真空双层玻璃容器 (Dewar Flask)
+  const dewarW = Math.min(w * 0.45, 260);
+  const dewarH = 240;
+  const dewarLeft = cx - dewarW * 0.5;
+  const dewarTop = cy - dewarH * 0.5;
+
+  ctx.save();
+  // 杜瓦外壁真空夹层
+  ctx.strokeStyle = 'rgba(148, 163, 184, 0.4)';
+  ctx.lineWidth = 3.5;
+  ctx.strokeRect(dewarLeft - 8, dewarTop - 10, dewarW + 16, dewarH + 20);
+
+  ctx.strokeStyle = 'rgba(56, 189, 248, 0.8)';
+  ctx.lineWidth = 2.0;
+  ctx.strokeRect(dewarLeft, dewarTop, dewarW, dewarH);
+
+  // 杜瓦内液氦浴表面 (Liquid Helium Bath Level)
+  const liquidLevelY = cy + 20;
+  const isSuper = bathTemp < T_LAMBDA;
+  const liquidGrad = ctx.createLinearGradient(cx, liquidLevelY, cx, dewarTop + dewarH);
+  if (isSuper) {
+    // 超流氦 He-II: 晶莹透彻极度纯净青蓝辉光
+    liquidGrad.addColorStop(0, 'rgba(56, 189, 248, 0.35)');
+    liquidGrad.addColorStop(1, 'rgba(2, 132, 199, 0.65)');
+  } else {
+    // 正常氦 He-I: 沸腾气泡翻滚混沌蓝红
+    liquidGrad.addColorStop(0, 'rgba(244, 63, 94, 0.3)');
+    liquidGrad.addColorStop(1, 'rgba(15, 23, 42, 0.7)');
+  }
+  ctx.fillStyle = liquidGrad;
+  ctx.fillRect(dewarLeft + 2, liquidLevelY, dewarW - 4, dewarTop + dewarH - liquidLevelY - 2);
+
+  // He-I 沸腾气泡 (当 T >= T_lambda 时出现剧烈沸腾气泡，超流态下则完全平静无沸腾)
+  if (!isSuper) {
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+    for (let b = 0; b < 18; b++) {
+      const bx = dewarLeft + 20 + Math.sin(b * 3.7 + simTime * 4.0) * (dewarW * 0.4) + dewarW * 0.4;
+      const by = liquidLevelY + 15 + ((b * 22 + simTime * 80.0) % (dewarTop + dewarH - liquidLevelY - 25));
+      ctx.beginPath();
+      ctx.arc(bx, by, Math.random() * 2.5 + 1.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  ctx.fillStyle = isSuper ? '#38bdf8' : '#f43f5e';
+  ctx.font = '10px var(--font-mono)';
+  ctx.textAlign = 'center';
+  ctx.fillText(isSuper ? '超流氦-4 (He-II 超流基态)' : '正常液氦 (He-I 粘性沸腾态)', cx, dewarTop + dewarH - 12);
+  ctx.restore();
+
+  // 2. 喷泉中央实验管组件 (Fountain Tube & Superleak Plug)
+  const tubeW = 44;
+  const tubeH = 170;
+  const tubeX = cx - tubeW * 0.5;
+  const tubeY = liquidLevelY - 80;
+  const nozzleY = tubeY - 35; // 毛细管喷嘴顶端
+
+  ctx.save();
+  // 玻璃套管外廓
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  // 底部多孔超漏室
+  ctx.rect(tubeX, tubeY, tubeW, tubeH);
+  ctx.stroke();
+
+  // 细长毛细管喷嘴
+  ctx.beginPath();
+  ctx.moveTo(cx - 3.5, tubeY);
+  ctx.lineTo(cx - 3.5, nozzleY);
+  ctx.lineTo(cx + 3.5, nozzleY);
+  ctx.lineTo(cx + 3.5, tubeY);
+  ctx.stroke();
+
+  // 底部多孔超漏过滤塞 (Superleak Plug - 金刚砂多孔粉末烧结体)
+  const plugH = 34;
+  const plugY = tubeY + tubeH - plugH;
+  ctx.fillStyle = 'rgba(245, 158, 11, 0.85)'; // 金黄色多孔陶瓷
+  ctx.fillRect(tubeX + 2, plugY, tubeW - 4, plugH);
+
+  // 多孔微纳颗粒纹理
+  ctx.fillStyle = '#020617';
+  for (let px = tubeX + 5; px < tubeX + tubeW - 4; px += 5) {
+    for (let py = plugY + 4; py < plugY + plugH - 4; py += 5) {
+      if ((px + py) % 3 === 0) {
+        ctx.fillRect(px, py, 2, 2);
+      }
+    }
+  }
+  ctx.fillStyle = '#ffffff';
+  ctx.font = '9px var(--font-mono)';
+  ctx.textAlign = 'center';
+  ctx.fillText('超漏塞', cx, plugY + 20);
+
+  // 微加热丝 (Heater Coil) - 位于超漏塞上方管内
+  const heaterY = plugY - 26;
+  ctx.strokeStyle = heaterPower > 0 ? '#f43f5e' : '#64748b';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  for (let c = 0; c < 5; c++) {
+    const cyy = heaterY + (c - 2) * 4;
+    ctx.moveTo(cx - 12, cyy);
+    ctx.lineTo(cx + 12, cyy);
+  }
+  ctx.stroke();
+
+  if (heaterPower > 0) {
+    ctx.fillStyle = '#f43f5e';
+    ctx.shadowColor = '#f43f5e';
+    ctx.shadowBlur = 12;
+    ctx.font = '9px var(--font-mono)';
+    ctx.fillText(`加热器 ${heaterPower}mW`, cx, heaterY - 14);
+  }
+  ctx.restore();
+
+  // 3. 喷泉射流激射液柱与抛物线飞溅 (Fountain Jet)
+  if (currentMode === 'fountain' && jetHeight > 1.5 && isSuper) {
+    ctx.save();
+    const pixelH = Math.min(220, jetHeight * 4.8);
+    const jetApexY = nozzleY - pixelH;
+
+    // 核心高速上升射流
+    const jetGrad = ctx.createLinearGradient(cx, nozzleY, cx, jetApexY);
+    jetGrad.addColorStop(0, 'rgba(56, 189, 248, 0.95)');
+    jetGrad.addColorStop(1, 'rgba(186, 230, 253, 0.7)');
+
+    ctx.strokeStyle = jetGrad;
+    ctx.lineWidth = Math.max(3, nozzleDiam * 8);
+    ctx.shadowColor = '#38bdf8';
+    ctx.shadowBlur = 15;
+    ctx.beginPath();
+    ctx.moveTo(cx, nozzleY);
+    ctx.lineTo(cx, jetApexY);
+    ctx.stroke();
+
+    // 喷嘴射流粒子飞溅
+    ctx.fillStyle = '#bae6fd';
+    for (let p of fountainParticles) {
+      const px = cx + p.x;
+      const py = nozzleY + p.y;
+      ctx.beginPath();
+      ctx.arc(px, py, 2.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  // 4. 罗林超流薄膜爬壁展示 (Rollin Film Creep)
+  if (currentMode === 'rollin' && isSuper) {
+    ctx.save();
+    const rimY = dewarTop;
+    const filmHeight = (liquidLevelY - rimY) * rollinFilmLevel;
+
+    // 沿杜瓦内壁向上爬升的发光薄膜 (约 30 nm 厚度全息放大)
+    ctx.strokeStyle = '#06b6d4';
+    ctx.lineWidth = 3.5;
+    ctx.shadowColor = '#06b6d4';
+    ctx.shadowBlur = 10;
+    ctx.beginPath();
+    // 左内壁爬升
+    ctx.moveTo(dewarLeft + 2, liquidLevelY);
+    ctx.lineTo(dewarLeft + 2, liquidLevelY - filmHeight);
+    // 右内壁爬升
+    ctx.moveTo(dewarLeft + dewarW - 2, liquidLevelY);
+    ctx.lineTo(dewarLeft + dewarW - 2, liquidLevelY - filmHeight);
+    ctx.stroke();
+
+    // 翻越杯口向外翻滚下挂
+    if (rollinFilmLevel >= 0.9) {
+      ctx.beginPath();
+      ctx.moveTo(dewarLeft + 2, rimY);
+      ctx.lineTo(dewarLeft - 6, rimY + 12);
+      ctx.moveTo(dewarLeft + dewarW - 2, rimY);
+      ctx.lineTo(dewarLeft + dewarW + 6, rimY + 12);
+      ctx.stroke();
+
+      // 滴落液滴
+      for (let drop of rollinDroplets) {
+        ctx.fillStyle = '#06b6d4';
+        ctx.beginPath();
+        ctx.arc(dewarLeft - 6, rimY + 14 + drop.y * 3.5, 2.5, 0, Math.PI * 2);
+        ctx.arc(dewarLeft + dewarW + 6, rimY + 14 + drop.y * 3.5, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    ctx.restore();
+  }
+
+  // 5. 第二声波热脉冲波前 (Second Sound Wavefronts)
+  if (currentMode === 'second_sound' && isSuper) {
+    ctx.save();
+    const waveCount = 5;
+    for (let i = 0; i < waveCount; i++) {
+      const wavePhase = (simTime * 3.0 + i * 0.8) % 3.0;
+      const waveRad = wavePhase * 35.0 + 8.0;
+      const alpha = Math.max(0, 1.0 - wavePhase / 3.0) * 0.7;
+
+      ctx.strokeStyle = `rgba(192, 132, 252, ${alpha})`;
+      ctx.lineWidth = 2.0;
+      ctx.beginPath();
+      ctx.arc(cx, heaterY, waveRad, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.fillStyle = '#c084fc';
+    ctx.font = '10px var(--font-mono)';
+    ctx.fillText('第二声波 (纯熵/温度波动)', cx, heaterY - 38);
+    ctx.restore();
+  }
+
+  // 6. 微观超流原子示踪 (无阻力穿透超漏塞)
+  if (showStreamlines && isSuper) {
+    ctx.save();
+    for (let a of superfluidAtoms) {
+      a.y += a.vy;
+      if (a.y < tubeY + 40) {
+        a.y = tubeY + tubeH + Math.random() * 20;
+        a.x = Math.random() * (tubeW - 10) + tubeX + 5;
+      }
+      ctx.fillStyle = a.isSuper ? '#38bdf8' : '#f43f5e';
+      ctx.beginPath();
+      ctx.arc(a.x, a.y, a.isSuper ? 2.0 : 3.0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+}
+
+// 辅助图表 1：双流体密度组分随温度曲线 (Two-Fluid Ratio)
+const twoFluidCanvas = document.getElementById('twoFluidCanvas');
+const tfCtx = twoFluidCanvas.getContext('2d');
+
+function renderTwoFluidChart() {
+  const w = twoFluidCanvas.width = twoFluidCanvas.parentElement.clientWidth;
+  const h = twoFluidCanvas.height = twoFluidCanvas.parentElement.clientHeight;
+  tfCtx.clearRect(0, 0, w, h);
+
+  const padL = 35;
+  const padR = 15;
+  const padT = 15;
+  const padB = 25;
+  const plotW = w - padL - padR;
+  const plotH = h - padT - padB;
+
+  // 网格
+  tfCtx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
+  tfCtx.lineWidth = 1;
+  tfCtx.beginPath();
+  tfCtx.moveTo(padL, padT + plotH * 0.5);
+  tfCtx.lineTo(padL + plotW, padT + plotH * 0.5);
+  tfCtx.stroke();
+
+  // 标尺
+  tfCtx.fillStyle = '#64748b';
+  tfCtx.font = '9px var(--font-mono)';
+  tfCtx.fillText('1.0K', padL, h - 8);
+  tfCtx.fillText('T_λ (2.17K)', padL + plotW * ((T_LAMBDA - 1.0) / 2.0) - 18, h - 8);
+  tfCtx.fillText('3.0K', padL + plotW - 20, h - 8);
+  tfCtx.fillText('100%', 2, padT + 8);
+  tfCtx.fillText('0%', 12, padT + plotH);
+
+  // 绘制 Lambda 点垂线
+  const lambdaX = padL + plotW * ((T_LAMBDA - 1.0) / 2.0);
+  tfCtx.strokeStyle = 'rgba(244, 63, 94, 0.4)';
+  tfCtx.setLineDash([4, 4]);
+  tfCtx.beginPath();
+  tfCtx.moveTo(lambdaX, padT);
+  tfCtx.lineTo(lambdaX, padT + plotH);
+  tfCtx.stroke();
+  tfCtx.setLineDash([]);
+
+  // 1. 超流组分曲线 ρs/ρ (青蓝色)
+  tfCtx.beginPath();
+  tfCtx.strokeStyle = '#38bdf8';
+  tfCtx.lineWidth = 2.2;
+  const samples = 80;
+  for (let i = 0; i <= samples; i++) {
+    const tVal = 1.0 + (i / samples) * 2.0;
+    const rs = getSuperfluidFraction(tVal);
+    const px = padL + (i / samples) * plotW;
+    const py = padT + plotH - rs * plotH;
+    if (i === 0) tfCtx.moveTo(px, py);
+    else tfCtx.lineTo(px, py);
+  }
+  tfCtx.stroke();
+
+  // 2. 正常流体组分曲线 ρn/ρ (粉红色)
+  tfCtx.beginPath();
+  tfCtx.strokeStyle = '#f43f5e';
+  tfCtx.lineWidth = 1.8;
+  for (let i = 0; i <= samples; i++) {
+    const tVal = 1.0 + (i / samples) * 2.0;
+    const rn = 1.0 - getSuperfluidFraction(tVal);
+    const px = padL + (i / samples) * plotW;
+    const py = padT + plotH - rn * plotH;
+    if (i === 0) tfCtx.moveTo(px, py);
+    else tfCtx.lineTo(px, py);
+  }
+  tfCtx.stroke();
+
+  // 当前温度点标记
+  const curRatioT = (bathTemp - 1.0) / 2.0;
+  const curPx = padL + curRatioT * plotW;
+  const curRs = getSuperfluidFraction(bathTemp);
+  const curPy = padT + plotH - curRs * plotH;
+
+  tfCtx.fillStyle = '#38bdf8';
+  tfCtx.beginPath();
+  tfCtx.arc(curPx, curPy, 4.5, 0, Math.PI * 2);
+  tfCtx.fill();
+  tfCtx.strokeStyle = '#ffffff';
+  tfCtx.lineWidth = 1.2;
+  tfCtx.stroke();
+}
+
+// 辅助图表 2：伦敦压强与喷泉高度曲线
+const presCanvas = document.getElementById('pressureCanvas');
+const presCtx = presCanvas.getContext('2d');
+
+function renderPressureChart() {
+  const w = presCanvas.width = presCanvas.parentElement.clientWidth;
+  const h = presCanvas.height = presCanvas.parentElement.clientHeight;
+  presCtx.clearRect(0, 0, w, h);
+
+  const padL = 35;
+  const padR = 15;
+  const padT = 15;
+  const padB = 25;
+  const plotW = w - padL - padR;
+  const plotH = h - padT - padB;
+
+  presCtx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
+  presCtx.lineWidth = 1;
+  presCtx.beginPath();
+  presCtx.moveTo(padL, padT + plotH);
+  presCtx.lineTo(padL + plotW, padT + plotH);
+  presCtx.stroke();
+
+  presCtx.fillStyle = '#64748b';
+  tfCtx.font = '9px var(--font-mono)';
+  presCtx.fillText('0', padL, h - 8);
+  presCtx.fillText('ΔT: 20mK', padL + plotW * 0.5 - 15, h - 8);
+  presCtx.fillText('40mK', padL + plotW - 20, h - 8);
+  presCtx.fillText('50cm', 2, padT + 8);
+  presCtx.fillText('0cm', 8, padT + plotH);
+
+  // 绘制 h(ΔT) = (S * ΔT) / g 曲线
+  presCtx.beginPath();
+  presCtx.strokeStyle = '#10b981';
+  presCtx.lineWidth = 2;
+  const samples = 60;
+  const S_val = getEntropy(bathTemp);
+  const isSuper = bathTemp < T_LAMBDA;
+
+  for (let i = 0; i <= samples; i++) {
+    const dT = (i / samples) * 0.04; // 0 ~ 40 mK
+    const hCm = isSuper ? ((S_val * dT) / G_ACCEL) * 100.0 : 0.0;
+    const px = padL + (i / samples) * plotW;
+    const py = padT + plotH - Math.min(1.0, hCm / 50.0) * plotH;
+    if (i === 0) presCtx.moveTo(px, py);
+    else presCtx.lineTo(px, py);
+  }
+  presCtx.stroke();
+
+  // 当前工况高度点
+  const curDTNorm = Math.min(1.0, deltaT / 0.04);
+  const curPx = padL + curDTNorm * plotW;
+  const curPy = padT + plotH - Math.min(1.0, jetHeight / 50.0) * plotH;
+
+  presCtx.fillStyle = '#f59e0b';
+  presCtx.beginPath();
+  presCtx.arc(curPx, curPy, 4.5, 0, Math.PI * 2);
+  presCtx.fill();
+  presCtx.strokeStyle = '#ffffff';
+  presCtx.lineWidth = 1.2;
+  presCtx.stroke();
+}
+
+// Web Audio 声学反馈
+let audioCtx = null;
+let fountainNoise = null;
+let sound2Osc = null;
+
+function initAudio() {
+  if (audioCtx) return;
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextClass) return;
+  audioCtx = new AudioContextClass();
+
+  // 喷泉液滴飞溅白噪声
+  const bufferSize = audioCtx.sampleRate * 2;
+  const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+  const output = noiseBuffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) {
+    output[i] = (Math.random() * 2 - 1) * 0.012;
+  }
+  fountainNoise = audioCtx.createBufferSource();
+  fountainNoise.buffer = noiseBuffer;
+  fountainNoise.loop = true;
+
+  const filter = audioCtx.createBiquadFilter();
+  filter.type = 'lowpass';
+  filter.frequency.value = 850;
+
+  fountainNoise.connect(filter);
+  filter.connect(audioCtx.destination);
+  fountainNoise.start();
+
+  sound2Osc = audioCtx.createOscillator();
+  sound2Osc.type = 'sine';
+  sound2Osc.frequency.setValueAtTime(320, audioCtx.currentTime);
+  const g = audioCtx.createGain();
+  g.gain.setValueAtTime(0.015, audioCtx.currentTime);
+  sound2Osc.connect(g);
+  g.connect(audioCtx.destination);
+  sound2Osc.start();
+}
+
+function updateAudioFeedback() {
+  if (!audioCtx || !audioEnabled) return;
+  if (currentMode === 'second_sound') {
+    sound2Osc.frequency.setTargetAtTime(280 + Math.abs(secondSoundWave) * 220, audioCtx.currentTime, 0.06);
+  } else {
+    sound2Osc.frequency.setTargetAtTime(140 + jetVelocity * 45, audioCtx.currentTime, 0.08);
+  }
+}
+
+// 刷新 HUD 指标数据
+function updateHUDMetrics() {
+  const rsFrac = getSuperfluidFraction(bathTemp);
+  document.getElementById('statSuperRatio').textContent = `${(rsFrac * 100.0).toFixed(1)} %`;
+  document.getElementById('statFountainP').textContent = `${(fountainP / 1000.0).toFixed(2)} kPa`;
+  document.getElementById('hudFountainHeight').textContent = `${jetHeight.toFixed(1)} cm`;
+  document.getElementById('hudJetVelocity').textContent = `${jetVelocity.toFixed(2)} m/s`;
+
+  // 第二声波波速 u2 = sqrt((rho_s / rho_n) * (T * S^2 / Cv))
+  const rnFrac = Math.max(0.01, 1.0 - rsFrac);
+  const u2 = bathTemp < T_LAMBDA ? (19.5 * Math.sqrt(rsFrac / rnFrac)).toFixed(1) : '0.0';
+  document.getElementById('metricSecondSound').textContent = u2;
+
+  const landauCrit = jetVelocity > 45.0 ? 'CRITICAL EXCEEDED' : 'SUB-CRITICAL';
+  const landauEl = document.getElementById('metricLandauStatus');
+  landauEl.textContent = landauCrit;
+  landauEl.style.color = jetVelocity > 45.0 ? 'var(--accent-rose)' : 'var(--accent-emerald)';
+}
+
+// 主循环
+let frameCount = 0;
+function animate() {
+  if (isPlaying) {
+    stepHydrodynamics();
+  }
+
+  renderSimulation();
+
+  frameCount++;
+  if (frameCount % 4 === 0) {
+    updateHUDMetrics();
+    renderTwoFluidChart();
+    renderPressureChart();
+    updateAudioFeedback();
+  }
+
+  requestAnimationFrame(animate);
+}
+requestAnimationFrame(animate);
+
+// 用户交互控制
+const modeBtns = document.querySelectorAll('.mode-btn');
+modeBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    modeBtns.forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentMode = btn.dataset.mode;
+
+    const titles = {
+      fountain: '伦敦热机械氦喷泉激射态 (Fountain Jet)',
+      rollin: '罗林超流薄膜爬壁态 (Rollin Film Creep)',
+      second_sound: '第二声波温度脉冲热震荡态 (Second Sound)',
+      vortex: '朗道临界速度与量子化涡线态 (Vortex Tangle)'
+    };
+    document.getElementById('modeDisplayTitle').textContent = titles[currentMode];
+    showToast(`工况已切换为: ${titles[currentMode]}`);
+  });
+});
+
+// 滑块绑定
+const rangeTemp = document.getElementById('rangeTemperature');
+rangeTemp.addEventListener('input', (e) => {
+  bathTemp = parseFloat(e.target.value);
+  document.getElementById('valTemperature').textContent = `${bathTemp.toFixed(2)} K`;
+});
+
+const rangePow = document.getElementById('rangePower');
+rangePow.addEventListener('input', (e) => {
+  heaterPower = parseFloat(e.target.value);
+  document.getElementById('valPower').textContent = `${Math.round(heaterPower)} mW`;
+});
+
+const rangePore = document.getElementById('rangePoreSize');
+rangePore.addEventListener('input', (e) => {
+  poreSize = parseFloat(e.target.value);
+  document.getElementById('valPoreSize').textContent = `${poreSize.toFixed(1)} nm`;
+});
+
+const rangeNoz = document.getElementById('rangeNozzle');
+rangeNoz.addEventListener('input', (e) => {
+  nozzleDiam = parseFloat(e.target.value);
+  document.getElementById('valNozzle').textContent = `${nozzleDiam.toFixed(2)} mm`;
+});
+
+// 按钮控制
+const btnPlayPause = document.getElementById('btnPlayPause');
+btnPlayPause.addEventListener('click', () => {
+  isPlaying = !isPlaying;
+  document.getElementById('playIcon').textContent = isPlaying ? '⏸' : '▶';
+  btnPlayPause.childNodes[2].textContent = isPlaying ? ' 暂停' : ' 继续';
+  initAudio();
+});
+
+document.getElementById('btnThermalPulse').addEventListener('click', () => {
+  deltaT += 0.025;
+  showToast('已向管内注入热脉冲激增温差');
+});
+
+document.getElementById('btnReset').addEventListener('click', () => {
+  bathTemp = 1.60;
+  heaterPower = 45.0;
+  deltaT = 0.0;
+  jetHeight = 0.0;
+  rollinFilmLevel = 0.0;
+  document.getElementById('rangeTemperature').value = '1.60';
+  document.getElementById('valTemperature').textContent = '1.60 K';
+  document.getElementById('rangePower').value = '45';
+  document.getElementById('valPower').textContent = '45 mW';
+  showToast('低温杜瓦参数已重置');
+});
+
+const btnStreams = document.getElementById('btnStreamlines');
+btnStreams.addEventListener('click', () => {
+  showStreamlines = !showStreamlines;
+  btnStreams.classList.toggle('active', showStreamlines);
+});
+
+const btnAudio = document.getElementById('btnAudio');
+btnAudio.addEventListener('click', () => {
+  audioEnabled = !audioEnabled;
+  btnAudio.classList.toggle('active', audioEnabled);
+  if (audioEnabled) {
+    initAudio();
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  }
+});
+
+let toastTimer = null;
+function showToast(msg) {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    toast.classList.remove('show');
+  }, 2200);
+}
+
+window.addEventListener('click', () => {
+  if (audioEnabled) initAudio();
+}, { once: true });
+</script>
+
+</body>
+</html>

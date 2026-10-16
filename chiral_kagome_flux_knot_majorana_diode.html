@@ -1,0 +1,949 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>手征卡戈梅超导体三维拓扑磁通结与非阿贝尔马约拉纳环流二极管全息模拟器</title>
+  <style>
+    :root {
+      --bg-base: #030712;
+      --panel-bg: rgba(15, 23, 42, 0.78);
+      --panel-border: rgba(14, 165, 233, 0.28);
+      --accent-sky: #0ea5e9;
+      --accent-cyan: #38bdf8;
+      --accent-gold: #fbbf24;
+      --accent-rose: #f43f5e;
+      --accent-emerald: #10b981;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+    body {
+      background: var(--bg-base);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      overflow: hidden;
+    }
+    #viewport-container {
+      position: relative;
+      flex: 1;
+      height: 100%;
+      background: radial-gradient(circle at 50% 50%, #0d1e2b 0%, #030712 100%);
+    }
+    canvas#holo-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    /* Side Control Dashboard */
+    #sidebar {
+      width: 440px;
+      height: 100%;
+      background: var(--panel-bg);
+      backdrop-filter: blur(20px);
+      border-left: 1px solid var(--panel-border);
+      display: flex;
+      flex-direction: column;
+      z-index: 10;
+      box-shadow: -10px 0 35px rgba(0,0,0,0.65);
+      overflow-y: auto;
+    }
+    #sidebar::-webkit-scrollbar {
+      width: 5px;
+    }
+    #sidebar::-webkit-scrollbar-thumb {
+      background: rgba(14, 165, 233, 0.35);
+      border-radius: 4px;
+    }
+    .header-box {
+      padding: 20px 24px 16px;
+      border-bottom: 1px solid rgba(14, 165, 233, 0.15);
+      background: linear-gradient(180deg, rgba(14, 165, 233, 0.08) 0%, transparent 100%);
+    }
+    .badge-tag {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--accent-sky);
+      background: rgba(14, 165, 233, 0.14);
+      border: 1px solid rgba(14, 165, 233, 0.35);
+      padding: 3px 8px;
+      border-radius: 4px;
+      margin-bottom: 8px;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+    }
+    h1 {
+      font-size: 18px;
+      font-weight: 700;
+      line-height: 1.4;
+      color: #fff;
+      letter-spacing: -0.2px;
+    }
+    .sub-title {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 5px;
+      font-family: var(--font-mono);
+    }
+    .content-box {
+      padding: 18px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+    .section-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--accent-sky);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+    .section-title::before {
+      content: '';
+      display: inline-block;
+      width: 4px;
+      height: 12px;
+      background: var(--accent-sky);
+      border-radius: 2px;
+    }
+    /* Scope Card */
+    .scope-panel {
+      background: rgba(2, 6, 23, 0.65);
+      border: 1px solid rgba(14, 165, 233, 0.2);
+      border-radius: 8px;
+      padding: 12px;
+    }
+    .scope-title {
+      font-size: 11px;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    .scope-canvas-wrap {
+      width: 100%;
+      height: 115px;
+      position: relative;
+    }
+    canvas.scope-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      background: #020617;
+      border-radius: 4px;
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+    /* Readout Grid */
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+    .metric-item {
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 6px;
+      padding: 8px 12px;
+    }
+    .metric-lbl {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    .metric-val {
+      font-family: var(--font-mono);
+      font-size: 15px;
+      font-weight: 700;
+      margin-top: 2px;
+      color: #fff;
+    }
+    /* Sliders */
+    .slider-group {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .control-row {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .control-label-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--text-main);
+    }
+    .control-val {
+      font-family: var(--font-mono);
+      color: var(--accent-sky);
+    }
+    input[type=range] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.12);
+      border-radius: 2px;
+      outline: none;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--accent-sky);
+      cursor: pointer;
+      box-shadow: 0 0 8px var(--accent-sky);
+      transition: transform 0.1s;
+    }
+    input[type=range]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+    /* Buttons */
+    .btn-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+    .btn {
+      background: rgba(30, 41, 59, 0.7);
+      border: 1px solid rgba(14, 165, 233, 0.25);
+      color: #e2e8f0;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 8px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s;
+    }
+    .btn:hover {
+      background: rgba(14, 165, 233, 0.2);
+      border-color: var(--accent-sky);
+      color: #fff;
+      box-shadow: 0 0 10px rgba(14, 165, 233, 0.25);
+    }
+    .btn-active {
+      background: rgba(14, 165, 233, 0.35);
+      border-color: var(--accent-sky);
+      color: #fff;
+    }
+    .action-btn {
+      width: 100%;
+      background: linear-gradient(135deg, rgba(14, 165, 233, 0.25), rgba(52, 211, 153, 0.25));
+      border: 1px solid rgba(14, 165, 233, 0.4);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .action-btn:hover {
+      border-color: var(--accent-emerald);
+      box-shadow: 0 0 14px rgba(52, 211, 153, 0.35);
+      transform: translateY(-1px);
+    }
+    /* Theory Box */
+    .theory-box {
+      font-size: 11px;
+      color: var(--text-muted);
+      line-height: 1.6;
+      background: rgba(2, 6, 23, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      border-radius: 6px;
+      padding: 10px 12px;
+    }
+    .theory-box b {
+      color: var(--accent-gold);
+    }
+    /* Overlay HUD */
+    #hud-overlay {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .hud-chip {
+      background: rgba(3, 7, 18, 0.82);
+      border: 1px solid rgba(14, 165, 233, 0.25);
+      backdrop-filter: blur(10px);
+      padding: 8px 14px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-family: var(--font-mono);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .dot-live {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent-sky);
+      box-shadow: 0 0 8px var(--accent-sky);
+      animation: pulse 1.8s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+    #back-btn {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid var(--panel-border);
+      color: var(--text-main);
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      text-decoration: none;
+      backdrop-filter: blur(10px);
+      transition: all 0.2s;
+      z-index: 20;
+    }
+    #back-btn:hover {
+      background: var(--accent-sky);
+      color: #000;
+      box-shadow: 0 0 15px rgba(14, 165, 233, 0.5);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 3D Holographic Viewport -->
+  <div id="viewport-container">
+    <canvas id="holo-canvas"></canvas>
+    
+    <div id="hud-overlay">
+      <div class="hud-chip">
+        <span class="dot-live"></span>
+        <span>CHIRAL KAGOME FLUX KNOT EMULATOR [v324.0]</span>
+      </div>
+      <div class="hud-chip">
+        <span style="color:var(--accent-sky);">KNOT TOPOLOGY:</span>
+        <span id="hud-knot-txt" style="color:var(--accent-gold);font-weight:bold;">TREFOIL 3₁ KNOT (Linking Lk = 1)</span>
+      </div>
+      <div class="hud-chip">
+        <span style="color:var(--accent-emerald);">DIODE RECTIFICATION:</span>
+        <span id="hud-diode-txt" style="color:var(--accent-emerald);font-weight:bold;">η_MDE = 86.4 % (Forward Flow ON)</span>
+      </div>
+    </div>
+
+    <a href="index.html" id="back-btn">← 返回中央展厅 (324)</a>
+  </div>
+
+  <!-- Sidebar Controls -->
+  <div id="sidebar">
+    <div class="header-box">
+      <span class="badge-tag">Kagome Non-Abelian Diode</span>
+      <h1>手征卡戈梅超导体三维拓扑磁通结与非阿贝尔马约拉纳环流二极管全息模拟器</h1>
+      <div class="sub-title">Chiral Kagome Flux Knot &amp; Non-Abelian Majorana Diode</div>
+    </div>
+
+    <div class="content-box">
+      <!-- Readout Grid -->
+      <div class="metric-grid">
+        <div class="metric-item">
+          <div class="metric-lbl">马约拉纳二极管整流比 η</div>
+          <div class="metric-val" id="val-rect" style="color:var(--accent-emerald);">86.4 %</div>
+        </div>
+        <div class="metric-item">
+          <div class="metric-lbl">手征轨道磁通量 Φ_loop</div>
+          <div class="metric-val" id="val-flux" style="color:var(--accent-gold);">0.33 Φ₀</div>
+        </div>
+        <div class="metric-item">
+          <div class="metric-lbl">安德列夫前向电导 G_+</div>
+          <div class="metric-val" id="val-gp" style="color:var(--accent-sky);">3.82 e²/h</div>
+        </div>
+        <div class="metric-item">
+          <div class="metric-lbl">三叶草结曲率 κ_knot</div>
+          <div class="metric-val" id="val-kappa" style="color:var(--accent-purple);">1.45 rad/nm</div>
+        </div>
+      </div>
+
+      <!-- Scopes -->
+      <div class="scope-panel">
+        <div class="scope-title">
+          <span>MAJORANA ANDREEV I-V &amp; RECTIFICATION</span>
+          <span style="color:var(--accent-emerald);">Diode Asymmetry</span>
+        </div>
+        <div class="scope-canvas-wrap">
+          <canvas class="scope-canvas" id="scope-iv"></canvas>
+        </div>
+      </div>
+
+      <div class="scope-panel">
+        <div class="scope-title">
+          <span>TREFOIL KNOT JONES POLYNOMIAL V(t)</span>
+          <span style="color:var(--accent-gold);">Lk = 1 Invariant</span>
+        </div>
+        <div class="scope-canvas-wrap">
+          <canvas class="scope-canvas" id="scope-jones"></canvas>
+        </div>
+      </div>
+
+      <!-- Action Button -->
+      <div>
+        <button class="action-btn" id="btn-reverse-bias">反转安德列夫驱动偏压 V_bias ⇄ -V_bias (Flip Bias)</button>
+      </div>
+
+      <!-- Sliders -->
+      <div>
+        <div class="section-title">手征卡戈梅哈密顿量微观调控</div>
+        <div class="slider-group">
+          <div class="control-row">
+            <div class="control-label-row">
+              <span>手征配对势 Δ₀ (px + i py)</span>
+              <span class="control-val" id="lbl-delta">7.5 meV</span>
+            </div>
+            <input type="range" id="sl-delta" min="1.0" max="18.0" step="0.5" value="7.5">
+          </div>
+
+          <div class="control-row">
+            <div class="control-label-row">
+              <span>范霍夫奇点平带偏置 μ_vhs</span>
+              <span class="control-val" id="lbl-vhs">0.12 eV</span>
+            </div>
+            <input type="range" id="sl-vhs" min="-0.8" max="0.8" step="0.02" value="0.12">
+          </div>
+
+          <div class="control-row">
+            <div class="control-label-row">
+              <span>三维磁通结扭曲度 κ_knot</span>
+              <span class="control-val" id="lbl-kappa">1.45</span>
+            </div>
+            <input type="range" id="sl-kappa" min="0.5" max="2.8" step="0.05" value="1.45">
+          </div>
+
+          <div class="control-row">
+            <div class="control-label-row">
+              <span>微波驱动偏压 V_bias</span>
+              <span class="control-val" id="lbl-vbias">0.35 mV</span>
+            </div>
+            <input type="range" id="sl-vbias" min="0.05" max="1.2" step="0.02" value="0.35">
+          </div>
+
+          <div class="control-row">
+            <div class="control-label-row">
+              <span>微波驱动频率 Ω_rf</span>
+              <span class="control-val" id="lbl-omega">18.5 GHz</span>
+            </div>
+            <input type="range" id="sl-omega" min="5.0" max="40.0" step="0.5" value="18.5">
+          </div>
+        </div>
+      </div>
+
+      <!-- Presets -->
+      <div>
+        <div class="section-title">典型拓扑相与预设工况</div>
+        <div class="btn-grid">
+          <button class="btn btn-active" id="pre-trefoil">三叶草结拓扑基态</button>
+          <button class="btn" id="pre-diode-on">巨马约拉纳二极管通态</button>
+          <button class="btn" id="pre-vhs-flat">平带范霍夫共振态</button>
+          <button class="btn" id="pre-melt">相干结融化退相干态</button>
+        </div>
+      </div>
+
+      <!-- Theory Box -->
+      <div class="theory-box">
+        <b>微观哈密顿量与非阿贝尔马约拉纳二极管机理：</b><br>
+        1. <b>卡戈梅手征磁通结：</b> 具有鞍点奇异性的卡戈梅平带诱导内禀手征超导 $\Delta_{\mathbf{k}} = \Delta_0(k_x + i k_y)$，超导序参数涡旋自缠绕形成三维三叶草三维拓扑磁通结（Trefoil Knot 3₁），环绕数 $\text{Lk} = 1$。<br>
+        2. <b>非阿贝尔马约拉纳环流二极管：</b> 结自交叉处产生的马约拉纳零能态在轨道自发环流场中具有空间手征破缺，安德列夫反射电流对顺向与逆向偏压展现出强烈的单向整流特性，整流效率 $\eta_{\text{MDE}} > 85\%$。
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    // --- Audio Engine (Chiral Microwave Synthesizer) ---
+    class AudioEngine {
+      constructor() {
+        this.ctx = null;
+        this.enabled = false;
+      }
+      init() {
+        if (!this.ctx) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          this.ctx = new AudioContext();
+          this.enabled = true;
+        }
+        if (this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      }
+      playDiodeTone(isForward) {
+        if (!this.enabled || !this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = isForward ? 'sine' : 'sawtooth';
+        const startFreq = isForward ? 520 : 180;
+        const endFreq = isForward ? 980 : 110;
+
+        osc.frequency.setValueAtTime(startFreq, now);
+        osc.frequency.exponentialRampToValueAtTime(endFreq, now + 0.15);
+
+        gain.gain.setValueAtTime(0.08, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.22);
+      }
+    }
+    const audio = new AudioEngine();
+    window.addEventListener('click', () => audio.init(), { once: true });
+
+    // --- State Object ---
+    const STATE = {
+      delta0: 7.5,       // Chiral gap (meV)
+      vhs: 0.12,         // VHS offset (eV)
+      kappa: 1.45,       // Knot curvature
+      vBias: 0.35,       // Microwave bias (mV)
+      omega: 18.5,       // Frequency (GHz)
+      biasFlipped: false,
+
+      // Computed Physics
+      rectRatio: 86.4,   // %
+      loopFlux: 0.33,    // Phi0
+      gPlus: 3.82,       // e^2/h
+      gMinus: 0.28,      // e^2/h
+      isKnotIntact: true,
+
+      // 3D Viewport
+      rotX: 30 * Math.PI / 180,
+      rotY: -35 * Math.PI / 180,
+      zoom: 1.0,
+      isDragging: false,
+      lastMouseX: 0,
+      lastMouseY: 0,
+      time: 0
+    };
+
+    // --- Canvases ---
+    const holoCanvas = document.getElementById('holo-canvas');
+    const holoCtx = holoCanvas.getContext('2d');
+    const scopeIv = document.getElementById('scope-iv');
+    const ivCtx = scopeIv.getContext('2d');
+    const scopeJones = document.getElementById('scope-jones');
+    const jonesCtx = scopeJones.getContext('2d');
+
+    function resizeCanvases() {
+      const container = document.getElementById('viewport-container');
+      holoCanvas.width = container.clientWidth * window.devicePixelRatio;
+      holoCanvas.height = container.clientHeight * window.devicePixelRatio;
+      
+      scopeIv.width = scopeIv.clientWidth * window.devicePixelRatio;
+      scopeIv.height = scopeIv.clientHeight * window.devicePixelRatio;
+      
+      scopeJones.width = scopeJones.clientWidth * window.devicePixelRatio;
+      scopeJones.height = scopeJones.clientHeight * window.devicePixelRatio;
+    }
+    window.addEventListener('resize', resizeCanvases);
+
+    // --- Mouse Listeners ---
+    holoCanvas.addEventListener('mousedown', e => {
+      STATE.isDragging = true;
+      STATE.lastMouseX = e.clientX;
+      STATE.lastMouseY = e.clientY;
+      audio.init();
+    });
+    window.addEventListener('mouseup', () => STATE.isDragging = false);
+    holoCanvas.addEventListener('mousemove', e => {
+      if (!STATE.isDragging) return;
+      const dx = e.clientX - STATE.lastMouseX;
+      const dy = e.clientY - STATE.lastMouseY;
+      STATE.rotY += dx * 0.006;
+      STATE.rotX += dy * 0.006;
+      STATE.lastMouseX = e.clientX;
+      STATE.lastMouseY = e.clientY;
+    });
+    holoCanvas.addEventListener('wheel', e => {
+      e.preventDefault();
+      STATE.zoom *= (e.deltaY > 0 ? 0.94 : 1.06);
+      STATE.zoom = Math.max(0.4, Math.min(2.8, STATE.zoom));
+    }, { passive: false });
+
+    // --- Controls Binding ---
+    const slDelta = document.getElementById('sl-delta');
+    const slVhs = document.getElementById('sl-vhs');
+    const slKappa = document.getElementById('sl-kappa');
+    const slVbias = document.getElementById('sl-vbias');
+    const slOmega = document.getElementById('sl-omega');
+
+    slDelta.addEventListener('input', e => {
+      STATE.delta0 = parseFloat(e.target.value);
+      document.getElementById('lbl-delta').innerText = STATE.delta0.toFixed(1) + ' meV';
+      updatePhysics();
+    });
+    slVhs.addEventListener('input', e => {
+      STATE.vhs = parseFloat(e.target.value);
+      document.getElementById('lbl-vhs').innerText = STATE.vhs.toFixed(2) + ' eV';
+      updatePhysics();
+    });
+    slKappa.addEventListener('input', e => {
+      STATE.kappa = parseFloat(e.target.value);
+      document.getElementById('lbl-kappa').innerText = STATE.kappa.toFixed(2);
+      updatePhysics();
+    });
+    slVbias.addEventListener('input', e => {
+      STATE.vBias = parseFloat(e.target.value);
+      document.getElementById('lbl-vbias').innerText = STATE.vBias.toFixed(2) + ' mV';
+      updatePhysics();
+    });
+    slOmega.addEventListener('input', e => {
+      STATE.omega = parseFloat(e.target.value);
+      document.getElementById('lbl-omega').innerText = STATE.omega.toFixed(1) + ' GHz';
+      updatePhysics();
+    });
+
+    document.getElementById('btn-reverse-bias').addEventListener('click', () => {
+      audio.init();
+      STATE.biasFlipped = !STATE.biasFlipped;
+      audio.playDiodeTone(!STATE.biasFlipped);
+      updatePhysics();
+    });
+
+    // Presets
+    const presets = [
+      { id: 'pre-trefoil', delta: 7.5, vhs: 0.12, kappa: 1.45, vbias: 0.35, omega: 18.5 },
+      { id: 'pre-diode-on', delta: 12.0, vhs: 0.05, kappa: 1.85, vbias: 0.65, omega: 24.0 },
+      { id: 'pre-vhs-flat', delta: 9.5, vhs: 0.00, kappa: 2.10, vbias: 0.25, omega: 14.0 },
+      { id: 'pre-melt', delta: 2.5, vhs: 0.65, kappa: 0.60, vbias: 0.90, omega: 35.0 }
+    ];
+    presets.forEach(p => {
+      document.getElementById(p.id).addEventListener('click', () => {
+        presets.forEach(o => document.getElementById(o.id).classList.remove('btn-active'));
+        document.getElementById(p.id).classList.add('btn-active');
+
+        STATE.delta0 = p.delta; slDelta.value = p.delta; document.getElementById('lbl-delta').innerText = p.delta.toFixed(1) + ' meV';
+        STATE.vhs = p.vhs; slVhs.value = p.vhs; document.getElementById('lbl-vhs').innerText = p.vhs.toFixed(2) + ' eV';
+        STATE.kappa = p.kappa; slKappa.value = p.kappa; document.getElementById('lbl-kappa').innerText = p.kappa.toFixed(2);
+        STATE.vBias = p.vbias; slVbias.value = p.vbias; document.getElementById('lbl-vbias').innerText = p.vbias.toFixed(2) + ' mV';
+        STATE.omega = p.omega; slOmega.value = p.omega; document.getElementById('lbl-omega').innerText = p.omega.toFixed(1) + ' GHz';
+
+        updatePhysics();
+      });
+    });
+
+    // --- Physics Model Update ---
+    function updatePhysics() {
+      // 1. VHS Flat Band Resonance Factor
+      const vhsRes = 1.0 / (1.0 + Math.pow(STATE.vhs / 0.18, 2));
+
+      // 2. Chiral Loop Flux: spontaneously generated in Kagome triangle
+      STATE.loopFlux = 0.33 * Math.tanh(STATE.delta0 / 5.0) * vhsRes;
+
+      // 3. Knot Structural Integrity
+      STATE.isKnotIntact = (STATE.kappa >= 0.8 && STATE.delta0 > 3.0);
+
+      // 4. Andreev Forward and Reverse Conductances
+      const baseG = 2.0 * (STATE.delta0 / 8.0) * (1.0 + STATE.kappa * 0.35);
+      STATE.gPlus = baseG * (1.0 + STATE.loopFlux * 1.8);
+      STATE.gMinus = baseG * Math.max(0.04, 0.25 - STATE.loopFlux * 0.6);
+
+      // 5. Majorana Diode Rectification Ratio eta_MDE
+      STATE.rectRatio = ((STATE.gPlus - STATE.gMinus) / (STATE.gPlus + STATE.gMinus)) * 100.0;
+
+      // Update UI
+      document.getElementById('val-rect').innerText = `${STATE.rectRatio.toFixed(1)} %`;
+      document.getElementById('val-flux').innerText = `${STATE.loopFlux.toFixed(2)} Φ₀`;
+      document.getElementById('val-gp').innerText = `${STATE.gPlus.toFixed(2)} e²/h`;
+      document.getElementById('val-kappa').innerText = `${STATE.kappa.toFixed(2)} rad/nm`;
+
+      const hudKnot = document.getElementById('hud-knot-txt');
+      if (STATE.isKnotIntact) {
+        hudKnot.innerText = 'TREFOIL 3₁ KNOT (Linking Lk = 1)';
+        hudKnot.style.color = 'var(--accent-gold)';
+      } else {
+        hudKnot.innerText = 'UNLINKED VORTICES (Melted Phase)';
+        hudKnot.style.color = 'var(--accent-rose)';
+      }
+
+      const hudDiode = document.getElementById('hud-diode-txt');
+      if (!STATE.biasFlipped) {
+        hudDiode.innerText = `η_MDE = ${STATE.rectRatio.toFixed(1)} % (Forward Flow ON)`;
+        hudDiode.style.color = 'var(--accent-emerald)';
+      } else {
+        hudDiode.innerText = `PINCHED-OFF REVERSE (G = ${STATE.gMinus.toFixed(2)} e²/h)`;
+        hudDiode.style.color = 'var(--accent-rose)';
+      }
+    }
+
+    // --- 3D Projection Helpers ---
+    function project3D(x, y, z, cx, cy, scale) {
+      const cosY = Math.cos(STATE.rotY), sinY = Math.sin(STATE.rotY);
+      const x1 = x * cosY + z * sinY;
+      const z1 = -x * sinY + z * cosY;
+
+      const cosX = Math.cos(STATE.rotX), sinX = Math.sin(STATE.rotX);
+      const y2 = y * cosX - z1 * sinX;
+      const z2 = y * sinX + z1 * cosX;
+
+      const dist = 700;
+      const fov = dist / (dist + z2);
+      return {
+        px: cx + x1 * fov * scale * STATE.zoom,
+        py: cy + y2 * fov * scale * STATE.zoom,
+        depth: z2,
+        fov: fov
+      };
+    }
+
+    // --- 3D Holographic Rendering ---
+    function renderHologram() {
+      const w = holoCanvas.width;
+      const h = holoCanvas.height;
+      holoCtx.clearRect(0, 0, w, h);
+
+      const cx = w * 0.5;
+      const cy = h * 0.5;
+      const scale = Math.min(w, h) * 0.0016;
+
+      // 1. Draw Kagome Lattice Plane (Triangles + Hexagons)
+      const a = 50;
+      const rows = 4;
+      const cols = 5;
+      const kagomeY = 60;
+
+      for (let r = -rows; r <= rows; r++) {
+        for (let c = -cols; c <= cols; c++) {
+          const posX = (c + (r % 2) * 0.5) * a * 1.732;
+          const posZ = r * a * 1.5;
+
+          const p1 = project3D(posX, kagomeY, posZ, cx, cy, scale);
+          const p2 = project3D(posX + a * 0.5, kagomeY, posZ + a * 0.866, cx, cy, scale);
+          const p3 = project3D(posX - a * 0.5, kagomeY, posZ + a * 0.866, cx, cy, scale);
+
+          // Triangle bonds
+          holoCtx.beginPath();
+          holoCtx.moveTo(p1.px, p1.py);
+          holoCtx.lineTo(p2.px, p2.py);
+          holoCtx.lineTo(p3.px, p3.py);
+          holoCtx.closePath();
+          holoCtx.strokeStyle = 'rgba(14, 165, 233, 0.15)';
+          holoCtx.lineWidth = 1;
+          holoCtx.stroke();
+
+          // Kagome corner atoms
+          holoCtx.fillStyle = '#38bdf8';
+          holoCtx.beginPath(); holoCtx.arc(p1.px, p1.py, 2.5 * p1.fov, 0, Math.PI * 2); holoCtx.fill();
+        }
+      }
+
+      // 2. 3D Trefoil Knot Vortex Filament (3₁ knot parameterization)
+      // x = sin(t) + 2 sin(2t), y = cos(t) - 2 cos(2t), z = -sin(3t)
+      const knotSteps = 120;
+      const knotR = 70 * STATE.kappa;
+      const knotH = 45 * STATE.kappa;
+
+      holoCtx.beginPath();
+      for (let i = 0; i <= knotSteps; i++) {
+        const t = (i / knotSteps) * Math.PI * 2;
+        const kx = (Math.sin(t) + 2.0 * Math.sin(2.0 * t)) * knotR * 0.45;
+        const kz = (Math.cos(t) - 2.0 * Math.cos(2.0 * t)) * knotR * 0.45;
+        const ky = -40 - Math.sin(3.0 * t) * knotH + Math.sin(STATE.time * 3 + t * 4) * 6;
+
+        const p = project3D(kx, ky, kz, cx, cy, scale);
+        if (i === 0) holoCtx.moveTo(p.px, p.py);
+        else holoCtx.lineTo(p.px, p.py);
+      }
+      holoCtx.strokeStyle = STATE.isKnotIntact ? '#10b981' : '#f43f5e';
+      holoCtx.lineWidth = 3.5;
+      holoCtx.shadowColor = STATE.isKnotIntact ? '#10b981' : '#f43f5e';
+      holoCtx.shadowBlur = 15;
+      holoCtx.stroke();
+      holoCtx.shadowBlur = 0;
+
+      // 3. Majorana Zero Modes at Knot Self-Crossing Loci
+      const crossingAngles = [Math.PI / 3, Math.PI, 5 * Math.PI / 3];
+      crossingAngles.forEach((ang, idx) => {
+        const mx = (Math.sin(ang) + 2.0 * Math.sin(2.0 * ang)) * knotR * 0.45;
+        const mz = (Math.cos(ang) - 2.0 * Math.cos(2.0 * ang)) * knotR * 0.45;
+        const my = -40 - Math.sin(3.0 * ang) * knotH;
+
+        const mp = project3D(mx, my, mz, cx, cy, scale);
+        const grad = holoCtx.createRadialGradient(mp.px, mp.py, 2, mp.px, mp.py, 16 * mp.fov);
+        grad.addColorStop(0, '#ffffff');
+        grad.addColorStop(0.3, '#fbbf24');
+        grad.addColorStop(1, 'transparent');
+
+        holoCtx.fillStyle = grad;
+        holoCtx.beginPath();
+        holoCtx.arc(mp.px, mp.py, 14 * mp.fov, 0, Math.PI * 2);
+        holoCtx.fill();
+
+        holoCtx.fillStyle = '#ffffff';
+        holoCtx.font = `bold ${Math.round(11 * mp.fov)}px monospace`;
+        holoCtx.fillText(`γ_${idx + 1}`, mp.px + 12, mp.py - 6);
+      });
+
+      // 4. Nonreciprocal Andreev Current Particle Drift
+      const numParticles = 20;
+      const flowDir = STATE.biasFlipped ? -1 : 1;
+      const flowSpeed = (STATE.biasFlipped ? STATE.gMinus : STATE.gPlus) * 0.8;
+
+      for (let p = 0; p < numParticles; p++) {
+        const pPhase = (STATE.time * flowSpeed * 0.8 * flowDir + (p / numParticles)) % 1;
+        const normP = pPhase < 0 ? pPhase + 1 : pPhase;
+        const tKnot = normP * Math.PI * 2;
+
+        const px = (Math.sin(tKnot) + 2.0 * Math.sin(2.0 * tKnot)) * knotR * 0.45;
+        const pz = (Math.cos(tKnot) - 2.0 * Math.cos(2.0 * tKnot)) * knotR * 0.45;
+        const py = -40 - Math.sin(3.0 * tKnot) * knotH;
+
+        const partP = project3D(px, py, pz, cx, cy, scale);
+        holoCtx.fillStyle = flowDir > 0 ? '#38bdf8' : '#f43f5e';
+        holoCtx.beginPath();
+        holoCtx.arc(partP.px, partP.py, 3.5 * partP.fov, 0, Math.PI * 2);
+        holoCtx.fill();
+      }
+    }
+
+    // --- Scope 1: Majorana Andreev I-V & Rectification ---
+    function renderScopeIV() {
+      const w = scopeIv.width;
+      const h = scopeIv.height;
+      ivCtx.clearRect(0, 0, w, h);
+
+      // Grid
+      ivCtx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+      ivCtx.lineWidth = 1;
+      ivCtx.beginPath();
+      for (let x = 0; x < w; x += 30) { ivCtx.moveTo(x, 0); ivCtx.lineTo(x, h); }
+      for (let y = 0; y < h; y += 25) { ivCtx.moveTo(0, y); ivCtx.lineTo(w, y); }
+      ivCtx.stroke();
+
+      // Axis
+      ivCtx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+      ivCtx.beginPath();
+      ivCtx.moveTo(w * 0.5, 0); ivCtx.lineTo(w * 0.5, h);
+      ivCtx.moveTo(0, h * 0.5); ivCtx.lineTo(w, h * 0.5);
+      ivCtx.stroke();
+
+      // Draw Asymmetric I-V Trace
+      ivCtx.beginPath();
+      const pts = 80;
+      for (let i = 0; i < pts; i++) {
+        const u = (i / (pts - 1)) * 2.0 - 1.0; // -1 to 1 (V_bias)
+        const v = u * 1.2;
+
+        let curI = 0;
+        if (v >= 0) {
+          curI = v * STATE.gPlus * 0.35;
+        } else {
+          curI = v * STATE.gMinus * 0.35;
+        }
+
+        const x = (u + 1.0) * 0.5 * w;
+        const y = h * 0.5 - (curI / 1.8) * (h * 0.42);
+
+        if (i === 0) ivCtx.moveTo(x, y);
+        else ivCtx.lineTo(x, y);
+      }
+      ivCtx.strokeStyle = '#10b981';
+      ivCtx.lineWidth = 2.4;
+      ivCtx.shadowColor = '#10b981';
+      ivCtx.shadowBlur = 8;
+      ivCtx.stroke();
+      ivCtx.shadowBlur = 0;
+
+      // Operating Dot
+      const opV = STATE.biasFlipped ? -STATE.vBias : STATE.vBias;
+      const opX = ((opV / 1.2) + 1.0) * 0.5 * w;
+      const opI = (opV >= 0 ? opV * STATE.gPlus : opV * STATE.gMinus) * 0.35;
+      const opY = h * 0.5 - (opI / 1.8) * (h * 0.42);
+
+      ivCtx.fillStyle = '#fbbf24';
+      ivCtx.beginPath();
+      ivCtx.arc(opX, opY, 4.5, 0, Math.PI * 2);
+      ivCtx.fill();
+
+      ivCtx.fillStyle = '#94a3b8';
+      ivCtx.font = '9px monospace';
+      ivCtx.fillText(`I_bias=${opI.toFixed(2)}μA`, Math.max(5, opX - 45), opY - 8);
+    }
+
+    // --- Scope 2: Trefoil Knot Jones Polynomial Evolution ---
+    function renderScopeJones() {
+      const w = scopeJones.width;
+      const h = scopeJones.height;
+      jonesCtx.clearRect(0, 0, w, h);
+
+      // Grid
+      jonesCtx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+      jonesCtx.lineWidth = 1;
+      jonesCtx.beginPath();
+      for (let x = 0; x < w; x += 30) { jonesCtx.moveTo(x, 0); jonesCtx.lineTo(x, h); }
+      for (let y = 0; y < h; y += 25) { jonesCtx.moveTo(0, y); jonesCtx.lineTo(w, y); }
+      jonesCtx.stroke();
+
+      // Jones Polynomial V(t) = -t^(-4) + t^(-3) + t^(-1) plot
+      jonesCtx.beginPath();
+      const pts = 80;
+      for (let i = 0; i < pts; i++) {
+        const u = i / (pts - 1);
+        const tVal = 0.5 + u * 1.5; // t from 0.5 to 2.0
+        // Trefoil polynomial value
+        const vVal = -Math.pow(tVal, -4) + Math.pow(tVal, -3) + Math.pow(tVal, -1);
+        const x = u * w;
+        const y = h * 0.65 - (vVal / 2.0) * (h * 0.45);
+
+        if (i === 0) jonesCtx.moveTo(x, y);
+        else jonesCtx.lineTo(x, y);
+      }
+      jonesCtx.strokeStyle = '#fbbf24';
+      jonesCtx.lineWidth = 2.0;
+      jonesCtx.shadowColor = '#fbbf24';
+      jonesCtx.shadowBlur = 8;
+      jonesCtx.stroke();
+      jonesCtx.shadowBlur = 0;
+
+      jonesCtx.fillStyle = '#94a3b8';
+      jonesCtx.font = '9px monospace';
+      jonesCtx.fillText('V(t) = -t⁻⁴ + t⁻³ + t⁻¹ (3₁ Invariant)', 10, 15);
+    }
+
+    // --- Main Simulation Loop ---
+    let lastTime = performance.now();
+    function animate(currentTime) {
+      const dt = Math.min(0.05, (currentTime - lastTime) * 0.001);
+      lastTime = currentTime;
+      STATE.time += dt;
+
+      renderHologram();
+      renderScopeIV();
+      renderScopeJones();
+
+      requestAnimationFrame(animate);
+    }
+
+    // Initialize
+    resizeCanvases();
+    updatePhysics();
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>

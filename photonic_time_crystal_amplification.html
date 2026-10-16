@@ -1,0 +1,1009 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>光子时间晶体与动量带隙光场放大 (Photonic Time Crystals & k-Gap Amplification)</title>
+  <style>
+    :root {
+      --bg: #030712;
+      --card-bg: rgba(15, 23, 42, 0.85);
+      --border: rgba(148, 163, 184, 0.15);
+      --accent-cyan: #06b6d4;
+      --accent-purple: #8b5cf6;
+      --accent-rose: #f43f5e;
+      --accent-amber: #f59e0b;
+      --text: #f8fafc;
+      --text-dim: #94a3b8;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      padding: 16px 24px;
+      background: rgba(3, 7, 18, 0.9);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      backdrop-filter: blur(8px);
+      z-index: 10;
+    }
+    .header-left {
+      display: flex;
+      align-items: baseline;
+      gap: 16px;
+    }
+    h1 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      background: linear-gradient(135deg, #38bdf8, #c084fc, #fb7185);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .tagline {
+      font-size: 0.825rem;
+      color: var(--text-dim);
+    }
+    .nav-btn {
+      padding: 6px 14px;
+      font-size: 0.825rem;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border);
+      color: var(--text);
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+    .nav-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: var(--accent-cyan);
+    }
+    main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 370px;
+      gap: 16px;
+      padding: 16px 24px;
+      max-width: 1750px;
+      margin: 0 auto;
+      width: 100%;
+    }
+    @media (max-width: 1200px) {
+      main {
+        grid-template-columns: 1fr;
+      }
+    }
+    .viewports-container {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .canvas-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    }
+    .main-canvas-wrapper {
+      height: 520px;
+      position: relative;
+      cursor: crosshair;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+    .canvas-overlay {
+      position: absolute;
+      top: 14px;
+      left: 16px;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      background: rgba(192, 132, 252, 0.15);
+      border: 1px solid rgba(192, 132, 252, 0.4);
+      color: #e9d5ff;
+      width: fit-content;
+    }
+    .badge-indicator {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: currentColor;
+      box-shadow: 0 0 8px currentColor;
+    }
+    .canvas-controls-overlay {
+      position: absolute;
+      bottom: 14px;
+      left: 16px;
+      display: flex;
+      gap: 8px;
+      pointer-events: auto;
+    }
+    .btn-sm {
+      padding: 5px 12px;
+      font-size: 0.75rem;
+      border-radius: 6px;
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid var(--border);
+      color: var(--text);
+      cursor: pointer;
+      backdrop-filter: blur(4px);
+      transition: all 0.15s;
+    }
+    .btn-sm:hover {
+      background: rgba(30, 41, 59, 0.9);
+      border-color: var(--accent-cyan);
+    }
+    .btn-sm.active {
+      background: rgba(6, 182, 212, 0.25);
+      border-color: var(--accent-cyan);
+      color: #67e8f9;
+    }
+    .dual-charts {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      height: 230px;
+    }
+    @media (max-width: 768px) {
+      .dual-charts {
+        grid-template-columns: 1fr;
+        height: auto;
+      }
+      .dual-charts .canvas-card {
+        height: 210px;
+      }
+    }
+    .chart-title {
+      position: absolute;
+      top: 10px;
+      left: 14px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-dim);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .control-panel {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    }
+    .panel-section-title {
+      font-size: 0.85rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--accent-cyan);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .control-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.75rem;
+      color: var(--text-dim);
+    }
+    .control-val {
+      font-family: monospace;
+      color: var(--text);
+    }
+    input[type=range] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 5px;
+      border-radius: 3px;
+      background: rgba(255, 255, 255, 0.1);
+      outline: none;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--accent-cyan);
+      cursor: pointer;
+      box-shadow: 0 0 8px var(--accent-cyan);
+      transition: transform 0.1s;
+    }
+    input[type=range]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+    .btn-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .action-btn {
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border);
+      color: var(--text);
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    .action-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: var(--accent-cyan);
+    }
+    .action-btn.accent {
+      background: rgba(192, 132, 252, 0.15);
+      border-color: rgba(192, 132, 252, 0.4);
+      color: #e9d5ff;
+    }
+    .action-btn.accent:hover {
+      background: rgba(192, 132, 252, 0.25);
+    }
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .metric-card {
+      background: rgba(0, 0, 0, 0.25);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 8px;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .metric-title {
+      font-size: 0.7rem;
+      color: var(--text-dim);
+    }
+    .metric-value {
+      font-size: 1.05rem;
+      font-weight: 700;
+      font-family: monospace;
+      color: var(--accent-cyan);
+    }
+    .theory-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      font-size: 0.75rem;
+      line-height: 1.5;
+      color: var(--text-dim);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .theory-card b {
+      color: var(--text);
+    }
+    .math-formula {
+      font-family: "JetBrains Mono", monospace;
+      background: rgba(0, 0, 0, 0.3);
+      padding: 6px 8px;
+      border-radius: 6px;
+      color: #cbd5e1;
+      border-left: 2px solid var(--accent-cyan);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-left">
+      <h1>光子时间晶体与动量带隙光场放大</h1>
+      <span class="tagline">Photonic Time Crystals, Non-Adiabatic Index Modulation & k-Gap Parametric Gain</span>
+    </div>
+    <div style="display:flex; gap:12px; align-items:center;">
+      <a href="index.html" class="nav-btn">← 返回项目矩阵</a>
+    </div>
+  </header>
+
+  <main>
+    <div class="viewports-container">
+      <!-- 主波动空间视窗：一维时变介质空间电场 E(x,t) 与波包干涉放大 -->
+      <div class="canvas-card main-canvas-wrapper" id="mainWrapper">
+        <canvas id="mainCanvas"></canvas>
+        <div class="canvas-overlay">
+          <div class="badge" id="crystalBadge">
+            <span class="badge-indicator"></span>
+            <span id="crystalText">调制状态: 动量带隙共振态 (k ∈ k-Gap, 指数能量放大)</span>
+          </div>
+          <div style="font-size:0.75rem; color:#94a3b8; font-family:monospace;" id="modulationText">
+            ε(t) = 2.25 × [1 + 0.42·cos(2ω_0·t)] | 动量 k: 严格守恒 | 时间反射波: 激活
+          </div>
+        </div>
+        <div class="canvas-controls-overlay">
+          <button class="btn-sm active" id="btnToggleModulation">时间周期调制: 开</button>
+          <button class="btn-sm active" id="btnToggleForward">正向透射波 E_F</button>
+          <button class="btn-sm active" id="btnToggleBackward">时间反射波 E_B</button>
+          <button class="btn-sm" id="btnInjectPulse">⚡ 注入新光波包脉冲</button>
+          <button class="btn-sm" id="btnClearField">复位光场</button>
+        </div>
+      </div>
+
+      <!-- 下方双示波器：Floquet 能带结构与动量带隙 + 瞬时总光场能量暴涨曲线 -->
+      <div class="dual-charts">
+        <div class="canvas-card" style="position:relative;">
+          <div class="chart-title">
+            <span style="color:var(--accent-purple)">●</span> Floquet 准能量色散关系与动量带隙 (k-Gap & Im(ω))
+          </div>
+          <canvas id="dispersionCanvas"></canvas>
+        </div>
+        <div class="canvas-card" style="position:relative;">
+          <div class="chart-title">
+            <span style="color:var(--accent-rose)">●</span> 光场总能量随时间演化 U(t) (对数标度指数参量增益)
+          </div>
+          <canvas id="energyCanvas"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- 侧边栏控制面板 -->
+    <div class="sidebar">
+      <div class="control-panel">
+        <div class="panel-section-title">
+          <span>⚙ 时间调制物理参数 (Modulation Parameters)</span>
+        </div>
+
+        <div class="control-group">
+          <div class="control-label">
+            <span>介电常数调制深度 Δn / n₀</span>
+            <span class="control-val" id="valDepth">0.38</span>
+          </div>
+          <input type="range" id="paramDepth" min="0.0" max="0.8" step="0.02" value="0.38">
+        </div>
+
+        <div class="control-group">
+          <div class="control-label">
+            <span>调制角频率 Ω_M (标度化基频 2ω₀)</span>
+            <span class="control-val" id="valOmega">2.00 ω₀</span>
+          </div>
+          <input type="range" id="paramOmega" min="1.0" max="3.0" step="0.05" value="2.00">
+        </div>
+
+        <div class="control-group">
+          <div class="control-label">
+            <span>探针波包中心波矢 k₀</span>
+            <span class="control-val" id="valK0">1.00 k_B</span>
+          </div>
+          <input type="range" id="paramK0" min="0.4" max="1.6" step="0.02" value="1.00">
+        </div>
+
+        <div class="control-group">
+          <div class="control-label">
+            <span>非绝热跃变时间 τ_rise (fs)</span>
+            <span class="control-val" id="valRise">12 fs</span>
+          </div>
+          <input type="range" id="paramRise" min="2" max="60" step="2" value="12">
+        </div>
+
+        <div class="btn-row">
+          <button class="action-btn accent" id="btnSingleStepTimeReflect">
+            ⚡ 瞬态时间阶跃 (Time Refraction)
+          </button>
+          <button class="action-btn" id="btnAudioToggle">
+            🔊 光子音频合成: 开
+          </button>
+        </div>
+
+        <div class="panel-section-title" style="margin-top:6px;">
+          <span>时空物理工作模式预设</span>
+        </div>
+        <div class="btn-row">
+          <button class="btn-sm" id="presetResonant">动量带隙极强共振态</button>
+          <button class="btn-sm" id="presetOffGap">带隙外平庸传播态</button>
+          <button class="btn-sm" id="presetSuperluminal">超快极性反转态</button>
+          <button class="btn-sm" id="presetStatic">空间均匀静态基准态</button>
+        </div>
+
+        <div class="panel-section-title" style="margin-top:6px;">
+          <span>光场实时遥测物理指标</span>
+        </div>
+        <div class="metrics-grid">
+          <div class="metric-card">
+            <div class="metric-title">瞬时归一化总能量 U(t)</div>
+            <div class="metric-value" id="dispEnergy">1.84×</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-title">动量带隙全宽 Δk</div>
+            <div class="metric-value" id="dispGap">0.24 k_B</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-title">时间反射波系数 |r_T|²</div>
+            <div class="metric-value" id="dispRefl">0.32</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-title">虚频增长率 Im(ω) / ω₀</div>
+            <div class="metric-value" id="dispGain">+0.18</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="theory-card">
+        <b>光子时间晶体 (PTC) 物理原理</b>
+        <div>
+          区别于空间周期性的传统光子晶体，<b>光子时间晶体</b>是在全空间均匀但介质特性随时间周期调制的系统：
+        </div>
+        <div class="math-formula">
+          ε(t) = ε(t + T_M), \quad \mu = \mu_0
+        </div>
+        <div>
+          <b>1. 动量守恒与能量不守恒:</b> 空间均匀性保证波矢 $\mathbf{k}$ 严格守恒，但破坏时间对称性导致能量打破守恒，频率产生离散侧带 $\omega \pm n\Omega_M$。
+        </div>
+        <div>
+          <b>2. 动量带隙 (k-Gap):</b> 在 $\Omega_M \approx 2\omega$ 处张开动量禁带。带隙内本征频率具有虚部 $\omega = \frac{\Omega_M}{2} \pm i\gamma$，光波不被反射，而是直接从泵浦源中榨取能量发生<b>指数级参量放大</b>！
+        </div>
+        <div>
+          <b>3. 时间界面反射:</b> 折射率在飞秒级突变时，光子发生时间反射，生成反向传播的负频光波，波长不变但传播方向反转。
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // --- 物理模拟参数 ---
+    const PARAMS = {
+      n0: 1.5,              // 静态折射率 (eps0 = 2.25)
+      depth: 0.38,          // 调制深度 Delta n / n0
+      omegaM: 2.00,         // 调制角频率 (以基频 omega0 标度)
+      k0: 1.00,             // 探针波矢
+      riseTime: 12,         // 阶跃时间
+      enableMod: true,
+      showForward: true,
+      showBackward: true
+    };
+
+    // --- 一维高精度波动方程有限差分网格 (FDTD / Leapfrog) ---
+    const NX = 380;
+    const dx = 1.0;
+    const c0 = 1.0;
+    const dt = 0.5 * (dx / c0); // CFL 条件保证绝对收敛稳定
+
+    // 电场 E, 磁场 H, 电位移 D
+    let Ez = new Float32Array(NX);
+    let Hy = new Float32Array(NX);
+    let Dz = new Float32Array(NX);
+
+    let totalEnergyHistory = [];
+    let simTime = 0;
+
+    let audioCtx = null;
+    let audioGain = null;
+    let humOsc = null;
+    let audioEnabled = true;
+
+    function initAudio() {
+      try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioContext();
+        audioGain = audioCtx.createGain();
+        audioGain.gain.setValueAtTime(0.04, audioCtx.currentTime);
+
+        humOsc = audioCtx.createOscillator();
+        humOsc.type = 'sawtooth';
+        humOsc.frequency.setValueAtTime(120, audioCtx.currentTime);
+
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(320, audioCtx.currentTime);
+
+        humOsc.connect(filter);
+        filter.connect(audioGain);
+        audioGain.connect(audioCtx.destination);
+        humOsc.start();
+      } catch (e) {}
+    }
+
+    function playPulseSound(freq) {
+      if (!audioCtx || !audioEnabled) return;
+      try {
+        const now = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now);
+        osc.frequency.exponentialRampToValueAtTime(freq * 1.5, now + 0.15);
+
+        g.gain.setValueAtTime(0.08, now);
+        g.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+
+        osc.connect(g);
+        g.connect(audioGain);
+        osc.start(now);
+        osc.stop(now + 0.16);
+      } catch (e) {}
+    }
+
+    // 初始化中心高斯测试波包
+    function injectGaussianPulse() {
+      const center = Math.floor(NX * 0.35);
+      const sigma = 18.0;
+      const kVal = (PARAMS.k0 * 2 * Math.PI) / 30.0;
+      for (let i = 0; i < NX; i++) {
+        const dist = i - center;
+        const env = Math.exp(-(dist * dist) / (2 * sigma * sigma));
+        Ez[i] += env * Math.cos(kVal * dist) * 1.0;
+        Hy[i] += env * Math.cos(kVal * dist) * (1.0 / PARAMS.n0);
+      }
+      playPulseSound(440);
+    }
+
+    // --- 画布与视窗设置 ---
+    const mainWrapper = document.getElementById('mainWrapper');
+    const mainCanvas = document.getElementById('mainCanvas');
+    const ctx = mainCanvas.getContext('2d');
+
+    const dispCanvas = document.getElementById('dispersionCanvas');
+    const dispCtx = dispCanvas.getContext('2d');
+
+    const energyCanvas = document.getElementById('energyCanvas');
+    const energyCtx = energyCanvas.getContext('2d');
+
+    function resizeCanvases() {
+      const rect = mainWrapper.getBoundingClientRect();
+      mainCanvas.width = rect.width * window.devicePixelRatio;
+      mainCanvas.height = rect.height * window.devicePixelRatio;
+
+      const dRect = dispCanvas.parentElement.getBoundingClientRect();
+      dispCanvas.width = dRect.width * window.devicePixelRatio;
+      dispCanvas.height = dRect.height * window.devicePixelRatio;
+
+      const eRect = energyCanvas.parentElement.getBoundingClientRect();
+      energyCanvas.width = eRect.width * window.devicePixelRatio;
+      energyCanvas.height = eRect.height * window.devicePixelRatio;
+    }
+    window.addEventListener('resize', resizeCanvases);
+
+    // 点击在对应空间位置注入波包
+    mainCanvas.addEventListener('mousedown', (e) => {
+      if (!audioCtx && audioEnabled) initAudio();
+      const rect = mainCanvas.getBoundingClientRect();
+      const clickFrac = (e.clientX - rect.left) / rect.width;
+      const center = Math.floor(clickFrac * NX);
+      const sigma = 16.0;
+      const kVal = (PARAMS.k0 * 2 * Math.PI) / 30.0;
+      for (let i = 0; i < NX; i++) {
+        const dist = i - center;
+        const env = Math.exp(-(dist * dist) / (2 * sigma * sigma));
+        Ez[i] += env * Math.cos(kVal * dist) * 1.2;
+        Hy[i] += env * Math.cos(kVal * dist) * (1.2 / PARAMS.n0);
+      }
+      playPulseSound(520);
+    });
+
+    // --- FDTD 时变介电常数波动求解方程 ---
+    function stepFDTD() {
+      // 计算瞬时全域介电常数 eps(t)
+      const baseEps = PARAMS.n0 * PARAMS.n0;
+      const omega0 = 0.12; // 仿真基频
+      const omegaMod = PARAMS.omegaM * omega0;
+
+      let modFactor = 1.0;
+      if (PARAMS.enableMod) {
+        modFactor = 1.0 + PARAMS.depth * Math.cos(omegaMod * simTime);
+      }
+      const epsT = Math.max(1.0, baseEps * modFactor);
+
+      // 1. 更新磁场 Hy: dHy/dt = -(1/mu) * dEz/dx
+      for (let i = 0; i < NX - 1; i++) {
+        Hy[i] -= (dt / 1.0) * ((Ez[i + 1] - Ez[i]) / dx);
+      }
+      // 边界循环吸收
+      Hy[NX - 1] = Hy[NX - 2] * 0.98;
+
+      // 2. 更新电场 Ez: dEz/dt = (1/eps(t)) * (-dHy/dx)
+      for (let i = 1; i < NX; i++) {
+        Ez[i] -= (dt / epsT) * ((Hy[i] - Hy[i - 1]) / dx);
+      }
+      // 周期性与轻微吸收边界
+      Ez[0] = Ez[1] * 0.98;
+      Ez[NX - 1] = Ez[NX - 2] * 0.98;
+
+      simTime += dt;
+
+      // 3. 计算光场瞬时总能量 U = 0.5 * sum(eps*E^2 + mu*H^2)
+      let energySum = 0;
+      for (let i = 0; i < NX; i++) {
+        energySum += 0.5 * (epsT * Ez[i] * Ez[i] + 1.0 * Hy[i] * Hy[i]) * dx;
+      }
+
+      // 限幅保护防爆震
+      if (energySum > 1e4) {
+        for (let i = 0; i < NX; i++) {
+          Ez[i] *= 0.85;
+          Hy[i] *= 0.85;
+        }
+      }
+
+      totalEnergyHistory.push(energySum);
+      if (totalEnergyHistory.length > 250) totalEnergyHistory.shift();
+
+      // 音频调频
+      if (humOsc && audioEnabled) {
+        const targetFreq = 120 + Math.min(300, energySum * 18);
+        humOsc.frequency.setTargetAtTime(targetFreq, audioCtx.currentTime, 0.1);
+      }
+    }
+
+    // --- 主视窗渲染：一维时变介质空间光场电波包 E(x,t) ---
+    function renderMainField() {
+      const w = mainCanvas.width;
+      const h = mainCanvas.height;
+      ctx.clearRect(0, 0, w, h);
+
+      const midY = h * 0.5;
+      const fieldH = h * 0.35;
+
+      // 1. 绘制光子时间晶体时变背景通道
+      const baseEps = PARAMS.n0 * PARAMS.n0;
+      const omega0 = 0.12;
+      const omegaMod = PARAMS.omegaM * omega0;
+      const modPhase = Math.cos(omegaMod * simTime);
+      const modAlpha = PARAMS.enableMod ? (0.12 + Math.abs(modPhase) * 0.18 * PARAMS.depth) : 0.08;
+
+      ctx.save();
+      ctx.fillStyle = `rgba(147, 51, 234, ${modAlpha})`;
+      ctx.fillRect(0, midY - fieldH, w, fieldH * 2);
+
+      // 上下边缘限制标线
+      ctx.strokeStyle = 'rgba(192, 132, 252, 0.4)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(0, midY - fieldH); ctx.lineTo(w, midY - fieldH);
+      ctx.moveTo(0, midY + fieldH); ctx.lineTo(w, midY + fieldH);
+      ctx.stroke();
+
+      // 中轴零基线
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+      ctx.setLineDash([6, 6]);
+      ctx.beginPath();
+      ctx.moveTo(0, midY); ctx.lineTo(w, midY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+
+      // 2. 绘制电场 E_z(x) 波动曲线与高光粒子
+      ctx.save();
+      ctx.beginPath();
+      for (let i = 0; i < NX; i++) {
+        const px = (i / (NX - 1)) * w;
+        const py = midY - Ez[i] * (fieldH * 0.75);
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 2.5 * window.devicePixelRatio;
+      ctx.stroke();
+
+      // 填充波形渐变色
+      ctx.lineTo(w, midY);
+      ctx.lineTo(0, midY);
+      ctx.closePath();
+      const waveGrad = ctx.createLinearGradient(0, midY - fieldH * 0.75, 0, midY + fieldH * 0.75);
+      waveGrad.addColorStop(0, 'rgba(56, 189, 248, 0.35)');
+      waveGrad.addColorStop(0.5, 'rgba(56, 189, 248, 0.05)');
+      waveGrad.addColorStop(1, 'rgba(244, 63, 94, 0.35)');
+      ctx.fillStyle = waveGrad;
+      ctx.fill();
+
+      // 3. 绘制磁场 H_y(x) 辅助相位虚线
+      ctx.beginPath();
+      for (let i = 0; i < NX; i++) {
+        const px = (i / (NX - 1)) * w;
+        const py = midY - Hy[i] * (fieldH * 0.75 * PARAMS.n0);
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.strokeStyle = 'rgba(244, 63, 94, 0.45)';
+      ctx.lineWidth = 1.2 * window.devicePixelRatio;
+      ctx.setLineDash([4, 4]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // 标示正向透射波与时间反射波标识
+      ctx.font = `${10 * window.devicePixelRatio}px monospace`;
+      ctx.fillStyle = '#67e8f9';
+      ctx.fillText('正向传播波 E_F (+k) →', 24, midY - fieldH + 20);
+      ctx.fillStyle = '#fda4af';
+      ctx.fillText('← 时间反射波 E_B (-k)', w - 180, midY - fieldH + 20);
+      ctx.restore();
+    }
+
+    // --- 示波器 1: Floquet 能带结构与动量带隙 (Dispersion & k-Gap) ---
+    function renderDispersionScope() {
+      const w = dispCanvas.width;
+      const h = dispCanvas.height;
+      dispCtx.clearRect(0, 0, w, h);
+
+      const margin = 26 * window.devicePixelRatio;
+      const pw = w - margin * 2;
+      const ph = h - margin * 2;
+      const midX = margin + pw * 0.5;
+      const midY = margin + ph * 0.5;
+
+      // 坐标轴
+      dispCtx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+      dispCtx.lineWidth = 1;
+      dispCtx.beginPath();
+      dispCtx.moveTo(margin, midY); dispCtx.lineTo(margin + pw, midY);
+      dispCtx.moveTo(midX, margin); dispCtx.lineTo(midX, margin + ph);
+      dispCtx.stroke();
+
+      dispCtx.font = `${8.5 * window.devicePixelRatio}px monospace`;
+      dispCtx.fillStyle = '#64748b';
+      dispCtx.fillText('波矢 k / k_B →', margin + pw - 68, midY - 6);
+      dispCtx.fillText('↑ 频率 Re(ω)', midX + 6, margin + 12);
+
+      // 计算动量带隙全宽 Delta k = (Delta n / n0) * k_B
+      const gapWidthPx = (PARAMS.depth * 0.5) * (pw * 0.45);
+      const kResonantX = midX + 0.35 * (pw * 0.45); // 共振动量
+
+      // 绘制动量带隙 (k-Gap) 阴影区域
+      dispCtx.fillStyle = 'rgba(244, 63, 94, 0.18)';
+      dispCtx.fillRect(kResonantX - gapWidthPx * 0.5, margin, gapWidthPx, ph);
+      dispCtx.strokeStyle = 'rgba(244, 63, 94, 0.5)';
+      dispCtx.setLineDash([3, 3]);
+      dispCtx.strokeRect(kResonantX - gapWidthPx * 0.5, margin, gapWidthPx, ph);
+      dispCtx.setLineDash([]);
+
+      dispCtx.fillStyle = '#fda4af';
+      dispCtx.fillText('动量带隙 (k-Gap)', kResonantX - 42, margin + ph - 8);
+
+      // 绘制 Floquet 准能量色散曲线 omega(k)
+      dispCtx.strokeStyle = '#c084fc';
+      dispCtx.lineWidth = 2.0 * window.devicePixelRatio;
+      dispCtx.beginPath();
+      for (let x = 0; x <= pw; x += 4) {
+        const kFrac = (x - pw * 0.5) / (pw * 0.5); // -1 到 +1
+        // 典型折叠圆锥线
+        let omega = Math.abs(kFrac) * 1.0;
+        if (Math.abs(x - (kResonantX - margin)) < gapWidthPx * 0.5) {
+          // 带隙内虚频锁定在 Omega/2 处水平
+          omega = 0.5;
+        }
+        const py = midY - (omega / 1.1) * (ph * 0.45);
+        if (x === 0) dispCtx.moveTo(margin + x, py);
+        else dispCtx.lineTo(margin + x, py);
+      }
+      dispCtx.stroke();
+
+      // 标注当前探针波矢 k0 在带谱中的位置
+      const probeX = midX + (PARAMS.k0 / 1.6) * (pw * 0.45);
+      dispCtx.fillStyle = '#38bdf8';
+      dispCtx.shadowColor = '#38bdf8';
+      dispCtx.shadowBlur = 8;
+      dispCtx.beginPath();
+      dispCtx.arc(probeX, midY - 0.5 * (ph * 0.45), 5 * window.devicePixelRatio, 0, Math.PI * 2);
+      dispCtx.fill();
+      dispCtx.shadowBlur = 0;
+    }
+
+    // --- 示波器 2: 瞬时总光场能量暴涨曲线 U(t) ---
+    function renderEnergyScope() {
+      const w = energyCanvas.width;
+      const h = energyCanvas.height;
+      energyCtx.clearRect(0, 0, w, h);
+
+      const margin = 26 * window.devicePixelRatio;
+      const pw = w - margin * 2;
+      const ph = h - margin * 2;
+      const baseY = margin + ph * 0.85;
+
+      // 网格
+      energyCtx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+      energyCtx.lineWidth = 1;
+      energyCtx.beginPath();
+      energyCtx.moveTo(margin, baseY);
+      energyCtx.lineTo(margin + pw, baseY);
+      energyCtx.stroke();
+
+      energyCtx.font = `${9 * window.devicePixelRatio}px monospace`;
+      energyCtx.fillStyle = '#64748b';
+      energyCtx.fillText('1.0× (初始基准能量)', margin + 4, baseY + 14);
+      energyCtx.fillText('10.0× (指数增益限幅)', margin + 4, margin + 14);
+
+      if (totalEnergyHistory.length < 2) return;
+
+      const baseVal = totalEnergyHistory[0] || 1.0;
+      energyCtx.beginPath();
+      for (let i = 0; i < totalEnergyHistory.length; i++) {
+        const val = totalEnergyHistory[i] / (baseVal + 1e-4);
+        const x = margin + (i / (totalEnergyHistory.length - 1)) * pw;
+        // 对数标度显示
+        const logVal = Math.log10(Math.max(0.1, val)) + 1.0; // 0.1 -> 0, 1 -> 1, 10 -> 2
+        const y = baseY - (logVal / 2.5) * (ph * 0.75);
+        if (i === 0) energyCtx.moveTo(x, y);
+        else energyCtx.lineTo(x, y);
+      }
+      energyCtx.strokeStyle = '#f43f5e';
+      energyCtx.lineWidth = 2.2 * window.devicePixelRatio;
+      energyCtx.stroke();
+
+      // 面积阴影
+      energyCtx.lineTo(margin + pw, baseY);
+      energyCtx.lineTo(margin, baseY);
+      energyCtx.closePath();
+      const g = energyCtx.createLinearGradient(0, margin, 0, baseY);
+      g.addColorStop(0, 'rgba(244, 63, 94, 0.3)');
+      g.addColorStop(1, 'rgba(244, 63, 94, 0.0)');
+      energyCtx.fillStyle = g;
+      energyCtx.fill();
+    }
+
+    // --- 界面控制事件绑定 ---
+    document.getElementById('paramDepth').addEventListener('input', (e) => {
+      PARAMS.depth = parseFloat(e.target.value);
+      document.getElementById('valDepth').textContent = PARAMS.depth.toFixed(2);
+    });
+    document.getElementById('paramOmega').addEventListener('input', (e) => {
+      PARAMS.omegaM = parseFloat(e.target.value);
+      document.getElementById('valOmega').textContent = `${PARAMS.omegaM.toFixed(2)} ω₀`;
+    });
+    document.getElementById('paramK0').addEventListener('input', (e) => {
+      PARAMS.k0 = parseFloat(e.target.value);
+      document.getElementById('valK0').textContent = `${PARAMS.k0.toFixed(2)} k_B`;
+    });
+    document.getElementById('paramRise').addEventListener('input', (e) => {
+      PARAMS.riseTime = parseInt(e.target.value);
+      document.getElementById('valRise').textContent = `${PARAMS.riseTime} fs`;
+    });
+
+    // 调制开关
+    const btnMod = document.getElementById('btnToggleModulation');
+    btnMod.addEventListener('click', () => {
+      PARAMS.enableMod = !PARAMS.enableMod;
+      btnMod.textContent = PARAMS.enableMod ? '时间周期调制: 开' : '时间周期调制: 关';
+      btnMod.classList.toggle('active', PARAMS.enableMod);
+    });
+
+    // 注入波包与复位
+    document.getElementById('btnInjectPulse').addEventListener('click', injectGaussianPulse);
+    document.getElementById('btnClearField').addEventListener('click', () => {
+      Ez.fill(0);
+      Hy.fill(0);
+      totalEnergyHistory.length = 0;
+      injectGaussianPulse();
+    });
+
+    // 瞬态时间跃变 (Time Refraction)
+    document.getElementById('btnSingleStepTimeReflect').addEventListener('click', () => {
+      PARAMS.n0 = (PARAMS.n0 === 1.5) ? 2.1 : 1.5;
+      playPulseSound(780);
+    });
+
+    // 声音切换
+    const btnAudio = document.getElementById('btnAudioToggle');
+    btnAudio.addEventListener('click', () => {
+      audioEnabled = !audioEnabled;
+      btnAudio.textContent = audioEnabled ? '🔊 光子音频合成: 开' : '🔇 光子音频合成: 关';
+      if (audioGain && audioCtx) {
+        audioGain.gain.setValueAtTime(audioEnabled ? 0.04 : 0.0, audioCtx.currentTime);
+      }
+    });
+
+    // 预设模式
+    document.getElementById('presetResonant').addEventListener('click', () => {
+      PARAMS.depth = 0.45; PARAMS.omegaM = 2.00; PARAMS.k0 = 1.00; PARAMS.enableMod = true;
+      syncInputs();
+    });
+    document.getElementById('presetOffGap').addEventListener('click', () => {
+      PARAMS.depth = 0.20; PARAMS.omegaM = 2.80; PARAMS.k0 = 0.70; PARAMS.enableMod = true;
+      syncInputs();
+    });
+    document.getElementById('presetSuperluminal').addEventListener('click', () => {
+      PARAMS.depth = 0.75; PARAMS.omegaM = 2.00; PARAMS.k0 = 1.00; PARAMS.enableMod = true;
+      syncInputs();
+    });
+    document.getElementById('presetStatic').addEventListener('click', () => {
+      PARAMS.depth = 0.0; PARAMS.omegaM = 2.00; PARAMS.k0 = 1.00; PARAMS.enableMod = false;
+      syncInputs();
+    });
+
+    function syncInputs() {
+      document.getElementById('paramDepth').value = PARAMS.depth;
+      document.getElementById('valDepth').textContent = PARAMS.depth.toFixed(2);
+      document.getElementById('paramOmega').value = PARAMS.omegaM;
+      document.getElementById('valOmega').textContent = `${PARAMS.omegaM.toFixed(2)} ω₀`;
+      document.getElementById('paramK0').value = PARAMS.k0;
+      document.getElementById('valK0').textContent = `${PARAMS.k0.toFixed(2)} k_B`;
+      btnMod.textContent = PARAMS.enableMod ? '时间周期调制: 开' : '时间周期调制: 关';
+      btnMod.classList.toggle('active', PARAMS.enableMod);
+    }
+
+    // --- 主动画更新循环 ---
+    function animate() {
+      // 每次渲染帧步进 4 个 FDTD 子步以满足超高频稳定性
+      for (let s = 0; s < 4; s++) {
+        stepFDTD();
+      }
+
+      // 渲染主视窗与双示波器
+      renderMainField();
+      renderDispersionScope();
+      renderEnergyScope();
+
+      // 实时指标计算
+      const currentEnergy = totalEnergyHistory.length > 0 ? (totalEnergyHistory[totalEnergyHistory.length - 1] / (totalEnergyHistory[0] || 1)) : 1.0;
+      const kGapWidth = PARAMS.depth * 0.62;
+      const inGap = PARAMS.enableMod && Math.abs(PARAMS.omegaM - 2.0) < 0.25 && Math.abs(PARAMS.k0 - 1.0) < (kGapWidth * 0.5 + 0.1);
+      const gainRate = inGap ? (PARAMS.depth * 0.48) : 0.0;
+      const rTimeSq = PARAMS.enableMod ? Math.min(0.85, Math.pow(PARAMS.depth * 1.4, 2)) : 0.0;
+
+      document.getElementById('dispEnergy').textContent = `${currentEnergy.toFixed(2)}×`;
+      document.getElementById('dispGap').textContent = `${kGapWidth.toFixed(2)} k_B`;
+      document.getElementById('dispRefl').textContent = rTimeSq.toFixed(2);
+      document.getElementById('dispGain').textContent = `+${gainRate.toFixed(2)}`;
+
+      const badge = document.getElementById('crystalBadge');
+      const crystalText = document.getElementById('crystalText');
+      if (inGap) {
+        badge.style.background = 'rgba(244, 63, 94, 0.2)';
+        badge.style.borderColor = 'rgba(244, 63, 94, 0.5)';
+        badge.style.color = '#fda4af';
+        crystalText.textContent = '调制状态: 动量带隙共振态 (k ∈ k-Gap, 指数能量放大)';
+      } else {
+        badge.style.background = 'rgba(192, 132, 252, 0.15)';
+        badge.style.borderColor = 'rgba(192, 132, 252, 0.4)';
+        badge.style.color = '#e9d5ff';
+        crystalText.textContent = '调制状态: 平庸传导态 (k ∉ k-Gap, 保持能量振荡)';
+      }
+
+      requestAnimationFrame(animate);
+    }
+
+    // 启动初始波包与仿真
+    resizeCanvases();
+    injectGaussianPulse();
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>

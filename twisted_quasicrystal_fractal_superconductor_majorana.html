@@ -1,0 +1,956 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>扭转双层准晶分形超导与自相似霍夫施塔特马约拉纳零能模全息模拟器</title>
+  <style>
+    :root {
+      --bg-dark: #020617;
+      --panel-bg: rgba(15, 23, 42, 0.78);
+      --panel-border: rgba(168, 85, 247, 0.28);
+      --accent-purple: #c084fc;
+      --accent-cyan: #38bdf8;
+      --accent-gold: #fbbf24;
+      --accent-emerald: #34d399;
+      --accent-rose: #fb7185;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+    body {
+      background: var(--bg-dark);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      overflow: hidden;
+    }
+    #viewport-container {
+      position: relative;
+      flex: 1;
+      height: 100%;
+      background: radial-gradient(circle at 50% 50%, #0d122b 0%, #020617 100%);
+    }
+    canvas#holo-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    /* Side Control Dashboard */
+    #sidebar {
+      width: 440px;
+      height: 100%;
+      background: var(--panel-bg);
+      backdrop-filter: blur(20px);
+      border-left: 1px solid var(--panel-border);
+      display: flex;
+      flex-direction: column;
+      z-index: 10;
+      box-shadow: -10px 0 35px rgba(0,0,0,0.65);
+      overflow-y: auto;
+    }
+    #sidebar::-webkit-scrollbar {
+      width: 5px;
+    }
+    #sidebar::-webkit-scrollbar-thumb {
+      background: rgba(168, 85, 247, 0.35);
+      border-radius: 4px;
+    }
+    .header-box {
+      padding: 20px 24px 16px;
+      border-bottom: 1px solid rgba(168, 85, 247, 0.15);
+      background: linear-gradient(180deg, rgba(168, 85, 247, 0.08) 0%, transparent 100%);
+    }
+    .badge-tag {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--accent-purple);
+      background: rgba(168, 85, 247, 0.14);
+      border: 1px solid rgba(168, 85, 247, 0.35);
+      padding: 3px 8px;
+      border-radius: 4px;
+      margin-bottom: 8px;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+    }
+    h1 {
+      font-size: 18px;
+      font-weight: 700;
+      line-height: 1.4;
+      color: #fff;
+      letter-spacing: -0.2px;
+    }
+    .sub-title {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 5px;
+      font-family: var(--font-mono);
+    }
+    .content-box {
+      padding: 18px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+    .section-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--accent-purple);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+    .section-title::before {
+      content: '';
+      display: inline-block;
+      width: 4px;
+      height: 12px;
+      background: var(--accent-purple);
+      border-radius: 2px;
+    }
+    /* Scope Card */
+    .scope-panel {
+      background: rgba(2, 6, 23, 0.65);
+      border: 1px solid rgba(168, 85, 247, 0.2);
+      border-radius: 8px;
+      padding: 12px;
+    }
+    .scope-title {
+      font-size: 11px;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    .scope-canvas-wrap {
+      width: 100%;
+      height: 115px;
+      position: relative;
+    }
+    canvas.scope-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      background: #020617;
+      border-radius: 4px;
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+    /* Readout Grid */
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+    .metric-item {
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 6px;
+      padding: 8px 12px;
+    }
+    .metric-lbl {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    .metric-val {
+      font-family: var(--font-mono);
+      font-size: 15px;
+      font-weight: 700;
+      margin-top: 2px;
+      color: #fff;
+    }
+    /* Sliders */
+    .slider-group {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .control-row {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .control-label-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--text-main);
+    }
+    .control-val {
+      font-family: var(--font-mono);
+      color: var(--accent-purple);
+    }
+    input[type=range] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.12);
+      border-radius: 2px;
+      outline: none;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--accent-purple);
+      cursor: pointer;
+      box-shadow: 0 0 8px var(--accent-purple);
+      transition: transform 0.1s;
+    }
+    input[type=range]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+    /* Buttons */
+    .btn-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+    .btn {
+      background: rgba(30, 41, 59, 0.7);
+      border: 1px solid rgba(168, 85, 247, 0.25);
+      color: #e2e8f0;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 8px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s;
+    }
+    .btn:hover {
+      background: rgba(168, 85, 247, 0.2);
+      border-color: var(--accent-purple);
+      color: #fff;
+      box-shadow: 0 0 10px rgba(168, 85, 247, 0.25);
+    }
+    .btn-active {
+      background: rgba(168, 85, 247, 0.35);
+      border-color: var(--accent-purple);
+      color: #fff;
+    }
+    .action-btn {
+      width: 100%;
+      background: linear-gradient(135deg, rgba(168, 85, 247, 0.25), rgba(56, 189, 248, 0.25));
+      border: 1px solid rgba(168, 85, 247, 0.4);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .action-btn:hover {
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 14px rgba(56, 189, 248, 0.35);
+      transform: translateY(-1px);
+    }
+    /* Theory Box */
+    .theory-box {
+      font-size: 11px;
+      color: var(--text-muted);
+      line-height: 1.6;
+      background: rgba(2, 6, 23, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      border-radius: 6px;
+      padding: 10px 12px;
+    }
+    .theory-box b {
+      color: var(--accent-gold);
+    }
+    /* Overlay HUD */
+    #hud-overlay {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .hud-chip {
+      background: rgba(3, 7, 18, 0.82);
+      border: 1px solid rgba(168, 85, 247, 0.25);
+      backdrop-filter: blur(10px);
+      padding: 8px 14px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-family: var(--font-mono);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .dot-live {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent-emerald);
+      box-shadow: 0 0 8px var(--accent-emerald);
+      animation: pulse 1.8s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+    #back-btn {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid var(--panel-border);
+      color: var(--text-main);
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      text-decoration: none;
+      backdrop-filter: blur(10px);
+      transition: all 0.2s;
+      z-index: 20;
+    }
+    #back-btn:hover {
+      background: var(--accent-purple);
+      color: #000;
+      box-shadow: 0 0 15px rgba(168, 85, 247, 0.5);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 3D Holographic Canvas -->
+  <div id="viewport-container">
+    <canvas id="holo-canvas"></canvas>
+    
+    <div id="hud-overlay">
+      <div class="hud-chip">
+        <span class="dot-live"></span>
+        <span>QUASICRYSTAL FRACTAL MAJORANA SIMULATOR [v320.0]</span>
+      </div>
+      <div class="hud-chip">
+        <span style="color:var(--accent-purple);">SYMMETRY:</span>
+        <span>12-FOLD QUASIPERIODIC (θ = 30.0°)</span>
+      </div>
+      <div class="hud-chip">
+        <span style="color:var(--accent-gold);">FRACTAL DIMENSION:</span>
+        <span id="hud-dim-txt" style="color:var(--accent-emerald);font-weight:bold;">DH = 1.892 (Cantor Multiscaling)</span>
+      </div>
+    </div>
+
+    <a href="index.html" id="back-btn">← 返回中央展厅 (320)</a>
+  </div>
+
+  <!-- Sidebar Controls -->
+  <div id="sidebar">
+    <div class="header-box">
+      <span class="badge-tag">Milestone #320</span>
+      <h1>扭转双层准晶分形超导与自相似马约拉纳零能模全息模拟器</h1>
+      <div class="sub-title">12-Fold Quasicrystal Hofstadter Fractal &amp; Nested MZMs</div>
+    </div>
+
+    <div class="content-box">
+      <!-- Readout Grid -->
+      <div class="metric-grid">
+        <div class="metric-item">
+          <div class="metric-lbl">分形豪斯多夫维数 DH</div>
+          <div class="metric-val" id="val-dh" style="color:var(--accent-purple);">1.892</div>
+        </div>
+        <div class="metric-item">
+          <div class="metric-lbl">自相似零能模数 N_MZM</div>
+          <div class="metric-val" id="val-nmzm" style="color:var(--accent-emerald);">24 (Nested)</div>
+        </div>
+        <div class="metric-item">
+          <div class="metric-lbl">超导配对能隙 Δ_sc</div>
+          <div class="metric-val" id="val-delta" style="color:var(--accent-cyan);">4.85 meV</div>
+        </div>
+        <div class="metric-item">
+          <div class="metric-lbl">非公度局域化临界度 λ</div>
+          <div class="metric-val" id="val-lambda" style="color:var(--accent-gold);">0.96 (Critical)</div>
+        </div>
+      </div>
+
+      <!-- Scopes -->
+      <div class="scope-panel">
+        <div class="scope-title">
+          <span>HOFSTADTER FRACTAL SPECTRUM E(Φ)</span>
+          <span style="color:var(--accent-purple);">Cantor Set</span>
+        </div>
+        <div class="scope-canvas-wrap">
+          <canvas class="scope-canvas" id="scope-hofstadter"></canvas>
+        </div>
+      </div>
+
+      <div class="scope-panel">
+        <div class="scope-title">
+          <span>MULTIFRACTAL SPECTRUM f(α) &amp; Dq</span>
+          <span style="color:var(--accent-emerald);">Critical State</span>
+        </div>
+        <div class="scope-canvas-wrap">
+          <canvas class="scope-canvas" id="scope-fractal"></canvas>
+        </div>
+      </div>
+
+      <!-- Action Button -->
+      <div>
+        <button class="action-btn" id="btn-resonate">激发自相似马约拉纳星芒相干共振 (Resonate)</button>
+      </div>
+
+      <!-- Sliders -->
+      <div>
+        <div class="section-title">准晶哈密顿量微观调控</div>
+        <div class="slider-group">
+          <div class="control-row">
+            <div class="control-label-row">
+              <span>双层扭转角 θ (Twist Angle)</span>
+              <span class="control-val" id="lbl-theta">30.00°</span>
+            </div>
+            <input type="range" id="sl-theta" min="28.0" max="32.0" step="0.05" value="30.00">
+          </div>
+
+          <div class="control-row">
+            <div class="control-label-row">
+              <span>超导近邻配对势 Δ₀</span>
+              <span class="control-val" id="lbl-delta">5.2 meV</span>
+            </div>
+            <input type="range" id="sl-delta" min="0.5" max="10.0" step="0.1" value="5.2">
+          </div>
+
+          <div class="control-row">
+            <div class="control-label-row">
+              <span>准周期势强度 V_qp</span>
+              <span class="control-val" id="lbl-vqp">1.25 t</span>
+            </div>
+            <input type="range" id="sl-vqp" min="0.2" max="2.5" step="0.05" value="1.25">
+          </div>
+
+          <div class="control-row">
+            <div class="control-label-row">
+              <span>磁通穿透比率 Φ/Φ₀</span>
+              <span class="control-val" id="lbl-phi">0.618 (Golden)</span>
+            </div>
+            <input type="range" id="sl-phi" min="0.1" max="1.0" step="0.01" value="0.618">
+          </div>
+
+          <div class="control-row">
+            <div class="control-label-row">
+              <span>自旋轨道耦合 λ_soc</span>
+              <span class="control-val" id="lbl-soc">18.0 meV</span>
+            </div>
+            <input type="range" id="sl-soc" min="2.0" max="35.0" step="0.5" value="18.0">
+          </div>
+        </div>
+      </div>
+
+      <!-- Presets -->
+      <div>
+        <div class="section-title">准晶典型相与预设工况</div>
+        <div class="btn-grid">
+          <button class="btn btn-active" id="pre-quasicrystal">30° 完美准晶分形相</button>
+          <button class="btn" id="pre-nested-mzm">自相似多重马约拉纳</button>
+          <button class="btn" id="pre-hofstadter">霍夫施塔特蝴蝶临界</button>
+          <button class="btn" id="pre-localized">强准周期局域化相</button>
+        </div>
+      </div>
+
+      <!-- Theory Box -->
+      <div class="theory-box">
+        <b>微观哈密顿量与准晶拓扑自相似机制：</b><br>
+        1. <b>12重旋转准晶：</b> $30^\circ$ 扭转双层石墨烯打破空间平移周期性，构建内禀非公度准晶网格。准周期势诱发霍夫施塔特蝴蝶分形分裂能带。<br>
+        2. <b>分形拓扑超导：</b> 结合自旋轨道耦合与超导配对 $\Delta$，马约拉纳零能模产生在十二重准晶环各级几何自相似核心（Stampfli 胞层级嵌套），本征态具有非整数维 $D_H \approx 1.89$ 的多重分形特征。
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    // --- Audio Engine (Harmonic Fractal Synthesizer) ---
+    class AudioEngine {
+      constructor() {
+        this.ctx = null;
+        this.enabled = false;
+      }
+      init() {
+        if (!this.ctx) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          this.ctx = new AudioContext();
+          this.enabled = true;
+        }
+        if (this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      }
+      playFractalChime() {
+        if (!this.enabled || !this.ctx) return;
+        const now = this.ctx.currentTime;
+        // 12-fold musical scale derived from quasicrystal angles
+        const baseFreq = 261.63; // Middle C
+        const ratios = [1, 9/8, 5/4, 4/3, 3/2, 5/3, 15/8, 2];
+        
+        for (let i = 0; i < 4; i++) {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          const freq = baseFreq * ratios[(i * 3) % ratios.length] * Math.pow(1.618, i * 0.5);
+
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, now + i * 0.08);
+          osc.frequency.exponentialRampToValueAtTime(freq * 1.05, now + i * 0.08 + 0.3);
+
+          gain.gain.setValueAtTime(0.04 / (i + 1), now + i * 0.08);
+          gain.gain.exponentialRampToValueAtTime(0.0005, now + i * 0.08 + 0.6);
+
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(now + i * 0.08);
+          osc.stop(now + i * 0.08 + 0.65);
+        }
+      }
+    }
+    const audio = new AudioEngine();
+    window.addEventListener('click', () => audio.init(), { once: true });
+
+    // --- State Object ---
+    const STATE = {
+      theta: 30.00,    // Twist angle (deg)
+      delta0: 5.2,     // Superconducting pair gap (meV)
+      vqp: 1.25,       // Quasiparticle potential (t)
+      phi: 0.618,      // Magnetic flux ratio (Phi/Phi0)
+      soc: 18.0,       // Spin-orbit coupling (meV)
+
+      // Computed Physics
+      dh: 1.892,       // Hausdorff dimension
+      nmzm: 24,        // Number of nested MZMs
+      deltaSC: 4.85,   // Effective pair gap
+      critLambda: 0.96,// Criticality parameter (Aubry-Andre like)
+      
+      // Dynamics & Viewport
+      resonatePulse: 0,
+      rotX: 30 * Math.PI / 180,
+      rotY: -20 * Math.PI / 180,
+      zoom: 1.0,
+      isDragging: false,
+      lastMouseX: 0,
+      lastMouseY: 0,
+      time: 0
+    };
+
+    // --- Canvases ---
+    const holoCanvas = document.getElementById('holo-canvas');
+    const holoCtx = holoCanvas.getContext('2d');
+    const scopeHof = document.getElementById('scope-hofstadter');
+    const hofCtx = scopeHof.getContext('2d');
+    const scopeFrac = document.getElementById('scope-fractal');
+    const fracCtx = scopeFrac.getContext('2d');
+
+    function resizeCanvases() {
+      const container = document.getElementById('viewport-container');
+      holoCanvas.width = container.clientWidth * window.devicePixelRatio;
+      holoCanvas.height = container.clientHeight * window.devicePixelRatio;
+      
+      scopeHof.width = scopeHof.clientWidth * window.devicePixelRatio;
+      scopeHof.height = scopeHof.clientHeight * window.devicePixelRatio;
+      
+      scopeFrac.width = scopeFrac.clientWidth * window.devicePixelRatio;
+      scopeFrac.height = scopeFrac.clientHeight * window.devicePixelRatio;
+    }
+    window.addEventListener('resize', resizeCanvases);
+
+    // --- Mouse Listeners ---
+    holoCanvas.addEventListener('mousedown', e => {
+      STATE.isDragging = true;
+      STATE.lastMouseX = e.clientX;
+      STATE.lastMouseY = e.clientY;
+      audio.init();
+    });
+    window.addEventListener('mouseup', () => STATE.isDragging = false);
+    holoCanvas.addEventListener('mousemove', e => {
+      if (!STATE.isDragging) return;
+      const dx = e.clientX - STATE.lastMouseX;
+      const dy = e.clientY - STATE.lastMouseY;
+      STATE.rotY += dx * 0.006;
+      STATE.rotX += dy * 0.006;
+      STATE.lastMouseX = e.clientX;
+      STATE.lastMouseY = e.clientY;
+    });
+    holoCanvas.addEventListener('wheel', e => {
+      e.preventDefault();
+      STATE.zoom *= (e.deltaY > 0 ? 0.94 : 1.06);
+      STATE.zoom = Math.max(0.4, Math.min(2.8, STATE.zoom));
+    }, { passive: false });
+
+    // --- Sliders Binding ---
+    const slTheta = document.getElementById('sl-theta');
+    const slDelta = document.getElementById('sl-delta');
+    const slVqp = document.getElementById('sl-vqp');
+    const slPhi = document.getElementById('sl-phi');
+    const slSoc = document.getElementById('sl-soc');
+
+    slTheta.addEventListener('input', e => {
+      STATE.theta = parseFloat(e.target.value);
+      document.getElementById('lbl-theta').innerText = STATE.theta.toFixed(2) + '°';
+      updatePhysics();
+    });
+    slDelta.addEventListener('input', e => {
+      STATE.delta0 = parseFloat(e.target.value);
+      document.getElementById('lbl-delta').innerText = STATE.delta0.toFixed(1) + ' meV';
+      updatePhysics();
+    });
+    slVqp.addEventListener('input', e => {
+      STATE.vqp = parseFloat(e.target.value);
+      document.getElementById('lbl-vqp').innerText = STATE.vqp.toFixed(2) + ' t';
+      updatePhysics();
+    });
+    slPhi.addEventListener('input', e => {
+      STATE.phi = parseFloat(e.target.value);
+      document.getElementById('lbl-phi').innerText = STATE.phi.toFixed(3);
+      updatePhysics();
+    });
+    slSoc.addEventListener('input', e => {
+      STATE.soc = parseFloat(e.target.value);
+      document.getElementById('lbl-soc').innerText = STATE.soc.toFixed(1) + ' meV';
+      updatePhysics();
+    });
+
+    document.getElementById('btn-resonate').addEventListener('click', () => {
+      audio.init();
+      audio.playFractalChime();
+      STATE.resonatePulse = 1.0;
+    });
+
+    // Presets
+    const presets = [
+      { id: 'pre-quasicrystal', theta: 30.00, delta: 5.2, vqp: 1.25, phi: 0.618, soc: 18.0 },
+      { id: 'pre-nested-mzm', theta: 30.00, delta: 7.8, vqp: 1.45, phi: 0.382, soc: 28.0 },
+      { id: 'pre-hofstadter', theta: 29.85, delta: 3.5, vqp: 1.00, phi: 0.850, soc: 12.0 },
+      { id: 'pre-localized', theta: 30.40, delta: 2.1, vqp: 2.30, phi: 0.500, soc: 8.0 }
+    ];
+    presets.forEach(p => {
+      document.getElementById(p.id).addEventListener('click', () => {
+        presets.forEach(o => document.getElementById(o.id).classList.remove('btn-active'));
+        document.getElementById(p.id).classList.add('btn-active');
+
+        STATE.theta = p.theta; slTheta.value = p.theta; document.getElementById('lbl-theta').innerText = p.theta.toFixed(2) + '°';
+        STATE.delta0 = p.delta; slDelta.value = p.delta; document.getElementById('lbl-delta').innerText = p.delta.toFixed(1) + ' meV';
+        STATE.vqp = p.vqp; slVqp.value = p.vqp; document.getElementById('lbl-vqp').innerText = p.vqp.toFixed(2) + ' t';
+        STATE.phi = p.phi; slPhi.value = p.phi; document.getElementById('lbl-phi').innerText = p.phi.toFixed(3);
+        STATE.soc = p.soc; slSoc.value = p.soc; document.getElementById('lbl-soc').innerText = p.soc.toFixed(1) + ' meV';
+
+        updatePhysics();
+      });
+    });
+
+    // --- Physics Model Update ---
+    function updatePhysics() {
+      // 1. Quasicrystal Commensurability Defect: delta_theta = |theta - 30.0|
+      const dTheta = Math.abs(STATE.theta - 30.0);
+      const qcQuality = Math.exp(-dTheta * 1.5); // Peak at exactly 30 degrees
+
+      // 2. Criticality parameter (Aubry-Andre Quasicrystal Criterion)
+      // lambda = V_qp / (2 * t_effective)
+      STATE.critLambda = (STATE.vqp / 1.3) * (1.0 + (STATE.soc / 35.0) * 0.2);
+
+      // 3. Fractal Hausdorff Dimension DH
+      // At critical lambda ~ 1 and 30 deg, DH approaches 1.892 (Stampfli fractal)
+      const baseDH = 1.892;
+      const detuningShift = (STATE.critLambda - 1.0) * 0.15 - dTheta * 0.08;
+      STATE.dh = Math.max(1.2, Math.min(2.0, baseDH + detuningShift));
+
+      // 4. Effective Superconducting Pair Gap
+      const topoFactor = Math.min(1.0, (STATE.soc / 15.0) * qcQuality);
+      STATE.deltaSC = STATE.delta0 * (0.8 + 0.2 * topoFactor);
+
+      // 5. Nested Majorana Zero Modes Count
+      if (qcQuality > 0.85 && STATE.critLambda >= 0.8 && STATE.critLambda <= 1.4) {
+        STATE.nmzm = 24; // 12-fold symmetry inner + outer nested pairs
+      } else if (qcQuality > 0.6) {
+        STATE.nmzm = 12;
+      } else {
+        STATE.nmzm = 4;
+      }
+
+      // Update HUD & Numbers
+      document.getElementById('val-dh').innerText = STATE.dh.toFixed(3);
+      document.getElementById('val-nmzm').innerText = `${STATE.nmzm} (Nested)`;
+      document.getElementById('val-delta').innerText = STATE.deltaSC.toFixed(2) + ' meV';
+      document.getElementById('val-lambda').innerText = `${STATE.critLambda.toFixed(2)} ${STATE.critLambda > 1.2 ? '(Localized)' : STATE.critLambda < 0.8 ? '(Extended)' : '(Critical)'}`;
+
+      document.getElementById('hud-dim-txt').innerText = `DH = ${STATE.dh.toFixed(3)} (Cantor Multiscaling)`;
+    }
+
+    // --- 3D Projection Helpers ---
+    function project3D(x, y, z, cx, cy, scale) {
+      const cosY = Math.cos(STATE.rotY), sinY = Math.sin(STATE.rotY);
+      const x1 = x * cosY + z * sinY;
+      const z1 = -x * sinY + z * cosY;
+
+      const cosX = Math.cos(STATE.rotX), sinX = Math.sin(STATE.rotX);
+      const y2 = y * cosX - z1 * sinX;
+      const z2 = y * sinX + z1 * cosX;
+
+      const dist = 700;
+      const fov = dist / (dist + z2);
+      return {
+        px: cx + x1 * fov * scale * STATE.zoom,
+        py: cy + y2 * fov * scale * STATE.zoom,
+        depth: z2,
+        fov: fov
+      };
+    }
+
+    // --- 3D Hologram Render ---
+    function renderHologram() {
+      const w = holoCanvas.width;
+      const h = holoCanvas.height;
+      holoCtx.clearRect(0, 0, w, h);
+
+      const cx = w * 0.5;
+      const cy = h * 0.5;
+      const scale = Math.min(w, h) * 0.0016;
+
+      // Pulse decay
+      if (STATE.resonatePulse > 0) {
+        STATE.resonatePulse = Math.max(0, STATE.resonatePulse - 0.02);
+      }
+
+      // 1. Draw 12-Fold Quasicrystal Lattice (Stampfli-like 12-star tiling rings)
+      const numRays = 12;
+      const rings = [60, 115, 175, 235];
+      const twistRad = (STATE.theta - 30.0) * (Math.PI / 180.0);
+
+      rings.forEach((rad, rIdx) => {
+        const ringPts = [];
+        const yOffset = (rIdx % 2 === 0 ? 15 : -15) * Math.sin(STATE.time * 2 + rIdx);
+
+        for (let i = 0; i < numRays; i++) {
+          const ang = (i / numRays) * Math.PI * 2 + (rIdx * twistRad * 2);
+          const px = Math.cos(ang) * rad;
+          const pz = Math.sin(ang) * rad;
+          const py = yOffset;
+          const p = project3D(px, py, pz, cx, cy, scale);
+          ringPts.push(p);
+        }
+
+        // Connect 12-gon ring
+        holoCtx.beginPath();
+        for (let i = 0; i < numRays; i++) {
+          const p1 = ringPts[i];
+          const p2 = ringPts[(i + 1) % numRays];
+          if (i === 0) holoCtx.moveTo(p1.px, p1.py);
+          holoCtx.lineTo(p2.px, p2.py);
+        }
+        holoCtx.closePath();
+        holoCtx.strokeStyle = rIdx % 2 === 0 ? 'rgba(192, 132, 252, 0.28)' : 'rgba(56, 189, 248, 0.28)';
+        holoCtx.lineWidth = 1.2;
+        holoCtx.stroke();
+
+        // Cross-star diagonal links
+        holoCtx.beginPath();
+        for (let i = 0; i < numRays; i++) {
+          const p1 = ringPts[i];
+          const pCross = ringPts[(i + 5) % numRays];
+          holoCtx.moveTo(p1.px, p1.py);
+          holoCtx.lineTo(pCross.px, pCross.py);
+        }
+        holoCtx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+        holoCtx.stroke();
+      });
+
+      // 2. Draw Self-Similar Nested Majorana Zero Modes (MZMs)
+      // Hierarchy 1: Inner 12 Star-Points
+      // Hierarchy 2: Outer 12 Star-Points
+      const mzmHierarchies = [
+        { radius: 115, count: 12, color: '#fb7185', glow: '#f43f5e', size: 6 },
+        { radius: 175, count: 12, color: '#fbbf24', glow: '#f59e0b', size: 7.5 }
+      ];
+
+      const activeLevels = STATE.nmzm === 24 ? 2 : STATE.nmzm === 12 ? 1 : 0;
+
+      for (let lvl = 0; lvl < activeLevels; lvl++) {
+        const hier = mzmHierarchies[lvl];
+        for (let i = 0; i < hier.count; i++) {
+          const ang = (i / hier.count) * Math.PI * 2;
+          const breathe = Math.sin(STATE.time * 4 + i * 0.8) * 4;
+          const rad = hier.radius + breathe + (STATE.resonatePulse * 15);
+          const mx = Math.cos(ang) * rad;
+          const mz = Math.sin(ang) * rad;
+          const my = -40 + Math.sin(STATE.time * 3 + i) * 6;
+
+          const p = project3D(mx, my, mz, cx, cy, scale);
+
+          // Glow Halo
+          const grad = holoCtx.createRadialGradient(p.px, p.py, 1, p.px, p.py, hier.size * 2.8 * p.fov);
+          grad.addColorStop(0, '#ffffff');
+          grad.addColorStop(0.3, hier.color);
+          grad.addColorStop(1, 'transparent');
+
+          holoCtx.fillStyle = grad;
+          holoCtx.beginPath();
+          holoCtx.arc(p.px, p.py, hier.size * 2.5 * p.fov, 0, Math.PI * 2);
+          holoCtx.fill();
+
+          // Core Dot
+          holoCtx.fillStyle = '#fff';
+          holoCtx.beginPath();
+          holoCtx.arc(p.px, p.py, hier.size * 0.8 * p.fov, 0, Math.PI * 2);
+          holoCtx.fill();
+
+          // Resonant Rays radiating to center
+          if (STATE.resonatePulse > 0.05) {
+            const centerP = project3D(0, 0, 0, cx, cy, scale);
+            holoCtx.beginPath();
+            holoCtx.moveTo(p.px, p.py);
+            holoCtx.lineTo(centerP.px, centerP.py);
+            holoCtx.strokeStyle = `rgba(251, 191, 36, ${STATE.resonatePulse * 0.45})`;
+            holoCtx.lineWidth = 1.5;
+            holoCtx.stroke();
+          }
+        }
+      }
+
+      // 3. Center Quasicrystal Superconducting Nucleus
+      const nucleusP = project3D(0, 0, 0, cx, cy, scale);
+      const nucGrad = holoCtx.createRadialGradient(nucleusP.px, nucleusP.py, 2, nucleusP.px, nucleusP.py, 25 * nucleusP.fov);
+      nucGrad.addColorStop(0, '#ffffff');
+      nucGrad.addColorStop(0.4, '#c084fc');
+      nucGrad.addColorStop(1, 'transparent');
+
+      holoCtx.fillStyle = nucGrad;
+      holoCtx.beginPath();
+      holoCtx.arc(nucleusP.px, nucleusP.py, 22 * nucleusP.fov, 0, Math.PI * 2);
+      holoCtx.fill();
+    }
+
+    // --- Scope 1: Hofstadter Fractal Energy Spectrum ---
+    function renderScopeHofstadter() {
+      const w = scopeHof.width;
+      const h = scopeHof.height;
+      hofCtx.clearRect(0, 0, w, h);
+
+      // Grid
+      hofCtx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+      hofCtx.lineWidth = 1;
+      hofCtx.beginPath();
+      for (let x = 0; x < w; x += 30) { hofCtx.moveTo(x, 0); hofCtx.lineTo(x, h); }
+      for (let y = 0; y < h; y += 25) { hofCtx.moveTo(0, y); hofCtx.lineTo(w, y); }
+      hofCtx.stroke();
+
+      // Hofstadter Butterfly Bands (Approximated Cantor branching)
+      const numBands = 36;
+      for (let b = 0; b < numBands; b++) {
+        hofCtx.beginPath();
+        const pNorm = (b / numBands) * 2.0 - 1.0;
+        for (let i = 0; i < w; i += 4) {
+          const u = i / w;
+          // Fractal recursion factor
+          const fracPhase = Math.sin(u * Math.PI * 6 + pNorm * 4.0) * Math.cos(u * Math.PI * 12);
+          const energy = pNorm * 0.7 + fracPhase * 0.28 * Math.sin(STATE.phi * Math.PI * 4);
+          const y = h * 0.5 - energy * (h * 0.42);
+
+          if (i === 0) hofCtx.moveTo(i, y);
+          else hofCtx.lineTo(i, y);
+        }
+        hofCtx.strokeStyle = b % 2 === 0 ? 'rgba(192, 132, 252, 0.45)' : 'rgba(56, 189, 248, 0.4)';
+        hofCtx.lineWidth = 1.2;
+        hofCtx.stroke();
+      }
+
+      // Marker for Current Flux Ratio
+      const fluxX = STATE.phi * w;
+      hofCtx.strokeStyle = 'rgba(251, 191, 36, 0.85)';
+      hofCtx.setLineDash([4, 4]);
+      hofCtx.beginPath();
+      hofCtx.moveTo(fluxX, 0);
+      hofCtx.lineTo(fluxX, h);
+      hofCtx.stroke();
+      hofCtx.setLineDash([]);
+
+      hofCtx.fillStyle = '#fbbf24';
+      hofCtx.font = '9px monospace';
+      hofCtx.fillText(`Φ/Φ₀=${STATE.phi.toFixed(3)}`, Math.max(5, fluxX - 45), 14);
+    }
+
+    // --- Scope 2: Multifractal Spectrum f(alpha) ---
+    function renderScopeFractal() {
+      const w = scopeFrac.width;
+      const h = scopeFrac.height;
+      fracCtx.clearRect(0, 0, w, h);
+
+      // Grid
+      fracCtx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+      fracCtx.lineWidth = 1;
+      fracCtx.beginPath();
+      for (let x = 0; x < w; x += 30) { fracCtx.moveTo(x, 0); fracCtx.lineTo(x, h); }
+      for (let y = 0; y < h; y += 25) { fracCtx.moveTo(0, y); fracCtx.lineTo(w, y); }
+      fracCtx.stroke();
+
+      // Convex Multifractal Curve f(alpha) peaking at alpha_0 = D0 = DH
+      const alpha0 = STATE.dh;
+      fracCtx.beginPath();
+      const pts = 80;
+      for (let i = 0; i < pts; i++) {
+        const u = i / (pts - 1);
+        const alpha = 1.1 + u * 1.5; // alpha from 1.1 to 2.6
+        // Parabolic multifractal model f(alpha) = DH - (alpha - alpha0)^2 / (4 * gamma)
+        const gamma = 0.32;
+        const fAlpha = STATE.dh - Math.pow(alpha - alpha0, 2) / (4 * gamma);
+        
+        if (fAlpha >= 0) {
+          const x = ((alpha - 1.1) / 1.5) * w;
+          const y = h - (fAlpha / 2.2) * (h * 0.85);
+          if (i === 0 || fracCtx.currentX === undefined) fracCtx.moveTo(x, y);
+          else fracCtx.lineTo(x, y);
+        }
+      }
+      fracCtx.strokeStyle = '#34d399';
+      fracCtx.lineWidth = 2.2;
+      fracCtx.shadowColor = '#34d399';
+      fracCtx.shadowBlur = 8;
+      fracCtx.stroke();
+      fracCtx.shadowBlur = 0;
+
+      // Peak Coordinate Marker
+      const peakX = ((alpha0 - 1.1) / 1.5) * w;
+      const peakY = h - (STATE.dh / 2.2) * (h * 0.85);
+      fracCtx.fillStyle = '#fbbf24';
+      fracCtx.beginPath();
+      fracCtx.arc(peakX, peakY, 4, 0, Math.PI * 2);
+      fracCtx.fill();
+
+      fracCtx.fillStyle = '#94a3b8';
+      fracCtx.font = '9px monospace';
+      fracCtx.fillText(`f_max = DH = ${STATE.dh.toFixed(3)}`, Math.max(10, peakX - 50), peakY - 8);
+    }
+
+    // --- Main Simulation Loop ---
+    let lastTime = performance.now();
+    function animate(currentTime) {
+      const dt = Math.min(0.05, (currentTime - lastTime) * 0.001);
+      lastTime = currentTime;
+      STATE.time += dt;
+
+      renderHologram();
+      renderScopeHofstadter();
+      renderScopeFractal();
+
+      requestAnimationFrame(animate);
+    }
+
+    // Initialize
+    resizeCanvases();
+    updatePhysics();
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>

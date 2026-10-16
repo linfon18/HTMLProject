@@ -1,0 +1,1213 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>拓扑超流体³He-B手征马约拉纳表面态与拓扑安德列夫涡旋全息模拟器</title>
+  <style>
+    :root {
+      --bg-primary: #060913;
+      --bg-panel: rgba(12, 17, 34, 0.85);
+      --bg-card: rgba(20, 27, 54, 0.7);
+      --border-color: rgba(99, 135, 255, 0.28);
+      --border-highlight: rgba(168, 85, 247, 0.65);
+      --cyan: #00f3ff;
+      --purple: #a855f7;
+      --magenta: #ec4899;
+      --gold: #facc15;
+      --emerald: #10b981;
+      --blue: #3b82f6;
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body {
+      background: var(--bg-primary);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* 顶部导航条 */
+    header {
+      padding: 14px 24px;
+      background: linear-gradient(180deg, rgba(18, 25, 50, 0.95) 0%, rgba(8, 12, 24, 0.82) 100%);
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45);
+      z-index: 10;
+    }
+
+    .title-group h1 {
+      font-size: 1.35rem;
+      font-weight: 700;
+      letter-spacing: 0.6px;
+      background: linear-gradient(90deg, #38bdf8, #a855f7, #ec4899, #facc15);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .title-group p {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+      font-family: "Fira Code", monospace;
+    }
+
+    .badge-bar {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .badge {
+      font-size: 0.72rem;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: rgba(56, 189, 248, 0.12);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      color: #38bdf8;
+      font-family: "Fira Code", monospace;
+    }
+
+    .btn-audio {
+      background: rgba(168, 85, 247, 0.18);
+      border: 1px solid var(--purple);
+      color: #e9d5ff;
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+
+    .btn-audio:hover {
+      background: rgba(168, 85, 247, 0.35);
+      box-shadow: 0 0 12px rgba(168, 85, 247, 0.4);
+    }
+
+    /* 工作区网格 */
+    .workspace {
+      display: grid;
+      grid-template-columns: 1fr 390px;
+      grid-gap: 16px;
+      padding: 16px;
+      flex: 1;
+      height: calc(100vh - 75px);
+    }
+
+    .viewport-container {
+      position: relative;
+      background: radial-gradient(circle at 50% 50%, #0c122b 0%, #050816 100%);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow: inset 0 0 45px rgba(0, 0, 0, 0.65);
+    }
+
+    #mainCanvas {
+      width: 100%;
+      height: 100%;
+      cursor: grab;
+    }
+
+    #mainCanvas:active {
+      cursor: grabbing;
+    }
+
+    /* 浮动 HUD 指标卡 */
+    .hud-overlay {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      pointer-events: none;
+    }
+
+    .hud-card {
+      background: rgba(8, 12, 26, 0.82);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 0.76rem;
+      color: #e2e8f0;
+      font-family: "Fira Code", monospace;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .hud-val {
+      font-weight: 700;
+      color: var(--cyan);
+    }
+
+    .view-controls {
+      position: absolute;
+      bottom: 14px;
+      left: 14px;
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn-hud {
+      background: rgba(15, 23, 42, 0.82);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 5px 12px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      backdrop-filter: blur(6px);
+      transition: all 0.2s;
+    }
+
+    .btn-hud:hover {
+      background: rgba(99, 135, 255, 0.25);
+      border-color: var(--cyan);
+    }
+
+    /* 侧边面板 */
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .sidebar::-webkit-scrollbar {
+      width: 5px;
+    }
+    .sidebar::-webkit-scrollbar-thumb {
+      background: rgba(99, 135, 255, 0.35);
+      border-radius: 4px;
+    }
+
+    .panel {
+      background: var(--bg-panel);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .panel-title {
+      font-size: 0.85rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: #93c5fd;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding-bottom: 6px;
+    }
+
+    /* 预设按钮网格 */
+    .preset-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+
+    .btn-preset {
+      background: rgba(30, 41, 59, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: #cbd5e1;
+      padding: 8px 6px;
+      border-radius: 6px;
+      font-size: 0.72rem;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      line-height: 1.25;
+    }
+
+    .btn-preset:hover {
+      background: rgba(99, 135, 255, 0.25);
+      color: white;
+      border-color: var(--cyan);
+    }
+
+    .btn-preset.active {
+      background: linear-gradient(135deg, rgba(56, 189, 248, 0.25), rgba(168, 85, 247, 0.3));
+      border: 1px solid var(--cyan);
+      color: #ffffff;
+      font-weight: 600;
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.35);
+    }
+
+    /* 示波器视口 */
+    .scope-box {
+      background: #080c1a;
+      border: 1px solid rgba(99, 135, 255, 0.22);
+      border-radius: 8px;
+      height: 135px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .scope-box canvas {
+      width: 100%;
+      height: 100%;
+    }
+
+    .scope-legend {
+      position: absolute;
+      top: 6px;
+      left: 8px;
+      font-size: 0.68rem;
+      color: var(--text-muted);
+      font-family: "Fira Code", monospace;
+      pointer-events: none;
+    }
+
+    .scope-tag {
+      position: absolute;
+      bottom: 6px;
+      right: 8px;
+      font-size: 0.68rem;
+      color: var(--cyan);
+      font-family: "Fira Code", monospace;
+      pointer-events: none;
+    }
+
+    /* 参数滑块 */
+    .control-row {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .control-label-wrap {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-family: "Fira Code", monospace;
+    }
+
+    .control-val {
+      color: var(--cyan);
+      font-weight: 600;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 5px;
+      border-radius: 3px;
+      background: #1e293b;
+      outline: none;
+      transition: background 0.2s;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--cyan);
+      cursor: pointer;
+      box-shadow: 0 0 8px var(--cyan);
+      border: 2px solid #0f172a;
+    }
+
+    /* 原理说明卡片 */
+    .theory-card {
+      background: rgba(15, 23, 42, 0.55);
+      border-left: 3px solid var(--purple);
+      padding: 8px 10px;
+      font-size: 0.72rem;
+      line-height: 1.45;
+      color: #cbd5e1;
+      border-radius: 0 6px 6px 0;
+    }
+
+    .theory-card em {
+      color: #f43f5e;
+      font-style: normal;
+      font-weight: 600;
+    }
+
+    .formula {
+      font-family: "Fira Code", monospace;
+      color: var(--gold);
+      background: rgba(0, 0, 0, 0.35);
+      padding: 3px 6px;
+      border-radius: 4px;
+      margin: 4px 0;
+      display: block;
+      text-align: center;
+      border: 1px dashed rgba(250, 204, 21, 0.3);
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="title-group">
+      <h1>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"></circle>
+          <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"></path>
+          <path d="M2 12h20"></path>
+        </svg>
+        拓扑超流体³He-B手征马约拉纳表面态与安德列夫涡旋全息模拟器
+      </h1>
+      <p>Topological Superfluid ³He-B Chiral Majorana Surface States & Andreev Vortex Simulator</p>
+    </div>
+
+    <div class="badge-bar">
+      <span class="badge">#253 ADVANCED</span>
+      <span class="badge">CLASS DIII (N_W=2)</span>
+      <span class="badge">SPIN-MOMENTUM LOCKING</span>
+      <button class="btn-audio" id="btnAudio">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+          <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+        </svg>
+        <span id="audioText">开启声学渲染</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="workspace">
+    <!-- 主交互视口 -->
+    <div class="viewport-container">
+      <canvas id="mainCanvas"></canvas>
+
+      <div class="hud-overlay">
+        <div class="hud-card">
+          <span>超流拓扑绕数 N<sub>W</sub>:</span>
+          <span class="hud-val" id="hudWinding">2 (Class DIII)</span>
+          <span>| BW配对能隙 Δ<sub>B</sub>:</span>
+          <span class="hud-val" id="hudDeltaB">1.75 meV</span>
+        </div>
+        <div class="hud-card">
+          <span>马约拉纳群速度 c<sub>M</sub>:</span>
+          <span class="hud-val" id="hudCm">18.5 m/s</span>
+          <span>| 涡旋核拓扑态:</span>
+          <span class="hud-val" id="hudVortexMZM">MZM Bound (E=0)</span>
+          <span>| 横向声阻抗 Z/Z₀:</span>
+          <span class="hud-val" id="hudAcousticZ">0.884</span>
+        </div>
+      </div>
+
+      <div class="view-controls">
+        <button class="btn-hud" id="btnResetView">重置视口</button>
+        <button class="btn-hud" id="btnTriggerAcoustic">激发横向超声剪切波</button>
+        <button class="btn-hud" id="btnToggleSpinVectors">切换自旋-动量锁定矢</button>
+      </div>
+    </div>
+
+    <!-- 侧边调控与双通道示波器 -->
+    <aside class="sidebar">
+      <!-- 典型物理预设 -->
+      <section class="panel">
+        <div class="panel-title">
+          <span>拓扑超流凝聚态物理预设</span>
+          <small style="color:var(--cyan);font-size:0.7rem;">Presets</small>
+        </div>
+        <div class="preset-grid">
+          <button class="btn-preset active" data-preset="massless-dirac">无质量马约拉纳狄拉克锥</button>
+          <button class="btn-preset" data-preset="quantized-vortex">旋转超流量子化涡旋核</button>
+          <button class="btn-preset" data-preset="acoustic-resonance">横向超声阻抗拓扑共振</button>
+          <button class="btn-preset" data-preset="zeeman-gap">塞曼劈裂破缺狄拉克能隙</button>
+        </div>
+      </section>
+
+      <!-- 双通道示波器 -->
+      <section class="panel">
+        <div class="panel-title">
+          <span>示波器 I: 表面马约拉纳狄拉克锥与自旋锁定</span>
+          <small id="scope1Tag" style="color:var(--text-muted);font-size:0.68rem;">E(k_∥)</small>
+        </div>
+        <div class="scope-box">
+          <canvas id="scope1Canvas"></canvas>
+          <div class="scope-legend">E(k_∥) = ±c_M |k_∥| / Dirac Cone</div>
+          <div class="scope-tag" id="scope1Val">Node: E=0</div>
+        </div>
+
+        <div class="panel-title" style="margin-top:6px;">
+          <span>示波器 II: 横向超声阻抗共振谱 Z(ω)</span>
+          <small id="scope2Tag" style="color:var(--text-muted);font-size:0.68rem;">Z(ω) / Z₀</small>
+        </div>
+        <div class="scope-box">
+          <canvas id="scope2Canvas"></canvas>
+          <div class="scope-legend">Acoustic Shear Impedance Z(ω)</div>
+          <div class="scope-tag" id="scope2Val">Peak: Resonant</div>
+        </div>
+      </section>
+
+      <!-- 连续参数微调面板 -->
+      <section class="panel">
+        <div class="panel-title">
+          <span>超流动力学参数调控</span>
+          <small style="color:var(--cyan);font-size:0.7rem;">Parameters</small>
+        </div>
+
+        <div class="control-row">
+          <div class="control-label-wrap">
+            <span>超流配对能隙 Δ<sub>B</sub> (meV)</span>
+            <span class="control-val" id="valDeltaB">1.75</span>
+          </div>
+          <input type="range" id="slDeltaB" min="0.5" max="3.5" step="0.05" value="1.75">
+        </div>
+
+        <div class="control-row">
+          <div class="control-label-wrap">
+            <span>超流体回旋角速度 Ω<sub>rot</sub> (rad/s)</span>
+            <span class="control-val" id="valOmegaRot">1.80</span>
+          </div>
+          <input type="range" id="slOmegaRot" min="0.0" max="6.0" step="0.1" value="1.80">
+        </div>
+
+        <div class="control-row">
+          <div class="control-label-wrap">
+            <span>横向超声驱动频率 ω<sub>acoust</sub> (GHz)</span>
+            <span class="control-val" id="valAcousticFreq">2.10</span>
+          </div>
+          <input type="range" id="slAcousticFreq" min="0.5" max="5.0" step="0.1" value="2.10">
+        </div>
+
+        <div class="control-row">
+          <div class="control-label-wrap">
+            <span>外加面内塞曼磁场 B<sub>∥</sub> (Tesla)</span>
+            <span class="control-val" id="valZeeman">0.00</span>
+          </div>
+          <input type="range" id="slZeeman" min="0.0" max="3.0" step="0.05" value="0.00">
+        </div>
+
+        <div class="control-row">
+          <div class="control-label-wrap">
+            <span>自旋-轨道 Leggett 角 θ<sub>L</sub> (度)</span>
+            <span class="control-val" id="valLeggett">104.0</span>
+          </div>
+          <input type="range" id="slLeggett" min="60.0" max="150.0" step="1.0" value="104.0">
+        </div>
+      </section>
+
+      <!-- 物理原理微讲卡 -->
+      <div class="theory-card">
+        <strong>³He-B 拓扑超流体与马约拉纳表面态物理机制：</strong><br>
+        液态 ³He 在毫开尔文 (mK) 极低温下凝聚为 Balian-Werthamer (BW) 配对的 B 态，属于具有时间反演对称性的三维 <em>Class DIII</em> 拓扑超流体（三维绕数 <em>N_W = 2</em>）。<br>
+        在超流体边界，体能隙反转激发相对论各向同性马约拉纳费米子圆锥，满足严格的自旋-动量正交锁定：
+        <span class="formula">H_surf = c_M (σ_x k_y - σ_y k_x), &nbsp; γ†(k) = γ(-k)</span>
+        旋转驱动产生拓扑量子涡旋线，其涡芯囚禁离散安德列夫束缚态与零能马约拉纳态，通过横向超声剪切阻抗 <em>Z(ω)</em> 展现表面特征共振声吸收。
+      </div>
+    </aside>
+  </main>
+
+  <script>
+    /**
+     * 拓扑超流体³He-B手征马约拉纳表面态与拓扑安德列夫涡旋全息模拟器
+     * 单文件纯前端实现：Vanilla JS + 2D/3D Canvas + Web Audio API
+     */
+
+    const STATE = {
+      // 物理参数
+      deltaB: 1.75,          // BW 配对能隙
+      omegaRot: 1.80,        // 回旋角速度
+      acousticFreq: 2.10,    // 超声频率
+      zeeman: 0.00,          // 塞曼场
+      leggett: 104.0,        // Leggett 角
+      preset: 'massless-dirac',
+
+      // 实时计算量
+      cmVelocity: 18.5,      // 马约拉纳群速度
+      acousticZ: 0.884,      // 横向声阻抗
+      showSpinVectors: true,
+
+      // 超声激发脉冲动态
+      acousticPulseActive: false,
+      acousticPulseTimer: 0.0,
+
+      // 3D 视角相机
+      camYaw: 0.35,
+      camPitch: 0.52,
+      camDistance: 320,
+      isDragging: false,
+      lastMouseX: 0,
+      lastMouseY: 0,
+
+      // 时间演化
+      simTime: 0,
+      // 表面马约拉纳准粒子集合
+      surfaceQuasiparticles: [],
+      numQuasiparticles: 48,
+      // 示波器历史缓存
+      scope2History: []
+    };
+
+    // 画布与上下文
+    const mainCanvas = document.getElementById('mainCanvas');
+    const ctx = mainCanvas.getContext('2d');
+    const scope1Canvas = document.getElementById('scope1Canvas');
+    const ctxScope1 = scope1Canvas.getContext('2d');
+    const scope2Canvas = document.getElementById('scope2Canvas');
+    const ctxScope2 = scope2Canvas.getContext('2d');
+
+    function resizeCanvases() {
+      const rect = mainCanvas.parentElement.getBoundingClientRect();
+      mainCanvas.width = rect.width * window.devicePixelRatio;
+      mainCanvas.height = rect.height * window.devicePixelRatio;
+
+      scope1Canvas.width = scope1Canvas.parentElement.clientWidth * window.devicePixelRatio;
+      scope1Canvas.height = scope1Canvas.parentElement.clientHeight * window.devicePixelRatio;
+
+      scope2Canvas.width = scope2Canvas.parentElement.clientWidth * window.devicePixelRatio;
+      scope2Canvas.height = scope2Canvas.parentElement.clientHeight * window.devicePixelRatio;
+    }
+    window.addEventListener('resize', resizeCanvases);
+
+    // ==========================================
+    // Web Audio 声学引擎 (超流涡旋嗡鸣与剪切共振)
+    // ==========================================
+    let audioCtx = null;
+    let oscVortex = null;
+    let oscAcoustic = null;
+    let gainMaster = null;
+    let filterMaster = null;
+    let isAudioEnabled = false;
+
+    function initAudio() {
+      try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioContext();
+
+        // 涡旋低频超流回旋音
+        oscVortex = audioCtx.createOscillator();
+        oscVortex.type = 'sine';
+        oscVortex.frequency.setValueAtTime(130, audioCtx.currentTime);
+
+        // 横向超声波剪切振荡
+        oscAcoustic = audioCtx.createOscillator();
+        oscAcoustic.type = 'triangle';
+        oscAcoustic.frequency.setValueAtTime(360, audioCtx.currentTime);
+
+        filterMaster = audioCtx.createBiquadFilter();
+        filterMaster.type = 'lowpass';
+        filterMaster.frequency.setValueAtTime(900, audioCtx.currentTime);
+        filterMaster.Q.setValueAtTime(3.8, audioCtx.currentTime);
+
+        gainMaster = audioCtx.createGain();
+        gainMaster.gain.setValueAtTime(0.06, audioCtx.currentTime);
+
+        oscVortex.connect(filterMaster);
+        oscAcoustic.connect(filterMaster);
+        filterMaster.connect(gainMaster);
+        gainMaster.connect(audioCtx.destination);
+
+        oscVortex.start();
+        oscAcoustic.start();
+        isAudioEnabled = true;
+
+        document.getElementById('audioText').textContent = '静音声学渲染';
+        document.getElementById('btnAudio').style.background = 'rgba(16, 185, 129, 0.25)';
+        document.getElementById('btnAudio').style.borderColor = '#10b981';
+      } catch (e) {
+        console.warn('Audio Init Failed', e);
+      }
+    }
+
+    function triggerShearAcousticWaveSound() {
+      if (!isAudioEnabled || !audioCtx) return;
+      const now = audioCtx.currentTime;
+      const osc = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(540, now);
+      osc.frequency.exponentialRampToValueAtTime(1600, now + 0.3);
+
+      g.gain.setValueAtTime(0.08, now);
+      g.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+
+      osc.connect(g);
+      g.connect(audioCtx.destination);
+      osc.start(now);
+      osc.stop(now + 0.31);
+    }
+
+    document.getElementById('btnAudio').addEventListener('click', () => {
+      if (!isAudioEnabled) {
+        initAudio();
+      } else {
+        if (audioCtx.state === 'running') {
+          audioCtx.suspend();
+          document.getElementById('audioText').textContent = '开启声学渲染';
+          document.getElementById('btnAudio').style.background = 'rgba(168, 85, 247, 0.18)';
+          document.getElementById('btnAudio').style.borderColor = 'var(--purple)';
+        } else if (audioCtx.state === 'suspended') {
+          audioCtx.resume();
+          document.getElementById('audioText').textContent = '静音声学渲染';
+          document.getElementById('btnAudio').style.background = 'rgba(16, 185, 129, 0.25)';
+          document.getElementById('btnAudio').style.borderColor = '#10b981';
+        }
+      }
+    });
+
+    // ==========================================
+    // 物理模型与表面准粒子演化
+    // ==========================================
+    function initSurfaceQuasiparticles() {
+      STATE.surfaceQuasiparticles = [];
+      const N = STATE.numQuasiparticles;
+      const rCyl = 115;
+      for (let i = 0; i < N; i++) {
+        const theta = (i / N) * Math.PI * 2;
+        const z = (Math.random() - 0.5) * 120;
+        STATE.surfaceQuasiparticles.push({
+          theta: theta,
+          z: z,
+          r: rCyl,
+          speedTheta: 1.25 + Math.random() * 0.4,
+          speedZ: (Math.random() - 0.5) * 35,
+          spinAngle: theta + Math.PI * 0.5, // 垂直于动量：自旋-动量锁定
+          trail: []
+        });
+      }
+    }
+
+    function updatePhysics(dt) {
+      STATE.simTime += dt;
+
+      // 超声激发
+      if (STATE.acousticPulseActive) {
+        STATE.acousticPulseTimer += dt;
+        if (STATE.acousticPulseTimer > 0.6) {
+          STATE.acousticPulseActive = false;
+          STATE.acousticPulseTimer = 0.0;
+        }
+      }
+
+      // 1. 马约拉纳群速度 c_M 随配对能隙与费米速度缩放
+      STATE.cmVelocity = 14.0 + STATE.deltaB * 3.2;
+
+      // 2. 横向声阻抗 Z(ω) 计算：
+      // 在能量 ω ≈ Δ_B 附近产生强烈的马约拉纳界面共振吸收反常
+      const acousticDetun = (STATE.acousticFreq - STATE.deltaB);
+      const resFactor = 1.0 / (1.0 + acousticDetun * acousticDetun * 4.5);
+      STATE.acousticZ = Math.max(0.2, 0.98 - resFactor * 0.65);
+
+      // 3. 表面准粒子推进与自旋动量锁定
+      const rotDrift = STATE.omegaRot * 0.35;
+      for (let p of STATE.surfaceQuasiparticles) {
+        p.theta += (p.speedTheta + rotDrift) * dt;
+        if (p.theta > Math.PI * 2) p.theta -= Math.PI * 2;
+
+        p.z += p.speedZ * dt;
+        if (p.z > 60) { p.z = 60; p.speedZ *= -1; }
+        if (p.z < -60) { p.z = -60; p.speedZ *= -1; }
+
+        // 自旋方向由表面动量正交锁定：
+        // 沿表面周向 (k_theta) 滑移时自旋垂直于表面切线与动量方向
+        p.spinAngle = p.theta + Math.PI * 0.5 + STATE.zeeman * 0.25;
+
+        // 轨迹
+        if (Math.random() < 0.35) {
+          const px = p.r * Math.cos(p.theta);
+          const py = p.r * Math.sin(p.theta);
+          p.trail.push({ x: px, y: py, z: p.z, alpha: 1.0 });
+          if (p.trail.length > 8) p.trail.shift();
+        }
+        for (let tr of p.trail) tr.alpha *= 0.94;
+      }
+
+      // 示波器历史
+      STATE.scope2History.push(STATE.acousticZ);
+      if (STATE.scope2History.length > 120) STATE.scope2History.shift();
+
+      // 更新 HUD
+      document.getElementById('hudDeltaB').textContent = STATE.deltaB.toFixed(2) + ' meV';
+      document.getElementById('hudCm').textContent = STATE.cmVelocity.toFixed(1) + ' m/s';
+      document.getElementById('hudAcousticZ').textContent = STATE.acousticZ.toFixed(3);
+
+      // 音频动态调制
+      if (isAudioEnabled && oscVortex) {
+        const fV = 110 + STATE.omegaRot * 28;
+        oscVortex.frequency.setTargetAtTime(fV, audioCtx.currentTime, 0.05);
+        oscAcoustic.frequency.setTargetAtTime(fV * 2.2 + STATE.acousticFreq * 35, audioCtx.currentTime, 0.05);
+      }
+    }
+
+    // ==========================================
+    // 3D 渲染主全息视口
+    // ==========================================
+    function project3D(x, y, z, cx, cy) {
+      const cosP = Math.cos(STATE.camPitch);
+      const sinP = Math.sin(STATE.camPitch);
+      const y1 = y * cosP - z * sinP;
+      const z1 = y * sinP + z * cosP;
+
+      const cosY = Math.cos(STATE.camYaw);
+      const sinY = Math.sin(STATE.camYaw);
+      const x2 = x * cosY - y1 * sinY;
+      const y2 = x * sinY + y1 * cosY;
+      const z2 = z1;
+
+      const scale = STATE.camDistance / (STATE.camDistance + z2 * 0.45);
+      return {
+        x: cx + x2 * scale,
+        y: cy + y2 * scale,
+        scale: scale,
+        depth: z2
+      };
+    }
+
+    function renderMainView() {
+      const w = mainCanvas.width;
+      const h = mainCanvas.height;
+      const cx = w * 0.5;
+      const cy = h * 0.52;
+
+      ctx.clearRect(0, 0, w, h);
+
+      // 1. 背景全息网格
+      ctx.strokeStyle = 'rgba(99, 135, 255, 0.07)';
+      ctx.lineWidth = 1;
+      const gStep = 45;
+      for (let gx = -225; gx <= 225; gx += gStep) {
+        const p1 = project3D(gx, -225, -70, cx, cy);
+        const p2 = project3D(gx, 225, -70, cx, cy);
+        ctx.beginPath();
+        ctx.moveTo(p1.x, p1.y);
+        ctx.lineTo(p2.x, p2.y);
+        ctx.stroke();
+      }
+      for (let gy = -225; gy <= 225; gy += gStep) {
+        const p1 = project3D(-225, gy, -70, cx, cy);
+        const p2 = project3D(225, gy, -70, cx, cy);
+        ctx.beginPath();
+        ctx.moveTo(p1.x, p1.y);
+        ctx.lineTo(p2.x, p2.y);
+        ctx.stroke();
+      }
+
+      // 2. 绘制 ³He-B 圆柱形拓扑超流微腔 (Cylindrical Superfluid Cavity)
+      const rCyl = 115;
+      const halfH = 60;
+      const steps = 60;
+
+      // 顶面圆环
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.45)';
+      ctx.lineWidth = 2.0;
+      ctx.beginPath();
+      for (let i = 0; i <= steps; i++) {
+        const a = (i / steps) * Math.PI * 2;
+        const p = project3D(rCyl * Math.cos(a), rCyl * Math.sin(a), halfH, cx, cy);
+        if (i === 0) ctx.moveTo(p.x, p.y);
+        else ctx.lineTo(p.x, p.y);
+      }
+      ctx.stroke();
+
+      // 底面圆环
+      ctx.beginPath();
+      for (let i = 0; i <= steps; i++) {
+        const a = (i / steps) * Math.PI * 2;
+        const p = project3D(rCyl * Math.cos(a), rCyl * Math.sin(a), -halfH, cx, cy);
+        if (i === 0) ctx.moveTo(p.x, p.y);
+        else ctx.lineTo(p.x, p.y);
+      }
+      ctx.stroke();
+
+      // 侧壁垂直母线
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2;
+        const pTop = project3D(rCyl * Math.cos(a), rCyl * Math.sin(a), halfH, cx, cy);
+        const pBot = project3D(rCyl * Math.cos(a), rCyl * Math.sin(a), -halfH, cx, cy);
+        ctx.strokeStyle = 'rgba(99, 135, 255, 0.2)';
+        ctx.beginPath();
+        ctx.moveTo(pTop.x, pTop.y);
+        ctx.lineTo(pBot.x, pBot.y);
+        ctx.stroke();
+      }
+
+      // 3. 中心穿透的量子化超流涡旋柱 (Quantized Vortex Core)
+      if (STATE.omegaRot > 0.1) {
+        const vTop = project3D(0, 0, halfH + 20, cx, cy);
+        const vBot = project3D(0, 0, -halfH - 20, cx, cy);
+
+        // 涡旋核中心发光线
+        ctx.strokeStyle = '#facc15';
+        ctx.lineWidth = 3.5;
+        ctx.beginPath();
+        ctx.moveTo(vTop.x, vTop.y);
+        ctx.lineTo(vBot.x, vBot.y);
+        ctx.stroke();
+
+        // 涡旋环流动态螺旋流线
+        ctx.strokeStyle = 'rgba(250, 204, 21, 0.35)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        const numTurns = 32;
+        for (let i = 0; i <= numTurns; i++) {
+          const t = i / numTurns;
+          const a = t * Math.PI * 8 + STATE.simTime * STATE.omegaRot * 2.0;
+          const rV = 16 + Math.sin(t * Math.PI * 4) * 4;
+          const zV = halfH - t * (2 * halfH);
+          const pt = project3D(rV * Math.cos(a), rV * Math.sin(a), zV, cx, cy);
+          if (i === 0) ctx.moveTo(pt.x, pt.y);
+          else ctx.lineTo(pt.x, pt.y);
+        }
+        ctx.stroke();
+
+        ctx.fillStyle = '#facc15';
+        ctx.font = '10px "Fira Code", monospace';
+        ctx.fillText('MZM VORTEX CORE', vTop.x + 8, vTop.y);
+      }
+
+      // 4. 超声剪切波前 (Acoustic Shear Wavefronts)
+      if (STATE.acousticPulseActive) {
+        const pulseR = (STATE.acousticPulseTimer / 0.6) * rCyl;
+        ctx.strokeStyle = 'rgba(236, 72, 153, 0.7)';
+        ctx.lineWidth = 3.0;
+        ctx.beginPath();
+        for (let i = 0; i <= steps; i++) {
+          const a = (i / steps) * Math.PI * 2;
+          const p = project3D(pulseR * Math.cos(a), pulseR * Math.sin(a), 0, cx, cy);
+          if (i === 0) ctx.moveTo(p.x, p.y);
+          else ctx.lineTo(p.x, p.y);
+        }
+        ctx.stroke();
+      }
+
+      // 5. 绘制表面马约拉纳准粒子及其自旋-动量正交箭头
+      for (let p of STATE.surfaceQuasiparticles) {
+        // 轨迹
+        if (p.trail.length > 1) {
+          ctx.beginPath();
+          for (let i = 0; i < p.trail.length; i++) {
+            const tr = project3D(p.trail[i].x, p.trail[i].y, p.trail[i].z, cx, cy);
+            if (i === 0) ctx.moveTo(tr.x, tr.y);
+            else ctx.lineTo(tr.x, tr.y);
+          }
+          ctx.strokeStyle = 'rgba(0, 243, 255, 0.35)';
+          ctx.lineWidth = 1.2;
+          ctx.stroke();
+        }
+
+        const px = p.r * Math.cos(p.theta);
+        const py = p.r * Math.sin(p.theta);
+        const posProj = project3D(px, py, p.z, cx, cy);
+
+        // 准粒子本体
+        ctx.fillStyle = '#00f3ff';
+        ctx.beginPath();
+        ctx.arc(posProj.x, posProj.y, 3.8 * posProj.scale, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 自旋-动量锁定矢量 (Spin Vector: S ⊥ k)
+        if (STATE.showSpinVectors) {
+          const spinLen = 16;
+          // 自旋矢量指向切线外侧或周向正交
+          const sx = Math.cos(p.spinAngle) * spinLen;
+          const sy = Math.sin(p.spinAngle) * spinLen;
+          const spinProj = project3D(px + sx, py + sy, p.z, cx, cy);
+
+          ctx.strokeStyle = '#a855f7';
+          ctx.lineWidth = 1.6;
+          ctx.beginPath();
+          ctx.moveTo(posProj.x, posProj.y);
+          ctx.lineTo(spinProj.x, spinProj.y);
+          ctx.stroke();
+
+          // 箭梢圆点
+          ctx.fillStyle = '#facc15';
+          ctx.beginPath();
+          ctx.arc(spinProj.x, spinProj.y, 2.2 * spinProj.scale, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    }
+
+    // ==========================================
+    // 示波器 1: 表面马约拉纳狄拉克锥色散
+    // ==========================================
+    function renderScope1() {
+      const w = scope1Canvas.width;
+      const h = scope1Canvas.height;
+      ctxScope1.clearRect(0, 0, w, h);
+
+      const cx = w * 0.5;
+      const cy = h * 0.5;
+
+      // 坐标轴
+      ctxScope1.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+      ctxScope1.lineWidth = 1;
+      ctxScope1.beginPath();
+      ctxScope1.moveTo(0, cy); ctxScope1.lineTo(w, cy); // k_∥
+      ctxScope1.moveTo(cx, 0); ctxScope1.lineTo(cx, h); // Energy E
+      ctxScope1.stroke();
+
+      // 绘制马约拉纳线性色散圆锥剖面 E = ± c_M |k_∥|
+      // 面内塞曼场开启时在狄拉克点产生小能隙劈裂: E = ± sqrt(c_M² k² + Δ_Z²)
+      const gapZ = STATE.zeeman * 12.0;
+
+      ctxScope1.strokeStyle = '#00f3ff';
+      ctxScope1.lineWidth = 2.2;
+
+      // 上支
+      ctxScope1.beginPath();
+      for (let px = 0; px < w; px++) {
+        const kNorm = (px - cx) * 0.45;
+        const eVal = Math.sqrt(kNorm * kNorm + gapZ * gapZ);
+        const py = cy - eVal * 1.1;
+        if (px === 0) ctxScope1.moveTo(px, py);
+        else ctxScope1.lineTo(px, py);
+      }
+      ctxScope1.stroke();
+
+      // 下支
+      ctxScope1.beginPath();
+      for (let px = 0; px < w; px++) {
+        const kNorm = (px - cx) * 0.45;
+        const eVal = -Math.sqrt(kNorm * kNorm + gapZ * gapZ);
+        const py = cy - eVal * 1.1;
+        if (px === 0) ctxScope1.moveTo(px, py);
+        else ctxScope1.lineTo(px, py);
+      }
+      ctxScope1.stroke();
+
+      // 狄拉克点 / 零能模
+      ctxScope1.fillStyle = '#facc15';
+      ctxScope1.beginPath();
+      ctxScope1.arc(cx, cy - gapZ * 1.1, 4.0, 0, Math.PI * 2);
+      ctxScope1.arc(cx, cy + gapZ * 1.1, 4.0, 0, Math.PI * 2);
+      ctxScope1.fill();
+
+      // 标签
+      ctxScope1.fillStyle = '#94a3b8';
+      ctxScope1.font = '9px "Fira Code", monospace';
+      ctxScope1.fillText('k_∥ (Surface)', w - 65, cy - 4);
+      ctxScope1.fillText('Energy E', cx + 4, 12);
+      ctxScope1.fillText(STATE.zeeman > 0 ? 'Zeeman Gap' : 'Dirac Node (E=0)', cx + 6, cy + 14);
+    }
+
+    // ==========================================
+    // 示波器 2: 横向超声阻抗共振谱 Z(ω)
+    // ==========================================
+    function renderScope2() {
+      const w = scope2Canvas.width;
+      const h = scope2Canvas.height;
+      ctxScope2.clearRect(0, 0, w, h);
+
+      // 背景网格
+      ctxScope2.strokeStyle = 'rgba(255, 255, 255, 0.06)';
+      ctxScope2.lineWidth = 1;
+      for (let x = 0; x <= w; x += 35) {
+        ctxScope2.beginPath(); ctxScope2.moveTo(x, 0); ctxScope2.lineTo(x, h); ctxScope2.stroke();
+      }
+      for (let y = 0; y <= h; y += 28) {
+        ctxScope2.beginPath(); ctxScope2.moveTo(0, y); ctxScope2.lineTo(w, y); ctxScope2.stroke();
+      }
+
+      // 理论扫描共振阻抗谱 Z(ω)
+      ctxScope2.strokeStyle = 'rgba(168, 85, 247, 0.55)';
+      ctxScope2.lineWidth = 1.5;
+      ctxScope2.beginPath();
+      for (let px = 0; px < w; px++) {
+        const freqVal = 0.5 + (px / w) * 4.5; // [0.5, 5.0]
+        const detun = freqVal - STATE.deltaB;
+        const resF = 1.0 / (1.0 + detun * detun * 4.5);
+        const zTheory = 0.98 - resF * 0.65;
+        const py = h * 0.9 - zTheory * (h * 0.75);
+        if (px === 0) ctxScope2.moveTo(px, py);
+        else ctxScope2.lineTo(px, py);
+      }
+      ctxScope2.stroke();
+
+      // 实时历史曲线 (洋红色)
+      if (STATE.scope2History.length > 1) {
+        ctxScope2.strokeStyle = '#ec4899';
+        ctxScope2.lineWidth = 2.2;
+        ctxScope2.beginPath();
+        const step = w / 120;
+        for (let i = 0; i < STATE.scope2History.length; i++) {
+          const val = STATE.scope2History[i];
+          const px = i * step;
+          const py = h * 0.9 - val * (h * 0.75);
+          if (i === 0) ctxScope2.moveTo(px, py);
+          else ctxScope2.lineTo(px, py);
+        }
+        ctxScope2.stroke();
+      }
+
+      // 当前驱动频率指示
+      const curX = ((STATE.acousticFreq - 0.5) / 4.5) * w;
+      const curY = h * 0.9 - STATE.acousticZ * (h * 0.75);
+
+      ctxScope2.strokeStyle = 'rgba(250, 204, 21, 0.8)';
+      ctxScope2.lineWidth = 1.2;
+      ctxScope2.setLineDash([3, 3]);
+      ctxScope2.beginPath(); ctxScope2.moveTo(curX, 0); ctxScope2.lineTo(curX, h); ctxScope2.stroke();
+      ctxScope2.setLineDash([]);
+
+      ctxScope2.fillStyle = '#facc15';
+      ctxScope2.beginPath(); ctxScope2.arc(curX, curY, 4.5, 0, Math.PI * 2); ctxScope2.fill();
+    }
+
+    // ==========================================
+    // 交互监听与控件绑定
+    // ==========================================
+    mainCanvas.addEventListener('mousedown', (e) => {
+      STATE.isDragging = true;
+      STATE.lastMouseX = e.clientX;
+      STATE.lastMouseY = e.clientY;
+    });
+
+    window.addEventListener('mouseup', () => {
+      STATE.isDragging = false;
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!STATE.isDragging) return;
+      const dx = e.clientX - STATE.lastMouseX;
+      const dy = e.clientY - STATE.lastMouseY;
+      STATE.lastMouseX = e.clientX;
+      STATE.lastMouseY = e.clientY;
+
+      STATE.camYaw += dx * 0.008;
+      STATE.camPitch += dy * 0.008;
+      STATE.camPitch = Math.max(0.12, Math.min(Math.PI * 0.48, STATE.camPitch));
+    });
+
+    mainCanvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      STATE.camDistance += e.deltaY * 0.2;
+      STATE.camDistance = Math.max(160, Math.min(650, STATE.camDistance));
+    }, { passive: false });
+
+    // 按钮
+    document.getElementById('btnResetView').addEventListener('click', () => {
+      STATE.camYaw = 0.35;
+      STATE.camPitch = 0.52;
+      STATE.camDistance = 320;
+    });
+
+    document.getElementById('btnTriggerAcoustic').addEventListener('click', () => {
+      STATE.acousticPulseActive = true;
+      STATE.acousticPulseTimer = 0.0;
+      triggerShearAcousticWaveSound();
+    });
+
+    document.getElementById('btnToggleSpinVectors').addEventListener('click', () => {
+      STATE.showSpinVectors = !STATE.showSpinVectors;
+    });
+
+    // 滑块
+    const slDeltaB = document.getElementById('slDeltaB');
+    const valDeltaB = document.getElementById('valDeltaB');
+    slDeltaB.addEventListener('input', (e) => {
+      STATE.deltaB = parseFloat(e.target.value);
+      valDeltaB.textContent = STATE.deltaB.toFixed(2);
+    });
+
+    const slOmegaRot = document.getElementById('slOmegaRot');
+    const valOmegaRot = document.getElementById('valOmegaRot');
+    slOmegaRot.addEventListener('input', (e) => {
+      STATE.omegaRot = parseFloat(e.target.value);
+      valOmegaRot.textContent = STATE.omegaRot.toFixed(2);
+    });
+
+    const slAcousticFreq = document.getElementById('slAcousticFreq');
+    const valAcousticFreq = document.getElementById('valAcousticFreq');
+    slAcousticFreq.addEventListener('input', (e) => {
+      STATE.acousticFreq = parseFloat(e.target.value);
+      valAcousticFreq.textContent = STATE.acousticFreq.toFixed(2);
+    });
+
+    const slZeeman = document.getElementById('slZeeman');
+    const valZeeman = document.getElementById('valZeeman');
+    slZeeman.addEventListener('input', (e) => {
+      STATE.zeeman = parseFloat(e.target.value);
+      valZeeman.textContent = STATE.zeeman.toFixed(2);
+    });
+
+    const slLeggett = document.getElementById('slLeggett');
+    const valLeggett = document.getElementById('valLeggett');
+    slLeggett.addEventListener('input', (e) => {
+      STATE.leggett = parseFloat(e.target.value);
+      valLeggett.textContent = STATE.leggett.toFixed(1);
+    });
+
+    // 预设
+    const presetButtons = document.querySelectorAll('.btn-preset');
+    presetButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        presetButtons.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        applyPreset(btn.getAttribute('data-preset'));
+      });
+    });
+
+    function applyPreset(key) {
+      STATE.preset = key;
+      if (key === 'massless-dirac') {
+        STATE.deltaB = 1.75; STATE.omegaRot = 0.00; STATE.acousticFreq = 2.10; STATE.zeeman = 0.00; STATE.leggett = 104.0;
+      } else if (key === 'quantized-vortex') {
+        STATE.deltaB = 2.20; STATE.omegaRot = 4.20; STATE.acousticFreq = 1.80; STATE.zeeman = 0.00; STATE.leggett = 104.0;
+      } else if (key === 'acoustic-resonance') {
+        STATE.deltaB = 2.10; STATE.omegaRot = 1.20; STATE.acousticFreq = 2.10; STATE.zeeman = 0.00; STATE.leggett = 104.0;
+        STATE.acousticPulseActive = true; STATE.acousticPulseTimer = 0.0;
+        triggerShearAcousticWaveSound();
+      } else if (key === 'zeeman-gap') {
+        STATE.deltaB = 1.50; STATE.omegaRot = 1.50; STATE.acousticFreq = 2.80; STATE.zeeman = 2.20; STATE.leggett = 125.0;
+      }
+
+      slDeltaB.value = STATE.deltaB; valDeltaB.textContent = STATE.deltaB.toFixed(2);
+      slOmegaRot.value = STATE.omegaRot; valOmegaRot.textContent = STATE.omegaRot.toFixed(2);
+      slAcousticFreq.value = STATE.acousticFreq; valAcousticFreq.textContent = STATE.acousticFreq.toFixed(2);
+      slZeeman.value = STATE.zeeman; valZeeman.textContent = STATE.zeeman.toFixed(2);
+      slLeggett.value = STATE.leggett; valLeggett.textContent = STATE.leggett.toFixed(1);
+    }
+
+    // 主渲染循环
+    let lastTime = performance.now();
+    function animate(currentTime) {
+      const dt = Math.min(0.04, (currentTime - lastTime) / 1000);
+      lastTime = currentTime;
+
+      updatePhysics(dt);
+      renderMainView();
+      renderScope1();
+      renderScope2();
+
+      requestAnimationFrame(animate);
+    }
+
+    resizeCanvases();
+    initSurfaceQuasiparticles();
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>

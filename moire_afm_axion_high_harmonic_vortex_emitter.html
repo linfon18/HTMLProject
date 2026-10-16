@@ -1,0 +1,981 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>反铁磁莫尔拓扑轴子绝缘体与高次谐波偏振极化非线性涡旋发射器全息模拟器</title>
+  <style>
+    :root {
+      --bg-base: #030712;
+      --panel-bg: rgba(15, 23, 42, 0.78);
+      --panel-border: rgba(168, 85, 247, 0.28);
+      --accent-purple: #c084fc;
+      --accent-cyan: #38bdf8;
+      --accent-gold: #fbbf24;
+      --accent-rose: #f43f5e;
+      --accent-emerald: #10b981;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+    body {
+      background: var(--bg-base);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      overflow: hidden;
+    }
+    #viewport-container {
+      position: relative;
+      flex: 1;
+      height: 100%;
+      background: radial-gradient(circle at 50% 50%, #150f24 0%, #030712 100%);
+    }
+    canvas#holo-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    /* Side Control Dashboard */
+    #sidebar {
+      width: 440px;
+      height: 100%;
+      background: var(--panel-bg);
+      backdrop-filter: blur(20px);
+      border-left: 1px solid var(--panel-border);
+      display: flex;
+      flex-direction: column;
+      z-index: 10;
+      box-shadow: -10px 0 35px rgba(0,0,0,0.65);
+      overflow-y: auto;
+    }
+    #sidebar::-webkit-scrollbar {
+      width: 5px;
+    }
+    #sidebar::-webkit-scrollbar-thumb {
+      background: rgba(168, 85, 247, 0.35);
+      border-radius: 4px;
+    }
+    .header-box {
+      padding: 20px 24px 16px;
+      border-bottom: 1px solid rgba(168, 85, 247, 0.15);
+      background: linear-gradient(180deg, rgba(168, 85, 247, 0.08) 0%, transparent 100%);
+    }
+    .badge-tag {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--accent-purple);
+      background: rgba(168, 85, 247, 0.14);
+      border: 1px solid rgba(168, 85, 247, 0.35);
+      padding: 3px 8px;
+      border-radius: 4px;
+      margin-bottom: 8px;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+    }
+    h1 {
+      font-size: 18px;
+      font-weight: 700;
+      line-height: 1.4;
+      color: #fff;
+      letter-spacing: -0.2px;
+    }
+    .sub-title {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 5px;
+      font-family: var(--font-mono);
+    }
+    .content-box {
+      padding: 18px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+    .section-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--accent-purple);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+    .section-title::before {
+      content: '';
+      display: inline-block;
+      width: 4px;
+      height: 12px;
+      background: var(--accent-purple);
+      border-radius: 2px;
+    }
+    /* Scope Card */
+    .scope-panel {
+      background: rgba(2, 6, 23, 0.65);
+      border: 1px solid rgba(168, 85, 247, 0.2);
+      border-radius: 8px;
+      padding: 12px;
+    }
+    .scope-title {
+      font-size: 11px;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    .scope-canvas-wrap {
+      width: 100%;
+      height: 115px;
+      position: relative;
+    }
+    canvas.scope-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      background: #020617;
+      border-radius: 4px;
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+    /* Readout Grid */
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+    .metric-item {
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 6px;
+      padding: 8px 12px;
+    }
+    .metric-lbl {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    .metric-val {
+      font-family: var(--font-mono);
+      font-size: 15px;
+      font-weight: 700;
+      margin-top: 2px;
+      color: #fff;
+    }
+    /* Sliders */
+    .slider-group {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .control-row {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .control-label-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--text-main);
+    }
+    .control-val {
+      font-family: var(--font-mono);
+      color: var(--accent-purple);
+    }
+    input[type=range] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.12);
+      border-radius: 2px;
+      outline: none;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--accent-purple);
+      cursor: pointer;
+      box-shadow: 0 0 8px var(--accent-purple);
+      transition: transform 0.1s;
+    }
+    input[type=range]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+    /* Buttons */
+    .btn-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+    .btn {
+      background: rgba(30, 41, 59, 0.7);
+      border: 1px solid rgba(168, 85, 247, 0.25);
+      color: #e2e8f0;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 8px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s;
+    }
+    .btn:hover {
+      background: rgba(168, 85, 247, 0.2);
+      border-color: var(--accent-purple);
+      color: #fff;
+      box-shadow: 0 0 10px rgba(168, 85, 247, 0.25);
+    }
+    .btn-active {
+      background: rgba(168, 85, 247, 0.35);
+      border-color: var(--accent-purple);
+      color: #fff;
+    }
+    .action-btn {
+      width: 100%;
+      background: linear-gradient(135deg, rgba(168, 85, 247, 0.25), rgba(56, 189, 248, 0.25));
+      border: 1px solid rgba(168, 85, 247, 0.4);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .action-btn:hover {
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 14px rgba(56, 189, 248, 0.35);
+      transform: translateY(-1px);
+    }
+    /* Theory Box */
+    .theory-box {
+      font-size: 11px;
+      color: var(--text-muted);
+      line-height: 1.6;
+      background: rgba(2, 6, 23, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      border-radius: 6px;
+      padding: 10px 12px;
+    }
+    .theory-box b {
+      color: var(--accent-gold);
+    }
+    /* Overlay HUD */
+    #hud-overlay {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .hud-chip {
+      background: rgba(3, 7, 18, 0.82);
+      border: 1px solid rgba(168, 85, 247, 0.25);
+      backdrop-filter: blur(10px);
+      padding: 8px 14px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-family: var(--font-mono);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .dot-live {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent-purple);
+      box-shadow: 0 0 8px var(--accent-purple);
+      animation: pulse 1.8s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+    #back-btn {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid var(--panel-border);
+      color: var(--text-main);
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      text-decoration: none;
+      backdrop-filter: blur(10px);
+      transition: all 0.2s;
+      z-index: 20;
+    }
+    #back-btn:hover {
+      background: var(--accent-purple);
+      color: #000;
+      box-shadow: 0 0 15px rgba(168, 85, 247, 0.5);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 3D Holographic Viewport -->
+  <div id="viewport-container">
+    <canvas id="holo-canvas"></canvas>
+    
+    <div id="hud-overlay">
+      <div class="hud-chip">
+        <span class="dot-live"></span>
+        <span>AFM MOIRE AXION HHG VORTEX SIMULATOR [v323.0]</span>
+      </div>
+      <div class="hud-chip">
+        <span style="color:var(--accent-purple);">AXION ANGLE:</span>
+        <span id="hud-axion-txt" style="color:var(--accent-gold);font-weight:bold;">θ = π (Nonlinear Axion Magnetoelectric)</span>
+      </div>
+      <div class="hud-chip">
+        <span style="color:var(--accent-cyan);">VORTEX OAM:</span>
+        <span id="hud-oam-txt" style="color:var(--accent-emerald);font-weight:bold;">ℓ = +1 ℏ (High-Harmonic Ring Vortex)</span>
+      </div>
+    </div>
+
+    <a href="index.html" id="back-btn">← 返回中央展厅 (323)</a>
+  </div>
+
+  <!-- Sidebar Controls -->
+  <div id="sidebar">
+    <div class="header-box">
+      <span class="badge-tag">Nonlinear Axion Optics</span>
+      <h1>反铁磁莫尔拓扑轴子绝缘体与高次谐波偏振极化非线性涡旋发射器全息模拟器</h1>
+      <div class="sub-title">Moiré Antiferromagnetic Axion Insulator &amp; HHG Vortex Emitter</div>
+    </div>
+
+    <div class="content-box">
+      <!-- Readout Grid -->
+      <div class="metric-grid">
+        <div class="metric-item">
+          <div class="metric-lbl">高次谐波截止阶数 N_cutoff</div>
+          <div class="metric-val" id="val-cutoff" style="color:var(--accent-purple);">17th Order</div>
+        </div>
+        <div class="metric-item">
+          <div class="metric-lbl">光涡旋拓扑荷 OAM ℓ</div>
+          <div class="metric-val" id="val-oam" style="color:var(--accent-emerald);">+1 ℏ</div>
+        </div>
+        <div class="metric-item">
+          <div class="metric-lbl">贝里曲率偶极矩 D_x</div>
+          <div class="metric-val" id="val-dipole" style="color:var(--accent-cyan);">0.48 Å</div>
+        </div>
+        <div class="metric-item">
+          <div class="metric-lbl">无质能有质驱动势 Up</div>
+          <div class="metric-val" id="val-up" style="color:var(--accent-gold);">1.85 eV</div>
+        </div>
+      </div>
+
+      <!-- Scopes -->
+      <div class="scope-panel">
+        <div class="scope-title">
+          <span>HIGH-HARMONIC SPECTRUM I(ω) &amp; PLATEAU</span>
+          <span style="color:var(--accent-purple);">Non-perturbative HHG</span>
+        </div>
+        <div class="scope-canvas-wrap">
+          <canvas class="scope-canvas" id="scope-hhg"></canvas>
+        </div>
+      </div>
+
+      <div class="scope-panel">
+        <div class="scope-title">
+          <span>POLARIZATION VORTEX CROSS-SECTION I(r, φ)</span>
+          <span style="color:var(--accent-emerald);">Donut OAM Profile</span>
+        </div>
+        <div class="scope-canvas-wrap">
+          <canvas class="scope-canvas" id="scope-vortex"></canvas>
+        </div>
+      </div>
+
+      <!-- Action Button -->
+      <div>
+        <button class="action-btn" id="btn-fire-laser">发射飞秒阿秒激光脉冲激发光涡旋 (Fire Pulse)</button>
+      </div>
+
+      <!-- Sliders -->
+      <div>
+        <div class="section-title">激光场与反铁磁莫尔参数调控</div>
+        <div class="slider-group">
+          <div class="control-row">
+            <div class="control-label-row">
+              <span>激光峰值光强 I₀</span>
+              <span class="control-val" id="lbl-i0">3.2 × 10¹² W/cm²</span>
+            </div>
+            <input type="range" id="sl-i0" min="0.5" max="8.0" step="0.1" value="3.2">
+          </div>
+
+          <div class="control-row">
+            <div class="control-label-row">
+              <span>中红外激光波长 λ</span>
+              <span class="control-val" id="lbl-lambda">3.2 μm</span>
+            </div>
+            <input type="range" id="sl-lambda" min="1.5" max="5.0" step="0.1" value="3.2">
+          </div>
+
+          <div class="control-row">
+            <div class="control-label-row">
+              <span>莫尔超晶格扭转角 θ_twist</span>
+              <span class="control-val" id="lbl-theta">1.85°</span>
+            </div>
+            <input type="range" id="sl-theta" min="0.8" max="4.0" step="0.05" value="1.85">
+          </div>
+
+          <div class="control-row">
+            <div class="control-label-row">
+              <span>反铁磁交错序参量 M_afm</span>
+              <span class="control-val" id="lbl-mafm">1.00 μB</span>
+            </div>
+            <input type="range" id="sl-mafm" min="0.1" max="2.0" step="0.05" value="1.00">
+          </div>
+
+          <div class="control-row">
+            <div class="control-label-row">
+              <span>轴子动态调制角 θ_axion</span>
+              <span class="control-val" id="lbl-theta-ax">1.00 π</span>
+            </div>
+            <input type="range" id="sl-theta-ax" min="0.0" max="2.0" step="0.05" value="1.00">
+          </div>
+        </div>
+      </div>
+
+      <!-- Presets -->
+      <div>
+        <div class="section-title">典型物理相与预设工况</div>
+        <div class="btn-grid">
+          <button class="btn btn-active" id="pre-axion-pi">拓扑轴子相 (θ=π)</button>
+          <button class="btn" id="pre-high-oam">高阶涡旋相 (ℓ=2ℏ)</button>
+          <button class="btn" id="pre-hhg-cutoff">深度高次谐波平台</button>
+          <button class="btn" id="pre-linear">微扰线性极化极限</button>
+        </div>
+      </div>
+
+      <!-- Theory Box -->
+      <div class="theory-box">
+        <b>微观哈密顿量与拓扑光涡旋发射机理：</b><br>
+        1. <b>莫尔轴子绝缘体拓扑相：</b> 反铁磁莫尔超晶格破缺空间反演对称，产生反常动量空间贝里曲率偶极子 $D_x$ 与非零轴子场 $\theta = \pi$。<br>
+        2. <b>非微扰高次谐波与光涡旋变换：</b> 强中红外激光驱动电子在非公度莫尔能带中做非谐振加速布洛赫振荡，产生截止能量高达 $\hbar\omega_c = I_p + 3.17 U_p$ 的高次谐波。轴子拓扑磁电耦合将偏振旋转相位螺旋印刻在光波阵面上，合成出携带轨道角动量 $\text{OAM} = \ell\hbar$ 的环状偏振极化光涡旋。
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    // --- Audio Engine (Femtosecond Pulse & Vortex Synthesizer) ---
+    class AudioEngine {
+      constructor() {
+        this.ctx = null;
+        this.enabled = false;
+      }
+      init() {
+        if (!this.ctx) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          this.ctx = new AudioContext();
+          this.enabled = true;
+        }
+        if (this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      }
+      playLaserPulse(oam) {
+        if (!this.enabled || !this.ctx) return;
+        const now = this.ctx.currentTime;
+        // Swept chirped tone
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        const startFreq = 180 + Math.abs(oam) * 120;
+        const endFreq = 880 + Math.abs(oam) * 440;
+
+        osc.frequency.setValueAtTime(startFreq, now);
+        osc.frequency.exponentialRampToValueAtTime(endFreq, now + 0.18);
+
+        gain.gain.setValueAtTime(0.08, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.25);
+      }
+    }
+    const audio = new AudioEngine();
+    window.addEventListener('click', () => audio.init(), { once: true });
+
+    // --- State Object ---
+    const STATE = {
+      i0: 3.2,           // Peak intensity (10^12 W/cm^2)
+      lambda: 3.2,       // Wavelength (um)
+      thetaTwist: 1.85,  // Twist angle (deg)
+      mAfm: 1.00,        // AFM staggered moment (muB)
+      thetaAxion: 1.00,  // Axion angle in units of pi
+
+      // Computed Physics
+      cutoffOrder: 17,   // Harmonic order
+      oam: 1,            // Vortex topological charge
+      berryDipole: 0.48, // Angstrom
+      upEv: 1.85,        // Ponderomotive energy (eV)
+
+      // Pulse Animation
+      pulseFiring: false,
+      pulseZ: -200,
+
+      // Viewport 3D
+      rotX: 25 * Math.PI / 180,
+      rotY: -35 * Math.PI / 180,
+      zoom: 1.0,
+      isDragging: false,
+      lastMouseX: 0,
+      lastMouseY: 0,
+      time: 0
+    };
+
+    // --- Canvases ---
+    const holoCanvas = document.getElementById('holo-canvas');
+    const holoCtx = holoCanvas.getContext('2d');
+    const scopeHhg = document.getElementById('scope-hhg');
+    const hhgCtx = scopeHhg.getContext('2d');
+    const scopeVor = document.getElementById('scope-vortex');
+    const vorCtx = scopeVor.getContext('2d');
+
+    function resizeCanvases() {
+      const container = document.getElementById('viewport-container');
+      holoCanvas.width = container.clientWidth * window.devicePixelRatio;
+      holoCanvas.height = container.clientHeight * window.devicePixelRatio;
+      
+      scopeHhg.width = scopeHhg.clientWidth * window.devicePixelRatio;
+      scopeHhg.height = scopeHhg.clientHeight * window.devicePixelRatio;
+      
+      scopeVor.width = scopeVor.clientWidth * window.devicePixelRatio;
+      scopeVor.height = scopeVor.clientHeight * window.devicePixelRatio;
+    }
+    window.addEventListener('resize', resizeCanvases);
+
+    // --- Mouse Listeners ---
+    holoCanvas.addEventListener('mousedown', e => {
+      STATE.isDragging = true;
+      STATE.lastMouseX = e.clientX;
+      STATE.lastMouseY = e.clientY;
+      audio.init();
+    });
+    window.addEventListener('mouseup', () => STATE.isDragging = false);
+    holoCanvas.addEventListener('mousemove', e => {
+      if (!STATE.isDragging) return;
+      const dx = e.clientX - STATE.lastMouseX;
+      const dy = e.clientY - STATE.lastMouseY;
+      STATE.rotY += dx * 0.006;
+      STATE.rotX += dy * 0.006;
+      STATE.lastMouseX = e.clientX;
+      STATE.lastMouseY = e.clientY;
+    });
+    holoCanvas.addEventListener('wheel', e => {
+      e.preventDefault();
+      STATE.zoom *= (e.deltaY > 0 ? 0.94 : 1.06);
+      STATE.zoom = Math.max(0.4, Math.min(2.8, STATE.zoom));
+    }, { passive: false });
+
+    // --- Controls Binding ---
+    const slI0 = document.getElementById('sl-i0');
+    const slLambda = document.getElementById('sl-lambda');
+    const slTheta = document.getElementById('sl-theta');
+    const slMafm = document.getElementById('sl-mafm');
+    const slThetaAx = document.getElementById('sl-theta-ax');
+
+    slI0.addEventListener('input', e => {
+      STATE.i0 = parseFloat(e.target.value);
+      document.getElementById('lbl-i0').innerText = STATE.i0.toFixed(1) + ' × 10¹² W/cm²';
+      updatePhysics();
+    });
+    slLambda.addEventListener('input', e => {
+      STATE.lambda = parseFloat(e.target.value);
+      document.getElementById('lbl-lambda').innerText = STATE.lambda.toFixed(1) + ' μm';
+      updatePhysics();
+    });
+    slTheta.addEventListener('input', e => {
+      STATE.thetaTwist = parseFloat(e.target.value);
+      document.getElementById('lbl-theta').innerText = STATE.thetaTwist.toFixed(2) + '°';
+      updatePhysics();
+    });
+    slMafm.addEventListener('input', e => {
+      STATE.mAfm = parseFloat(e.target.value);
+      document.getElementById('lbl-mafm').innerText = STATE.mAfm.toFixed(2) + ' μB';
+      updatePhysics();
+    });
+    slThetaAx.addEventListener('input', e => {
+      STATE.thetaAxion = parseFloat(e.target.value);
+      document.getElementById('lbl-theta-ax').innerText = STATE.thetaAxion.toFixed(2) + ' π';
+      updatePhysics();
+    });
+
+    document.getElementById('btn-fire-laser').addEventListener('click', () => {
+      audio.init();
+      audio.playLaserPulse(STATE.oam);
+      STATE.pulseFiring = true;
+      STATE.pulseZ = -220;
+    });
+
+    // Presets
+    const presets = [
+      { id: 'pre-axion-pi', i0: 3.2, lambda: 3.2, theta: 1.85, mafm: 1.00, axion: 1.00 },
+      { id: 'pre-high-oam', i0: 5.5, lambda: 3.8, theta: 2.20, mafm: 1.40, axion: 1.00 },
+      { id: 'pre-hhg-cutoff', i0: 7.2, lambda: 4.5, theta: 1.50, mafm: 0.90, axion: 0.95 },
+      { id: 'pre-linear', i0: 0.8, lambda: 2.0, theta: 3.20, mafm: 0.40, axion: 0.20 }
+    ];
+    presets.forEach(p => {
+      document.getElementById(p.id).addEventListener('click', () => {
+        presets.forEach(o => document.getElementById(o.id).classList.remove('btn-active'));
+        document.getElementById(p.id).classList.add('btn-active');
+
+        STATE.i0 = p.i0; slI0.value = p.i0; document.getElementById('lbl-i0').innerText = p.i0.toFixed(1) + ' × 10¹² W/cm²';
+        STATE.lambda = p.lambda; slLambda.value = p.lambda; document.getElementById('lbl-lambda').innerText = p.lambda.toFixed(1) + ' μm';
+        STATE.thetaTwist = p.theta; slTheta.value = p.theta; document.getElementById('lbl-theta').innerText = p.theta.toFixed(2) + '°';
+        STATE.mAfm = p.mafm; slMafm.value = p.mafm; document.getElementById('lbl-mafm').innerText = p.mafm.toFixed(2) + ' μB';
+        STATE.thetaAxion = p.axion; slThetaAx.value = p.axion; document.getElementById('lbl-theta-ax').innerText = p.axion.toFixed(2) + ' π';
+
+        updatePhysics();
+      });
+    });
+
+    // --- Physics Model Update ---
+    function updatePhysics() {
+      // 1. Ponderomotive Energy Up = e^2 E0^2 / (4 m omega^2) ~ 9.33e-14 * I0 * lambda^2 (eV)
+      STATE.upEv = 0.0933 * STATE.i0 * Math.pow(STATE.lambda, 2);
+
+      // 2. High Harmonic Cutoff: hbar * omega_c = Ip + 3.17 * Up
+      // Fundamental photon energy: hbar * omega0 = 1.24 / lambda (eV)
+      const hbarOmega0 = 1.2398 / STATE.lambda;
+      const bandGapIp = 1.5 + (STATE.mAfm * 0.8);
+      const cutoffEnergy = bandGapIp + 3.17 * STATE.upEv;
+      let rawOrder = Math.floor(cutoffEnergy / hbarOmega0);
+      if (rawOrder % 2 === 0) rawOrder += 1; // Odd harmonics
+      STATE.cutoffOrder = Math.max(3, Math.min(35, rawOrder));
+
+      // 3. Berry Curvature Dipole Dx ~ (1 / thetaTwist) * mAfm * sin(thetaAxion)
+      const twistFactor = 1.0 / Math.max(0.5, STATE.thetaTwist);
+      STATE.berryDipole = 0.35 * twistFactor * STATE.mAfm * Math.sin(STATE.thetaAxion * Math.PI * 0.5);
+
+      // 4. Optical Vortex OAM ell: induced by topological Axion phase
+      if (Math.abs(STATE.thetaAxion - 1.0) < 0.25 && STATE.i0 > 4.5) {
+        STATE.oam = 2; // High order vortex
+      } else if (Math.abs(STATE.thetaAxion - 1.0) < 0.45 && STATE.i0 > 1.5) {
+        STATE.oam = 1; // Standard ring vortex
+      } else {
+        STATE.oam = 0; // Gaussian beam
+      }
+
+      // UI Update
+      document.getElementById('val-cutoff').innerText = `${STATE.cutoffOrder}th Order`;
+      document.getElementById('val-oam').innerText = `${STATE.oam > 0 ? '+' + STATE.oam : STATE.oam} ℏ`;
+      document.getElementById('val-dipole').innerText = `${STATE.berryDipole.toFixed(2)} Å`;
+      document.getElementById('val-up').innerText = `${STATE.upEv.toFixed(2)} eV`;
+
+      const hudAxion = document.getElementById('hud-axion-txt');
+      if (Math.abs(STATE.thetaAxion - 1.0) < 0.1) {
+        hudAxion.innerText = 'θ = π (Nonlinear Axion Magnetoelectric)';
+        hudAxion.style.color = 'var(--accent-gold)';
+      } else {
+        hudAxion.innerText = `θ = ${STATE.thetaAxion.toFixed(2)}π (Topological Deviated)`;
+        hudAxion.style.color = 'var(--accent-purple)';
+      }
+
+      const hudOam = document.getElementById('hud-oam-txt');
+      if (STATE.oam > 0) {
+        hudOam.innerText = `ℓ = +${STATE.oam} ℏ (High-Harmonic Ring Vortex)`;
+        hudOam.style.color = 'var(--accent-emerald)';
+      } else {
+        hudOam.innerText = 'ℓ = 0 (Fundamental Gaussian Wavepacket)';
+        hudOam.style.color = 'var(--accent-rose)';
+      }
+    }
+
+    // --- 3D Projection Helpers ---
+    function project3D(x, y, z, cx, cy, scale) {
+      const cosY = Math.cos(STATE.rotY), sinY = Math.sin(STATE.rotY);
+      const x1 = x * cosY + z * sinY;
+      const z1 = -x * sinY + z * cosY;
+
+      const cosX = Math.cos(STATE.rotX), sinX = Math.sin(STATE.rotX);
+      const y2 = y * cosX - z1 * sinX;
+      const z2 = y * sinX + z1 * cosX;
+
+      const dist = 700;
+      const fov = dist / (dist + z2);
+      return {
+        px: cx + x1 * fov * scale * STATE.zoom,
+        py: cy + y2 * fov * scale * STATE.zoom,
+        depth: z2,
+        fov: fov
+      };
+    }
+
+    // --- 3D Holographic Rendering ---
+    function renderHologram() {
+      const w = holoCanvas.width;
+      const h = holoCanvas.height;
+      holoCtx.clearRect(0, 0, w, h);
+
+      const cx = w * 0.5;
+      const cy = h * 0.5;
+      const scale = Math.min(w, h) * 0.0016;
+
+      // 1. Draw Moiré Antiferromagnetic Bilayer Lattice
+      const gridSize = 6;
+      const spacing = 45;
+      const twistRad = STATE.thetaTwist * (Math.PI / 180.0);
+
+      // Two layers: Top (Layer 1, Spin Up) and Bottom (Layer 2, Spin Down)
+      [-1, 1].forEach(layer => {
+        const layerY = layer * 28;
+        const layerRot = layer * twistRad * 0.5;
+        const cosR = Math.cos(layerRot), sinR = Math.sin(layerRot);
+
+        for (let ix = -gridSize; ix <= gridSize; ix++) {
+          for (let iz = -gridSize; iz <= gridSize; iz++) {
+            const rawX = ix * spacing;
+            const rawZ = iz * spacing;
+            const px = rawX * cosR - rawZ * sinR;
+            const pz = rawX * sinR + rawZ * cosR;
+
+            // Staggered AFM Spin Vector
+            const spinSub = (Math.abs(ix + iz) % 2 === 0) ? 1 : -1;
+            const spinVy = -25 * layer * spinSub * STATE.mAfm;
+            const spinVx = Math.sin(STATE.time * 4 + ix * 0.4) * 5;
+
+            const baseP = project3D(px, layerY, pz, cx, cy, scale);
+            const tipP = project3D(px + spinVx, layerY + spinVy, pz, cx, cy, scale);
+
+            // Lattice Bonds
+            if (ix < gridSize) {
+              const nextRawX = (ix + 1) * spacing;
+              const npx = nextRawX * cosR - rawZ * sinR;
+              const npz = nextRawX * sinR + rawZ * cosR;
+              const nextP = project3D(npx, layerY, npz, cx, cy, scale);
+              holoCtx.beginPath();
+              holoCtx.moveTo(baseP.px, baseP.py);
+              holoCtx.lineTo(nextP.px, nextP.py);
+              holoCtx.strokeStyle = layer > 0 ? 'rgba(168, 85, 247, 0.15)' : 'rgba(56, 189, 248, 0.15)';
+              holoCtx.lineWidth = 1;
+              holoCtx.stroke();
+            }
+
+            // Spin vector line
+            holoCtx.beginPath();
+            holoCtx.moveTo(baseP.px, baseP.py);
+            holoCtx.lineTo(tipP.px, tipP.py);
+            holoCtx.strokeStyle = layer > 0 ? 'rgba(244, 63, 94, 0.85)' : 'rgba(56, 189, 248, 0.85)';
+            holoCtx.lineWidth = 1.8 * baseP.fov;
+            holoCtx.stroke();
+          }
+        }
+      });
+
+      // 2. Optical Vortex Ring Emission (Helical Polarization Phase Wavefront)
+      const numHelices = Math.max(1, STATE.oam);
+      const vortexZSteps = 35;
+      const vortexR = 60 + STATE.upEv * 15;
+
+      for (let hIdx = 0; hIdx < numHelices; hIdx++) {
+        const phaseOffset = (hIdx / numHelices) * Math.PI * 2;
+        holoCtx.beginPath();
+        for (let s = 0; s <= vortexZSteps; s++) {
+          const u = s / vortexZSteps;
+          const z = -60 - u * 240; // Emitting upward/backward in 3D
+          const helixAng = u * Math.PI * 6 * STATE.oam - STATE.time * 5 + phaseOffset;
+          const vx = Math.cos(helixAng) * vortexR * (0.8 + u * 0.6);
+          const vy = Math.sin(helixAng) * vortexR * (0.8 + u * 0.6);
+
+          const p = project3D(vx, vy, z, cx, cy, scale);
+          if (s === 0) holoCtx.moveTo(p.px, p.py);
+          else holoCtx.lineTo(p.px, p.py);
+        }
+        holoCtx.strokeStyle = hIdx === 0 ? '#10b981' : '#fbbf24';
+        holoCtx.lineWidth = 2.8;
+        holoCtx.shadowColor = '#10b981';
+        holoCtx.shadowBlur = 12;
+        holoCtx.stroke();
+        holoCtx.shadowBlur = 0;
+      }
+
+      // 3. Laser Pulse Firing Animation
+      if (STATE.pulseFiring) {
+        STATE.pulseZ += 12;
+        if (STATE.pulseZ > 240) STATE.pulseFiring = false;
+
+        const pulseP = project3D(0, 0, STATE.pulseZ, cx, cy, scale);
+        const pGrad = holoCtx.createRadialGradient(pulseP.px, pulseP.py, 2, pulseP.px, pulseP.py, 22 * pulseP.fov);
+        pGrad.addColorStop(0, '#ffffff');
+        pGrad.addColorStop(0.3, '#38bdf8');
+        pGrad.addColorStop(1, 'transparent');
+
+        holoCtx.fillStyle = pGrad;
+        holoCtx.beginPath();
+        holoCtx.arc(pulseP.px, pulseP.py, 20 * pulseP.fov, 0, Math.PI * 2);
+        holoCtx.fill();
+      }
+    }
+
+    // --- Scope 1: High-Harmonic Spectrum I(omega) ---
+    function renderScopeHHG() {
+      const w = scopeHhg.width;
+      const h = scopeHhg.height;
+      hhgCtx.clearRect(0, 0, w, h);
+
+      // Grid
+      hhgCtx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+      hhgCtx.lineWidth = 1;
+      hhgCtx.beginPath();
+      for (let x = 0; x < w; x += 30) { hhgCtx.moveTo(x, 0); hhgCtx.lineTo(x, h); }
+      for (let y = 0; y < h; y += 25) { hhgCtx.moveTo(0, y); hhgCtx.lineTo(w, y); }
+      hhgCtx.stroke();
+
+      // Draw Discrete Harmonics Peaks (1st, 3rd, 5th, ..., Cutoff)
+      const maxOrder = 31;
+      const barW = w / (maxOrder * 0.7);
+
+      for (let order = 1; order <= maxOrder; order += 2) {
+        let intensity = 0;
+        if (order === 1) {
+          intensity = 1.0;
+        } else if (order <= 5) {
+          // Perturbative decay
+          intensity = Math.pow(0.55, order);
+        } else if (order <= STATE.cutoffOrder) {
+          // Non-perturbative Plateau
+          intensity = 0.08 * (1.0 + 0.3 * Math.sin(order * 0.8 + STATE.time * 2));
+        } else {
+          // Exponential Cutoff
+          const dOrder = order - STATE.cutoffOrder;
+          intensity = 0.08 * Math.exp(-dOrder * 1.5);
+        }
+
+        const x = (order / maxOrder) * (w * 0.9) + 15;
+        const barH = intensity * (h * 0.82);
+        const y = h - barH;
+
+        hhgCtx.fillStyle = order <= STATE.cutoffOrder ? '#c084fc' : '#64748b';
+        hhgCtx.fillRect(x - 2, y, 4, barH);
+
+        if (order % 4 === 1 && order <= STATE.cutoffOrder) {
+          hhgCtx.fillStyle = '#94a3b8';
+          hhgCtx.font = '8px monospace';
+          hhgCtx.fillText(`H${order}`, x - 6, y - 4);
+        }
+      }
+
+      // Cutoff Order Line
+      const cutX = (STATE.cutoffOrder / maxOrder) * (w * 0.9) + 15;
+      hhgCtx.strokeStyle = 'rgba(251, 191, 36, 0.8)';
+      hhgCtx.setLineDash([3, 3]);
+      hhgCtx.beginPath();
+      hhgCtx.moveTo(cutX, 0);
+      hhgCtx.lineTo(cutX, h);
+      hhgCtx.stroke();
+      hhgCtx.setLineDash([]);
+
+      hhgCtx.fillStyle = '#fbbf24';
+      hhgCtx.font = '9px monospace';
+      hhgCtx.fillText(`Cutoff H${STATE.cutoffOrder}`, Math.max(5, cutX - 45), 14);
+    }
+
+    // --- Scope 2: Polarization Vortex Cross-Section ---
+    function renderScopeVortex() {
+      const w = scopeVor.width;
+      const h = scopeVor.height;
+      vorCtx.clearRect(0, 0, w, h);
+
+      // Grid
+      vorCtx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+      vorCtx.lineWidth = 1;
+      vorCtx.beginPath();
+      for (let x = 0; x < w; x += 30) { vorCtx.moveTo(x, 0); vorCtx.lineTo(x, h); }
+      for (let y = 0; y < h; y += 25) { vorCtx.moveTo(0, y); vorCtx.lineTo(w, y); }
+      vorCtx.stroke();
+
+      const cx = w * 0.5;
+      const cy = h * 0.5;
+
+      // Donut Beam Intensity Profile
+      const maxR = Math.min(w, h) * 0.42;
+      const ringR = maxR * 0.65;
+
+      // If OAM > 0, donut with dark center; if OAM = 0, Gaussian center
+      const grad = vorCtx.createRadialGradient(cx, cy, STATE.oam > 0 ? 5 : 0, cx, cy, maxR);
+      if (STATE.oam > 0) {
+        grad.addColorStop(0, '#020617'); // Dark core
+        grad.addColorStop(0.35, 'transparent');
+        grad.addColorStop(0.65, 'rgba(16, 185, 129, 0.85)'); // Bright ring
+        grad.addColorStop(1, 'transparent');
+      } else {
+        grad.addColorStop(0, 'rgba(56, 189, 248, 0.95)');
+        grad.addColorStop(0.7, 'rgba(56, 189, 248, 0.2)');
+        grad.addColorStop(1, 'transparent');
+      }
+
+      vorCtx.fillStyle = grad;
+      vorCtx.beginPath();
+      vorCtx.arc(cx, cy, maxR, 0, Math.PI * 2);
+      vorCtx.fill();
+
+      // Helical Polarization Arrows along ring
+      if (STATE.oam > 0) {
+        const numArrows = 12;
+        for (let i = 0; i < numArrows; i++) {
+          const ang = (i / numArrows) * Math.PI * 2;
+          const ax = cx + Math.cos(ang) * ringR;
+          const ay = cy + Math.sin(ang) * ringR;
+
+          // Polarization vector rotates with angle * OAM
+          const polAng = ang * STATE.oam + STATE.time * 3;
+          const vx = Math.cos(polAng) * 9;
+          const vy = Math.sin(polAng) * 9;
+
+          vorCtx.beginPath();
+          vorCtx.moveTo(ax - vx, ay - vy);
+          vorCtx.lineTo(ax + vx, ay + vy);
+          vorCtx.strokeStyle = '#fbbf24';
+          vorCtx.lineWidth = 1.8;
+          vorCtx.stroke();
+        }
+      }
+
+      vorCtx.fillStyle = '#f8fafc';
+      vorCtx.font = '9px monospace';
+      vorCtx.fillText(`OAM ℓ = ${STATE.oam} ℏ (Vortex Ring)`, 10, 15);
+    }
+
+    // --- Main Simulation Loop ---
+    let lastTime = performance.now();
+    function animate(currentTime) {
+      const dt = Math.min(0.05, (currentTime - lastTime) * 0.001);
+      lastTime = currentTime;
+      STATE.time += dt;
+
+      renderHologram();
+      renderScopeHHG();
+      renderScopeVortex();
+
+      requestAnimationFrame(animate);
+    }
+
+    // Initialize
+    resizeCanvases();
+    updatePhysics();
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>

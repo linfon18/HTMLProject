@@ -1,0 +1,1260 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>非阿贝尔旋量玻色凝聚霍普夫子拓扑结与三维涡旋链接全息模拟器</title>
+  <style>
+    :root {
+      --bg: #02050e;
+      --panel-bg: rgba(6, 13, 31, 0.78);
+      --panel-border: rgba(0, 240, 255, 0.22);
+      --accent-cyan: #00f0ff;
+      --accent-magenta: #ff0077;
+      --accent-gold: #ffb700;
+      --accent-purple: #a855f7;
+      --accent-emerald: #10b981;
+      --text-main: #e2e8f0;
+      --text-dim: #94a3b8;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+    body {
+      background: var(--bg);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Noto Sans", sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      padding: 14px 24px;
+      background: linear-gradient(180deg, rgba(10, 22, 50, 0.95) 0%, rgba(2, 5, 14, 0.8) 100%);
+      border-bottom: 1px solid var(--panel-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.6);
+      position: relative;
+      z-index: 10;
+    }
+    .title-group h1 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      background: linear-gradient(90deg, var(--accent-cyan), var(--accent-purple), var(--accent-magenta));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .badge {
+      font-size: 0.7rem;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: rgba(168, 85, 247, 0.15);
+      border: 1px solid var(--accent-purple);
+      color: var(--accent-purple);
+      font-family: monospace;
+      font-weight: bold;
+    }
+    .hud-metrics {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+    }
+    .metric-card {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 6px;
+      padding: 4px 12px;
+      text-align: center;
+      min-width: 95px;
+    }
+    .metric-val {
+      font-size: 1.05rem;
+      font-family: "Courier New", Courier, monospace;
+      font-weight: 700;
+      color: var(--accent-cyan);
+    }
+    .metric-card:nth-child(2) .metric-val { color: var(--accent-gold); }
+    .metric-card:nth-child(3) .metric-val { color: var(--accent-magenta); }
+    .metric-card:nth-child(4) .metric-val { color: var(--accent-emerald); }
+    .metric-lbl {
+      font-size: 0.65rem;
+      color: var(--text-dim);
+      text-transform: uppercase;
+    }
+
+    .main-layout {
+      display: grid;
+      grid-template-columns: 1fr 380px;
+      gap: 14px;
+      padding: 14px 24px;
+      flex: 1;
+    }
+    @media (max-width: 1200px) {
+      .main-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+    .viewport-column {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .panel {
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+      position: relative;
+      backdrop-filter: blur(8px);
+    }
+    .panel-header {
+      padding: 10px 16px;
+      background: rgba(255,255,255,0.02);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+    .panel-header .tag {
+      font-size: 0.68rem;
+      color: var(--text-dim);
+      font-family: monospace;
+    }
+    .canvas-container {
+      position: relative;
+      width: 100%;
+      height: 420px;
+      background: radial-gradient(circle at 50% 50%, #07122b 0%, #02050e 100%);
+      cursor: grab;
+    }
+    .canvas-container:active {
+      cursor: grabbing;
+    }
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    .view-hint {
+      position: absolute;
+      bottom: 12px;
+      left: 14px;
+      font-size: 0.7rem;
+      color: rgba(255,255,255,0.4);
+      pointer-events: none;
+      font-family: monospace;
+    }
+
+    .scopes-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+    @media (max-width: 900px) {
+      .scopes-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+    .scope-box {
+      height: 220px;
+      background: #010309;
+      position: relative;
+    }
+
+    /* Controls Sidebar */
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .control-group {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .group-title {
+      font-size: 0.8rem;
+      font-weight: bold;
+      color: var(--accent-cyan);
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      border-left: 3px solid var(--accent-cyan);
+      padding-left: 8px;
+      margin-bottom: 2px;
+    }
+    .preset-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .btn {
+      background: rgba(0, 240, 255, 0.08);
+      border: 1px solid rgba(0, 240, 255, 0.25);
+      color: var(--text-main);
+      padding: 8px 10px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-align: center;
+    }
+    .btn:hover {
+      background: rgba(0, 240, 255, 0.2);
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 12px rgba(0, 240, 255, 0.3);
+      color: #fff;
+    }
+    .btn.active {
+      background: linear-gradient(135deg, rgba(168, 85, 247, 0.3) 0%, rgba(0, 240, 255, 0.3) 100%);
+      border-color: var(--accent-purple);
+      color: #fff;
+      font-weight: 600;
+      box-shadow: 0 0 14px rgba(168, 85, 247, 0.4);
+    }
+    .slider-row {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .slider-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.72rem;
+    }
+    .slider-name {
+      color: var(--text-dim);
+    }
+    .slider-val {
+      font-family: monospace;
+      color: var(--accent-cyan);
+      font-weight: bold;
+    }
+    input[type=range] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 4px;
+      border-radius: 2px;
+      background: rgba(255, 255, 255, 0.1);
+      outline: none;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--accent-purple);
+      cursor: pointer;
+      box-shadow: 0 0 8px var(--accent-purple);
+      transition: transform 0.1s;
+    }
+    input[type=range]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    .audio-btn {
+      background: rgba(168, 85, 247, 0.12);
+      border: 1px solid var(--accent-purple);
+      color: var(--accent-purple);
+      padding: 10px;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: bold;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.2s;
+    }
+    .audio-btn:hover {
+      background: rgba(168, 85, 247, 0.25);
+      box-shadow: 0 0 16px rgba(168, 85, 247, 0.4);
+    }
+    .audio-btn.active {
+      background: var(--accent-purple);
+      color: white;
+      box-shadow: 0 0 20px rgba(168, 85, 247, 0.6);
+    }
+
+    .theory-box {
+      font-size: 0.72rem;
+      line-height: 1.5;
+      color: #94a3b8;
+      background: rgba(0,0,0,0.3);
+      padding: 12px;
+      border-radius: 6px;
+      border: 1px dashed rgba(255,255,255,0.1);
+    }
+    .theory-box b {
+      color: var(--accent-purple);
+    }
+    .math-eq {
+      font-family: monospace;
+      color: var(--accent-gold);
+      background: rgba(255, 183, 0, 0.08);
+      padding: 2px 5px;
+      border-radius: 4px;
+      display: inline-block;
+      margin: 2px 0;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="title-group">
+      <h1>
+        非阿贝尔旋量玻色凝聚霍普夫子拓扑结与三维涡旋链接全息模拟器
+        <span class="badge">#234 SPINOR-HOPFION</span>
+      </h1>
+    </div>
+    <div class="hud-metrics">
+      <div class="metric-card">
+        <div class="metric-val" id="metric-hopf">1.00</div>
+        <div class="metric-lbl">Hopf 不变量 H</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-val" id="metric-linking">Lk = 1</div>
+        <div class="metric-lbl">流线空间链接数</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-val" id="metric-energy">28.4 ℏω</div>
+        <div class="metric-lbl">超流拓扑能量 E</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-val" id="metric-spin">0.88 ℏ</div>
+        <div class="metric-lbl">自旋极化度 |F|</div>
+      </div>
+    </div>
+  </header>
+
+  <div class="main-layout">
+    <!-- Viewport Column -->
+    <div class="viewport-column">
+      <div class="panel">
+        <div class="panel-header">
+          <span>三维超流霍普夫子拓扑结等自旋流线全息视口 (3D Hopf Soliton Preimages & Vortex Core)</span>
+          <span class="tag">π_3(S^2) 同伦群 | 鼠标拖拽 3D 旋转</span>
+        </div>
+        <div class="canvas-container" id="container3d">
+          <canvas id="mainCanvas"></canvas>
+          <div class="view-hint">拖拽旋转视点 | 滚轮缩放 | 实时三维透视投影</div>
+        </div>
+      </div>
+
+      <div class="scopes-grid">
+        <div class="panel">
+          <div class="panel-header">
+            <span>Hopf 拓扑积分与贝里磁通密度分析仪 (Hopf Invariant & Berry Flux)</span>
+            <span class="tag">Chern-Simons 标量密度 A·B</span>
+          </div>
+          <div class="scope-box">
+            <canvas id="hopfCanvas"></canvas>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <span>旋量三组分种群转移与自旋极化相图 (Spin-1 Population Dynamics)</span>
+            <span class="tag">m_F = {+1, 0, -1} | 拉比翻转</span>
+          </div>
+          <div class="scope-box">
+            <canvas id="spinCanvas"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Controls Sidebar -->
+    <div class="sidebar">
+      <div class="panel">
+        <div class="panel-header">
+          <span>实验工况预设 (Topological Configurations)</span>
+          <span class="tag">Presets</span>
+        </div>
+        <div class="control-group">
+          <div class="preset-grid">
+            <button class="btn active" id="btn-p1" onclick="applyPreset(1)">基础 H=1 单环霍普夫</button>
+            <button class="btn" id="btn-p2" onclick="applyPreset(2)">H=2 双正交链结环</button>
+            <button class="btn" id="btn-p3" onclick="applyPreset(3)">H=3 三叶拓扑结孤子</button>
+            <button class="btn" id="btn-p4" onclick="applyPreset(4)">湍流涡旋碰撞再联结</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <span>微观相互作用与外场驱动控制</span>
+          <span class="tag">Parameters</span>
+        </div>
+        <div class="control-group">
+          <div class="slider-row">
+            <div class="slider-labels">
+              <span class="slider-name">自旋交换相互作用 c_1 / c_0</span>
+              <span class="slider-val" id="val-c1">-0.45</span>
+            </div>
+            <input type="range" id="slider-c1" min="-1.5" max="1.5" step="0.05" value="-0.45">
+          </div>
+
+          <div class="slider-row">
+            <div class="slider-labels">
+              <span class="slider-name">凝聚体旋转角速度 Ω_z</span>
+              <span class="slider-val" id="val-rot">0.80 rad/s</span>
+            </div>
+            <input type="range" id="slider-rot" min="0.0" max="2.5" step="0.05" value="0.80">
+          </div>
+
+          <div class="slider-row">
+            <div class="slider-labels">
+              <span class="slider-name">有效磁场梯度 ∇B_z</span>
+              <span class="slider-val" id="val-grad">1.20 G/cm</span>
+            </div>
+            <input type="range" id="slider-grad" min="0.0" max="4.0" step="0.1" value="1.20">
+          </div>
+
+          <div class="slider-row">
+            <div class="slider-labels">
+              <span class="slider-name">拓扑环特征半径 R_0</span>
+              <span class="slider-val" id="val-radius">1.40 μm</span>
+            </div>
+            <input type="range" id="slider-radius" min="0.6" max="2.4" step="0.05" value="1.40">
+          </div>
+
+          <div class="slider-row">
+            <div class="slider-labels">
+              <span class="slider-name">热耗散阻尼系数 γ</span>
+              <span class="slider-val" id="val-damp">0.008</span>
+            </div>
+            <input type="range" id="slider-damp" min="0.001" max="0.04" step="0.001" value="0.008">
+          </div>
+
+          <button class="audio-btn" id="audioToggle" onclick="toggleAudio()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+            </svg>
+            启动旋量拉比空间环绕音频合成
+          </button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <span>物理机理与拓扑同伦解析</span>
+          <span class="tag">Theory</span>
+        </div>
+        <div class="control-group">
+          <div class="theory-box">
+            <b>霍普夫子 (Hopfion)：</b>三维定域拓扑孤子，拓扑荷由非平凡第三同伦群 <span class="math-eq">\pi_3(S^2) = \mathbb{Z}</span> 描述。
+            <br><br>
+            在 <span class="math-eq">F=1</span> 旋量玻色凝聚体中，任意两个指定自旋方向（例如自旋向上与自旋向北）在实空间中的原像线（Preimages）相互链结，其高斯链接数严格等于 <b>Hopf 拓扑不变量</b>：
+            <div class="math-eq">H = \frac{1}{4\pi^2} \int \mathbf{A} \cdot (\nabla \times \mathbf{A})\, d^3r = Lk \in \mathbb{Z}</div>
+            当施加旋转转矩 <span class="math-eq">\Omega_z \hat{L}_z</span> 或非阿贝尔规范势时，霍普夫环产生三维几何扭曲与螺旋涡旋进动，展现出受拓扑保护的宏观稳定性。
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- 物理状态与 3D 拓扑结构内核 ---
+    const STATE = {
+      // 参数
+      c1: -0.45,         // 自旋交换常数
+      rotOmega: 0.80,    // 旋转角速度
+      gradB: 1.20,       // 磁场梯度
+      radiusR0: 1.40,    // 孤子特征半径
+      damping: 0.008,    // 耗散阻尼
+      preset: 1,
+
+      // 拓扑几何与 3D 视角参数
+      yaw: 0.65,
+      pitch: 0.42,
+      distance: 360,
+      isDragging: false,
+      lastMouseX: 0,
+      lastMouseY: 0,
+
+      // 实时计算指标
+      hopfInvariant: 1.00,
+      linkingNumber: 1,
+      energy: 28.4,
+      spinMagnitude: 0.88,
+      time: 0,
+
+      // 旋量布居数动态演化
+      popP1: 0.45,
+      popP0: 0.38,
+      popM1: 0.17,
+
+      // 拓扑结空间曲线点集缓存
+      knotRings: [],
+      streamlines: [],
+      fluxProfile: new Float32Array(50)
+    };
+
+    // 生成霍普夫纤维化 3D 曲线
+    function generateHopfionGeometry() {
+      STATE.knotRings = [];
+      STATE.streamlines = [];
+
+      const R = STATE.radiusR0 * 75;
+      const r_tube = R * 0.42;
+
+      if (STATE.preset === 1) {
+        // H = 1 单个环状霍普夫子 (环中心主涡旋核 + 互锁的极向自旋流线)
+        STATE.hopfInvariant = 1.00;
+        STATE.linkingNumber = 1;
+
+        // 1. 中心主涡旋环 (红色)
+        const coreRing = [];
+        const nPts = 100;
+        for (let i = 0; i <= nPts; i++) {
+          const phi = (i / nPts) * Math.PI * 2;
+          coreRing.push({
+            x: R * Math.cos(phi),
+            y: R * Math.sin(phi),
+            z: 0,
+            type: 'core'
+          });
+        }
+        STATE.knotRings.push(coreRing);
+
+        // 2. 环绕主核并与其形成 Lk = 1 链接的闭合原像流线 (青色 / 洋红 / 金色)
+        const nPreimages = 6;
+        for (let k = 0; k < nPreimages; k++) {
+          const thetaPre = (k / nPreimages) * Math.PI * 2;
+          const stream = [];
+          for (let i = 0; i <= nPts; i++) {
+            const u = (i / nPts) * Math.PI * 2;
+            // 环面坐标映射 (Hopf Map 参数化): 经向绕 1 圈同时极向绕 1 圈 (Lk = 1)
+            const phi = u;
+            const theta = u + thetaPre;
+            const x = (R + r_tube * Math.cos(theta)) * Math.cos(phi);
+            const y = (R + r_tube * Math.cos(theta)) * Math.sin(phi);
+            const z = r_tube * Math.sin(theta);
+            stream.push({ x, y, z, colorIndex: k });
+          }
+          STATE.streamlines.push(stream);
+        }
+      } else if (STATE.preset === 2) {
+        // H = 2 双正交链结环 (Hopf Biring with Lk = 2)
+        STATE.hopfInvariant = 2.00;
+        STATE.linkingNumber = 2;
+
+        // 两个相互正交链结的超流涡旋环 (Whitehead-like Link)
+        const ring1 = [];
+        const ring2 = [];
+        const nPts = 90;
+        const offset = R * 0.55;
+
+        for (let i = 0; i <= nPts; i++) {
+          const phi = (i / nPts) * Math.PI * 2;
+          ring1.push({
+            x: R * 0.85 * Math.cos(phi) - offset * 0.5,
+            y: R * 0.85 * Math.sin(phi),
+            z: 0,
+            type: 'core'
+          });
+          ring2.push({
+            x: offset * 0.5,
+            y: R * 0.85 * Math.sin(phi),
+            z: R * 0.85 * Math.cos(phi),
+            type: 'core2'
+          });
+        }
+        STATE.knotRings.push(ring1, ring2);
+
+        // 拓扑链结流线 (Lk = 2 绕转)
+        const nPreimages = 8;
+        for (let k = 0; k < nPreimages; k++) {
+          const thetaPre = (k / nPreimages) * Math.PI * 2;
+          const stream = [];
+          for (let i = 0; i <= nPts; i++) {
+            const u = (i / nPts) * Math.PI * 2;
+            const phi = u;
+            const theta = 2.0 * u + thetaPre; // 绕两圈
+            const x = (R + r_tube * 0.8 * Math.cos(theta)) * Math.cos(phi);
+            const y = (R + r_tube * 0.8 * Math.cos(theta)) * Math.sin(phi);
+            const z = r_tube * 0.8 * Math.sin(theta);
+            stream.push({ x, y, z, colorIndex: k });
+          }
+          STATE.streamlines.push(stream);
+        }
+      } else if (STATE.preset === 3) {
+        // H = 3 三叶结拓扑孤子 (Trefoil Knotted Soliton)
+        STATE.hopfInvariant = 3.00;
+        STATE.linkingNumber = 3;
+
+        const trefoil = [];
+        const nPts = 160;
+        for (let i = 0; i <= nPts; i++) {
+          const t = (i / nPts) * Math.PI * 2;
+          // (2, 3) 环面纽结公式
+          const r_mod = R * (0.8 + 0.35 * Math.cos(3 * t));
+          const x = r_mod * Math.cos(2 * t);
+          const y = r_mod * Math.sin(2 * t);
+          const z = R * 0.45 * Math.sin(3 * t);
+          trefoil.push({ x, y, z, type: 'core' });
+        }
+        STATE.knotRings.push(trefoil);
+
+        // 紧贴三叶结扭转的自旋伴随流线
+        const nPre = 6;
+        for (let k = 0; k < nPre; k++) {
+          const shift = (k / nPre) * Math.PI * 2;
+          const stream = [];
+          for (let i = 0; i <= nPts; i++) {
+            const t = (i / nPts) * Math.PI * 2;
+            const r_mod = (R + 15 * Math.cos(t * 3 + shift)) * (0.8 + 0.35 * Math.cos(3 * t));
+            const x = r_mod * Math.cos(2 * t);
+            const y = r_mod * Math.sin(2 * t);
+            const z = R * 0.45 * Math.sin(3 * t) + 15 * Math.sin(t * 3 + shift);
+            stream.push({ x, y, z, colorIndex: k });
+          }
+          STATE.streamlines.push(stream);
+        }
+      } else if (STATE.preset === 4) {
+        // 湍流再联结与耗散
+        STATE.hopfInvariant = (1.42 + 0.3 * Math.sin(STATE.time * 2.5)).toFixed(2);
+        STATE.linkingNumber = '非稳';
+
+        const ringA = [];
+        const ringB = [];
+        const nPts = 80;
+        const deform = Math.sin(STATE.time * 4.0) * 20;
+
+        for (let i = 0; i <= nPts; i++) {
+          const phi = (i / nPts) * Math.PI * 2;
+          ringA.push({
+            x: R * Math.cos(phi) + deform * Math.sin(phi * 2),
+            y: R * Math.sin(phi),
+            z: deform * Math.cos(phi * 3),
+            type: 'core'
+          });
+          ringB.push({
+            x: (R * 0.7) * Math.sin(phi),
+            y: (R * 0.7) * Math.cos(phi) + 15,
+            z: (R * 0.7) * Math.cos(phi * 2) - deform,
+            type: 'core2'
+          });
+        }
+        STATE.knotRings.push(ringA, ringB);
+      }
+    }
+
+    // 预设模式切换
+    function applyPreset(p) {
+      STATE.preset = p;
+      document.querySelectorAll('.preset-grid .btn').forEach((btn, idx) => {
+        btn.classList.toggle('active', (idx + 1) === p);
+      });
+
+      if (p === 1) {
+        STATE.c1 = -0.45;
+        STATE.rotOmega = 0.80;
+        STATE.gradB = 1.20;
+        STATE.radiusR0 = 1.40;
+        STATE.damping = 0.008;
+      } else if (p === 2) {
+        STATE.c1 = -0.85;
+        STATE.rotOmega = 1.35;
+        STATE.gradB = 2.10;
+        STATE.radiusR0 = 1.65;
+        STATE.damping = 0.005;
+      } else if (p === 3) {
+        STATE.c1 = -1.25;
+        STATE.rotOmega = 1.85;
+        STATE.gradB = 2.80;
+        STATE.radiusR0 = 1.80;
+        STATE.damping = 0.004;
+      } else if (p === 4) {
+        STATE.c1 = 0.65;
+        STATE.rotOmega = 2.20;
+        STATE.gradB = 3.60;
+        STATE.radiusR0 = 1.30;
+        STATE.damping = 0.035;
+      }
+
+      syncInputs();
+      generateHopfionGeometry();
+      updateAudioFreqs();
+    }
+
+    function syncInputs() {
+      document.getElementById('slider-c1').value = STATE.c1;
+      document.getElementById('val-c1').textContent = STATE.c1.toFixed(2);
+
+      document.getElementById('slider-rot').value = STATE.rotOmega;
+      document.getElementById('val-rot').textContent = STATE.rotOmega.toFixed(2) + ' rad/s';
+
+      document.getElementById('slider-grad').value = STATE.gradB;
+      document.getElementById('val-grad').textContent = STATE.gradB.toFixed(2) + ' G/cm';
+
+      document.getElementById('slider-radius').value = STATE.radiusR0;
+      document.getElementById('val-radius').textContent = STATE.radiusR0.toFixed(2) + ' μm';
+
+      document.getElementById('slider-damp').value = STATE.damping;
+      document.getElementById('val-damp').textContent = STATE.damping.toFixed(3);
+    }
+
+    // 交互滑块监听
+    document.getElementById('slider-c1').addEventListener('input', e => {
+      STATE.c1 = parseFloat(e.target.value);
+      document.getElementById('val-c1').textContent = STATE.c1.toFixed(2);
+      updateAudioFreqs();
+    });
+    document.getElementById('slider-rot').addEventListener('input', e => {
+      STATE.rotOmega = parseFloat(e.target.value);
+      document.getElementById('val-rot').textContent = STATE.rotOmega.toFixed(2) + ' rad/s';
+      updateAudioFreqs();
+    });
+    document.getElementById('slider-grad').addEventListener('input', e => {
+      STATE.gradB = parseFloat(e.target.value);
+      document.getElementById('val-grad').textContent = STATE.gradB.toFixed(2) + ' G/cm';
+    });
+    document.getElementById('slider-radius').addEventListener('input', e => {
+      STATE.radiusR0 = parseFloat(e.target.value);
+      document.getElementById('val-radius').textContent = STATE.radiusR0.toFixed(2) + ' μm';
+      generateHopfionGeometry();
+    });
+    document.getElementById('slider-damp').addEventListener('input', e => {
+      STATE.damping = parseFloat(e.target.value);
+      document.getElementById('val-damp').textContent = STATE.damping.toFixed(3);
+    });
+
+    // --- 鼠标拖拽 3D 旋转控制 ---
+    const container3d = document.getElementById('container3d');
+    container3d.addEventListener('mousedown', e => {
+      STATE.isDragging = true;
+      STATE.lastMouseX = e.clientX;
+      STATE.lastMouseY = e.clientY;
+    });
+    window.addEventListener('mouseup', () => { STATE.isDragging = false; });
+    window.addEventListener('mousemove', e => {
+      if (!STATE.isDragging) return;
+      const dx = e.clientX - STATE.lastMouseX;
+      const dy = e.clientY - STATE.lastMouseY;
+      STATE.lastMouseX = e.clientX;
+      STATE.lastMouseY = e.clientY;
+
+      STATE.yaw += dx * 0.008;
+      STATE.pitch = Math.max(-1.4, Math.min(1.4, STATE.pitch + dy * 0.008));
+    });
+    container3d.addEventListener('wheel', e => {
+      e.preventDefault();
+      STATE.distance = Math.max(160, Math.min(650, STATE.distance + e.deltaY * 0.35));
+    }, { passive: false });
+
+    // --- 微观微积分与物理步进 ---
+    function stepPhysics(dt) {
+      STATE.time += dt;
+      const t = STATE.time;
+
+      // 拓扑环自发三维旋转进动 (由旋转转矩与自旋轨道项驱动)
+      STATE.yaw += STATE.rotOmega * dt * 0.35;
+
+      // 旋量三组分种群拉比振荡动力学
+      const rabiFreq = 2.4 * Math.abs(STATE.c1) + STATE.gradB * 0.8;
+      const oscP = Math.sin(t * rabiFreq);
+      const baseP1 = 0.45 - STATE.c1 * 0.15;
+      const baseM1 = 0.22 + STATE.c1 * 0.1;
+
+      STATE.popP1 = Math.max(0.02, Math.min(0.85, baseP1 + 0.18 * oscP));
+      STATE.popM1 = Math.max(0.02, Math.min(0.85, baseM1 - 0.12 * oscP));
+      STATE.popP0 = Math.max(0.02, 1.0 - STATE.popP1 - STATE.popM1);
+
+      // 计算自旋极化度 |F| 与超流能量
+      STATE.spinMagnitude = Math.abs(STATE.popP1 - STATE.popM1).toFixed(2);
+      const baseE = 20.0 + (STATE.preset === 1 ? 8 : (STATE.preset === 2 ? 22 : 40));
+      STATE.energy = (baseE + STATE.rotOmega * 6.5 + Math.abs(STATE.c1) * 8.2).toFixed(1);
+
+      // 更新 Chern-Simons 贝里拓扑密度剖面 A·B
+      const N_BINS = STATE.fluxProfile.length;
+      for (let k = 0; k < N_BINS; k++) {
+        const zNorm = (k / (N_BINS - 1)) * 2.0 - 1.0;
+        let peakH = (STATE.preset === 1 ? 1.0 : (STATE.preset === 2 ? 1.8 : 2.7)) * Math.exp(-zNorm * zNorm * 4.5);
+        if (STATE.preset === 2) {
+          peakH = 1.4 * (Math.exp(-(zNorm - 0.35) ** 2 * 12.0) + Math.exp(-(zNorm + 0.35) ** 2 * 12.0));
+        } else if (STATE.preset === 3) {
+          peakH = 2.2 * Math.exp(-zNorm * zNorm * 3.0) * (1.0 + 0.25 * Math.sin(zNorm * 12.0 + t * 4.0));
+        }
+        STATE.fluxProfile[k] = peakH * (1.0 + 0.05 * Math.sin(t * 5.0 + k));
+      }
+
+      // 实时更新 HUD 指标
+      document.getElementById('metric-hopf').textContent = STATE.hopfInvariant;
+      document.getElementById('metric-linking').textContent = typeof STATE.linkingNumber === 'number' ? `Lk = ${STATE.linkingNumber}` : STATE.linkingNumber;
+      document.getElementById('metric-energy').textContent = `${STATE.energy} ℏω`;
+      document.getElementById('metric-spin').textContent = `${STATE.spinMagnitude} ℏ`;
+
+      // 动态更新混沌模式几何
+      if (STATE.preset === 4) {
+        generateHopfionGeometry();
+      }
+    }
+
+    // --- 3D 渲染与透视投影系统 ---
+    const mainCanvas = document.getElementById('mainCanvas');
+    const mCtx = mainCanvas.getContext('2d');
+    const hopfCanvas = document.getElementById('hopfCanvas');
+    const hCtx = hopfCanvas.getContext('2d');
+    const spinCanvas = document.getElementById('spinCanvas');
+    const sCtx = spinCanvas.getContext('2d');
+
+    function resizeCanvases() {
+      const dpr = window.devicePixelRatio || 1;
+
+      const rectM = mainCanvas.parentElement.getBoundingClientRect();
+      mainCanvas.width = rectM.width * dpr;
+      mainCanvas.height = rectM.height * dpr;
+      mCtx.resetTransform();
+      mCtx.scale(dpr, dpr);
+
+      const rectH = hopfCanvas.parentElement.getBoundingClientRect();
+      hopfCanvas.width = rectH.width * dpr;
+      hopfCanvas.height = rectH.height * dpr;
+      hCtx.resetTransform();
+      hCtx.scale(dpr, dpr);
+
+      const rectS = spinCanvas.parentElement.getBoundingClientRect();
+      spinCanvas.width = rectS.width * dpr;
+      spinCanvas.height = rectS.height * dpr;
+      sCtx.resetTransform();
+      sCtx.scale(dpr, dpr);
+    }
+    window.addEventListener('resize', resizeCanvases);
+    setTimeout(resizeCanvases, 50);
+
+    // 3D 旋转与透视映射函数
+    function project3D(x, y, z, cx, cy) {
+      // 绕 Y 轴偏航角 (Yaw) 旋转
+      const cosY = Math.cos(STATE.yaw);
+      const sinY = Math.sin(STATE.yaw);
+      const x1 = x * cosY - y * sinY;
+      const y1 = x * sinY + y * cosY;
+      const z1 = z;
+
+      // 绕 X 轴俯仰角 (Pitch) 旋转
+      const cosP = Math.cos(STATE.pitch);
+      const sinP = Math.sin(STATE.pitch);
+      const x2 = x1;
+      const y2 = y1 * cosP - z1 * sinP;
+      const z2 = y1 * sinP + z1 * cosP;
+
+      // 透视除法
+      const fov = 420;
+      const camZ = STATE.distance;
+      const depth = camZ + y2;
+      const scale = depth > 10 ? fov / depth : 1;
+
+      return {
+        px: cx + x2 * scale,
+        py: cy - z2 * scale,
+        depth: depth,
+        scale: scale
+      };
+    }
+
+    // 1. 主画布：3D 霍普夫子拓扑结与自旋流线
+    function drawMain() {
+      const w = mainCanvas.width / (window.devicePixelRatio || 1);
+      const h = mainCanvas.height / (window.devicePixelRatio || 1);
+      const cx = w * 0.5;
+      const cy = h * 0.5;
+
+      mCtx.clearRect(0, 0, w, h);
+
+      // 背景空间网格与中心凝聚体微弱发光晕
+      const radG = mCtx.createRadialGradient(cx, cy, 10, cx, cy, 180);
+      radG.addColorStop(0, 'rgba(168, 85, 247, 0.15)');
+      radG.addColorStop(0.6, 'rgba(0, 240, 255, 0.05)');
+      radG.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      mCtx.fillStyle = radG;
+      mCtx.beginPath();
+      mCtx.arc(cx, cy, 180, 0, Math.PI * 2);
+      mCtx.fill();
+
+      // 收集所有需要按深度排序渲染的图元
+      const renderList = [];
+
+      // A. 涡旋主核管道
+      STATE.knotRings.forEach(ring => {
+        const projectedRing = [];
+        let avgDepth = 0;
+        ring.forEach(pt => {
+          const p = project3D(pt.x, pt.y, pt.z, cx, cy);
+          projectedRing.push(p);
+          avgDepth += p.depth;
+        });
+        avgDepth /= ring.length;
+
+        renderList.push({
+          type: 'core',
+          points: projectedRing,
+          ringType: ring[0].type,
+          depth: avgDepth
+        });
+      });
+
+      // B. 拓扑链结自旋流线 (Preimages)
+      const colorPalette = [
+        '#00f0ff', '#ff0077', '#ffb700', '#10b981', '#a855f7', '#38bdf8', '#f43f5e', '#fbbf24'
+      ];
+
+      STATE.streamlines.forEach(stream => {
+        const projectedStream = [];
+        let avgDepth = 0;
+        stream.forEach(pt => {
+          const p = project3D(pt.x, pt.y, pt.z, cx, cy);
+          projectedStream.push(p);
+          avgDepth += p.depth;
+        });
+        avgDepth /= stream.length;
+
+        renderList.push({
+          type: 'streamline',
+          points: projectedStream,
+          color: colorPalette[stream[0].colorIndex % colorPalette.length],
+          depth: avgDepth
+        });
+      });
+
+      // 按深度由远及近排序 (Painter's Algorithm)
+      renderList.sort((a, b) => b.depth - a.depth);
+
+      // 执行渲染
+      renderList.forEach(item => {
+        if (item.type === 'streamline') {
+          // 绘制平滑半透明自旋流线
+          mCtx.beginPath();
+          item.points.forEach((p, idx) => {
+            if (idx === 0) mCtx.moveTo(p.px, p.py);
+            else mCtx.lineTo(p.px, p.py);
+          });
+          mCtx.closePath();
+          mCtx.strokeStyle = item.color;
+          mCtx.globalAlpha = 0.65;
+          mCtx.lineWidth = 1.8;
+          mCtx.stroke();
+          mCtx.globalAlpha = 1.0;
+        } else if (item.type === 'core') {
+          // 绘制高亮超流涡旋主管道
+          mCtx.beginPath();
+          item.points.forEach((p, idx) => {
+            if (idx === 0) mCtx.moveTo(p.px, p.py);
+            else mCtx.lineTo(p.px, p.py);
+          });
+          mCtx.closePath();
+
+          const isPrimary = item.ringType === 'core';
+          mCtx.strokeStyle = isPrimary ? '#ff0077' : '#00f0ff';
+          mCtx.lineWidth = 3.8;
+          mCtx.shadowColor = isPrimary ? 'rgba(255, 0, 119, 0.8)' : 'rgba(0, 240, 255, 0.8)';
+          mCtx.shadowBlur = 14;
+          mCtx.stroke();
+          mCtx.shadowBlur = 0;
+        }
+      });
+
+      // 绘制中心坐标轴参考 (XYZ)
+      const axisLen = 45;
+      const o = project3D(0, 0, 0, cx, cy);
+      const axX = project3D(axisLen, 0, 0, cx, cy);
+      const axY = project3D(0, axisLen, 0, cx, cy);
+      const axZ = project3D(0, 0, axisLen, cx, cy);
+
+      const drawAxis = (target, col, label) => {
+        mCtx.strokeStyle = col;
+        mCtx.lineWidth = 1.5;
+        mCtx.beginPath();
+        mCtx.moveTo(o.px, o.py);
+        mCtx.lineTo(target.px, target.py);
+        mCtx.stroke();
+        mCtx.fillStyle = col;
+        mCtx.font = '10px monospace';
+        mCtx.fillText(label, target.px + 4, target.py + 4);
+      };
+      drawAxis(axX, 'rgba(255, 100, 100, 0.7)', 'x');
+      drawAxis(axY, 'rgba(100, 255, 100, 0.7)', 'y');
+      drawAxis(axZ, 'rgba(100, 150, 255, 0.7)', 'z (旋转轴)');
+
+      // HUD 标注
+      mCtx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+      mCtx.font = '11px monospace';
+      mCtx.fillText(`π_3(S^2) 拓扑荷: H = ${STATE.hopfInvariant} | 空间链接数: ${STATE.linkingNumber}`, 16, 24);
+      mCtx.fillStyle = 'rgba(255, 0, 119, 0.9)';
+      mCtx.fillText('— 涡旋结核心 (Vortex Ring Core)', 16, 40);
+      mCtx.fillStyle = 'rgba(0, 240, 255, 0.9)';
+      mCtx.fillText('— 自旋原像流线 (Hopf Preimages)', 16, 56);
+    }
+
+    // 2. 示波器 1：Chern-Simons 贝里磁通密度与 Hopf 不变量积分
+    function drawHopfScope() {
+      const w = hopfCanvas.width / (window.devicePixelRatio || 1);
+      const h = hopfCanvas.height / (window.devicePixelRatio || 1);
+
+      hCtx.clearRect(0, 0, w, h);
+
+      // 网格
+      hCtx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+      hCtx.lineWidth = 1;
+      for (let y = 0; y < h; y += 35) {
+        hCtx.beginPath();
+        hCtx.moveTo(0, y);
+        hCtx.lineTo(w, y);
+        hCtx.stroke();
+      }
+      for (let x = 0; x < w; x += 45) {
+        hCtx.beginPath();
+        hCtx.moveTo(x, 0);
+        hCtx.lineTo(x, h);
+        hCtx.stroke();
+      }
+
+      // 绘制 Chern-Simons 密度曲线 A·B
+      const N = STATE.fluxProfile.length;
+      hCtx.beginPath();
+      for (let k = 0; k < N; k++) {
+        const px = (k / (N - 1)) * (w - 40) + 20;
+        const val = STATE.fluxProfile[k];
+        const py = h - 35 - (val / 3.0) * (h - 60);
+        if (k === 0) hCtx.moveTo(px, py);
+        else hCtx.lineTo(px, py);
+      }
+      hCtx.strokeStyle = 'rgba(255, 183, 0, 0.9)';
+      hCtx.lineWidth = 2.2;
+      hCtx.shadowColor = 'rgba(255, 183, 0, 0.6)';
+      hCtx.shadowBlur = 8;
+      hCtx.stroke();
+      hCtx.shadowBlur = 0;
+
+      // 填充半透明积分面积
+      hCtx.lineTo(w - 20, h - 35);
+      hCtx.lineTo(20, h - 35);
+      hCtx.closePath();
+      hCtx.fillStyle = 'rgba(255, 183, 0, 0.12)';
+      hCtx.fill();
+
+      // 整数拓扑荷量子化基准线 (H = 1, 2, 3)
+      [1.0, 2.0].forEach(level => {
+        const yL = h - 35 - (level / 3.0) * (h - 60);
+        hCtx.strokeStyle = 'rgba(0, 240, 255, 0.25)';
+        hCtx.setLineDash([4, 4]);
+        hCtx.beginPath();
+        hCtx.moveTo(20, yL);
+        hCtx.lineTo(w - 20, yL);
+        hCtx.stroke();
+        hCtx.setLineDash([]);
+        hCtx.fillStyle = 'rgba(0, 240, 255, 0.6)';
+        hCtx.font = '9px monospace';
+        hCtx.fillText(`H = ${level.toFixed(0)}`, w - 48, yL - 4);
+      });
+
+      // 轴文字
+      hCtx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+      hCtx.font = '10px monospace';
+      hCtx.fillText('-Z_max', 20, h - 12);
+      hCtx.fillText('Z = 0 (结平面)', w * 0.42, h - 12);
+      hCtx.fillText('+Z_max', w - 55, h - 12);
+
+      hCtx.fillStyle = 'rgba(255, 183, 0, 0.9)';
+      hCtx.fillText(`Chern-Simons 标量密度 A·(∇×A) [H = ${STATE.hopfInvariant}]`, 20, 20);
+    }
+
+    // 3. 示波器 2：旋量三组分种群转移与自旋极化相图
+    function drawSpinScope() {
+      const w = spinCanvas.width / (window.devicePixelRatio || 1);
+      const h = spinCanvas.height / (window.devicePixelRatio || 1);
+
+      sCtx.clearRect(0, 0, w, h);
+
+      // 左侧绘制三组分柱状布居数
+      const barW = 34;
+      const barGap = 18;
+      const startX = 35;
+      const maxH = h - 70;
+
+      const populations = [
+        { label: 'm=+1', val: STATE.popP1, col: '#00f0ff' },
+        { label: 'm=0',  val: STATE.popP0, col: '#a855f7' },
+        { label: 'm=-1', val: STATE.popM1, col: '#ff0077' }
+      ];
+
+      populations.forEach((item, idx) => {
+        const bx = startX + idx * (barW + barGap);
+        const bh = item.val * maxH;
+        const by = h - 35 - bh;
+
+        sCtx.fillStyle = item.col;
+        sCtx.shadowColor = item.col;
+        sCtx.shadowBlur = 6;
+        sCtx.fillRect(bx, by, barW, bh);
+        sCtx.shadowBlur = 0;
+
+        sCtx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+        sCtx.font = '10px monospace';
+        sCtx.fillText((item.val * 100).toFixed(0) + '%', bx + 4, by - 6);
+        sCtx.fillText(item.label, bx - 2, h - 15);
+      });
+
+      // 右侧绘制自旋极化天球极坐标投影 (Bloch Sphere Projected)
+      const cx = w * 0.74;
+      const cy = h * 0.52;
+      const rBloch = Math.min(w * 0.18, h * 0.35);
+
+      sCtx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+      sCtx.lineWidth = 1;
+      sCtx.beginPath();
+      sCtx.arc(cx, cy, rBloch, 0, Math.PI * 2);
+      sCtx.stroke();
+
+      // 自旋进动椭圆
+      sCtx.strokeStyle = 'rgba(16, 185, 129, 0.25)';
+      sCtx.beginPath();
+      sCtx.ellipse(cx, cy, rBloch, rBloch * 0.45, 0, 0, Math.PI * 2);
+      sCtx.stroke();
+
+      // 当前自旋矢量端点
+      const spinAngle = STATE.time * 2.4 * Math.abs(STATE.c1);
+      const fx = cx + rBloch * STATE.spinMagnitude * Math.cos(spinAngle);
+      const fy = cy + rBloch * 0.45 * STATE.spinMagnitude * Math.sin(spinAngle);
+
+      sCtx.strokeStyle = 'rgba(16, 185, 129, 0.9)';
+      sCtx.lineWidth = 2.2;
+      sCtx.beginPath();
+      sCtx.moveTo(cx, cy);
+      sCtx.lineTo(fx, fy);
+      sCtx.stroke();
+
+      sCtx.fillStyle = '#10b981';
+      sCtx.beginPath();
+      sCtx.arc(fx, fy, 4, 0, Math.PI * 2);
+      sCtx.fill();
+
+      // 文字
+      sCtx.fillStyle = 'rgba(0, 240, 255, 0.9)';
+      sCtx.font = '11px monospace';
+      sCtx.fillText('Spin-1 磁能级布居数', 20, 20);
+      sCtx.fillStyle = 'rgba(16, 185, 129, 0.9)';
+      sCtx.fillText(`自旋矢量 ⟨F⟩: ${STATE.spinMagnitude} ℏ`, cx - 55, 20);
+    }
+
+    // --- Web Audio 空间多声道旋量相干声效合成 ---
+    let audioCtx = null;
+    let masterGain = null;
+    let spinOscs = [];
+    let isAudioActive = false;
+
+    function toggleAudio() {
+      if (!isAudioActive) {
+        initAudio();
+        document.getElementById('audioToggle').classList.add('active');
+        document.getElementById('audioToggle').innerHTML = `
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+          </svg>
+          停止旋量空间声效
+        `;
+        isAudioActive = true;
+      } else {
+        if (masterGain) {
+          masterGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.08);
+        }
+        document.getElementById('audioToggle').classList.remove('active');
+        document.getElementById('audioToggle').innerHTML = `
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+          </svg>
+          启动旋量拉比空间环绕音频合成
+        `;
+        isAudioActive = false;
+      }
+    }
+
+    function initAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+
+      masterGain = audioCtx.createGain();
+      masterGain.gain.setValueAtTime(0.09, audioCtx.currentTime);
+      masterGain.connect(audioCtx.destination);
+
+      spinOscs.forEach(o => {
+        try { o.osc.stop(); o.osc.disconnect(); } catch(e){}
+      });
+      spinOscs = [];
+
+      // 3 个对应 m_F = +1, 0, -1 能级的正弦纯音振荡器
+      const freqs = [148, 222, 296]; // 空灵纯五度和弦基频
+      freqs.forEach((f, idx) => {
+        const osc = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(f, audioCtx.currentTime);
+        g.gain.setValueAtTime(0.25, audioCtx.currentTime);
+
+        osc.connect(g);
+        g.connect(masterGain);
+        osc.start();
+
+        spinOscs.push({ osc, gain: g, baseF: f, idx: idx });
+      });
+    }
+
+    function updateAudioFreqs() {
+      if (!isAudioActive || !audioCtx) return;
+      const mod = 1.0 + STATE.rotOmega * 0.12 + Math.abs(STATE.c1) * 0.08;
+
+      spinOscs.forEach(item => {
+        const targetF = item.baseF * mod;
+        item.osc.frequency.setTargetAtTime(targetF, audioCtx.currentTime, 0.05);
+
+        // 增益与各能级种群强度动态关联
+        let pop = item.idx === 0 ? STATE.popP1 : (item.idx === 1 ? STATE.popP0 : STATE.popM1);
+        item.gain.gain.setTargetAtTime(Math.min(0.4, pop * 0.45), audioCtx.currentTime, 0.05);
+      });
+    }
+
+    // --- 动画主循环 ---
+    let lastTime = performance.now();
+    function animate() {
+      const now = performance.now();
+      const dt = Math.min(0.05, (now - lastTime) / 1000);
+      lastTime = now;
+
+      stepPhysics(dt);
+      drawMain();
+      drawHopfScope();
+      drawSpinScope();
+
+      requestAnimationFrame(animate);
+    }
+    requestAnimationFrame(animate);
+
+    // 初始拓扑几何与参数同步
+    syncInputs();
+    generateHopfionGeometry();
+  </script>
+</body>
+</html>

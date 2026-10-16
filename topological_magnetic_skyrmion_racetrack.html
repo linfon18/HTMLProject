@@ -1,0 +1,1188 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>拓扑磁斯格明子赛道存储与霍尔偏折动力学全息模拟器</title>
+  <style>
+    :root {
+      --bg: #030712;
+      --card-bg: rgba(15, 23, 42, 0.78);
+      --card-border: rgba(168, 85, 247, 0.25);
+      --skyrmion-core: #06b6d4;
+      --skyrmion-edge: #f43f5e;
+      --current-flow: #fbbf24;
+      --racetrack-wall: #a855f7;
+      --text-main: #f8fafc;
+      --text-sub: #94a3b8;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+    body {
+      background-color: var(--bg);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      padding: 16px 24px;
+      background: linear-gradient(180deg, rgba(30, 41, 59, 0.75) 0%, rgba(15, 23, 42, 0.45) 100%);
+      border-bottom: 1px solid rgba(168, 85, 247, 0.2);
+      backdrop-filter: blur(12px);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      z-index: 20;
+    }
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .badge {
+      padding: 4px 10px;
+      font-size: 11px;
+      font-weight: 700;
+      border-radius: 9999px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      background: rgba(168, 85, 247, 0.15);
+      color: var(--racetrack-wall);
+      border: 1px solid rgba(168, 85, 247, 0.35);
+    }
+    .badge-alt {
+      background: rgba(6, 182, 212, 0.15);
+      color: var(--skyrmion-core);
+      border: 1px solid rgba(6, 182, 212, 0.35);
+    }
+    h1 {
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      background: linear-gradient(135deg, #a855f7 0%, #06b6d4 50%, #f43f5e 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .header-metrics {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-size: 12px;
+      color: var(--text-sub);
+    }
+    .metric-item {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+    }
+    .metric-value {
+      font-family: 'JetBrains Mono', monospace, Consolas, sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      color: #38bdf8;
+    }
+    .container {
+      display: grid;
+      grid-template-columns: 320px 1fr 340px;
+      gap: 16px;
+      padding: 16px 20px;
+      flex: 1;
+      max-width: 1920px;
+      margin: 0 auto;
+      width: 100%;
+    }
+    @media (max-width: 1200px) {
+      .container {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto auto;
+      }
+    }
+    .panel {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 16px;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      position: relative;
+    }
+    .panel-title {
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: #cbd5e1;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding-bottom: 8px;
+    }
+    .panel-title::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      background: var(--racetrack-wall);
+      border-radius: 50%;
+      box-shadow: 0 0 8px var(--racetrack-wall);
+    }
+    .presets-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .btn {
+      padding: 8px 10px;
+      font-size: 11px;
+      font-weight: 600;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(30, 41, 59, 0.6);
+      color: #e2e8f0;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-align: center;
+    }
+    .btn:hover {
+      background: rgba(168, 85, 247, 0.2);
+      border-color: rgba(168, 85, 247, 0.5);
+      color: #ffffff;
+      transform: translateY(-1px);
+    }
+    .btn.active {
+      background: linear-gradient(135deg, rgba(168, 85, 247, 0.35), rgba(6, 182, 212, 0.35));
+      border-color: #a855f7;
+      color: #ffffff;
+      box-shadow: 0 0 14px rgba(168, 85, 247, 0.3);
+    }
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .control-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--text-sub);
+    }
+    .control-label span:last-child {
+      font-family: monospace;
+      color: #f8fafc;
+      font-weight: 600;
+    }
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 5px;
+      background: rgba(51, 65, 85, 0.6);
+      border-radius: 3px;
+      outline: none;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #a855f7;
+      cursor: pointer;
+      box-shadow: 0 0 10px #a855f7;
+      transition: transform 0.1s;
+    }
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+    .stat-box {
+      background: rgba(2, 6, 23, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 10px;
+      padding: 10px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .stat-item {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .stat-name {
+      font-size: 10px;
+      color: var(--text-sub);
+      text-transform: uppercase;
+    }
+    .stat-val {
+      font-size: 13px;
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 700;
+      color: #38bdf8;
+    }
+    .viewport-container {
+      position: relative;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: rgba(2, 6, 23, 0.9);
+      border: 1px solid rgba(168, 85, 247, 0.2);
+      border-radius: 14px;
+      overflow: hidden;
+      min-height: 480px;
+    }
+    .viewport-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      cursor: grab;
+    }
+    .viewport-canvas:active {
+      cursor: grabbing;
+    }
+    .viewport-overlay {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      display: flex;
+      gap: 8px;
+      z-index: 10;
+    }
+    .view-mode-btn {
+      padding: 6px 12px;
+      font-size: 11px;
+      font-weight: 700;
+      border-radius: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      background: rgba(15, 23, 42, 0.8);
+      color: #cbd5e1;
+      cursor: pointer;
+      backdrop-filter: blur(8px);
+      transition: all 0.2s ease;
+    }
+    .view-mode-btn.active {
+      background: rgba(168, 85, 247, 0.25);
+      border-color: #a855f7;
+      color: #fff;
+      box-shadow: 0 0 12px rgba(168, 85, 247, 0.35);
+    }
+    .viewport-hud {
+      position: absolute;
+      bottom: 14px;
+      left: 14px;
+      right: 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      pointer-events: none;
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.6);
+      background: linear-gradient(0deg, rgba(2,6,23,0.85) 0%, transparent 100%);
+      padding: 10px;
+      border-radius: 8px;
+    }
+    .legend-box {
+      display: flex;
+      gap: 14px;
+      align-items: center;
+      background: rgba(15, 23, 42, 0.75);
+      padding: 4px 10px;
+      border-radius: 20px;
+      border: 1px solid rgba(255,255,255,0.08);
+      pointer-events: auto;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+    }
+    .legend-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+    .oscilloscopes-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .scope-box {
+      background: rgba(2, 6, 23, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      height: 220px;
+      position: relative;
+    }
+    .scope-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      font-weight: 700;
+      color: #cbd5e1;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .scope-canvas {
+      flex: 1;
+      width: 100%;
+      height: 100%;
+      border-radius: 6px;
+      background: #010409;
+    }
+    .audio-toggle-btn {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      padding: 6px 12px;
+      font-size: 11px;
+      border-radius: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: rgba(15, 23, 42, 0.8);
+      color: #94a3b8;
+      cursor: pointer;
+      backdrop-filter: blur(8px);
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .audio-toggle-btn.on {
+      background: rgba(16, 185, 129, 0.2);
+      border-color: #10b981;
+      color: #34d399;
+      box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="header-left">
+      <div class="badge">Skyrmion Racetrack</div>
+      <div class="badge badge-alt">Magnus Gyrotropic Dynamics</div>
+      <h1>拓扑磁斯格明子赛道存储与霍尔偏折动力学全息模拟器</h1>
+    </div>
+    <div class="header-metrics">
+      <div class="metric-item">
+        <span>滑移线速度 vx</span>
+        <span class="metric-value" id="val-vx-top" style="color:#06b6d4;">248 m/s</span>
+      </div>
+      <div class="metric-item">
+        <span>斯格明子霍尔角 θSkHE</span>
+        <span class="metric-value" id="val-hall-top" style="color:#fbbf24;">28.5 °</span>
+      </div>
+      <div class="metric-item">
+        <span>拓扑荷 Q</span>
+        <span class="metric-value" id="val-q-top" style="color:#a855f7;">-1.00</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="container">
+    <!-- 左侧参数与工况面板 -->
+    <div class="panel">
+      <div class="panel-title">动力学工况预设</div>
+      <div class="presets-grid">
+        <button class="btn active" id="preset-steady">稳态赛道匀速滑移</button>
+        <button class="btn" id="preset-bouncing">巨霍尔侧壁弹性反弹</button>
+        <button class="btn" id="preset-afm">合成反铁磁零偏折</button>
+        <button class="btn" id="preset-annihilation">临界过载拓扑湮灭</button>
+      </div>
+
+      <div class="panel-title" style="margin-top: 6px;">微磁与电流驱动参数</div>
+
+      <div class="control-group">
+        <div class="control-label">
+          <span>驱动电流密度 Je</span>
+          <span id="label-curr">8.5 MA/cm²</span>
+        </div>
+        <input type="range" id="slider-curr" min="0.0" max="22.0" step="0.5" value="8.5">
+      </div>
+
+      <div class="control-group">
+        <div class="control-label">
+          <span>DMI 相互作用常数 D</span>
+          <span id="label-dmi">2.8 mJ/m²</span>
+        </div>
+        <input type="range" id="slider-dmi" min="1.0" max="4.5" step="0.1" value="2.8">
+      </div>
+
+      <div class="control-group">
+        <div class="control-label">
+          <span>吉尔伯特阻尼 α</span>
+          <span id="label-alpha">0.08</span>
+        </div>
+        <input type="range" id="slider-alpha" min="0.01" max="0.25" step="0.01" value="0.08">
+      </div>
+
+      <div class="control-group">
+        <div class="control-label">
+          <span>垂直偏置磁场 Bz</span>
+          <span id="label-mag">120 mT</span>
+        </div>
+        <input type="range" id="slider-mag" min="0" max="300" step="10" value="120">
+      </div>
+
+      <div class="control-group">
+        <div class="control-label">
+          <span>赛道限域宽度 Wtrack</span>
+          <span id="label-width">160 nm</span>
+        </div>
+        <input type="range" id="slider-width" min="80" max="240" step="5" value="160">
+      </div>
+
+      <div class="stat-box">
+        <div class="stat-item">
+          <span class="stat-name">斯格明子直径 Dsk</span>
+          <span class="stat-val" id="stat-dsk">28.4 nm</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-name">陀螺马格努斯力 FG</span>
+          <span class="stat-val" id="stat-fg">4.12 pN</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-name">赛道侧壁斥力势垒</span>
+          <span class="stat-val" id="stat-barrier">18.5 kBT</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-name">运动状态</span>
+          <span class="stat-val" id="stat-status" style="color:#06b6d4;">稳态稳定导引</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 中央三维全息视口 -->
+    <div class="viewport-container">
+      <div class="viewport-overlay">
+        <button class="view-mode-btn active" id="btn-view-3d">三维微磁自旋矢量赛道</button>
+        <button class="view-mode-btn" id="btn-view-density">二维拓扑荷密度分布</button>
+      </div>
+
+      <button class="audio-toggle-btn" id="btn-audio">
+        <span id="audio-icon">🔈</span>
+        <span id="audio-text">微磁动力声效: 关</span>
+      </button>
+
+      <canvas class="viewport-canvas" id="canvas-main"></canvas>
+
+      <div class="viewport-hud">
+        <div class="legend-box">
+          <div class="legend-item">
+            <div class="legend-dot" style="background: var(--skyrmion-core); box-shadow: 0 0 6px var(--skyrmion-core);"></div>
+            <span>核心磁矩朝下 (mz = -1)</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-dot" style="background: var(--skyrmion-edge); box-shadow: 0 0 6px var(--skyrmion-edge);"></div>
+            <span>外围铁磁基底 (mz = +1)</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-dot" style="background: var(--current-flow); box-shadow: 0 0 6px var(--current-flow);"></div>
+            <span>驱动自旋电流 (Je)</span>
+          </div>
+        </div>
+        <div>
+          <span>拖拽三维自由旋转 | 滚轮无级缩放 | 双击复位</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 右侧示波器与科学分析面板 -->
+    <div class="oscilloscopes-panel">
+      <!-- 示波器 1: 速度与斯格明子霍尔角动力学 -->
+      <div class="scope-box">
+        <div class="scope-header">
+          <span>滑移速度 vx 与斯格明子霍尔角 θSkHE(Je)</span>
+          <span style="color: #06b6d4;">Thiele Dynamics</span>
+        </div>
+        <canvas class="scope-canvas" id="canvas-scope1"></canvas>
+      </div>
+
+      <!-- 示波器 2: 赛道横向有效势能剖面 U(y) -->
+      <div class="scope-box">
+        <div class="scope-header">
+          <span>赛道限域势垒 U(y) 与横向偏折平衡</span>
+          <span id="scope2-tag" style="color: #a855f7;">Edge Barrier</span>
+        </div>
+        <canvas class="scope-canvas" id="canvas-scope2"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- 核心物理状态与参量定义 ---
+    const STATE = {
+      curr: 8.5,          // 驱动电流密度 Je (MA/cm²)
+      dmi: 2.8,           // DMI (mJ/m²)
+      alpha: 0.08,        // 阻尼系数 α
+      Bz: 120,            // 磁场 (mT)
+      Wtrack: 160,        // 赛道宽度 (nm)
+      viewMode: '3d',     // '3d' | 'density'
+      isAFM: false,       // 是否为合成反铁磁零偏折态
+      isAnnihilating: false,
+      audioEnabled: false
+    };
+
+    const PHYSICS = {
+      vx: 248,            // 滑移速度 (m/s)
+      vy: 135,            // 横向马格努斯速度 (m/s)
+      hallAngle: 28.5,    // 斯格明子霍尔偏折角 (度)
+      dsk: 28.4,          // 直径 (nm)
+      Q: -1.0,            // 拓扑荷
+      fg: 4.12,           // 马格努斯力 (pN)
+      barrier: 18.5,      // 势垒高度 (kBT)
+      skyrmionPos: { x: -160, y: 0 },
+      annihilationBurst: 0.0
+    };
+
+    // --- 音频合成系统 (Web Audio API) ---
+    class SkyrmionAudioSynth {
+      constructor() {
+        this.ctx = null;
+        this.oscDrive = null;
+        this.gainDrive = null;
+        this.oscSpinwave = null;
+        this.gainSpinwave = null;
+        this.masterGain = null;
+      }
+      init() {
+        if (this.ctx) return;
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        this.ctx = new AudioContext();
+
+        this.masterGain = this.ctx.createGain();
+        this.masterGain.gain.setValueAtTime(0.08, this.ctx.currentTime);
+        this.masterGain.connect(this.ctx.destination);
+
+        // 自旋转移力矩主滑移音调
+        this.oscDrive = this.ctx.createOscillator();
+        this.oscDrive.type = 'triangle';
+        this.gainDrive = this.ctx.createGain();
+        this.gainDrive.gain.setValueAtTime(0.05, this.ctx.currentTime);
+        this.oscDrive.connect(this.gainDrive);
+        this.gainDrive.connect(this.masterGain);
+
+        // 侧壁碰撞与高频自旋波调谐音
+        this.oscSpinwave = this.ctx.createOscillator();
+        this.oscSpinwave.type = 'sine';
+        this.gainSpinwave = this.ctx.createGain();
+        this.gainSpinwave.gain.setValueAtTime(0.02, this.ctx.currentTime);
+        this.oscSpinwave.connect(this.gainSpinwave);
+        this.gainSpinwave.connect(this.masterGain);
+
+        this.oscDrive.start();
+        this.oscSpinwave.start();
+      }
+      update(vx, hallAngle, isBouncing) {
+        if (!this.ctx || !STATE.audioEnabled) return;
+        const now = this.ctx.currentTime;
+        const driveFreq = 140 + (vx / 500.0) * 260;
+        this.oscDrive.frequency.setTargetAtTime(driveFreq, now, 0.05);
+
+        const swFreq = 380 + hallAngle * 12.0;
+        this.oscSpinwave.frequency.setTargetAtTime(swFreq, now, 0.05);
+      }
+      playBurst() {
+        if (!this.ctx || !STATE.audioEnabled) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(880, now);
+        osc.frequency.exponentialRampToValueAtTime(110, now + 0.15);
+        gain.gain.setValueAtTime(0.18, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+        osc.connect(gain);
+        gain.connect(this.masterGain);
+        osc.start(now);
+        osc.stop(now + 0.2);
+      }
+      playClick() {
+        if (!this.ctx || !STATE.audioEnabled) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(520, now);
+        osc.frequency.exponentialRampToValueAtTime(160, now + 0.08);
+        gain.gain.setValueAtTime(0.12, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+        osc.connect(gain);
+        gain.connect(this.masterGain);
+        osc.start(now);
+        osc.stop(now + 0.12);
+      }
+      toggle() {
+        if (!this.ctx) this.init();
+        if (this.ctx.state === 'suspended') this.ctx.resume();
+        STATE.audioEnabled = !STATE.audioEnabled;
+        if (this.masterGain) {
+          this.masterGain.gain.setTargetAtTime(STATE.audioEnabled ? 0.08 : 0.0001, this.ctx.currentTime, 0.05);
+        }
+      }
+    }
+    const audioSynth = new SkyrmionAudioSynth();
+
+    // --- 物理模拟数值解析引擎 ---
+    function computePhysics(dt) {
+      // 1. 斯格明子直径 Dsk 与拓扑荷
+      PHYSICS.dsk = (18.0 + (STATE.dmi / 2.8) * 12.0 - (STATE.Bz / 300.0) * 8.0);
+      PHYSICS.Q = STATE.isAFM ? 0.0 : -1.0;
+
+      // 2. Thiele 动力学求解速度与霍尔角
+      const driveSpeed = STATE.curr * 32.0; // 驱动基准速度
+      if (STATE.isAFM) {
+        // 反铁磁补偿：马格努斯力完全消失
+        PHYSICS.vx = driveSpeed;
+        PHYSICS.vy = 0.0;
+        PHYSICS.hallAngle = 0.0;
+        PHYSICS.fg = 0.0;
+      } else {
+        // 铁磁斯格明子：存在强烈斯格明子霍尔效应
+        const tanTheta = 1.0 / (STATE.alpha * 1.85);
+        PHYSICS.hallAngle = Math.atan(tanTheta) * (180.0 / Math.PI) * (1.0 - Math.exp(-STATE.curr * 0.15));
+        const thetaRad = PHYSICS.hallAngle * (Math.PI / 180.0);
+        PHYSICS.vx = driveSpeed * Math.cos(thetaRad);
+        PHYSICS.vy = driveSpeed * Math.sin(thetaRad);
+        PHYSICS.fg = (0.48 * PHYSICS.vx * 0.01).toFixed(2);
+      }
+
+      // 3. 侧壁限域势垒与碰撞动力学
+      const halfW = (STATE.Wtrack / 2.0);
+      PHYSICS.barrier = (12.0 + (STATE.Wtrack / 160.0) * 8.0).toFixed(1);
+
+      // 4. 更新斯格明子实空间位置
+      PHYSICS.skyrmionPos.x += PHYSICS.vx * dt * 0.45;
+      if (PHYSICS.skyrmionPos.x > 220) {
+        PHYSICS.skyrmionPos.x = -220;
+        PHYSICS.skyrmionPos.y = 0;
+      }
+
+      // 侧壁马格努斯偏折与弹性排斥力
+      const edgeRepulsion = Math.exp((Math.abs(PHYSICS.skyrmionPos.y) - halfW + 16) * 0.15);
+      if (PHYSICS.skyrmionPos.y > 0) {
+        PHYSICS.skyrmionPos.y += (PHYSICS.vy * dt * 0.45) - edgeRepulsion * dt * 80.0;
+      } else {
+        PHYSICS.skyrmionPos.y += (PHYSICS.vy * dt * 0.45);
+      }
+
+      // 判定湮灭临界条件
+      if (Math.abs(PHYSICS.skyrmionPos.y) > halfW - 4 && STATE.curr > 17.0) {
+        STATE.isAnnihilating = true;
+        PHYSICS.annihilationBurst = 1.0;
+        audioSynth.playBurst();
+        PHYSICS.skyrmionPos.x = -220;
+        PHYSICS.skyrmionPos.y = 0;
+      }
+
+      if (PHYSICS.annihilationBurst > 0.01) {
+        PHYSICS.annihilationBurst -= dt * 1.5;
+      }
+
+      // 5. 更新 DOM 统计栏
+      document.getElementById('val-vx-top').textContent = PHYSICS.vx.toFixed(0) + ' m/s';
+      document.getElementById('val-hall-top').textContent = PHYSICS.hallAngle.toFixed(1) + ' °';
+      document.getElementById('val-q-top').textContent = PHYSICS.Q.toFixed(2);
+
+      document.getElementById('stat-dsk').textContent = PHYSICS.dsk.toFixed(1) + ' nm';
+      document.getElementById('stat-fg').textContent = PHYSICS.fg + ' pN';
+      document.getElementById('stat-barrier').textContent = PHYSICS.barrier + ' kBT';
+      document.getElementById('stat-status').textContent = STATE.isAFM ? '合成反铁磁无偏折' : (Math.abs(PHYSICS.skyrmionPos.y) > halfW - 20 ? '侧壁拓扑排斥导引' : '稳态自由滑移');
+
+      audioSynth.update(PHYSICS.vx, PHYSICS.hallAngle, false);
+    }
+
+    // --- 三维投影与渲染系统 ---
+    const mainCanvas = document.getElementById('canvas-main');
+    const mainCtx = mainCanvas.getContext('2d');
+
+    let camera = {
+      rotX: 0.64,
+      rotY: -0.62,
+      zoom: 1.0,
+      isDragging: false,
+      lastMouseX: 0,
+      lastMouseY: 0
+    };
+
+    function resizeCanvas(canvas) {
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      const ctx = canvas.getContext('2d');
+      ctx.resetTransform();
+      ctx.scale(dpr, dpr);
+      return { width: rect.width, height: rect.height };
+    }
+
+    function project3D(x, y, z, cx, cy, scale) {
+      const cosY = Math.cos(camera.rotY);
+      const sinY = Math.sin(camera.rotY);
+      const x1 = x * cosY + z * sinY;
+      const z1 = -x * sinY + z * cosY;
+
+      const cosX = Math.cos(camera.rotX);
+      const sinX = Math.sin(camera.rotX);
+      const y2 = y * cosX - z1 * sinX;
+      const z2 = y * sinX + z1 * cosX;
+
+      const distance = 440;
+      const fov = distance / (distance + z2 * 0.7);
+      const sx = cx + x1 * fov * scale * camera.zoom;
+      const sy = cy + y2 * fov * scale * camera.zoom;
+
+      return { x: sx, y: sy, depth: z2, fov: fov };
+    }
+
+    // 绘制纳米赛道微磁矢量点阵场
+    function render3DRacetrack(w, h, time) {
+      const cx = w * 0.5;
+      const cy = h * 0.54;
+
+      const trackL = 460;
+      const trackW = (STATE.Wtrack / 160.0) * 160;
+
+      // 1. 绘制纳米导轨基底与侧壁
+      const corners = [
+        { x: -trackL / 2, y: 0, z: -trackW / 2 },
+        { x: trackL / 2, y: 0, z: -trackW / 2 },
+        { x: trackL / 2, y: 0, z: trackW / 2 },
+        { x: -trackL / 2, y: 0, z: trackW / 2 }
+      ];
+
+      const projCorners = corners.map(c => project3D(c.x, c.y, c.z, cx, cy, 1.0));
+
+      mainCtx.beginPath();
+      mainCtx.moveTo(projCorners[0].x, projCorners[0].y);
+      for (let i = 1; i < 4; i++) mainCtx.lineTo(projCorners[i].x, projCorners[i].y);
+      mainCtx.closePath();
+      mainCtx.fillStyle = 'rgba(15, 23, 42, 0.75)';
+      mainCtx.strokeStyle = 'rgba(168, 85, 247, 0.4)';
+      mainCtx.lineWidth = 1.8;
+      mainCtx.fill();
+      mainCtx.stroke();
+
+      // 赛道两侧高亮导轨边缘 (侧壁限域电极)
+      mainCtx.strokeStyle = '#a855f7';
+      mainCtx.lineWidth = 2.5;
+      mainCtx.beginPath();
+      mainCtx.moveTo(projCorners[0].x, projCorners[0].y); mainCtx.lineTo(projCorners[1].x, projCorners[1].y);
+      mainCtx.moveTo(projCorners[3].x, projCorners[3].y); mainCtx.lineTo(projCorners[2].x, projCorners[2].y);
+      mainCtx.stroke();
+
+      // 2. 绘制微观自旋矢量点阵 (Spin Arrow Lattice)
+      const stepX = 22;
+      const stepZ = 20;
+      const skX = PHYSICS.skyrmionPos.x;
+      const skZ = PHYSICS.skyrmionPos.y;
+      const radius = PHYSICS.dsk * 1.35;
+
+      for (let px = -trackL / 2 + 10; px <= trackL / 2 - 10; px += stepX) {
+        for (let pz = -trackW / 2 + 10; pz <= trackW / 2 - 10; pz += stepZ) {
+          // 计算距斯格明子中心的距离
+          const dx = px - skX;
+          const dz = pz - skZ;
+          const dist = Math.hypot(dx, dz);
+
+          // 奈尔型斯格明子自旋织构: mz = cos(theta(r)), m_r = sin(theta(r))
+          let mz = 1.0;
+          let mx = 0.0;
+          let mz_inplane = 0.0;
+
+          if (dist < radius * 1.8) {
+            const theta = Math.PI * (1.0 - Math.min(1.0, dist / radius));
+            mz = Math.cos(theta); // 核心为 -1，外围为 +1
+            const mr = Math.sin(theta);
+            if (dist > 0.001) {
+              mx = mr * (dx / dist);
+              mz_inplane = mr * (dz / dist);
+            }
+          }
+
+          // 投影自旋起点与终点
+          const base = project3D(px, 0, pz, cx, cy, 1.0);
+          const arrowLen = 14;
+          // 自旋矢量末端
+          const tip = project3D(px + mx * arrowLen, -mz * arrowLen, pz + mz_inplane * arrowLen, cx, cy, 1.0);
+
+          // 颜色映射: mz = -1 (核心深青)，mz = +1 (外围红)，过渡层金色
+          mainCtx.beginPath();
+          mainCtx.moveTo(base.x, base.y);
+          mainCtx.lineTo(tip.x, tip.y);
+
+          if (mz < -0.3) {
+            mainCtx.strokeStyle = '#06b6d4';
+            mainCtx.lineWidth = 1.8;
+          } else if (mz < 0.6) {
+            mainCtx.strokeStyle = '#fbbf24';
+            mainCtx.lineWidth = 1.4;
+          } else {
+            mainCtx.strokeStyle = 'rgba(244, 63, 94, 0.4)';
+            mainCtx.lineWidth = 1.0;
+          }
+          mainCtx.stroke();
+        }
+      }
+
+      // 3. 斯格明子核心光晕追踪
+      const skProj = project3D(skX, 0, skZ, cx, cy, 1.0);
+      mainCtx.fillStyle = 'rgba(6, 182, 212, 0.22)';
+      mainCtx.shadowColor = '#06b6d4';
+      mainCtx.shadowBlur = 14;
+      mainCtx.beginPath();
+      mainCtx.arc(skProj.x, skProj.y, radius * skProj.fov * camera.zoom, 0, Math.PI * 2);
+      mainCtx.fill();
+      mainCtx.shadowBlur = 0;
+
+      // 湮灭爆炸粒子波
+      if (PHYSICS.annihilationBurst > 0.02) {
+        mainCtx.strokeStyle = `rgba(244, 63, 94, ${PHYSICS.annihilationBurst})`;
+        mainCtx.lineWidth = 3.0;
+        mainCtx.beginPath();
+        mainCtx.arc(skProj.x, skProj.y, (1.0 - PHYSICS.annihilationBurst) * 75, 0, Math.PI * 2);
+        mainCtx.stroke();
+      }
+    }
+
+    // 绘制二维拓扑荷密度分布 q(x,y)
+    function renderDensityView(w, h, time) {
+      const cx = w * 0.5;
+      const cy = h * 0.5;
+      const scale = Math.min(w, h) * 0.42;
+
+      // 赛道边框
+      mainCtx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+      mainCtx.strokeRect(cx - scale * 1.4, cy - scale * 0.6, scale * 2.8, scale * 1.2);
+
+      // 斯格明子拓扑荷圆斑
+      const skNormX = (PHYSICS.skyrmionPos.x / 230.0) * (scale * 1.3);
+      const skNormY = (PHYSICS.skyrmionPos.y / 120.0) * (scale * 0.5);
+
+      const rad = (PHYSICS.dsk / 160.0) * scale * 2.2;
+
+      mainCtx.fillStyle = 'rgba(6, 182, 212, 0.35)';
+      mainCtx.shadowColor = '#06b6d4';
+      mainCtx.shadowBlur = 18;
+      mainCtx.beginPath();
+      mainCtx.arc(cx + skNormX, cy + skNormY, rad, 0, Math.PI * 2);
+      mainCtx.fill();
+      mainCtx.shadowBlur = 0;
+
+      // 速度与霍尔偏折矢量箭头
+      mainCtx.strokeStyle = '#fbbf24';
+      mainCtx.lineWidth = 2.5;
+      mainCtx.beginPath();
+      mainCtx.moveTo(cx + skNormX, cy + skNormY);
+      const vLen = 45;
+      const thetaRad = PHYSICS.hallAngle * (Math.PI / 180.0);
+      mainCtx.lineTo(cx + skNormX + vLen * Math.cos(thetaRad), cy + skNormY + vLen * Math.sin(thetaRad));
+      mainCtx.stroke();
+
+      mainCtx.fillStyle = '#cbd5e1';
+      mainCtx.font = '11px JetBrains Mono';
+      mainCtx.fillText(`拓扑缠绕数密度 q(x,y) | 偏折角 θ = ${PHYSICS.hallAngle.toFixed(1)}°`, cx - scale * 1.3, cy - scale * 0.7);
+    }
+
+    // 动画主循环
+    let lastTime = 0;
+    function mainLoop(time) {
+      const dt = lastTime === 0 ? 0.016 : Math.min(0.05, (time - lastTime) * 0.001);
+      lastTime = time;
+
+      computePhysics(dt);
+
+      const { width, height } = resizeCanvas(mainCanvas);
+      mainCtx.clearRect(0, 0, width, height);
+
+      if (STATE.viewMode === '3d') {
+        render3DRacetrack(width, height, time * 0.001);
+      } else {
+        renderDensityView(width, height, time * 0.001);
+      }
+
+      renderScope1(time * 0.001);
+      renderScope2(time * 0.001);
+
+      requestAnimationFrame(mainLoop);
+    }
+
+    // --- 示波器 1: 速度与斯格明子霍尔角动力学 ---
+    const scope1Canvas = document.getElementById('canvas-scope1');
+    const scope1Ctx = scope1Canvas.getContext('2d');
+
+    function renderScope1(time) {
+      const { width, height } = resizeCanvas(scope1Canvas);
+      scope1Ctx.clearRect(0, 0, width, height);
+
+      const botY = height * 0.85;
+      const topY = height * 0.15;
+      const midX = width * 0.5;
+
+      // 坐标轴
+      scope1Ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+      scope1Ctx.lineWidth = 1;
+      scope1Ctx.beginPath();
+      scope1Ctx.moveTo(0, botY); scope1Ctx.lineTo(width, botY);
+      scope1Ctx.stroke();
+
+      // 绘制速度与霍尔角曲线
+      scope1Ctx.strokeStyle = '#06b6d4';
+      scope1Ctx.lineWidth = 2.0;
+      scope1Ctx.beginPath();
+
+      const numPts = 60;
+      for (let i = 0; i <= numPts; i++) {
+        const u = i / numPts;
+        const jVal = u * 22.0;
+        const px = u * width;
+        const v = jVal * 32.0;
+        const py = botY - (v / 700.0) * (botY - topY);
+
+        if (i === 0) scope1Ctx.moveTo(px, py);
+        else scope1Ctx.lineTo(px, py);
+      }
+      scope1Ctx.stroke();
+
+      // 当前驱动电流工作点
+      const curU = STATE.curr / 22.0;
+      const curPx = curU * width;
+      const curPy = botY - (PHYSICS.vx / 700.0) * (botY - topY);
+
+      scope1Ctx.fillStyle = '#fbbf24';
+      scope1Ctx.beginPath();
+      scope1Ctx.arc(curPx, curPy, 4.5, 0, Math.PI * 2);
+      scope1Ctx.fill();
+
+      // 标签注释
+      scope1Ctx.fillStyle = '#94a3b8';
+      scope1Ctx.font = '10px JetBrains Mono';
+      scope1Ctx.fillText('vx(Je) 线性滑移', 6, topY - 2);
+      scope1Ctx.fillStyle = '#06b6d4';
+      scope1Ctx.fillText(`vx = ${PHYSICS.vx.toFixed(0)} m/s`, curPx + 8, curPy - 6);
+    }
+
+    // --- 示波器 2: 赛道横向有效势垒 U(y) ---
+    const scope2Canvas = document.getElementById('canvas-scope2');
+    const scope2Ctx = scope2Canvas.getContext('2d');
+
+    function renderScope2(time) {
+      const { width, height } = resizeCanvas(scope2Canvas);
+      scope2Ctx.clearRect(0, 0, width, height);
+
+      const botY = height * 0.85;
+      const topY = height * 0.15;
+      const midX = width * 0.5;
+
+      // 坐标轴
+      scope2Ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+      scope2Ctx.lineWidth = 1;
+      scope2Ctx.beginPath();
+      scope2Ctx.moveTo(0, botY); scope2Ctx.lineTo(width, botY);
+      scope2Ctx.moveTo(midX, 0); scope2Ctx.lineTo(midX, height);
+      scope2Ctx.stroke();
+
+      // 绘制双边界势垒指数井 U(y)
+      scope2Ctx.strokeStyle = '#a855f7';
+      scope2Ctx.lineWidth = 2.2;
+      scope2Ctx.beginPath();
+
+      const numPts = 80;
+      const halfW = STATE.Wtrack / 2.0;
+      for (let i = 0; i <= numPts; i++) {
+        const u = (i / numPts) * 2 - 1; // -1 到 +1 (y / halfW)
+        const px = midX + u * (width * 0.42);
+
+        // 势能: 中间平坦，两侧边界指数发散
+        const edgeU = Math.exp(Math.abs(u) * 3.8 - 3.8);
+        const py = botY - edgeU * (botY - topY);
+
+        if (i === 0) scope2Ctx.moveTo(px, py);
+        else scope2Ctx.lineTo(px, py);
+      }
+      scope2Ctx.stroke();
+
+      // 标注当前斯格明子在势阱中的横向偏折平衡位置
+      const curU = PHYSICS.skyrmionPos.y / halfW;
+      const curPx = midX + curU * (width * 0.42);
+      const curEdgeU = Math.exp(Math.abs(curU) * 3.8 - 3.8);
+      const curPy = botY - curEdgeU * (botY - topY);
+
+      scope2Ctx.fillStyle = '#06b6d4';
+      scope2Ctx.beginPath();
+      scope2Ctx.arc(curPx, curPy, 5, 0, Math.PI * 2);
+      scope2Ctx.fill();
+
+      // 文本注释
+      scope2Ctx.fillStyle = '#94a3b8';
+      scope2Ctx.font = '10px JetBrains Mono';
+      scope2Ctx.fillText('左侧壁 -W/2', 6, botY - 6);
+      scope2Ctx.fillText('右侧壁 +W/2', width - 70, botY - 6);
+      scope2Ctx.fillStyle = '#a855f7';
+      scope2Ctx.fillText(`势垒高度 ≈ ${PHYSICS.barrier} kBT`, midX + 8, topY + 12);
+    }
+
+    // --- 交互事件绑定 ---
+    mainCanvas.addEventListener('mousedown', e => {
+      camera.isDragging = true;
+      camera.lastMouseX = e.clientX;
+      camera.lastMouseY = e.clientY;
+    });
+
+    window.addEventListener('mouseup', () => {
+      camera.isDragging = false;
+    });
+
+    window.addEventListener('mousemove', e => {
+      if (!camera.isDragging) return;
+      const dx = e.clientX - camera.lastMouseX;
+      const dy = e.clientY - camera.lastMouseY;
+      camera.rotY += dx * 0.008;
+      camera.rotX += dy * 0.008;
+      camera.lastMouseX = e.clientX;
+      camera.lastMouseY = e.clientY;
+    });
+
+    mainCanvas.addEventListener('wheel', e => {
+      e.preventDefault();
+      const zoomFactor = e.deltaY < 0 ? 1.08 : 0.92;
+      camera.zoom = Math.max(0.4, Math.min(2.5, camera.zoom * zoomFactor));
+    }, { passive: false });
+
+    mainCanvas.addEventListener('dblclick', () => {
+      camera.rotX = 0.64;
+      camera.rotY = -0.62;
+      camera.zoom = 1.0;
+    });
+
+    // 视口按钮
+    const btn3D = document.getElementById('btn-view-3d');
+    const btnDensity = document.getElementById('btn-view-density');
+
+    btn3D.addEventListener('click', () => {
+      STATE.viewMode = '3d';
+      btn3D.classList.add('active');
+      btnDensity.classList.remove('active');
+    });
+
+    btnDensity.addEventListener('click', () => {
+      STATE.viewMode = 'density';
+      btnDensity.classList.add('active');
+      btn3D.classList.remove('active');
+    });
+
+    // 音频按钮
+    const btnAudio = document.getElementById('btn-audio');
+    const audioText = document.getElementById('audio-text');
+    const audioIcon = document.getElementById('audio-icon');
+
+    btnAudio.addEventListener('click', () => {
+      audioSynth.toggle();
+      if (STATE.audioEnabled) {
+        btnAudio.classList.add('on');
+        audioText.textContent = '微磁动力声效: 开';
+        audioIcon.textContent = '🔊';
+      } else {
+        btnAudio.classList.remove('on');
+        audioText.textContent = '微磁动力声效: 关';
+        audioIcon.textContent = '🔈';
+      }
+    });
+
+    // 滑块联动
+    const sliderCurr = document.getElementById('slider-curr');
+    const sliderDmi = document.getElementById('slider-dmi');
+    const sliderAlpha = document.getElementById('slider-alpha');
+    const sliderMag = document.getElementById('slider-mag');
+    const sliderWidth = document.getElementById('slider-width');
+
+    sliderCurr.addEventListener('input', e => {
+      STATE.curr = parseFloat(e.target.value);
+      document.getElementById('label-curr').textContent = STATE.curr.toFixed(1) + ' MA/cm²';
+    });
+
+    sliderDmi.addEventListener('input', e => {
+      STATE.dmi = parseFloat(e.target.value);
+      document.getElementById('label-dmi').textContent = STATE.dmi.toFixed(1) + ' mJ/m²';
+    });
+
+    sliderAlpha.addEventListener('input', e => {
+      STATE.alpha = parseFloat(e.target.value);
+      document.getElementById('label-alpha').textContent = STATE.alpha.toFixed(2);
+    });
+
+    sliderMag.addEventListener('input', e => {
+      STATE.Bz = parseInt(e.target.value);
+      document.getElementById('label-mag').textContent = STATE.Bz + ' mT';
+    });
+
+    sliderWidth.addEventListener('input', e => {
+      STATE.Wtrack = parseInt(e.target.value);
+      document.getElementById('label-width').textContent = STATE.Wtrack + ' nm';
+    });
+
+    // 工况预设按钮
+    const presetBtns = [
+      document.getElementById('preset-steady'),
+      document.getElementById('preset-bouncing'),
+      document.getElementById('preset-afm'),
+      document.getElementById('preset-annihilation')
+    ];
+
+    function clearActivePresets() {
+      presetBtns.forEach(b => b.classList.remove('active'));
+    }
+
+    document.getElementById('preset-steady').addEventListener('click', function() {
+      clearActivePresets();
+      this.classList.add('active');
+      STATE.isAFM = false;
+      STATE.curr = 8.5; sliderCurr.value = 8.5; document.getElementById('label-curr').textContent = '8.5 MA/cm²';
+      STATE.alpha = 0.08; sliderAlpha.value = 0.08; document.getElementById('label-alpha').textContent = '0.08';
+      audioSynth.playClick();
+    });
+
+    document.getElementById('preset-bouncing').addEventListener('click', function() {
+      clearActivePresets();
+      this.classList.add('active');
+      STATE.isAFM = false;
+      STATE.curr = 14.5; sliderCurr.value = 14.5; document.getElementById('label-curr').textContent = '14.5 MA/cm²';
+      STATE.alpha = 0.04; sliderAlpha.value = 0.04; document.getElementById('label-alpha').textContent = '0.04';
+      audioSynth.playClick();
+    });
+
+    document.getElementById('preset-afm').addEventListener('click', function() {
+      clearActivePresets();
+      this.classList.add('active');
+      STATE.isAFM = true;
+      STATE.curr = 12.0; sliderCurr.value = 12.0; document.getElementById('label-curr').textContent = '12.0 MA/cm²';
+      audioSynth.playClick();
+    });
+
+    document.getElementById('preset-annihilation').addEventListener('click', function() {
+      clearActivePresets();
+      this.classList.add('active');
+      STATE.isAFM = false;
+      STATE.curr = 20.0; sliderCurr.value = 20.0; document.getElementById('label-curr').textContent = '20.0 MA/cm²';
+      STATE.alpha = 0.03; sliderAlpha.value = 0.03; document.getElementById('label-alpha').textContent = '0.03';
+      audioSynth.playClick();
+    });
+
+    // 启动动画循环
+    requestAnimationFrame(mainLoop);
+  </script>
+</body>
+</html>

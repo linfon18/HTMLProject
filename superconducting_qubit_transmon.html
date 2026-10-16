@@ -1,0 +1,1073 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>超导量子比特Transmon色散读出与拉比震荡 (Superconducting Transmon Qubit)</title>
+  <style>
+    :root {
+      --bg: #030712;
+      --card-bg: rgba(15, 23, 42, 0.85);
+      --border: rgba(148, 163, 184, 0.15);
+      --accent-cyan: #06b6d4;
+      --accent-purple: #8b5cf6;
+      --accent-rose: #f43f5e;
+      --accent-gold: #fbbf24;
+      --text: #f8fafc;
+      --text-dim: #94a3b8;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      padding: 16px 24px;
+      background: rgba(3, 7, 18, 0.9);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      backdrop-filter: blur(8px);
+      z-index: 10;
+    }
+    .header-left {
+      display: flex;
+      align-items: baseline;
+      gap: 16px;
+    }
+    h1 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      background: linear-gradient(135deg, #06b6d4, #a855f7, #fb7185);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .tagline {
+      font-size: 0.825rem;
+      color: var(--text-dim);
+    }
+    .nav-btn {
+      padding: 6px 14px;
+      font-size: 0.825rem;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border);
+      color: var(--text);
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+    .nav-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: var(--accent-cyan);
+    }
+    main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 370px;
+      gap: 16px;
+      padding: 16px 24px;
+      max-width: 1750px;
+      margin: 0 auto;
+      width: 100%;
+    }
+    @media (max-width: 1200px) {
+      main {
+        grid-template-columns: 1fr;
+      }
+    }
+    .viewports-container {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .canvas-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    }
+    .main-canvas-wrapper {
+      height: 520px;
+      position: relative;
+      cursor: grab;
+    }
+    .main-canvas-wrapper:active {
+      cursor: grabbing;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+    .canvas-overlay {
+      position: absolute;
+      top: 14px;
+      left: 16px;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      background: rgba(6, 182, 212, 0.15);
+      border: 1px solid rgba(6, 182, 212, 0.4);
+      color: #67e8f9;
+      width: fit-content;
+    }
+    .badge-indicator {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: currentColor;
+      box-shadow: 0 0 8px currentColor;
+    }
+    .canvas-controls-overlay {
+      position: absolute;
+      bottom: 14px;
+      left: 16px;
+      display: flex;
+      gap: 8px;
+      pointer-events: auto;
+    }
+    .btn-sm {
+      padding: 5px 12px;
+      font-size: 0.75rem;
+      border-radius: 6px;
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid var(--border);
+      color: var(--text);
+      cursor: pointer;
+      backdrop-filter: blur(4px);
+      transition: all 0.15s;
+    }
+    .btn-sm:hover {
+      background: rgba(30, 41, 59, 0.9);
+      border-color: var(--accent-cyan);
+    }
+    .btn-sm.active {
+      background: rgba(6, 182, 212, 0.25);
+      border-color: var(--accent-cyan);
+      color: #67e8f9;
+    }
+    .dual-charts {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      height: 230px;
+    }
+    @media (max-width: 768px) {
+      .dual-charts {
+        grid-template-columns: 1fr;
+        height: auto;
+      }
+      .dual-charts .canvas-card {
+        height: 210px;
+      }
+    }
+    .chart-title {
+      position: absolute;
+      top: 10px;
+      left: 14px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-dim);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .control-panel {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    }
+    .panel-section-title {
+      font-size: 0.85rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--accent-cyan);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .control-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.75rem;
+      color: var(--text-dim);
+    }
+    .control-val {
+      font-family: monospace;
+      color: var(--text);
+    }
+    input[type=range] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 5px;
+      border-radius: 3px;
+      background: rgba(255, 255, 255, 0.1);
+      outline: none;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--accent-cyan);
+      cursor: pointer;
+      box-shadow: 0 0 8px var(--accent-cyan);
+      transition: transform 0.1s;
+    }
+    input[type=range]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+    .btn-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .action-btn {
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border);
+      color: var(--text);
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    .action-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: var(--accent-cyan);
+    }
+    .action-btn.accent {
+      background: rgba(6, 182, 212, 0.15);
+      border-color: rgba(6, 182, 212, 0.4);
+      color: #67e8f9;
+    }
+    .action-btn.accent:hover {
+      background: rgba(6, 182, 212, 0.25);
+    }
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .metric-card {
+      background: rgba(0, 0, 0, 0.25);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 8px;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .metric-title {
+      font-size: 0.7rem;
+      color: var(--text-dim);
+    }
+    .metric-value {
+      font-size: 1.05rem;
+      font-weight: 700;
+      font-family: monospace;
+      color: var(--accent-cyan);
+    }
+    .theory-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      font-size: 0.75rem;
+      line-height: 1.5;
+      color: var(--text-dim);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .theory-card b {
+      color: var(--text);
+    }
+    .math-formula {
+      font-family: "JetBrains Mono", monospace;
+      background: rgba(0, 0, 0, 0.3);
+      padding: 6px 8px;
+      border-radius: 6px;
+      color: #cbd5e1;
+      border-left: 2px solid var(--accent-cyan);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-left">
+      <h1>超导量子比特Transmon色散读出与拉比震荡</h1>
+      <span class="tagline">Superconducting Transmon Qubit, cQED Dispersive Readout & Rabi Dynamics</span>
+    </div>
+    <div style="display:flex; gap:12px; align-items:center;">
+      <a href="index.html" class="nav-btn">← 返回项目矩阵</a>
+    </div>
+  </header>
+
+  <main>
+    <div class="viewports-container">
+      <!-- 主三维视窗：左侧立体布洛赫球态矢量进动 + 右侧超导Transmon微观芯片版图 -->
+      <div class="canvas-card main-canvas-wrapper" id="mainWrapper">
+        <canvas id="mainCanvas"></canvas>
+        <div class="canvas-overlay">
+          <div class="badge" id="qubitStateBadge">
+            <span class="badge-indicator"></span>
+            <span id="qubitStateText">量子态: |ψ⟩ = 0.707|0⟩ + 0.707|1⟩ (叠加态)</span>
+          </div>
+          <div style="font-size:0.75rem; color:#94a3b8; font-family:monospace;" id="cQEDText">
+            比值 E_J/E_C: 65 (强非简谐弱电荷色散) | 色散频移 2χ: 3.2 MHz | 腔品质因子 Q_L: 1.2×10⁴
+          </div>
+        </div>
+        <div class="canvas-controls-overlay">
+          <button class="btn-sm active" id="btnApplyPiPulse">施加 π-脉冲 (X门 翻转)</button>
+          <button class="btn-sm" id="btnApplyHalfPi">施加 π/2-脉冲 (H门 叠加)</button>
+          <button class="btn-sm" id="btnContinuousRabi">持续共振拉比驱动: 开</button>
+          <button class="btn-sm" id="btnQNDMeasure">⚡ QND 色散投影读出</button>
+          <button class="btn-sm" id="btnResetSphere">重置基态 |0⟩</button>
+        </div>
+      </div>
+
+      <!-- 下方双示波器：拉比震荡布居数时序 + 微波谐振腔IQ相空间色散云斑 -->
+      <div class="dual-charts">
+        <div class="canvas-card" style="position:relative;">
+          <div class="chart-title">
+            <span style="color:var(--accent-cyan)">●</span> 激发态布居数 P_1(t) 与微波脉冲拉比翻转波形
+          </div>
+          <canvas id="rabiCanvas"></canvas>
+        </div>
+        <div class="canvas-card" style="position:relative;">
+          <div class="chart-title">
+            <span style="color:var(--accent-purple)">●</span> 微波读出腔 IQ 解调平面高斯投影斑点 (|0⟩ vs |1⟩)
+          </div>
+          <canvas id="iqCanvas"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- 侧边栏控制面板 -->
+    <div class="sidebar">
+      <div class="control-panel">
+        <div class="panel-section-title">
+          <span>⚙ Transmon 物理与控制参数</span>
+        </div>
+
+        <div class="control-group">
+          <div class="control-label">
+            <span>约瑟夫森能与电荷能比 E_J / E_C</span>
+            <span class="control-val" id="valRatio">65</span>
+          </div>
+          <input type="range" id="paramRatio" min="15" max="120" step="5" value="65">
+        </div>
+
+        <div class="control-group">
+          <div class="control-label">
+            <span>微波驱动拉比频率 Ω_R (MHz)</span>
+            <span class="control-val" id="valRabiFreq">25.0 MHz</span>
+          </div>
+          <input type="range" id="paramRabiFreq" min="2.0" max="60.0" step="1.0" value="25.0">
+        </div>
+
+        <div class="control-group">
+          <div class="control-label">
+            <span>驱动失谐量 Δω = ω_d - ω_01 (MHz)</span>
+            <span class="control-val" id="valDetuning">0.0 MHz</span>
+          </div>
+          <input type="range" id="paramDetuning" min="-20.0" max="20.0" step="0.5" value="0.0">
+        </div>
+
+        <div class="control-group">
+          <div class="control-label">
+            <span>能量弛豫寿命 T_1 (μs)</span>
+            <span class="control-val" id="valT1">45 μs</span>
+          </div>
+          <input type="range" id="paramT1" min="5" max="150" step="5" value="45">
+        </div>
+
+        <div class="btn-row">
+          <button class="action-btn accent" id="btnRamseyFringe">
+            ⏳ 触发拉姆齐干涉 (Ramsey)
+          </button>
+          <button class="action-btn" id="btnAudioToggle">
+            🔊 微波量子音效: 开
+          </button>
+        </div>
+
+        <div class="panel-section-title" style="margin-top:6px;">
+          <span>超导量子线路预设</span>
+        </div>
+        <div class="btn-row">
+          <button class="btn-sm" id="presetStandard">标准 Transmon (IBM型)</button>
+          <button class="btn-sm" id="presetFluxonium">高非简谐弱耦合态</button>
+          <button class="btn-sm" id="presetFastDecay">强退相干噪声态</button>
+          <button class="btn-sm" id="presetZeroNoise">理想相干纯态</button>
+        </div>
+
+        <div class="panel-section-title" style="margin-top:6px;">
+          <span>量子遥测指标 (Qubit Metrics)</span>
+        </div>
+        <div class="metrics-grid">
+          <div class="metric-card">
+            <div class="metric-title">激发态概率 P(|1⟩)</div>
+            <div class="metric-value" id="dispP1">0.500</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-title">非简谐性 α / 2π</div>
+            <div class="metric-value" id="dispAlpha">-285 MHz</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-title">退相干时间 T_2*</div>
+            <div class="metric-value" id="dispT2">38.2 μs</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-title">单比特保真度 F_gate</div>
+            <div class="metric-value" id="dispFid">99.92%</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="theory-card">
+        <b>超导 Transmon 量子比特物理原理</b>
+        <div>
+          由<b>约瑟夫森隧道结</b>与超大并联电容 $C_B$ 构成的非线性非简谐超导振荡器。
+        </div>
+        <div class="math-formula">
+          \hat{H} = 4E_C(\hat{n} - n_g)^2 - E_J\cos\hat{\phi}
+        </div>
+        <div>
+          <b>1. 电荷噪声免疫:</b> 当 $E_J/E_C \gg 1$ 时，能级对环境电荷涨落 $n_g$ 的敏感度呈指数衰减 $\propto e^{-\sqrt{8E_J/E_C}}$，退相干寿命提升数个量级。
+        </div>
+        <div>
+          <b>2. 色散读取 (cQED):</b> 比特与高Q超导共面波导腔大失谐耦合。基态 $|0\rangle$ 与激发态 $|1\rangle$ 导致腔共振频率产生微小的相反频移 $\pm\chi$，通过测量微波反射 IQ 相位完成 QND 投影。
+        </div>
+        <div>
+          <b>3. 拉比演化:</b> 共振微波驱动产生拉比频率 $\Omega_R = 2g_d$，布洛赫球态矢量在计算基底间发生连续受控酉旋转。
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // --- 物理参数体系 ---
+    const PARAMS = {
+      ej_ec_ratio: 65,      // EJ / EC
+      rabi_freq: 25.0,      // MHz
+      detuning: 0.0,        // MHz
+      T1: 45,               // us
+      T2: 38.2,             // us
+      continuousDrive: true
+    };
+
+    // --- 量子比特态矢量 (布洛赫球面坐标: theta, phi) ---
+    // |psi> = cos(theta/2)|0> + e^(i*phi)*sin(theta/2)|1>
+    let qubit = {
+      theta: Math.PI * 0.5, // 极角 [0, pi]
+      phi: 0.0,             // 方位角 [0, 2*pi]
+      trail: []             // 轨迹历史点
+    };
+
+    let rabiHistory = [];
+    let iqPoints = [];
+    let simTime = 0;
+
+    let audioCtx = null;
+    let audioGain = null;
+    let audioEnabled = true;
+
+    function initAudio() {
+      try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioContext();
+        audioGain = audioCtx.createGain();
+        audioGain.gain.setValueAtTime(0.04, audioCtx.currentTime);
+        audioGain.connect(audioCtx.destination);
+      } catch (e) {}
+    }
+
+    function playTone(freq, dur) {
+      if (!audioCtx || !audioEnabled) return;
+      try {
+        const now = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now);
+        osc.frequency.exponentialRampToValueAtTime(freq * 1.05, now + dur);
+
+        g.gain.setValueAtTime(0.06, now);
+        g.gain.exponentialRampToValueAtTime(0.001, now + dur);
+
+        osc.connect(g);
+        g.connect(audioGain);
+        osc.start(now);
+        osc.stop(now + dur + 0.02);
+      } catch (e) {}
+    }
+
+    // --- 3D 摄像机投影视角 ---
+    const camera = {
+      rotX: 0.35,
+      rotY: -0.55,
+      dist: 340,
+      isDragging: false,
+      lastMouseX: 0,
+      lastMouseY: 0
+    };
+
+    const mainWrapper = document.getElementById('mainWrapper');
+    const mainCanvas = document.getElementById('mainCanvas');
+    const ctx = mainCanvas.getContext('2d');
+
+    const rabiCanvas = document.getElementById('rabiCanvas');
+    const rabiCtx = rabiCanvas.getContext('2d');
+
+    const iqCanvas = document.getElementById('iqCanvas');
+    const iqCtx = iqCanvas.getContext('2d');
+
+    mainWrapper.addEventListener('mousedown', (e) => {
+      camera.isDragging = true;
+      camera.lastMouseX = e.clientX;
+      camera.lastMouseY = e.clientY;
+      if (!audioCtx && audioEnabled) initAudio();
+    });
+    window.addEventListener('mouseup', () => camera.isDragging = false);
+    window.addEventListener('mousemove', (e) => {
+      if (!camera.isDragging) return;
+      const dx = e.clientX - camera.lastMouseX;
+      const dy = e.clientY - camera.lastMouseY;
+      camera.rotY += dx * 0.008;
+      camera.rotX += dy * 0.008;
+      camera.rotX = Math.max(-Math.PI / 2 + 0.1, Math.min(Math.PI / 2 - 0.1, camera.rotX));
+      camera.lastMouseX = e.clientX;
+      camera.lastMouseY = e.clientY;
+    });
+
+    function resizeCanvases() {
+      const rect = mainWrapper.getBoundingClientRect();
+      mainCanvas.width = rect.width * window.devicePixelRatio;
+      mainCanvas.height = rect.height * window.devicePixelRatio;
+
+      const rRect = rabiCanvas.parentElement.getBoundingClientRect();
+      rabiCanvas.width = rRect.width * window.devicePixelRatio;
+      rabiCanvas.height = rRect.height * window.devicePixelRatio;
+
+      const iRect = iqCanvas.parentElement.getBoundingClientRect();
+      iqCanvas.width = iRect.width * window.devicePixelRatio;
+      iqCanvas.height = iRect.height * window.devicePixelRatio;
+    }
+    window.addEventListener('resize', resizeCanvases);
+
+    function project3D(x, y, z, cx, cy, scale) {
+      const cosY = Math.cos(camera.rotY), sinY = Math.sin(camera.rotY);
+      const x1 = x * cosY + z * sinY;
+      const z1 = -x * sinY + z * cosY;
+
+      const cosX = Math.cos(camera.rotX), sinX = Math.sin(camera.rotX);
+      const y2 = y * cosX - z1 * sinX;
+      const z2 = y * sinX + z1 * cosX;
+
+      const fov = 750;
+      const factor = fov / (fov + z2 + camera.dist * 0.7);
+      return {
+        px: cx + x1 * factor * scale,
+        py: cy - y2 * factor * scale,
+        depth: z2,
+        scale: factor
+      };
+    }
+
+    // --- 量子动力学演化与主方程数值解 ---
+    function stepQuantumDynamics(dt) {
+      simTime += dt;
+
+      // 广义拉比频率 Omega_eff = sqrt(Omega_R^2 + Delta^2)
+      const omegaR = (PARAMS.rabi_freq / 25.0) * 3.2; // 标度化弧度/秒
+      const delta = (PARAMS.detuning / 20.0) * 2.5;
+
+      if (PARAMS.continuousDrive) {
+        // 微波驱动诱发布洛赫球经向进动
+        qubit.theta += omegaR * dt;
+        if (qubit.theta > Math.PI * 2) qubit.theta -= Math.PI * 2;
+
+        // 失谐引起赤道面方位角进动
+        qubit.phi += delta * dt;
+      }
+
+      // T1 能量弛豫与 T2 退相位阻尼朝向北极 |0> 缓慢漂移
+      const gamma1 = (1.0 / PARAMS.T1) * 0.05;
+      const gamma2 = (1.0 / PARAMS.T2) * 0.08;
+
+      qubit.theta -= gamma1 * Math.sin(qubit.theta) * dt;
+      qubit.phi += (Math.random() - 0.5) * gamma2 * dt;
+
+      // 记录布洛赫球运动轨迹
+      const curX = Math.sin(qubit.theta) * Math.cos(qubit.phi);
+      const curY = Math.cos(qubit.theta);
+      const curZ = Math.sin(qubit.theta) * Math.sin(qubit.phi);
+
+      qubit.trail.push({ x: curX, y: curY, z: curZ });
+      if (qubit.trail.length > 120) qubit.trail.shift();
+
+      // 记录激发态概率 P1 = sin^2(theta / 2)
+      const p1 = Math.pow(Math.sin(qubit.theta * 0.5), 2);
+      rabiHistory.push(p1);
+      if (rabiHistory.length > 250) rabiHistory.shift();
+
+      // 生成色散读出 IQ 平面高斯斑点
+      // 基态 |0> 在 I = -1.2, Q = 0; 激发态 |1> 在 I = +1.2, Q = 0 (2*chi 频移分离)
+      const isState1 = Math.random() < p1;
+      const meanI = isState1 ? 1.15 : -1.15;
+      const meanQ = 0.0;
+      const noiseSigma = 0.45;
+
+      iqPoints.push({
+        i: meanI + (Math.random() + Math.random() - 1.0) * noiseSigma,
+        q: meanQ + (Math.random() + Math.random() - 1.0) * noiseSigma,
+        state: isState1 ? 1 : 0
+      });
+      if (iqPoints.length > 180) iqPoints.shift();
+    }
+
+    // --- 绘制主视窗：左侧三维布洛赫球 + 右侧超导量子芯片微观版图 ---
+    function renderMainView() {
+      const w = mainCanvas.width;
+      const h = mainCanvas.height;
+      ctx.clearRect(0, 0, w, h);
+
+      const sphereCx = w * 0.32;
+      const sphereCy = h * 0.52;
+      const R_SPHERE = Math.min(w, h) * 0.28;
+
+      // 1. 绘制三维布洛赫球 (Bloch Sphere)
+      ctx.save();
+      // 半透明球壳渐变
+      const sphereGrad = ctx.createRadialGradient(sphereCx, sphereCy, R_SPHERE * 0.2, sphereCx, sphereCy, R_SPHERE);
+      sphereGrad.addColorStop(0, 'rgba(30, 41, 59, 0.2)');
+      sphereGrad.addColorStop(0.85, 'rgba(15, 23, 42, 0.45)');
+      sphereGrad.addColorStop(1, 'rgba(6, 182, 212, 0.25)');
+      ctx.fillStyle = sphereGrad;
+      ctx.beginPath();
+      ctx.arc(sphereCx, sphereCy, R_SPHERE, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(6, 182, 212, 0.35)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      // 绘制赤道大圆与经线大圆
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+      ctx.lineWidth = 1.0;
+      // 赤道圆
+      ctx.beginPath();
+      for (let a = 0; a <= Math.PI * 2 + 0.1; a += 0.1) {
+        const pt = project3D(Math.cos(a) * R_SPHERE, 0, Math.sin(a) * R_SPHERE, sphereCx, sphereCy, 1);
+        if (a === 0) ctx.moveTo(pt.px, pt.py);
+        else ctx.lineTo(pt.px, pt.py);
+      }
+      ctx.stroke();
+
+      // Z 轴主旋转轴 (北极 |0>, 南极 |1>)
+      const northPt = project3D(0, R_SPHERE * 1.25, 0, sphereCx, sphereCy, 1);
+      const southPt = project3D(0, -R_SPHERE * 1.25, 0, sphereCx, sphereCy, 1);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.moveTo(southPt.px, southPt.py);
+      ctx.lineTo(northPt.px, northPt.py);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.font = `${11 * window.devicePixelRatio}px monospace`;
+      ctx.fillStyle = '#67e8f9';
+      ctx.fillText('|0⟩ (基态)', northPt.px + 8, northPt.py + 4);
+      ctx.fillStyle = '#fda4af';
+      ctx.fillText('|1⟩ (激发态)', southPt.px + 8, southPt.py + 4);
+
+      // 绘制量子态历史进动尾迹
+      if (qubit.trail.length > 2) {
+        ctx.strokeStyle = 'rgba(168, 85, 247, 0.55)';
+        ctx.lineWidth = 1.8;
+        ctx.beginPath();
+        for (let i = 0; i < qubit.trail.length; i++) {
+          const pt = project3D(qubit.trail[i].x * R_SPHERE, qubit.trail[i].y * R_SPHERE, qubit.trail[i].z * R_SPHERE, sphereCx, sphereCy, 1);
+          if (i === 0) ctx.moveTo(pt.px, pt.py);
+          else ctx.lineTo(pt.px, pt.py);
+        }
+        ctx.stroke();
+      }
+
+      // 绘制当前态矢量箭头 (State Vector)
+      const curX = Math.sin(qubit.theta) * Math.cos(qubit.phi) * R_SPHERE;
+      const curY = Math.cos(qubit.theta) * R_SPHERE;
+      const curZ = Math.sin(qubit.theta) * Math.sin(qubit.phi) * R_SPHERE;
+      const vecPt = project3D(curX, curY, curZ, sphereCx, sphereCy, 1);
+
+      ctx.strokeStyle = '#06b6d4';
+      ctx.lineWidth = 3.0 * window.devicePixelRatio;
+      ctx.beginPath();
+      ctx.moveTo(sphereCx, sphereCy);
+      ctx.lineTo(vecPt.px, vecPt.py);
+      ctx.stroke();
+
+      // 矢量顶端光球
+      ctx.fillStyle = '#f43f5e';
+      ctx.shadowColor = '#f43f5e';
+      ctx.shadowBlur = 12;
+      ctx.beginPath();
+      ctx.arc(vecPt.px, vecPt.py, 5 * window.devicePixelRatio, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.restore();
+
+      // 2. 绘制右侧超导 Transmon 芯片微观版图 (Microscopic Chip Architecture)
+      const chipX = w * 0.68;
+      const chipY = h * 0.22;
+      const chipW = w * 0.28;
+      const chipH = h * 0.58;
+
+      ctx.save();
+      // 硅衬底背景
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+      ctx.fillRect(chipX, chipY, chipW, chipH);
+      ctx.strokeStyle = 'rgba(148, 163, 184, 0.3)';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(chipX, chipY, chipW, chipH);
+
+      ctx.font = `${10 * window.devicePixelRatio}px monospace`;
+      ctx.fillStyle = '#94a3b8';
+      ctx.fillText('[超导量子芯片版图 cQED Transmon]', chipX + 12, chipY + 22);
+
+      // 绘制超导共面波导谐振腔 (CPW Meander Line 蛇形腔)
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 2.2;
+      ctx.beginPath();
+      let cx0 = chipX + 24;
+      let cy0 = chipY + 45;
+      ctx.moveTo(cx0, cy0);
+      for (let m = 0; m < 5; m++) {
+        const segW = chipW - 48;
+        ctx.lineTo(cx0 + segW, cy0);
+        cy0 += 12;
+        ctx.lineTo(cx0 + segW, cy0);
+        ctx.lineTo(cx0, cy0);
+        cy0 += 12;
+        ctx.lineTo(cx0, cy0);
+      }
+      ctx.stroke();
+      ctx.fillStyle = '#38bdf8';
+      ctx.fillText('CPW微波读出谐振腔 (ω_r ≈ 7.1 GHz)', chipX + 24, cy0 + 18);
+
+      // 绘制 Transmon 大并联叉指电容片 (Interdigital Capacitor C_B)
+      const capY = cy0 + 38;
+      ctx.fillStyle = 'rgba(168, 85, 247, 0.4)';
+      ctx.fillRect(chipX + 30, capY, chipW * 0.38, 55);
+      ctx.fillRect(chipX + chipW * 0.52, capY, chipW * 0.38, 55);
+      ctx.strokeStyle = '#c084fc';
+      ctx.strokeRect(chipX + 30, capY, chipW * 0.38, 55);
+      ctx.strokeRect(chipX + chipW * 0.52, capY, chipW * 0.38, 55);
+
+      // 绘制中央约瑟夫森隧道结 (SQUID Loop)
+      const juncX = chipX + chipW * 0.45;
+      const juncY = capY + 18;
+      ctx.strokeStyle = '#fbbf24';
+      ctx.lineWidth = 2.0;
+      ctx.strokeRect(juncX - 8, juncY, 16, 20);
+      ctx.fillStyle = '#fbbf24';
+      ctx.fillText('Josephson 结', juncX - 28, juncY + 34);
+
+      // 微波驱动控制线 (XY Drive Line)
+      ctx.strokeStyle = '#f43f5e';
+      ctx.setLineDash([5, 3]);
+      ctx.beginPath();
+      ctx.moveTo(chipX + 16, capY + 70);
+      ctx.lineTo(chipX + chipW - 16, capY + 70);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = '#fda4af';
+      ctx.fillText('微波拉比驱动控制线 (Ω_R 脉冲)', chipX + 24, capY + 86);
+      ctx.restore();
+    }
+
+    // --- 示波器 1: 拉比翻转布居数波形 P_1(t) ---
+    function renderRabiScope() {
+      const w = rabiCanvas.width;
+      const h = rabiCanvas.height;
+      rabiCtx.clearRect(0, 0, w, h);
+
+      const margin = 26 * window.devicePixelRatio;
+      const pw = w - margin * 2;
+      const ph = h - margin * 2;
+      const baseY = margin + ph * 0.88;
+
+      rabiCtx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+      rabiCtx.lineWidth = 1;
+      rabiCtx.beginPath();
+      rabiCtx.moveTo(margin, baseY);
+      rabiCtx.lineTo(margin + pw, baseY);
+      rabiCtx.stroke();
+
+      rabiCtx.font = `${9 * window.devicePixelRatio}px monospace`;
+      rabiCtx.fillStyle = '#64748b';
+      rabiCtx.fillText('P_1 = 0.0 (|0⟩ 基态)', margin + 4, baseY + 14);
+      rabiCtx.fillText('P_1 = 1.0 (|1⟩ 激发态)', margin + 4, margin + 14);
+
+      if (rabiHistory.length < 2) return;
+
+      rabiCtx.beginPath();
+      for (let i = 0; i < rabiHistory.length; i++) {
+        const val = rabiHistory[i];
+        const x = margin + (i / (rabiHistory.length - 1)) * pw;
+        const y = baseY - val * (ph * 0.78);
+        if (i === 0) rabiCtx.moveTo(x, y);
+        else rabiCtx.lineTo(x, y);
+      }
+      rabiCtx.strokeStyle = '#06b6d4';
+      rabiCtx.lineWidth = 2.2 * window.devicePixelRatio;
+      rabiCtx.stroke();
+
+      // 面积填充
+      rabiCtx.lineTo(margin + pw, baseY);
+      rabiCtx.lineTo(margin, baseY);
+      rabiCtx.closePath();
+      const g = rabiCtx.createLinearGradient(0, margin, 0, baseY);
+      g.addColorStop(0, 'rgba(6, 182, 212, 0.35)');
+      g.addColorStop(1, 'rgba(6, 182, 212, 0.0)');
+      rabiCtx.fillStyle = g;
+      rabiCtx.fill();
+    }
+
+    // --- 示波器 2: 微波读出腔 IQ 解调平面高斯投影斑点 ---
+    function renderIQScope() {
+      const w = iqCanvas.width;
+      const h = iqCanvas.height;
+      iqCtx.clearRect(0, 0, w, h);
+
+      const margin = 24 * window.devicePixelRatio;
+      const pw = w - margin * 2;
+      const ph = h - margin * 2;
+      const midX = margin + pw * 0.5;
+      const midY = margin + ph * 0.5;
+
+      // 坐标轴
+      iqCtx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+      iqCtx.lineWidth = 1;
+      iqCtx.beginPath();
+      iqCtx.moveTo(margin, midY); iqCtx.lineTo(margin + pw, midY);
+      iqCtx.moveTo(midX, margin); iqCtx.lineTo(midX, margin + ph);
+      iqCtx.stroke();
+
+      iqCtx.font = `${9 * window.devicePixelRatio}px monospace`;
+      iqCtx.fillStyle = '#64748b';
+      iqCtx.fillText('同相分量 I →', margin + pw - 65, midY - 6);
+      iqCtx.fillText('↑ 正交分量 Q', midX + 6, margin + 14);
+
+      // 绘制基态中心与激发态中心标示环
+      const scaleIQ = pw * 0.22;
+      const pt0X = midX - 1.15 * scaleIQ;
+      const pt1X = midX + 1.15 * scaleIQ;
+
+      iqCtx.strokeStyle = 'rgba(56, 189, 248, 0.5)';
+      iqCtx.setLineDash([3, 3]);
+      iqCtx.beginPath();
+      iqCtx.arc(pt0X, midY, 28 * window.devicePixelRatio, 0, Math.PI * 2);
+      iqCtx.stroke();
+
+      iqCtx.strokeStyle = 'rgba(244, 63, 94, 0.5)';
+      iqCtx.beginPath();
+      iqCtx.arc(pt1X, midY, 28 * window.devicePixelRatio, 0, Math.PI * 2);
+      iqCtx.stroke();
+      iqCtx.setLineDash([]);
+
+      iqCtx.fillStyle = '#38bdf8';
+      iqCtx.fillText('|0⟩ 态斑', pt0X - 18, midY - 34);
+      iqCtx.fillStyle = '#f43f5e';
+      iqCtx.fillText('|1⟩ 态斑', pt1X - 18, midY - 34);
+
+      // 绘制实测散点
+      for (let pt of iqPoints) {
+        const px = midX + pt.i * scaleIQ;
+        const py = midY - pt.q * scaleIQ;
+        iqCtx.fillStyle = (pt.state === 1) ? 'rgba(244, 63, 94, 0.65)' : 'rgba(56, 189, 248, 0.65)';
+        iqCtx.beginPath();
+        iqCtx.arc(px, py, 2.2 * window.devicePixelRatio, 0, Math.PI * 2);
+        iqCtx.fill();
+      }
+    }
+
+    // --- 界面控制与按键事件绑定 ---
+    document.getElementById('paramRatio').addEventListener('input', (e) => {
+      PARAMS.ej_ec_ratio = parseInt(e.target.value);
+      document.getElementById('valRatio').textContent = PARAMS.ej_ec_ratio;
+    });
+    document.getElementById('paramRabiFreq').addEventListener('input', (e) => {
+      PARAMS.rabi_freq = parseFloat(e.target.value);
+      document.getElementById('valRabiFreq').textContent = `${PARAMS.rabi_freq.toFixed(1)} MHz`;
+    });
+    document.getElementById('paramDetuning').addEventListener('input', (e) => {
+      PARAMS.detuning = parseFloat(e.target.value);
+      document.getElementById('valDetuning').textContent = `${PARAMS.detuning.toFixed(1)} MHz`;
+    });
+    document.getElementById('paramT1').addEventListener('input', (e) => {
+      PARAMS.T1 = parseInt(e.target.value);
+      PARAMS.T2 = PARAMS.T1 * 0.85;
+      document.getElementById('valT1').textContent = `${PARAMS.T1} μs`;
+    });
+
+    // 脉冲控制
+    document.getElementById('btnApplyPiPulse').addEventListener('click', () => {
+      qubit.theta = Math.PI - qubit.theta;
+      playTone(580, 0.12);
+    });
+
+    document.getElementById('btnApplyHalfPi').addEventListener('click', () => {
+      qubit.theta = Math.PI * 0.5;
+      playTone(720, 0.12);
+    });
+
+    const btnCont = document.getElementById('btnContinuousRabi');
+    btnCont.addEventListener('click', () => {
+      PARAMS.continuousDrive = !PARAMS.continuousDrive;
+      btnCont.textContent = PARAMS.continuousDrive ? '持续共振拉比驱动: 开' : '持续共振拉比驱动: 关';
+      btnCont.classList.toggle('active', PARAMS.continuousDrive);
+    });
+
+    document.getElementById('btnQNDMeasure').addEventListener('click', () => {
+      const p1 = Math.pow(Math.sin(qubit.theta * 0.5), 2);
+      const collapsedState = Math.random() < p1 ? 1 : 0;
+      qubit.theta = (collapsedState === 1) ? Math.PI : 0.0;
+      playTone(collapsedState === 1 ? 840 : 420, 0.18);
+    });
+
+    document.getElementById('btnResetSphere').addEventListener('click', () => {
+      qubit.theta = 0.0;
+      qubit.phi = 0.0;
+      qubit.trail.length = 0;
+      playTone(330, 0.1);
+    });
+
+    // 触发拉姆齐干涉
+    document.getElementById('btnRamseyFringe').addEventListener('click', () => {
+      qubit.theta = Math.PI * 0.5;
+      PARAMS.detuning = 8.0;
+      document.getElementById('paramDetuning').value = 8.0;
+      document.getElementById('valDetuning').textContent = '8.0 MHz';
+      playTone(920, 0.2);
+    });
+
+    // 声音切换
+    const btnAudio = document.getElementById('btnAudioToggle');
+    btnAudio.addEventListener('click', () => {
+      audioEnabled = !audioEnabled;
+      btnAudio.textContent = audioEnabled ? '🔊 微波量子音效: 开' : '🔇 微波量子音效: 关';
+    });
+
+    // 预设切换
+    document.getElementById('presetStandard').addEventListener('click', () => {
+      PARAMS.ej_ec_ratio = 65; PARAMS.rabi_freq = 25.0; PARAMS.detuning = 0.0; PARAMS.T1 = 45;
+      syncInputs();
+    });
+    document.getElementById('presetFluxonium').addEventListener('click', () => {
+      PARAMS.ej_ec_ratio = 25; PARAMS.rabi_freq = 40.0; PARAMS.detuning = 2.0; PARAMS.T1 = 80;
+      syncInputs();
+    });
+    document.getElementById('presetFastDecay').addEventListener('click', () => {
+      PARAMS.ej_ec_ratio = 45; PARAMS.rabi_freq = 15.0; PARAMS.detuning = 5.0; PARAMS.T1 = 8;
+      syncInputs();
+    });
+    document.getElementById('presetZeroNoise').addEventListener('click', () => {
+      PARAMS.ej_ec_ratio = 90; PARAMS.rabi_freq = 30.0; PARAMS.detuning = 0.0; PARAMS.T1 = 150;
+      syncInputs();
+    });
+
+    function syncInputs() {
+      document.getElementById('paramRatio').value = PARAMS.ej_ec_ratio;
+      document.getElementById('valRatio').textContent = PARAMS.ej_ec_ratio;
+      document.getElementById('paramRabiFreq').value = PARAMS.rabi_freq;
+      document.getElementById('valRabiFreq').textContent = `${PARAMS.rabi_freq.toFixed(1)} MHz`;
+      document.getElementById('paramDetuning').value = PARAMS.detuning;
+      document.getElementById('valDetuning').textContent = `${PARAMS.detuning.toFixed(1)} MHz`;
+      document.getElementById('paramT1').value = PARAMS.T1;
+      document.getElementById('valT1').textContent = `${PARAMS.T1} μs`;
+    }
+
+    // --- 主动画更新循环 ---
+    let lastTick = performance.now();
+    function animate(now) {
+      const dt = Math.min(0.04, (now - lastTick) * 0.001);
+      lastTick = now;
+
+      // 物理积分更新
+      stepQuantumDynamics(dt);
+
+      // 渲染主视窗与示波器
+      renderMainView();
+      renderRabiScope();
+      renderIQScope();
+
+      // 指标更新
+      const p1 = Math.pow(Math.sin(qubit.theta * 0.5), 2);
+      const alphaVal = -310 + (PARAMS.ej_ec_ratio - 65) * 1.5;
+
+      document.getElementById('dispP1').textContent = p1.toFixed(3);
+      document.getElementById('dispAlpha').textContent = `${Math.round(alphaVal)} MHz`;
+      document.getElementById('dispT2').textContent = `${(PARAMS.T1 * 0.85).toFixed(1)} μs`;
+
+      const stateBadge = document.getElementById('qubitStateBadge');
+      const stateText = document.getElementById('qubitStateText');
+      const c0 = Math.cos(qubit.theta * 0.5);
+      const c1 = Math.sin(qubit.theta * 0.5);
+      stateText.textContent = `量子态: |ψ⟩ = ${c0.toFixed(2)}|0⟩ + ${c1.toFixed(2)}|1⟩`;
+
+      requestAnimationFrame(animate);
+    }
+
+    // 启动仿真
+    resizeCanvases();
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>

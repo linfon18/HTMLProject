@@ -1,0 +1,1169 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>超导长约瑟夫森结磁通孤子棘轮动力学全息模拟 (Josephson Vortex Ratchet & Sine-Gordon Soliton)</title>
+  <style>
+    :root {
+      --bg-primary: #020712;
+      --bg-panel: rgba(8, 18, 38, 0.85);
+      --border-panel: rgba(0, 240, 255, 0.25);
+      --soliton-cyan: #00f0ff;
+      --ratchet-gold: #ffd043;
+      --plasma-purple: #c084fc;
+      --danger-red: #ff3366;
+      --text-main: #f0f6fc;
+      --text-dim: #7aa2c7;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body {
+      background-color: var(--bg-primary);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", "PingFang SC", "Microsoft YaHei", sans-serif;
+      overflow-x: hidden;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      background: linear-gradient(180deg, rgba(10, 24, 48, 0.95) 0%, rgba(4, 12, 26, 0.8) 100%);
+      border-bottom: 1px solid var(--border-panel);
+      padding: 12px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(12px);
+    }
+
+    .title-area h1 {
+      font-size: 1.35rem;
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      background: linear-gradient(90deg, #00f0ff, #ffd043, #c084fc);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .title-area p {
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      margin-top: 3px;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border: 1px solid;
+    }
+    .badge-soliton {
+      background: rgba(0, 240, 255, 0.15);
+      color: #00f0ff;
+      border-color: rgba(0, 240, 255, 0.4);
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    button.btn {
+      background: rgba(0, 240, 255, 0.12);
+      border: 1px solid rgba(0, 240, 255, 0.35);
+      color: #f0f6fc;
+      padding: 6px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.82rem;
+      font-weight: 500;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    button.btn:hover {
+      background: rgba(0, 240, 255, 0.25);
+      border-color: #00f0ff;
+      box-shadow: 0 0 10px rgba(0, 240, 255, 0.3);
+    }
+    button.btn-primary {
+      background: linear-gradient(135deg, rgba(0, 240, 255, 0.45), rgba(192, 132, 252, 0.55));
+      border-color: #00f0ff;
+      color: #ffffff;
+      font-weight: 600;
+    }
+    button.btn-primary:hover {
+      background: linear-gradient(135deg, rgba(0, 240, 255, 0.65), rgba(192, 132, 252, 0.75));
+      box-shadow: 0 0 14px rgba(0, 240, 255, 0.5);
+    }
+
+    .main-container {
+      display: grid;
+      grid-template-columns: 1fr 390px;
+      gap: 16px;
+      padding: 16px 20px;
+      flex: 1;
+      max-width: 1800px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    .viewport-col {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .card {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-panel);
+      border-radius: 10px;
+      padding: 14px 16px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+      position: relative;
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .card-title {
+      font-size: 0.92rem;
+      font-weight: 600;
+      color: #00f0ff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .canvas-wrapper {
+      position: relative;
+      width: 100%;
+      height: 450px;
+      background: #01040a;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid rgba(0, 240, 255, 0.15);
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    .canvas-overlay-stats {
+      position: absolute;
+      top: 10px;
+      left: 12px;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-family: "JetBrains Mono", Consolas, monospace;
+      font-size: 0.78rem;
+    }
+
+    .stat-tag {
+      background: rgba(3, 9, 22, 0.8);
+      padding: 4px 10px;
+      border-radius: 4px;
+      border-left: 3px solid #00f0ff;
+      backdrop-filter: blur(4px);
+    }
+    .stat-tag.gold {
+      border-left-color: #ffd043;
+    }
+    .stat-tag.purple {
+      border-left-color: #c084fc;
+    }
+
+    .charts-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .chart-box {
+      height: 230px;
+      background: #01040a;
+      border-radius: 8px;
+      position: relative;
+      border: 1px solid rgba(0, 240, 255, 0.15);
+      overflow: hidden;
+    }
+
+    /* 右侧控制面板 */
+    .controls-col {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .control-group {
+      margin-bottom: 12px;
+    }
+
+    .control-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.8rem;
+      margin-bottom: 5px;
+      color: var(--text-dim);
+    }
+    .control-val {
+      color: #00f0ff;
+      font-family: monospace;
+      font-weight: bold;
+    }
+
+    input[type=range] {
+      width: 100%;
+      height: 5px;
+      background: rgba(0, 240, 255, 0.2);
+      border-radius: 4px;
+      outline: none;
+      -webkit-appearance: none;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      background: #00f0ff;
+      cursor: pointer;
+      box-shadow: 0 0 8px #00f0ff;
+      transition: 0.1s;
+    }
+    input[type=range]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    .preset-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 6px;
+    }
+    .preset-btn {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: var(--text-main);
+      padding: 7px 6px;
+      border-radius: 6px;
+      font-size: 0.74rem;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s;
+    }
+    .preset-btn:hover {
+      background: rgba(0, 240, 255, 0.18);
+      border-color: #00f0ff;
+    }
+    .preset-btn.active {
+      background: rgba(0, 240, 255, 0.28);
+      border-color: #00f0ff;
+      color: #00f0ff;
+      font-weight: 600;
+    }
+
+    .indicator-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .indicator-box {
+      background: rgba(0, 0, 0, 0.35);
+      padding: 8px 10px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      text-align: center;
+    }
+    .indicator-label {
+      font-size: 0.7rem;
+      color: var(--text-dim);
+    }
+    .indicator-value {
+      font-size: 1.1rem;
+      font-family: monospace;
+      font-weight: bold;
+      color: #ffd043;
+      margin-top: 2px;
+    }
+
+    .formula-card {
+      font-family: "JetBrains Mono", Consolas, monospace;
+      font-size: 0.76rem;
+      line-height: 1.5;
+      background: rgba(3, 9, 22, 0.6);
+      padding: 10px;
+      border-radius: 6px;
+      border: 1px solid rgba(0, 240, 255, 0.15);
+      color: #a5f3fc;
+    }
+    .formula-card span.hi {
+      color: #ffd043;
+      font-weight: bold;
+    }
+    .formula-card span.cyan {
+      color: #00f0ff;
+    }
+    .formula-card span.purple {
+      color: #c084fc;
+    }
+
+    footer {
+      border-top: 1px solid var(--border-panel);
+      padding: 10px 24px;
+      font-size: 0.76rem;
+      color: var(--text-dim);
+      display: flex;
+      justify-content: space-between;
+      background: rgba(4, 10, 22, 0.9);
+      margin-top: auto;
+    }
+
+    @media (max-width: 1100px) {
+      .main-container {
+        grid-template-columns: 1fr;
+      }
+      .charts-row {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="title-area">
+      <h1>
+        <span>超导长约瑟夫森结磁通孤子棘轮全息仿真</span>
+        <span class="badge badge-soliton">正弦-戈登孤子动力学</span>
+      </h1>
+      <p>扰动正弦-戈登偏微分方程 (Perturbed Sine-Gordon)、非对称棘轮势能与零平均交流偏置下的直流超流整流</p>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-primary" id="btnInjectFluxon">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        注入单个磁通量子 (2π Kink)
+      </button>
+      <button class="btn" id="btnAudioToggle">
+        <span id="audioIcon">🔊</span>
+        <span id="audioText">孤子等离子体音频: 开</span>
+      </button>
+      <button class="btn" id="btnResetPhase">复位初态</button>
+    </div>
+  </header>
+
+  <div class="main-container">
+    <!-- 左侧实空间超导结全景与双物理曲线 -->
+    <div class="viewport-col">
+      <!-- 主画布：长约瑟夫森结 (LJJ) 空间网格与磁通孤子流动 -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00f0ff" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+            超导夹层长约瑟夫森结剖面 (Long Josephson Junction & Fluxon Soliton)
+          </div>
+          <div style="font-size:0.75rem; color:var(--text-dim)">
+            模式提示：鼠标在结上点击可添加局域微磁场钉扎缺陷
+          </div>
+        </div>
+
+        <div class="canvas-wrapper">
+          <canvas id="ljjCanvas"></canvas>
+          <div class="canvas-overlay-stats">
+            <div class="stat-tag">
+              <span style="color:#00f0ff">● 磁通孤子 (Fluxon 2π Kink)</span>：局域超流涡旋，携带单一通量子 Φ₀
+            </div>
+            <div class="stat-tag gold">
+              <span style="color:#ffd043">● 空间非对称棘轮势</span>：刻蚀截面不对称使得右向漂移阻力远低于左向
+            </div>
+            <div class="stat-tag purple" id="rectificationTag">
+              整流模式：交流摇摆超导单向泵浦 (V_dc = 18.4 μV)
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 下方解析图表：棘轮势能断面与整流 I-V 特性曲线 -->
+      <div class="charts-row">
+        <!-- 图表 1：非对称棘轮周期势能 U(x) 截面 -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ffd043" stroke-width="2"><path d="M2 12c3-4 5-8 8-8s5 8 8 8 5-8 8-8"/></svg>
+              非对称棘轮势能面 U(x) (左陡右缓单向倾斜)
+            </div>
+            <span style="font-size:0.72rem; color:#ffd043" id="asymRatioLabel">势垒不对称比: 2.4 : 1</span>
+          </div>
+          <div class="chart-box">
+            <canvas id="ratchetPotentialCanvas"></canvas>
+          </div>
+        </div>
+
+        <!-- 图表 2：宏观整流直流电压 V_dc 与交流幅值关系曲线 -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#c084fc" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+              直流整流超流电压 V_dc (交流幅值 γ₀ 扫描曲线)
+            </div>
+            <span style="font-size:0.72rem; color:#c084fc" id="dcVoltageLabel">V_dc = 18.4 μV</span>
+          </div>
+          <div class="chart-box">
+            <canvas id="rectificationCanvas"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 右侧控制与参数调整面板 -->
+    <div class="controls-col">
+      <!-- 预设操作场景 -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">非线性孤子工况快速预设</div>
+        </div>
+        <div class="preset-grid">
+          <button class="preset-btn active" data-preset="unidirectional_pump">零偏置单向孤子泵浦</button>
+          <button class="preset-btn" data-preset="shapiro_step">相干锁模沙皮罗整步</button>
+          <button class="preset-btn" data-preset="thermal_ratchet">热激活布朗马达效应</button>
+          <button class="preset-btn" data-preset="soliton_collision">磁通-反磁通对撞湮灭</button>
+        </div>
+      </div>
+
+      <!-- 核心正弦-戈登偏微分方程参数 -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">超导微波与棘轮控制参数</div>
+        </div>
+
+        <div class="control-group">
+          <div class="control-header">
+            <span>零均值交流驱动幅值 γ₀ (I_ac / I_c)</span>
+            <span class="control-val" id="valGamma0">0.32</span>
+          </div>
+          <input type="range" id="sliderGamma0" min="0.00" max="0.80" step="0.01" value="0.32">
+          <div style="font-size:0.7rem; color:var(--text-dim); margin-top:2px;">
+            时间积分 ⟨γ(t)⟩ = 0，仅由空间不对称破缺诱发宏观直流电荷输运
+          </div>
+        </div>
+
+        <div class="control-group">
+          <div class="control-header">
+            <span>交流驱动频率 ω (ω / ω_p)</span>
+            <span class="control-val" id="valFreq">0.18</span>
+          </div>
+          <input type="range" id="sliderFreq" min="0.05" max="0.60" step="0.01" value="0.18">
+        </div>
+
+        <div class="control-group">
+          <div class="control-header">
+            <span>势垒空间不对称度 Δ_asym</span>
+            <span class="control-val" id="valAsym">0.38</span>
+          </div>
+          <input type="range" id="sliderAsym" min="0.00" max="0.75" step="0.02" value="0.38">
+          <div style="font-size:0.7rem; color:var(--text-dim); margin-top:2px;">
+            Δ=0 为对称无整流；增加不对称度增强整流效率
+          </div>
+        </div>
+
+        <div class="control-group">
+          <div class="control-header">
+            <span>准粒子耗散阻尼系数 α (McCumber 参数)</span>
+            <span class="control-val" id="valAlpha">0.12</span>
+          </div>
+          <input type="range" id="sliderAlpha" min="0.02" max="0.40" step="0.01" value="0.12">
+        </div>
+
+        <div class="control-group">
+          <div class="control-header">
+            <span>热涨落噪声强度 k_B T (Kelvin)</span>
+            <span class="control-val" id="valNoise">0.05</span>
+          </div>
+          <input type="range" id="sliderNoise" min="0.00" max="0.25" step="0.01" value="0.05">
+        </div>
+      </div>
+
+      <!-- 实时状态指标 -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">超导动力学测量指标</div>
+        </div>
+        <div class="indicator-grid">
+          <div class="indicator-box">
+            <div class="indicator-label">直流整流电压 V_dc</div>
+            <div class="indicator-value" id="indVdc">18.4 μV</div>
+          </div>
+          <div class="indicator-box">
+            <div class="indicator-label">磁通孤子平均漂移速</div>
+            <div class="indicator-value" id="indVdrift" style="color:#00f0ff">0.42 c̄</div>
+          </div>
+          <div class="indicator-box">
+            <div class="indicator-label">结内孤子拓扑计数</div>
+            <div class="indicator-value" id="indSolitonCount" style="color:#c084fc">3 Kinks</div>
+          </div>
+          <div class="indicator-box">
+            <div class="indicator-label">整流超流功率输出</div>
+            <div class="indicator-value" id="indPower" style="color:#ffd043">0.68 nW</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 核心数学与物理公式卡片 -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">正弦-戈登孤子与棘轮方程</div>
+        </div>
+        <div class="formula-card">
+          <p>偏微分方程：<span class="cyan">ϕ_tt - ϕ_xx + sin ϕ = -α ϕ_t + γ(t) + f(x)</span></p>
+          <p>单孤子解：<span class="hi">ϕ(x,t) = 4 arctan[ exp( (x-X(t)) / √(1-u²) ) ]</span></p>
+          <p style="margin-top:4px;">交流零均值驱动：γ(t) = γ₀ sin(ωt)</p>
+          <div style="border-top:1px dashed rgba(0,240,255,0.25); margin:6px 0; padding-top:4px;">
+            <p>非对称棘轮势：<span class="purple">U(x) = -A [ sin(kx) + ¼ sin(2kx + θ) ]</span></p>
+            <p>宏观直流电压：<span class="hi">V_dc = (Φ₀ / 2π) ⟨ϕ_t⟩ = (Φ₀ / L) ⟨v_drift⟩</span></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <div>长约瑟夫森结磁通孤子棘轮 (Josephson Vortex Ratchet) · 拓扑孤子动力学全息模拟引擎</div>
+    <div>纯前端有限差分偏微分方程数值解 · 正弦-戈登方程非线性模拟 · 空间反演破缺单向整流 · Web Audio 物理声学</div>
+  </footer>
+
+  <script>
+    // --- 物理常数与离散化网格 ---
+    const PHI_0 = 2.067833848e-15; // 磁通量子 Wb
+
+    const PARAMS = {
+      gamma0: 0.32,       // 交流幅值
+      freq: 0.18,         // 交流频率 (以等离子体频率归一化)
+      asym: 0.38,         // 不对称度
+      alpha: 0.12,        // 阻尼系数
+      noise: 0.05,        // 热噪声
+      audioEnabled: true
+    };
+
+    // 离散一维长约瑟夫森结有限差分网格
+    const GRID_SIZE = 120; // 空间网格点数
+    const DX = 0.25;       // 空间步长 dx (结全长 L = 30 约瑟夫森深度 λ_J)
+    const DT = 0.08;       // 时间步长 dt (满足 CFL 稳定性 dt < dx)
+
+    // 相位差场 ϕ(x), 速度场 ϕ_t(x), 加速度场 ϕ_tt(x)
+    const phi = new Float32Array(GRID_SIZE);
+    const phiPrev = new Float32Array(GRID_SIZE);
+    const phiDot = new Float32Array(GRID_SIZE);
+
+    // 空间非对称势能梯度导数 f(x)
+    const ratchetForce = new Float32Array(GRID_SIZE);
+
+    // 历史直流整流电压
+    const V_HIST_LEN = 120;
+    const vdcHistory = [];
+    for (let i = 0; i < V_HIST_LEN; i++) vdcHistory.push(0);
+
+    // 仿真物理时间
+    let simTime = 0;
+    let netPhaseDiff = 0;
+
+    // Web Audio 节点
+    let audioCtx = null;
+    let plasmaOsc = null;
+    let plasmaGain = null;
+    let pulseNoise = null;
+    let noiseGain = null;
+
+    // --- Web Audio 真实等离子体超导声学环境 ---
+    function initAudio() {
+      if (audioCtx) return;
+      try {
+        const AudioClass = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioClass();
+
+        // 约瑟夫森等离子体振荡纯音 (240~720 Hz)
+        plasmaOsc = audioCtx.createOscillator();
+        plasmaOsc.type = 'sawtooth';
+        plasmaOsc.frequency.setValueAtTime(320, audioCtx.currentTime);
+
+        plasmaGain = audioCtx.createGain();
+        plasmaGain.gain.setValueAtTime(0.025, audioCtx.currentTime);
+
+        plasmaOsc.connect(plasmaGain);
+        plasmaGain.connect(audioCtx.destination);
+        plasmaOsc.start();
+
+        // 磁通孤子穿梭白噪声脉冲
+        const bufferSize = audioCtx.sampleRate * 2;
+        const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+        const data = noiseBuffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          data[i] = (Math.random() * 2 - 1) * 0.07;
+        }
+
+        pulseNoise = audioCtx.createBufferSource();
+        pulseNoise.buffer = noiseBuffer;
+        pulseNoise.loop = true;
+
+        const noiseFilter = audioCtx.createBiquadFilter();
+        noiseFilter.type = 'bandpass';
+        noiseFilter.frequency.value = 1100;
+
+        noiseGain = audioCtx.createGain();
+        noiseGain.gain.setValueAtTime(0.015, audioCtx.currentTime);
+
+        pulseNoise.connect(noiseFilter);
+        noiseFilter.connect(noiseGain);
+        noiseGain.connect(audioCtx.destination);
+        pulseNoise.start();
+      } catch (e) {
+        console.warn("Web Audio 异常:", e);
+      }
+    }
+
+    function updateAudio(vDrift) {
+      if (!audioCtx || !PARAMS.audioEnabled) return;
+
+      // 孤子漂移越快，音调随等离子体波多普勒频移
+      const targetFreq = 260 + Math.abs(vDrift) * 450;
+      plasmaOsc.frequency.setTargetAtTime(targetFreq, audioCtx.currentTime, 0.06);
+
+      const targetGain = Math.min(0.06, 0.015 + Math.abs(vDrift) * 0.035);
+      plasmaGain.gain.setTargetAtTime(targetGain, audioCtx.currentTime, 0.06);
+    }
+
+    // --- 初始化场与非对称势能 ---
+    function initFields() {
+      // 预先放置 3 个等间距的 2π Kink (约瑟夫森磁通孤子)
+      for (let i = 0; i < GRID_SIZE; i++) {
+        const x = i * DX;
+        // 3 个孤子的叠加近似
+        let p = 0;
+        const centers = [7.5, 15.0, 22.5];
+        for (let c of centers) {
+          p += 4.0 * Math.atan(Math.exp((x - c) / 1.15));
+        }
+        phi[i] = p;
+        phiPrev[i] = p;
+        phiDot[i] = 0;
+      }
+
+      updateRatchetPotential();
+    }
+
+    function updateRatchetPotential() {
+      // 非对称周期棘轮势导数：
+      // f(x) = -dU/dx = -A * [ (2π/L) cos(2π x/L) + Δ * (4π/L) cos(4π x/L) ]
+      const periodL = 7.5; // 每隔 7.5 λ_J 一个棘轮齿
+      const k1 = (2.0 * Math.PI) / periodL;
+      const k2 = 2.0 * k1;
+      const amp = 0.28;
+
+      for (let i = 0; i < GRID_SIZE; i++) {
+        const x = i * DX;
+        ratchetForce[i] = -amp * (Math.cos(k1 * x) + PARAMS.asym * Math.cos(k2 * x));
+      }
+    }
+
+    // --- 扰动正弦-戈登方程高精度差分求解步进 ---
+    function stepSineGordon() {
+      simTime += DT;
+
+      // 零均值时间对称驱动交流电流 γ(t) = γ₀ sin(ω t)
+      const acCurrent = PARAMS.gamma0 * Math.sin(PARAMS.freq * simTime);
+
+      const dx2 = DX * DX;
+      const dt2 = DT * DT;
+
+      let sumPhiDot = 0;
+
+      // 显式蛙跳有限差分积分
+      for (let i = 1; i < GRID_SIZE - 1; i++) {
+        // 空间二阶拉普拉斯导数 ϕ_xx
+        const laplacian = (phi[i + 1] - 2.0 * phi[i] + phi[i - 1]) / dx2;
+
+        // 非线性超流与扰动项：-sin(ϕ) - α ϕ_t + γ(t) + f(x) + thermalNoise
+        const sinPhi = Math.sin(phi[i]);
+        const damping = -PARAMS.alpha * phiDot[i];
+        const thermal = (Math.random() - 0.5) * PARAMS.noise * 1.8;
+        const f_ratchet = ratchetForce[i];
+
+        const accel = laplacian - sinPhi + damping + acCurrent + f_ratchet + thermal;
+
+        // 速度更新 (中点法)
+        phiDot[i] += accel * DT;
+        phi[i] += phiDot[i] * DT;
+
+        sumPhiDot += phiDot[i];
+      }
+
+      // 周期性或无反射吸收边界条件
+      phi[0] = phi[GRID_SIZE - 2] - 6.0 * Math.PI; // 拓扑绕数匹配
+      phi[GRID_SIZE - 1] = phi[1] + 6.0 * Math.PI;
+      phiDot[0] = phiDot[GRID_SIZE - 2];
+      phiDot[GRID_SIZE - 1] = phiDot[1];
+
+      // 计算宏观直流整流电压 V_dc = (Φ₀ / 2π) ⟨ϕ_t⟩
+      const avgPhiDot = sumPhiDot / (GRID_SIZE - 2);
+      const vdc_uV = (avgPhiDot * 28.5); // 微伏换算
+
+      vdcHistory.push(vdc_uV);
+      if (vdcHistory.length > V_HIST_LEN) vdcHistory.shift();
+
+      // 孤子平均漂移速度 v_drift (以斯威哈特速度 c̄ 归一化)
+      const vDrift = Math.max(-1.0, Math.min(1.0, (avgPhiDot / (2.0 * Math.PI)) * 7.5));
+
+      updateAudio(vDrift);
+
+      // DOM 数值更新
+      document.getElementById('indVdc').textContent = `${vdc_uV.toFixed(1)} μV`;
+      document.getElementById('indVdrift').textContent = `${vDrift.toFixed(2)} c̄`;
+      document.getElementById('dcVoltageLabel').textContent = `V_dc = ${vdc_uV.toFixed(1)} μV`;
+      const pNw = (Math.abs(vdc_uV) * 0.038).toFixed(2);
+      document.getElementById('indPower').textContent = `${pNw} nW`;
+
+      const rectTag = document.getElementById('rectificationTag');
+      if (Math.abs(vdc_uV) > 3.0) {
+        rectTag.innerHTML = `整流模式：<span style="color:#ffd043">超导单向泵浦开启 (V_dc = ${vdc_uV.toFixed(1)} μV)</span>`;
+      } else {
+        rectTag.innerHTML = `整流模式：<span style="color:#7aa2c7">对称振荡或捕获无净输运 (V_dc ≈ 0)</span>`;
+      }
+    }
+
+    // --- 画布与上下文 ---
+    const ljjCanvas = document.getElementById('ljjCanvas');
+    const ljjCtx = ljjCanvas.getContext('2d');
+
+    const ratchetCanvas = document.getElementById('ratchetPotentialCanvas');
+    const ratchetCtx = ratchetCanvas.getContext('2d');
+
+    const rectCanvas = document.getElementById('rectificationCanvas');
+    const rectCtx = rectCanvas.getContext('2d');
+
+    function resizeCanvas() {
+      const dpr = window.devicePixelRatio || 1;
+
+      const rectLjj = ljjCanvas.getBoundingClientRect();
+      ljjCanvas.width = rectLjj.width * dpr;
+      ljjCanvas.height = rectLjj.height * dpr;
+      ljjCtx.resetTransform();
+      ljjCtx.scale(dpr, dpr);
+
+      const rectR = ratchetCanvas.getBoundingClientRect();
+      ratchetCanvas.width = rectR.width * dpr;
+      ratchetCanvas.height = rectR.height * dpr;
+      ratchetCtx.resetTransform();
+      ratchetCtx.scale(dpr, dpr);
+
+      const rectC = rectCanvas.getBoundingClientRect();
+      rectCanvas.width = rectC.width * dpr;
+      rectCanvas.height = rectC.height * dpr;
+      rectCtx.resetTransform();
+      rectCtx.scale(dpr, dpr);
+    }
+
+    window.addEventListener('resize', resizeCanvas);
+
+    // --- 视口 1：超导长约瑟夫森结剖面与磁通孤子实空间渲染 ---
+    function renderLJJ() {
+      const w = ljjCanvas.clientWidth;
+      const h = ljjCanvas.clientHeight;
+
+      ljjCtx.fillStyle = '#01040a';
+      ljjCtx.fillRect(0, 0, w, h);
+
+      // 1. 绘制长约瑟夫森结三明治构型 (上超导体 - 绝缘势垒氧化层 - 下超导体)
+      const junctionTop = 135;
+      const barrierH = 50;
+      const junctionBottom = junctionTop + barrierH;
+
+      // 上超导体 (Upper Superconductor Nb)
+      ljjCtx.fillStyle = 'rgba(6, 28, 56, 0.75)';
+      ljjCtx.fillRect(20, 50, w - 40, junctionTop - 50);
+      ljjCtx.strokeStyle = 'rgba(0, 240, 255, 0.35)';
+      ljjCtx.lineWidth = 1.5;
+      ljjCtx.strokeRect(20, 50, w - 40, junctionTop - 50);
+
+      // 下超导体 (Lower Superconductor)
+      ljjCtx.fillRect(20, junctionBottom, w - 40, junctionTop - 50);
+      ljjCtx.strokeRect(20, junctionBottom, w - 40, junctionTop - 50);
+
+      // 中间绝缘氧化势垒层 (AlOx Barrier with Asymmetric Ratchet Teeth)
+      ljjCtx.fillStyle = 'rgba(255, 208, 67, 0.12)';
+      ljjCtx.fillRect(20, junctionTop, w - 40, barrierH);
+
+      // 绘制周期性非对称棘轮锯齿齿形微结构
+      const teethCount = 8;
+      const teethW = (w - 40) / teethCount;
+      ljjCtx.strokeStyle = 'rgba(255, 208, 67, 0.45)';
+      ljjCtx.lineWidth = 1.5;
+      ljjCtx.beginPath();
+      for (let i = 0; i < teethCount; i++) {
+        const tx = 20 + i * teethW;
+        // 左陡右缓锯齿
+        ljjCtx.moveTo(tx, junctionBottom);
+        ljjCtx.lineTo(tx + teethW * (0.28 - PARAMS.asym * 0.15), junctionTop + 8);
+        ljjCtx.lineTo(tx + teethW, junctionBottom);
+      }
+      ljjCtx.stroke();
+
+      // 2. 在中间势垒层渲染局域超导磁场与涡旋孤子 (B(x) = ∂ϕ/∂x)
+      const plotW = w - 40;
+      const stepPx = plotW / (GRID_SIZE - 1);
+
+      for (let i = 1; i < GRID_SIZE - 1; i++) {
+        const px = 20 + i * stepPx;
+        // 磁场密度 B(x) = (ϕ[i+1] - ϕ[i-1]) / (2*dx)
+        const Bx = (phi[i + 1] - phi[i - 1]) / (2.0 * DX);
+        const normB = Math.max(0.0, Math.min(1.0, Math.abs(Bx) / 2.2));
+
+        if (normB > 0.08) {
+          // 渲染磁通孤子发光核 (Fluxon Core)
+          const grad = ljjCtx.createRadialGradient(px, junctionTop + barrierH / 2, 2, px, junctionTop + barrierH / 2, 28);
+          grad.addColorStop(0, '#ffffff');
+          grad.addColorStop(0.35, 'rgba(0, 240, 255, 0.85)');
+          grad.addColorStop(1, 'rgba(0, 240, 255, 0.0)');
+
+          ljjCtx.beginPath();
+          ljjCtx.arc(px, junctionTop + barrierH / 2, 26, 0, Math.PI * 2);
+          ljjCtx.fillStyle = grad;
+          ljjCtx.fill();
+
+          // 涡旋磁力线流光指示
+          ljjCtx.beginPath();
+          ljjCtx.arc(px, junctionTop + barrierH / 2, 8, 0, Math.PI * 2);
+          ljjCtx.fillStyle = '#00f0ff';
+          ljjCtx.shadowColor = '#00f0ff';
+          ljjCtx.shadowBlur = 12;
+          ljjCtx.fill();
+          ljjCtx.shadowBlur = 0;
+        }
+      }
+
+      // 3. 在下方绘制宏观相位差分布曲线 ϕ(x)
+      const graphY = 320;
+      const graphH = 100;
+      ljjCtx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+      ljjCtx.lineWidth = 1;
+      ljjCtx.strokeRect(20, graphY, plotW, graphH);
+
+      ljjCtx.beginPath();
+      ljjCtx.strokeStyle = '#c084fc';
+      ljjCtx.lineWidth = 2.5;
+
+      for (let i = 0; i < GRID_SIZE; i++) {
+        const x = 20 + i * stepPx;
+        // 归一化相位差波形 (模 6π 绘制连续拓扑扭结)
+        const normPhi = (phi[i] % (Math.PI * 6.0)) / (Math.PI * 6.0);
+        const y = graphY + graphH * (1.0 - Math.max(0.0, Math.min(1.0, normPhi)));
+
+        if (i === 0) ljjCtx.moveTo(x, y);
+        else ljjCtx.lineTo(x, y);
+      }
+      ljjCtx.stroke();
+
+      // 标注
+      ljjCtx.fillStyle = '#00f0ff';
+      ljjCtx.font = '10px "JetBrains Mono", Consolas, monospace';
+      ljjCtx.fillText('上超导体 Nb 电极', 30, 72);
+      ljjCtx.fillText('下超导体 Nb 电极', 30, junctionBottom + 35);
+      ljjCtx.fillStyle = '#ffd043';
+      ljjCtx.fillText('非对称刻蚀绝缘层 (AlOx Ratchet Barrier)', 30, junctionTop + 30);
+      ljjCtx.fillStyle = '#c084fc';
+      ljjCtx.fillText('超导相位差分布 ϕ(x) (2π 阶跃扭结拓扑孤子)', 30, graphY + 18);
+    }
+
+    // --- 图表 1：非对称棘轮周期势能 U(x) 截面渲染 ---
+    function renderRatchetPotential() {
+      const w = ratchetCanvas.clientWidth;
+      const h = ratchetCanvas.clientHeight;
+      ratchetCtx.fillStyle = '#01040a';
+      ratchetCtx.fillRect(0, 0, w, h);
+
+      // 坐标轴
+      ratchetCtx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+      ratchetCtx.lineWidth = 1;
+      const midY = h / 2;
+
+      ratchetCtx.beginPath();
+      ratchetCtx.moveTo(15, midY); ratchetCtx.lineTo(w - 15, midY);
+      ratchetCtx.stroke();
+
+      // 绘制周期势能 U(x) = -A [ sin(kx) + ¼ sin(2kx) ]
+      const periodL = w * 0.42;
+      const k1 = (2.0 * Math.PI) / periodL;
+      const k2 = 2.0 * k1;
+      const amp = h * 0.32;
+
+      ratchetCtx.beginPath();
+      ratchetCtx.strokeStyle = '#ffd043';
+      ratchetCtx.lineWidth = 2.5;
+
+      for (let x = 15; x <= w - 15; x++) {
+        const u = -amp * (Math.sin(k1 * x) + PARAMS.asym * 0.45 * Math.sin(k2 * x));
+        const y = midY + u;
+        if (x === 15) ratchetCtx.moveTo(x, y);
+        else ratchetCtx.lineTo(x, y);
+      }
+      ratchetCtx.stroke();
+
+      // 标出有效孤子质点小球在势阱中的滚动
+      const beadX = 15 + ((simTime * 35.0) % (w - 30));
+      const beadU = -amp * (Math.sin(k1 * beadX) + PARAMS.asym * 0.45 * Math.sin(k2 * beadX));
+      const beadY = midY + beadU;
+
+      ratchetCtx.beginPath();
+      ratchetCtx.arc(beadX, beadY, 5, 0, Math.PI * 2);
+      ratchetCtx.fillStyle = '#00f0ff';
+      ratchetCtx.shadowColor = '#00f0ff';
+      ratchetCtx.shadowBlur = 8;
+      ratchetCtx.fill();
+      ratchetCtx.shadowBlur = 0;
+
+      // 标注
+      ratchetCtx.fillStyle = '#ffd043';
+      ratchetCtx.font = '9px monospace';
+      ratchetCtx.fillText('左陡势垒 (高阻)', 25, midY - amp - 4);
+      ratchetCtx.fillText('右缓势垒 (易滑)', periodL * 0.75, midY + amp + 14);
+    }
+
+    // --- 图表 2：宏观整流直流电压 V_dc 随交流驱动幅值曲线 ---
+    function renderRectification() {
+      const w = rectCanvas.clientWidth;
+      const h = rectCanvas.clientHeight;
+      rectCtx.fillStyle = '#01040a';
+      rectCtx.fillRect(0, 0, w, h);
+
+      // 坐标轴
+      const padL = 35;
+      const padB = 25;
+      const plotW = w - padL - 15;
+      const plotH = h - padB - 15;
+
+      rectCtx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+      rectCtx.lineWidth = 1;
+      rectCtx.strokeRect(padL, 15, plotW, plotH);
+
+      // 零电压基线
+      const zeroY = 15 + plotH / 2;
+      rectCtx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+      rectCtx.setLineDash([3, 3]);
+      rectCtx.beginPath();
+      rectCtx.moveTo(padL, zeroY); rectCtx.lineTo(padL + plotW, zeroY);
+      rectCtx.stroke();
+      rectCtx.setLineDash([]);
+
+      // 绘制实时滚动整流电压 V_dc 历史曲线
+      if (vdcHistory.length > 1) {
+        rectCtx.beginPath();
+        rectCtx.strokeStyle = '#c084fc';
+        rectCtx.lineWidth = 2.2;
+
+        for (let i = 0; i < vdcHistory.length; i++) {
+          const v = vdcHistory[i];
+          const x = padL + (i / (V_HIST_LEN - 1)) * plotW;
+          // 满量程 ±40 μV
+          const normV = v / 40.0;
+          const y = zeroY - normV * (plotH * 0.45);
+
+          if (i === 0) rectCtx.moveTo(x, y);
+          else rectCtx.lineTo(x, y);
+        }
+        rectCtx.stroke();
+
+        // 当前工作点高亮
+        const lastV = vdcHistory[vdcHistory.length - 1];
+        const curY = zeroY - (lastV / 40.0) * (plotH * 0.45);
+        rectCtx.beginPath();
+        rectCtx.arc(padL + plotW, curY, 4.5, 0, Math.PI * 2);
+        rectCtx.fillStyle = '#ffffff';
+        rectCtx.shadowColor = '#c084fc';
+        rectCtx.shadowBlur = 8;
+        rectCtx.fill();
+        rectCtx.shadowBlur = 0;
+      }
+
+      // 标注
+      rectCtx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+      rectCtx.font = '9px monospace';
+      rectCtx.fillText('时间演化 t', padL + plotW / 2 - 25, 15 + plotH + 14);
+      rectCtx.fillText('V_dc (μV)', 5, 24);
+      rectCtx.fillText('+40', padL - 25, 24);
+      rectCtx.fillText('0', padL - 15, zeroY + 4);
+      rectCtx.fillText('-40', padL - 25, 15 + plotH);
+    }
+
+    // --- 主循环动效 ---
+    function animate() {
+      // 细分多次数值子步保持有限差分稳定性
+      const subSteps = 6;
+      for (let s = 0; s < subSteps; s++) {
+        stepSineGordon();
+      }
+
+      renderLJJ();
+      renderRatchetPotential();
+      renderRectification();
+
+      requestAnimationFrame(animate);
+    }
+
+    // --- 交互控制与事件绑定 ---
+    const sliderGamma = document.getElementById('sliderGamma0');
+    sliderGamma.addEventListener('input', (e) => {
+      PARAMS.gamma0 = parseFloat(e.target.value);
+      document.getElementById('valGamma0').textContent = PARAMS.gamma0.toFixed(2);
+    });
+
+    const sliderFreq = document.getElementById('sliderFreq');
+    sliderFreq.addEventListener('input', (e) => {
+      PARAMS.freq = parseFloat(e.target.value);
+      document.getElementById('valFreq').textContent = PARAMS.freq.toFixed(2);
+    });
+
+    const sliderAsym = document.getElementById('sliderAsym');
+    sliderAsym.addEventListener('input', (e) => {
+      PARAMS.asym = parseFloat(e.target.value);
+      document.getElementById('valAsym').textContent = PARAMS.asym.toFixed(2);
+      updateRatchetPotential();
+      const asymRatio = (1.0 + PARAMS.asym) / (1.0 - PARAMS.asym + 1e-4);
+      document.getElementById('asymRatioLabel').textContent = `势垒不对称比: ${asymRatio.toFixed(1)} : 1`;
+    });
+
+    const sliderAlpha = document.getElementById('sliderAlpha');
+    sliderAlpha.addEventListener('input', (e) => {
+      PARAMS.alpha = parseFloat(e.target.value);
+      document.getElementById('valAlpha').textContent = PARAMS.alpha.toFixed(2);
+    });
+
+    const sliderNoise = document.getElementById('sliderNoise');
+    sliderNoise.addEventListener('input', (e) => {
+      PARAMS.noise = parseFloat(e.target.value);
+      document.getElementById('valNoise').textContent = PARAMS.noise.toFixed(2);
+    });
+
+    // 预设快速切换
+    const presetBtns = document.querySelectorAll('.preset-btn');
+    presetBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        presetBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        const preset = btn.dataset.preset;
+        if (preset === 'unidirectional_pump') {
+          PARAMS.gamma0 = 0.32;
+          PARAMS.freq = 0.18;
+          PARAMS.asym = 0.40;
+          PARAMS.noise = 0.02;
+        } else if (preset === 'shapiro_step') {
+          PARAMS.gamma0 = 0.55; // 强交流驱动
+          PARAMS.freq = 0.25;
+          PARAMS.asym = 0.30;
+          PARAMS.noise = 0.01;
+        } else if (preset === 'thermal_ratchet') {
+          PARAMS.gamma0 = 0.12; // 弱交流晃动
+          PARAMS.freq = 0.10;
+          PARAMS.asym = 0.50;
+          PARAMS.noise = 0.18; // 强热活化布朗马达
+        } else if (preset === 'soliton_collision') {
+          PARAMS.gamma0 = 0.20;
+          PARAMS.asym = 0.15;
+          // 手动注入反孤子对撞
+          for (let i = 0; i < GRID_SIZE; i++) {
+            const x = i * DX;
+            phi[i] = 4.0 * Math.atan(Math.exp((x - 6.0) / 1.0)) - 4.0 * Math.atan(Math.exp((x - 22.0) / 1.0));
+            phiDot[i] = 0;
+          }
+        }
+
+        // 同步控件
+        sliderGamma.value = PARAMS.gamma0;
+        sliderFreq.value = PARAMS.freq;
+        sliderAsym.value = PARAMS.asym;
+        sliderNoise.value = PARAMS.noise;
+        document.getElementById('valGamma0').textContent = PARAMS.gamma0.toFixed(2);
+        document.getElementById('valFreq').textContent = PARAMS.freq.toFixed(2);
+        document.getElementById('valAsym').textContent = PARAMS.asym.toFixed(2);
+        document.getElementById('valNoise').textContent = PARAMS.noise.toFixed(2);
+        updateRatchetPotential();
+      });
+    });
+
+    // 顶部按钮操作
+    document.getElementById('btnInjectFluxon').addEventListener('click', () => {
+      initAudio();
+      // 在中心注入一个额外的 2π Kink
+      for (let i = 0; i < GRID_SIZE; i++) {
+        const x = i * DX;
+        phi[i] += 4.0 * Math.atan(Math.exp((x - 15.0) / 1.0));
+      }
+    });
+
+    document.getElementById('btnAudioToggle').addEventListener('click', () => {
+      PARAMS.audioEnabled = !PARAMS.audioEnabled;
+      const icon = document.getElementById('audioIcon');
+      const text = document.getElementById('audioText');
+      if (PARAMS.audioEnabled) {
+        initAudio();
+        icon.textContent = '🔊';
+        text.textContent = '孤子等离子体音频: 开';
+      } else {
+        icon.textContent = '🔇';
+        text.textContent = '孤子等离子体音频: 关';
+        if (plasmaGain) plasmaGain.gain.setValueAtTime(0, audioCtx.currentTime);
+        if (noiseGain) noiseGain.gain.setValueAtTime(0, audioCtx.currentTime);
+      }
+    });
+
+    document.getElementById('btnResetPhase').addEventListener('click', () => {
+      initFields();
+    });
+
+    // 鼠标在结上点击添加局域钉扎微陷阱
+    ljjCanvas.addEventListener('click', (e) => {
+      initAudio();
+      const rect = ljjCanvas.getBoundingClientRect();
+      const cx = e.clientX - rect.left;
+      const idx = Math.floor(((cx - 20) / (ljjCanvas.clientWidth - 40)) * GRID_SIZE);
+      if (idx >= 0 && idx < GRID_SIZE) {
+        // 在该点附加一个强钉扎势能谷底
+        ratchetForce[idx] += 0.85;
+      }
+    });
+
+    // 初始化运行
+    initFields();
+    resizeCanvas();
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>

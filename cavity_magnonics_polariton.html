@@ -1,0 +1,1115 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>腔磁振子极化激元与自旋-光子强耦合全息模拟 - Cavity Magnon-Polariton & Quantum Transduction</title>
+  <style>
+    :root {
+      --bg-dark: #020617;
+      --panel-bg: rgba(10, 16, 32, 0.88);
+      --panel-border: rgba(56, 189, 248, 0.28);
+      --accent-photon: #38bdf8;
+      --accent-magnon: #ec4899;
+      --accent-upper: #a855f7;
+      --accent-lower: #10b981;
+      --accent-gold: #f59e0b;
+      --text-main: #f8fafc;
+      --text-dim: #94a3b8;
+      --font-code: 'JetBrains Mono', 'Fira Code', monospace;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      background: rgba(8, 14, 28, 0.96);
+      border-bottom: 1px solid var(--panel-border);
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 10;
+      flex-shrink: 0;
+    }
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .logo-badge {
+      background: linear-gradient(135deg, #38bdf8, #ec4899, #a855f7);
+      color: #fff;
+      font-weight: 800;
+      font-size: 13px;
+      padding: 3px 9px;
+      border-radius: 6px;
+      letter-spacing: 0.5px;
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.4);
+    }
+    h1 {
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+      background: linear-gradient(to right, #ffffff, #bae6fd, #fbcfe8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .status-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-family: var(--font-code);
+      background: rgba(56, 189, 248, 0.12);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      color: #38bdf8;
+      padding: 4px 10px;
+      border-radius: 20px;
+    }
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #38bdf8;
+      box-shadow: 0 0 8px #38bdf8;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+    .btn {
+      background: rgba(56, 189, 248, 0.14);
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      color: #e0f2fe;
+      padding: 5px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 500;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .btn:hover {
+      background: rgba(56, 189, 248, 0.28);
+      border-color: #7dd3fc;
+      color: #ffffff;
+    }
+    .btn.active {
+      background: #0284c7;
+      border-color: #38bdf8;
+      color: #ffffff;
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+    }
+    .main-container {
+      display: flex;
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+    #viewport-container {
+      flex: 1;
+      position: relative;
+      background: radial-gradient(circle at 50% 50%, #07132c 0%, #020617 90%);
+      overflow: hidden;
+    }
+    canvas#main-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    .hud-overlay {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      z-index: 5;
+    }
+    .hud-card {
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      backdrop-filter: blur(12px);
+      border-radius: 8px;
+      padding: 12px 16px;
+      pointer-events: auto;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+      min-width: 270px;
+    }
+    .hud-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-dim);
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .hud-stat-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .hud-stat-item {
+      display: flex;
+      flex-direction: column;
+    }
+    .hud-stat-label {
+      font-size: 10px;
+      color: var(--text-dim);
+      font-family: var(--font-code);
+    }
+    .hud-stat-val {
+      font-size: 14px;
+      font-weight: 700;
+      font-family: var(--font-code);
+      color: #ffffff;
+    }
+    .hud-stat-val.photon { color: var(--accent-photon); }
+    .hud-stat-val.magnon { color: var(--accent-magnon); }
+    .hud-stat-val.upper { color: var(--accent-upper); }
+    .hud-stat-val.lower { color: var(--accent-lower); }
+    .side-panel {
+      width: 440px;
+      background: var(--panel-bg);
+      border-left: 1px solid var(--panel-border);
+      backdrop-filter: blur(16px);
+      display: flex;
+      flex-direction: column;
+      z-index: 5;
+      overflow-y: auto;
+    }
+    .panel-section {
+      padding: 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .section-title {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: #bae6fd;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .preset-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .control-group {
+      margin-bottom: 12px;
+    }
+    .control-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+      font-size: 12px;
+    }
+    .control-label {
+      color: #cbd5e1;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .control-val {
+      font-family: var(--font-code);
+      color: #38bdf8;
+      font-weight: 600;
+    }
+    input[type=range] {
+      width: 100%;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 2px;
+      outline: none;
+      -webkit-appearance: none;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #0284c7;
+      cursor: pointer;
+      box-shadow: 0 0 8px rgba(56, 189, 248, 0.8);
+      border: 1px solid #bae6fd;
+    }
+    .scope-box {
+      background: rgba(2, 6, 23, 0.7);
+      border: 1px solid rgba(56, 189, 248, 0.2);
+      border-radius: 6px;
+      padding: 10px;
+      margin-top: 6px;
+      position: relative;
+    }
+    .scope-box canvas {
+      width: 100%;
+      height: 135px;
+      display: block;
+    }
+    .scope-legend {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      color: var(--text-dim);
+      font-family: var(--font-code);
+      margin-top: 6px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .legend-color {
+      width: 8px;
+      height: 8px;
+      border-radius: 2px;
+    }
+    .info-callout {
+      background: rgba(56, 189, 248, 0.08);
+      border-left: 3px solid #38bdf8;
+      padding: 8px 12px;
+      font-size: 11px;
+      line-height: 1.5;
+      color: #cbd5e1;
+      border-radius: 0 4px 4px 0;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="header-left">
+      <span class="logo-badge">CMP</span>
+      <h1>腔磁振子极化激元与自旋-光子强耦合全息模拟</h1>
+    </div>
+    <div class="header-right">
+      <div class="status-pill" id="coupling-pill">
+        <span class="status-dot"></span>
+        <span id="coupling-text">超强耦合态 (C = 144)</span>
+      </div>
+      <button class="btn" id="btn-audio">
+        <span id="audio-icon">🔊</span> 相干拍频声效
+      </button>
+      <button class="btn" id="btn-reset">重置视角</button>
+    </div>
+  </header>
+
+  <div class="main-container">
+    <div id="viewport-container">
+      <canvas id="main-canvas"></canvas>
+
+      <div class="hud-overlay">
+        <div class="hud-card">
+          <div class="hud-title">
+            <span>电磁与自旋遥测 (Hybrid Telemetry)</span>
+            <span style="color:#38bdf8; font-family:var(--font-code)">YIG-Cavity</span>
+          </div>
+          <div class="hud-stat-grid">
+            <div class="hud-stat-item">
+              <span class="hud-stat-label">微波腔模 f_c</span>
+              <span class="hud-stat-val photon" id="val-fc">10.00 GHz</span>
+            </div>
+            <div class="hud-stat-item">
+              <span class="hud-stat-label">基特尔磁振子 f_m</span>
+              <span class="hud-stat-val magnon" id="val-fm">10.00 GHz</span>
+            </div>
+            <div class="hud-stat-item">
+              <span class="hud-stat-label">真空拉比劈裂 2g_m</span>
+              <span class="hud-stat-val" style="color:#f59e0b" id="val-rabi">240.0 MHz</span>
+            </div>
+            <div class="hud-stat-item">
+              <span class="hud-stat-label">协同因子 C</span>
+              <span class="hud-stat-val" style="color:#10b981" id="val-coop">144.0</span>
+            </div>
+            <div class="hud-stat-item">
+              <span class="hud-stat-label">上极化模 CMP+</span>
+              <span class="hud-stat-val upper" id="val-upp">10.12 GHz</span>
+            </div>
+            <div class="hud-stat-item">
+              <span class="hud-stat-label">下极化模 CMP-</span>
+              <span class="hud-stat-val lower" id="val-low">9.88 GHz</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="hud-card" style="min-width: 220px;">
+          <div class="hud-title">微观物理配置</div>
+          <div style="font-size:11px; color:#cbd5e1; line-height: 1.4;">
+            <div>• YIG微球直径: <span style="color:#ec4899">1.0 mm (10¹⁹ 自旋)</span></div>
+            <div>• 腔光子损耗 κ_c: <span style="color:#38bdf8">1.5 MHz</span></div>
+            <div>• 磁振子耗散 γ_m: <span style="color:#ec4899">1.0 MHz</span></div>
+            <div style="margin-top:4px; color:#94a3b8; font-size:10px;">
+              判据：g_m ≫ (κ_c, γ_m) 满足量子相干信息互换
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-panel">
+      <!-- 经典预设 -->
+      <div class="panel-section">
+        <div class="section-title">经典前沿工况 (Presets)</div>
+        <div class="preset-grid">
+          <button class="btn active" id="preset-resonance">共振真空拉比劈裂</button>
+          <button class="btn" id="preset-mit">相干诱导透明 (MIT)</button>
+          <button class="btn" id="preset-detuned">磁场大失谐去耦</button>
+          <button class="btn" id="preset-ep">耗散耦合奇异点 (EP)</button>
+        </div>
+      </div>
+
+      <!-- 参数控制矩阵 -->
+      <div class="panel-section">
+        <div class="section-title">实验调控矩阵 (Experiment Matrix)</div>
+        
+        <div class="control-group">
+          <div class="control-header">
+            <span class="control-label">外加静磁场 B_0</span>
+            <span class="control-val" id="disp-bfield">357.1 mT</span>
+          </div>
+          <input type="range" id="param-bfield" min="340.0" max="375.0" step="0.1" value="357.14">
+        </div>
+
+        <div class="control-group">
+          <div class="control-header">
+            <span class="control-label">自旋-光子耦合率 g_m/2π</span>
+            <span class="control-val" id="disp-coupling">120.0 MHz</span>
+          </div>
+          <input type="range" id="param-coupling" min="10.0" max="250.0" step="1.0" value="120.0">
+        </div>
+
+        <div class="control-group">
+          <div class="control-header">
+            <span class="control-label">微波探测功率 P_rf</span>
+            <span class="control-val" id="disp-power">-10 dBm</span>
+          </div>
+          <input type="range" id="param-power" min="-30" max="10" step="1" value="-10">
+        </div>
+
+        <div class="control-group">
+          <div class="control-header">
+            <span class="control-label">耗散错位阻尼 Γ_d</span>
+            <span class="control-val" id="disp-diss">0.0 MHz</span>
+          </div>
+          <input type="range" id="param-diss" min="0.0" max="80.0" step="0.5" value="0.0">
+        </div>
+      </div>
+
+      <!-- 示波器 1: 微波透射谱 |S21|^2 -->
+      <div class="panel-section">
+        <div class="section-title">
+          <span>示波器 I: 微波透射谱 |S_21|^2 & 相干透明</span>
+        </div>
+        <div class="scope-box">
+          <canvas id="scope-s21"></canvas>
+          <div class="scope-legend">
+            <span class="legend-item"><span class="legend-color" style="background:#38bdf8"></span> 极化透射峰</span>
+            <span class="legend-item"><span class="legend-color" style="background:#10b981"></span> MIT 相干透明窗口</span>
+            <span class="legend-item"><span class="legend-color" style="background:#ec4899"></span> 磁振子共振</span>
+          </div>
+        </div>
+        <div class="info-callout">
+          在零失谐强耦合区，强相干干涉产生两个反交叉极化峰；中心透射凹陷内可展现窄带慢光群时延相干透明 (MIT)。
+        </div>
+      </div>
+
+      <!-- 示波器 2: 反交叉色散曲线与避免能级相交 -->
+      <div class="panel-section">
+        <div class="section-title">
+          <span>示波器 II: 能级反交叉 (Anti-Crossing Dispersion)</span>
+        </div>
+        <div class="scope-box">
+          <canvas id="scope-crossing"></canvas>
+          <div class="scope-legend">
+            <span class="legend-item"><span class="legend-color" style="background:#a855f7"></span> 上分支 CMP+</span>
+            <span class="legend-item"><span class="legend-color" style="background:#10b981"></span> 下分支 CMP-</span>
+            <span class="legend-item"><span class="legend-color" style="background:rgba(255,255,255,0.3)"></span> 未耦合裸模</span>
+          </div>
+        </div>
+        <div class="info-callout">
+          扫描静磁场 B_0，磁振子频率穿过微波腔光子共振线，形成清晰的避免交叉能隙 2g_m，呈现杂化波函数的相干杂化混合。
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- 理论常数与系统全局状态 ---
+    const STATE = {
+      b0: 357.14,         // 静磁场 (mT) -> f_m = γ B0 ≈ 10 GHz
+      gm: 120.0,          // 自旋-光子耦合常数 (MHz)
+      power: -10,         // 微波功率 (dBm)
+      gammaDiss: 0.0,     // 耗散耦合阻尼 (MHz)
+      audioEnabled: false,
+      rotX: 25,
+      rotY: -35,
+      zoom: 1.0,
+      isDragging: false,
+      lastMouseX: 0,
+      lastMouseY: 0
+    };
+
+    const CONSTS = {
+      fc: 10.0,           // 腔共振频率 10.0 GHz
+      gammaOver2Pi: 28.0, // 旋磁比 28 GHz / T = 0.028 GHz / mT
+      kappaC: 1.5,        // 腔损耗 (MHz)
+      gammaM: 1.0         // 磁振子本征损耗 (MHz)
+    };
+
+    let physics = {
+      fm: 10.0,           // 磁振子频率 GHz
+      detuning: 0.0,      // 失谐量 MHz
+      rabi: 240.0,        // 拉比劈裂 MHz
+      cooperativity: 144, // 协同系数
+      omegaUpper: 10.12,  // 上极化模 GHz
+      omegaLower: 9.88,   // 下极化模 GHz
+      mitTransparency: 0.85
+    };
+
+    // --- 音频引擎 (Web Audio) ---
+    let audioCtx = null;
+    let oscPhoton = null;
+    let oscMagnon = null;
+    let gainNode = null;
+
+    function initAudio() {
+      if (audioCtx) return;
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioContext();
+
+      oscPhoton = audioCtx.createOscillator();
+      oscMagnon = audioCtx.createOscillator();
+      oscPhoton.type = 'sine';
+      oscMagnon.type = 'triangle';
+
+      gainNode = audioCtx.createGain();
+      gainNode.gain.value = 0.05;
+
+      oscPhoton.connect(gainNode);
+      oscMagnon.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+
+      oscPhoton.start();
+      oscMagnon.start();
+    }
+
+    function updateAudio() {
+      if (!audioCtx || !STATE.audioEnabled) return;
+      // 将 GHz 降频映射至人耳音频 (200 ~ 800 Hz)
+      const baseAudio = 320;
+      const freqUpper = baseAudio + (physics.omegaUpper - CONSTS.fc) * 2000;
+      const freqLower = baseAudio + (physics.omegaLower - CONSTS.fc) * 2000;
+
+      oscPhoton.frequency.setTargetAtTime(Math.max(80, freqUpper), audioCtx.currentTime, 0.04);
+      oscMagnon.frequency.setTargetAtTime(Math.max(80, freqLower), audioCtx.currentTime, 0.04);
+      gainNode.gain.setTargetAtTime(0.06, audioCtx.currentTime, 0.04);
+    }
+
+    // --- 核心理论物理计算 ---
+    function updatePhysics() {
+      // 1. 基特尔模式磁振子频率 f_m = γ B_0
+      physics.fm = (STATE.b0 * 0.028); // GHz
+      physics.detuning = (physics.fm - CONSTS.fc) * 1000.0; // MHz
+
+      // 2. 考虑相干耦合与耗散耦合的本征解
+      // 杂化极化激元分支色散
+      const delta = physics.detuning; // MHz
+      const g = STATE.gm; // MHz
+      const rootTerm = Math.sqrt(Math.max(0.01, Math.pow(delta / 2.0, 2) + Math.pow(g, 2) - Math.pow(STATE.gammaDiss, 2)));
+
+      const avgF = (CONSTS.fc + physics.fm) / 2.0;
+      physics.omegaUpper = avgF + (rootTerm / 1000.0);
+      physics.omegaLower = avgF - (rootTerm / 1000.0);
+
+      // 真空拉比劈裂
+      physics.rabi = 2.0 * g;
+
+      // 协同因子 C = g^2 / (kappa_c * gamma_m)
+      physics.cooperativity = Math.pow(g, 2) / (CONSTS.kappaC * CONSTS.gammaM);
+
+      // 相干诱导透明深度 (MIT)
+      if (Math.abs(delta) < 40 && g > 50) {
+        physics.mitTransparency = Math.min(0.95, 0.2 + (g / 180.0));
+      } else {
+        physics.mitTransparency = 0.05;
+      }
+
+      // 更新 HUD
+      document.getElementById('val-fc').textContent = CONSTS.fc.toFixed(2) + ' GHz';
+      document.getElementById('val-fm').textContent = physics.fm.toFixed(2) + ' GHz';
+      document.getElementById('val-rabi').textContent = physics.rabi.toFixed(1) + ' MHz';
+      document.getElementById('val-coop').textContent = physics.cooperativity.toFixed(1);
+      document.getElementById('val-upp').textContent = physics.omegaUpper.toFixed(3) + ' GHz';
+      document.getElementById('val-low').textContent = physics.omegaLower.toFixed(3) + ' GHz';
+
+      const pill = document.getElementById('coupling-pill');
+      const pillText = document.getElementById('coupling-text');
+      if (physics.cooperativity > 50) {
+        pill.style.background = 'rgba(56, 189, 248, 0.15)';
+        pill.style.borderColor = 'rgba(56, 189, 248, 0.4)';
+        pill.style.color = '#38bdf8';
+        pillText.textContent = `强耦合态 (C = ${physics.cooperativity.toFixed(0)})`;
+      } else if (STATE.gammaDiss > 40) {
+        pill.style.background = 'rgba(168, 85, 247, 0.15)';
+        pill.style.borderColor = 'rgba(168, 85, 247, 0.4)';
+        pill.style.color = '#c084fc';
+        pillText.textContent = '耗散奇异点相干态 (Near EP)';
+      } else {
+        pill.style.background = 'rgba(148, 163, 184, 0.15)';
+        pill.style.borderColor = 'rgba(148, 163, 184, 0.4)';
+        pill.style.color = '#cbd5e1';
+        pillText.textContent = '弱耦合色散区';
+      }
+
+      updateAudio();
+    }
+
+    // --- 主交互 3D 全息视口渲染 (3D Microwave Cavity & YIG Sphere) ---
+    const mainCanvas = document.getElementById('main-canvas');
+    const ctx = mainCanvas.getContext('2d');
+
+    // 磁振子宏观自旋波微观进动粒子群
+    const SPIN_PARTICLES = [];
+    for (let i = 0; i < 120; i++) {
+      const u = Math.random();
+      const v = Math.random();
+      const theta = Math.acos(2 * u - 1);
+      const phi = 2 * Math.PI * v;
+      SPIN_PARTICLES.push({
+        r: 32 + Math.random() * 4,
+        theta: theta,
+        phi: phi,
+        speed: 1.0 + Math.random() * 0.4
+      });
+    }
+
+    function resizeCanvas() {
+      const rect = mainCanvas.parentElement.getBoundingClientRect();
+      mainCanvas.width = rect.width * window.devicePixelRatio;
+      mainCanvas.height = rect.height * window.devicePixelRatio;
+      ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    let animTime = 0;
+
+    // 简单三维透视投影变换
+    function project3D(x, y, z, rotX, rotY) {
+      const radX = (rotX * Math.PI) / 180;
+      const radY = (rotY * Math.PI) / 180;
+
+      // 绕 Y 轴旋转
+      const x1 = x * Math.cos(radY) + z * Math.sin(radY);
+      const z1 = -x * Math.sin(radY) + z * Math.cos(radY);
+
+      // 绕 X 轴旋转
+      const y2 = y * Math.cos(radX) - z1 * Math.sin(radX);
+      const z2 = y * Math.sin(radX) + z1 * Math.cos(radX);
+
+      // 透视投影
+      const cameraDist = 480;
+      const scale = cameraDist / (cameraDist + z2);
+      return {
+        px: x1 * scale,
+        py: y2 * scale,
+        scale: scale,
+        z: z2
+      };
+    }
+
+    function drawMainViewport() {
+      const width = mainCanvas.width / window.devicePixelRatio;
+      const height = mainCanvas.height / window.devicePixelRatio;
+      ctx.clearRect(0, 0, width, height);
+
+      ctx.save();
+      ctx.translate(width / 2, height / 2);
+      ctx.scale(STATE.zoom, STATE.zoom);
+
+      const rotX = STATE.rotX;
+      const rotY = STATE.rotY;
+
+      // 1. 绘制三维微波铜腔轮廓 (3D Microwave Resonant Cavity)
+      const cavW = 240;
+      const cavH = 140;
+      const cavD = 220;
+
+      const vertices = [
+        [-cavW/2, -cavH/2, -cavD/2],
+        [cavW/2, -cavH/2, -cavD/2],
+        [cavW/2, cavH/2, -cavD/2],
+        [-cavW/2, cavH/2, -cavD/2],
+        [-cavW/2, -cavH/2, cavD/2],
+        [cavW/2, -cavH/2, cavD/2],
+        [cavW/2, cavH/2, cavD/2],
+        [-cavW/2, cavH/2, cavD/2]
+      ];
+
+      const pVertices = vertices.map(v => project3D(v[0], v[1], v[2], rotX, rotY));
+
+      const edges = [
+        [0, 1], [1, 2], [2, 3], [3, 0],
+        [4, 5], [5, 6], [6, 7], [7, 4],
+        [0, 4], [1, 5], [2, 6], [3, 7]
+      ];
+
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.28)';
+      ctx.lineWidth = 1.5;
+      edges.forEach(e => {
+        ctx.beginPath();
+        ctx.moveTo(pVertices[e[0]].px, pVertices[e[0]].py);
+        ctx.lineTo(pVertices[e[1]].px, pVertices[e[1]].py);
+        ctx.stroke();
+      });
+
+      // 2. 腔内微波驻波电磁场全息分布 (TE101 驻波波腹)
+      const fieldWave = Math.sin(animTime * 4.0);
+      ctx.strokeStyle = `rgba(56, 189, 248, ${0.15 + Math.abs(fieldWave) * 0.2})`;
+      ctx.lineWidth = 1.2;
+      for (let offsetZ = -cavD/3; offsetZ <= cavD/3; offsetZ += 30) {
+        ctx.beginPath();
+        for (let x = -cavW/2; x <= cavW/2; x += 15) {
+          const y = Math.cos((x / (cavW/2)) * (Math.PI / 2)) * 35 * Math.sin(animTime * 3.5);
+          const p = project3D(x, y, offsetZ, rotX, rotY);
+          if (x === -cavW/2) ctx.moveTo(p.px, p.py);
+          else ctx.lineTo(p.px, p.py);
+        }
+        ctx.stroke();
+      }
+
+      // 3. 中心 YIG 铁磁微球 (Yttrium Iron Garnet Sphere)
+      const pCenter = project3D(0, 0, 0, rotX, rotY);
+      const sphereRadius = 36 * pCenter.scale;
+
+      // 绘制 YIG 外发光光晕
+      const radGrad = ctx.createRadialGradient(
+        pCenter.px, pCenter.py, 2,
+        pCenter.px, pCenter.py, sphereRadius * 1.8
+      );
+      radGrad.addColorStop(0, 'rgba(236, 72, 153, 0.8)');
+      radGrad.addColorStop(0.5, 'rgba(168, 85, 247, 0.3)');
+      radGrad.addColorStop(1, 'transparent');
+      ctx.fillStyle = radGrad;
+      ctx.beginPath();
+      ctx.arc(pCenter.px, pCenter.py, sphereRadius * 1.8, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 微球实体
+      ctx.fillStyle = '#ec4899';
+      ctx.beginPath();
+      ctx.arc(pCenter.px, pCenter.py, sphereRadius, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 4. 自旋基特尔模宏观进动粒子群 (Kittel Mode Precession)
+      const precAngle = animTime * 4.5 * (physics.fm / 10.0);
+      ctx.fillStyle = '#bae6fd';
+      SPIN_PARTICLES.forEach(sp => {
+        // 动态进动
+        const dynamicPhi = sp.phi + precAngle;
+        const sx = sp.r * Math.sin(sp.theta) * Math.cos(dynamicPhi);
+        const sy = sp.r * Math.sin(sp.theta) * Math.sin(dynamicPhi);
+        const sz = sp.r * Math.cos(sp.theta);
+
+        const spProj = project3D(sx, sy, sz, rotX, rotY);
+        ctx.beginPath();
+        ctx.arc(spProj.px, spProj.py, 1.8 * spProj.scale, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      // 5. 外加静磁场矢量 B_0 (垂直向上强磁场)
+      const pB0Start = project3D(0, cavH/2 + 30, 0, rotX, rotY);
+      const pB0End = project3D(0, -cavH/2 - 30, 0, rotX, rotY);
+
+      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth = 2.5;
+      ctx.setLineDash([5, 4]);
+      ctx.beginPath();
+      ctx.moveTo(pB0Start.px, pB0Start.py);
+      ctx.lineTo(pB0End.px, pB0End.py);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // 箭头
+      ctx.fillStyle = '#f59e0b';
+      ctx.beginPath();
+      ctx.arc(pB0End.px, pB0End.py, 4, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.font = '11px JetBrains Mono';
+      ctx.fillText(`B_0 = ${STATE.b0.toFixed(1)} mT`, pB0End.px + 10, pB0End.py);
+
+      // 6. 微波输入输出同轴端口 (Input / Output Coupler)
+      const pPortIn = project3D(-cavW/2, 0, 0, rotX, rotY);
+      const pPortOut = project3D(cavW/2, 0, 0, rotX, rotY);
+
+      ctx.fillStyle = '#38bdf8';
+      ctx.beginPath();
+      ctx.arc(pPortIn.px, pPortIn.py, 5, 0, Math.PI * 2);
+      ctx.arc(pPortOut.px, pPortOut.py, 5, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillText('RF In', pPortIn.px - 36, pPortIn.py + 4);
+      ctx.fillText('RF Out', pPortOut.px + 10, pPortOut.py + 4);
+
+      ctx.restore();
+    }
+
+    // --- 示波器 1: 微波透射谱 |S_21|^2 ---
+    const scopeS21 = document.getElementById('scope-s21');
+    const ctxS21 = scopeS21.getContext('2d');
+
+    function drawScopeS21() {
+      const w = scopeS21.width = scopeS21.parentElement.clientWidth;
+      const h = scopeS21.height = 135;
+      ctxS21.clearRect(0, 0, w, h);
+
+      // 坐标轴
+      ctxS21.strokeStyle = 'rgba(255,255,255,0.12)';
+      ctxS21.lineWidth = 1;
+      ctxS21.beginPath();
+      ctxS21.moveTo(30, h - 20);
+      ctxS21.lineTo(w - 10, h - 20);
+      ctxS21.moveTo(30, h - 20);
+      ctxS21.lineTo(30, 10);
+      ctxS21.stroke();
+
+      ctxS21.fillStyle = 'rgba(255,255,255,0.4)';
+      ctxS21.font = '9px JetBrains Mono';
+      ctxS21.fillText('9.7', 26, h - 6);
+      ctxS21.fillText('10.0 GHz', w * 0.48, h - 6);
+      ctxS21.fillText('10.3', w - 24, h - 6);
+      ctxS21.fillText('|S₂₁|²', 6, 16);
+
+      // 计算透射光谱曲线
+      const plotW = w - 45;
+      const plotH = h - 35;
+      const g = STATE.gm / 1000.0; // GHz
+      const kappa = CONSTS.kappaC / 1000.0;
+      const gamma = CONSTS.gammaM / 1000.0;
+      const wm = physics.fm;
+      const wc = CONSTS.fc;
+
+      ctxS21.strokeStyle = '#38bdf8';
+      ctxS21.lineWidth = 2.0;
+      ctxS21.beginPath();
+
+      for (let px = 0; px <= plotW; px++) {
+        const freq = 9.7 + (px / plotW) * 0.6; // 9.7 ~ 10.3 GHz
+        // 腔磁相干相互作用散射矩阵 S21
+        // S21 = 1 - kappa / (i(w - wc) + kappa/2 + g^2 / (i(w - wm) + gamma/2))
+        const dCav = freq - wc;
+        const dMag = freq - wm;
+
+        const denomMagRe = gamma / 2.0;
+        const denomMagIm = dMag;
+        const magMagSq = denomMagRe * denomMagRe + denomMagIm * denomMagIm;
+
+        const selfRe = (g * g * denomMagRe) / magMagSq + (kappa / 2.0);
+        const selfIm = dCav - (g * g * denomMagIm) / magMagSq;
+
+        const totalDenomSq = selfRe * selfRe + selfIm * selfIm;
+        const termRe = (kappa * selfRe) / totalDenomSq;
+        const termIm = (-kappa * selfIm) / totalDenomSq;
+
+        const s21Re = 1.0 - termRe;
+        const s21Im = -termIm;
+        const s21Power = Math.min(1.0, s21Re * s21Re + s21Im * s21Im);
+
+        const py = (h - 20) - s21Power * plotH;
+        const screenX = 30 + px;
+
+        if (px === 0) ctxS21.moveTo(screenX, py);
+        else ctxS21.lineTo(screenX, py);
+      }
+      ctxS21.stroke();
+
+      // 标注 MIT 相干诱导透明尖峰
+      if (physics.mitTransparency > 0.3) {
+        ctxS21.fillStyle = '#10b981';
+        ctxS21.fillText('MIT 慢光相干窗口', w * 0.38, 28);
+      }
+    }
+
+    // --- 示波器 2: 能级反交叉色散曲线 ---
+    const scopeCrossing = document.getElementById('scope-crossing');
+    const ctxCrossing = scopeCrossing.getContext('2d');
+
+    function drawScopeCrossing() {
+      const w = scopeCrossing.width = scopeCrossing.parentElement.clientWidth;
+      const h = scopeCrossing.height = 135;
+      ctxCrossing.clearRect(0, 0, w, h);
+
+      const marginL = 30;
+      const marginB = 20;
+      const plotW = w - marginL - 15;
+      const plotH = h - marginB - 15;
+
+      ctxCrossing.strokeStyle = 'rgba(255,255,255,0.12)';
+      ctxCrossing.lineWidth = 1;
+      ctxCrossing.beginPath();
+      ctxCrossing.moveTo(marginL, h - marginB);
+      ctxCrossing.lineTo(w - 10, h - marginB);
+      ctxCrossing.moveTo(marginL, h - marginB);
+      ctxCrossing.lineTo(marginL, 10);
+      ctxCrossing.stroke();
+
+      ctxCrossing.fillStyle = 'rgba(255,255,255,0.4)';
+      ctxCrossing.font = '9px JetBrains Mono';
+      ctxCrossing.fillText('340', marginL - 4, h - 6);
+      ctxCrossing.fillText('B_0 (mT)', w * 0.45, h - 6);
+      ctxCrossing.fillText('375', w - 24, h - 6);
+
+      ctxCrossing.fillText('10.3', 6, 18);
+      ctxCrossing.fillText('9.7', 6, h - marginB);
+
+      // 1. 裸光子模（水平线）与裸磁振子模（对角线）虚线
+      ctxCrossing.strokeStyle = 'rgba(255,255,255,0.2)';
+      ctxCrossing.setLineDash([3, 3]);
+      // 腔共振线 10 GHz
+      const pyCav = (h - marginB) - ((CONSTS.fc - 9.7) / 0.6) * plotH;
+      ctxCrossing.beginPath();
+      ctxCrossing.moveTo(marginL, pyCav);
+      ctxCrossing.lineTo(marginL + plotW, pyCav);
+      ctxCrossing.stroke();
+
+      // 磁振子斜线
+      ctxCrossing.beginPath();
+      const pyMag0 = (h - marginB) - (((340 * 0.028) - 9.7) / 0.6) * plotH;
+      const pyMag1 = (h - marginB) - (((375 * 0.028) - 9.7) / 0.6) * plotH;
+      ctxCrossing.moveTo(marginL, pyMag0);
+      ctxCrossing.lineTo(marginL + plotW, pyMag1);
+      ctxCrossing.stroke();
+      ctxCrossing.setLineDash([]);
+
+      // 2. 上极化激元分支 CMP+ (紫色)
+      const g = (STATE.gm / 1000.0);
+      ctxCrossing.strokeStyle = '#a855f7';
+      ctxCrossing.lineWidth = 2.0;
+      ctxCrossing.beginPath();
+      for (let px = 0; px <= plotW; px++) {
+        const b = 340 + (px / plotW) * 35;
+        const fm = b * 0.028;
+        const delta = fm - CONSTS.fc;
+        const upper = ((CONSTS.fc + fm) / 2.0) + Math.sqrt(Math.pow(delta / 2.0, 2) + g * g);
+        const py = (h - marginB) - ((upper - 9.7) / 0.6) * plotH;
+        if (px === 0) ctxCrossing.moveTo(marginL + px, py);
+        else ctxCrossing.lineTo(marginL + px, py);
+      }
+      ctxCrossing.stroke();
+
+      // 3. 下极化激元分支 CMP- (绿色)
+      ctxCrossing.strokeStyle = '#10b981';
+      ctxCrossing.lineWidth = 2.0;
+      ctxCrossing.beginPath();
+      for (let px = 0; px <= plotW; px++) {
+        const b = 340 + (px / plotW) * 35;
+        const fm = b * 0.028;
+        const delta = fm - CONSTS.fc;
+        const lower = ((CONSTS.fc + fm) / 2.0) - Math.sqrt(Math.pow(delta / 2.0, 2) + g * g);
+        const py = (h - marginB) - ((lower - 9.7) / 0.6) * plotH;
+        if (px === 0) ctxCrossing.moveTo(marginL + px, py);
+        else ctxCrossing.lineTo(marginL + px, py);
+      }
+      ctxCrossing.stroke();
+
+      // 4. 当前工作点指示线 (静磁场 B_0)
+      const curX = marginL + ((STATE.b0 - 340) / 35) * plotW;
+      ctxCrossing.strokeStyle = '#f59e0b';
+      ctxCrossing.lineWidth = 1.5;
+      ctxCrossing.setLineDash([2, 2]);
+      ctxCrossing.beginPath();
+      ctxCrossing.moveTo(curX, 10);
+      ctxCrossing.lineTo(curX, h - marginB);
+      ctxCrossing.stroke();
+      ctxCrossing.setLineDash([]);
+    }
+
+    // --- 动画循环 ---
+    function animate() {
+      animTime += 0.025;
+      drawMainViewport();
+      drawScopeS21();
+      drawScopeCrossing();
+      requestAnimationFrame(animate);
+    }
+
+    // --- 控件绑定与事件监听 ---
+    function bindControls() {
+      const pB = document.getElementById('param-bfield');
+      const pC = document.getElementById('param-coupling');
+      const pP = document.getElementById('param-power');
+      const pD = document.getElementById('param-diss');
+
+      const dB = document.getElementById('disp-bfield');
+      const dC = document.getElementById('disp-coupling');
+      const dP = document.getElementById('disp-power');
+      const dD = document.getElementById('disp-diss');
+
+      pB.addEventListener('input', e => {
+        STATE.b0 = parseFloat(e.target.value);
+        dB.textContent = STATE.b0.toFixed(1) + ' mT';
+        updatePhysics();
+      });
+
+      pC.addEventListener('input', e => {
+        STATE.gm = parseFloat(e.target.value);
+        dC.textContent = STATE.gm.toFixed(1) + ' MHz';
+        updatePhysics();
+      });
+
+      pP.addEventListener('input', e => {
+        STATE.power = parseInt(e.target.value);
+        dP.textContent = STATE.power + ' dBm';
+        updatePhysics();
+      });
+
+      pD.addEventListener('input', e => {
+        STATE.gammaDiss = parseFloat(e.target.value);
+        dD.textContent = STATE.gammaDiss.toFixed(1) + ' MHz';
+        updatePhysics();
+      });
+
+      // 预设模式
+      const presets = [
+        document.getElementById('preset-resonance'),
+        document.getElementById('preset-mit'),
+        document.getElementById('preset-detuned'),
+        document.getElementById('preset-ep')
+      ];
+
+      function clearActivePreset() {
+        presets.forEach(p => p.classList.remove('active'));
+      }
+
+      document.getElementById('preset-resonance').addEventListener('click', () => {
+        clearActivePreset();
+        document.getElementById('preset-resonance').classList.add('active');
+        STATE.b0 = 357.14;
+        STATE.gm = 120.0;
+        STATE.gammaDiss = 0.0;
+        syncUI();
+      });
+
+      document.getElementById('preset-mit').addEventListener('click', () => {
+        clearActivePreset();
+        document.getElementById('preset-mit').classList.add('active');
+        STATE.b0 = 357.14;
+        STATE.gm = 180.0;
+        STATE.gammaDiss = 0.0;
+        syncUI();
+      });
+
+      document.getElementById('preset-detuned').addEventListener('click', () => {
+        clearActivePreset();
+        document.getElementById('preset-detuned').classList.add('active');
+        STATE.b0 = 345.0;
+        STATE.gm = 60.0;
+        STATE.gammaDiss = 0.0;
+        syncUI();
+      });
+
+      document.getElementById('preset-ep').addEventListener('click', () => {
+        clearActivePreset();
+        document.getElementById('preset-ep').classList.add('active');
+        STATE.b0 = 357.14;
+        STATE.gm = 60.0;
+        STATE.gammaDiss = 58.0;
+        syncUI();
+      });
+
+      function syncUI() {
+        pB.value = STATE.b0;
+        pC.value = STATE.gm;
+        pD.value = STATE.gammaDiss;
+
+        dB.textContent = STATE.b0.toFixed(1) + ' mT';
+        dC.textContent = STATE.gm.toFixed(1) + ' MHz';
+        dD.textContent = STATE.gammaDiss.toFixed(1) + ' MHz';
+        updatePhysics();
+      }
+
+      // 音频开关
+      const btnAudio = document.getElementById('btn-audio');
+      btnAudio.addEventListener('click', () => {
+        initAudio();
+        STATE.audioEnabled = !STATE.audioEnabled;
+        btnAudio.classList.toggle('active', STATE.audioEnabled);
+        document.getElementById('audio-icon').textContent = STATE.audioEnabled ? '🔊' : '🔇';
+        if (audioCtx && audioCtx.state === 'suspended') {
+          audioCtx.resume();
+        }
+        updateAudio();
+      });
+
+      // 重置视角
+      document.getElementById('btn-reset').addEventListener('click', () => {
+        STATE.rotX = 25;
+        STATE.rotY = -35;
+        STATE.zoom = 1.0;
+      });
+
+      // 3D 旋转鼠标交互
+      mainCanvas.addEventListener('mousedown', e => {
+        STATE.isDragging = true;
+        STATE.lastMouseX = e.clientX;
+        STATE.lastMouseY = e.clientY;
+      });
+
+      window.addEventListener('mousemove', e => {
+        if (!STATE.isDragging) return;
+        const dx = e.clientX - STATE.lastMouseX;
+        const dy = e.clientY - STATE.lastMouseY;
+        STATE.rotY += dx * 0.45;
+        STATE.rotX -= dy * 0.45;
+        STATE.lastMouseX = e.clientX;
+        STATE.lastMouseY = e.clientY;
+      });
+
+      window.addEventListener('mouseup', () => {
+        STATE.isDragging = false;
+      });
+
+      mainCanvas.addEventListener('wheel', e => {
+        e.preventDefault();
+        const factor = e.deltaY < 0 ? 1.08 : 0.92;
+        STATE.zoom = Math.max(0.4, Math.min(3.0, STATE.zoom * factor));
+      }, { passive: false });
+    }
+
+    // 启动初始化
+    bindControls();
+    updatePhysics();
+    animate();
+  </script>
+</body>
+</html>

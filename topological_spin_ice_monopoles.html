@@ -1,0 +1,1338 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>拓扑自旋冰与狄拉克弦磁单极子动力学全息模拟器</title>
+  <style>
+    :root {
+      --bg: #030712;
+      --card-bg: rgba(15, 23, 42, 0.75);
+      --card-border: rgba(56, 189, 248, 0.25);
+      --accent-cyan: #38bdf8;
+      --accent-purple: #c084fc;
+      --accent-pink: #f43f5e;
+      --accent-amber: #fbbf24;
+      --accent-emerald: #10b981;
+      --text-main: #f8fafc;
+      --text-sub: #94a3b8;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+    body {
+      background-color: var(--bg);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .bg-canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 0;
+      pointer-events: none;
+      opacity: 0.45;
+    }
+    header {
+      position: relative;
+      z-index: 10;
+      padding: 1.25rem 2rem;
+      background: linear-gradient(180deg, rgba(15, 23, 42, 0.9) 0%, rgba(3, 7, 18, 0.6) 100%);
+      border-bottom: 1px solid var(--card-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      backdrop-filter: blur(12px);
+    }
+    .brand {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+    .brand h1 {
+      font-size: 1.4rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      background: linear-gradient(135deg, #38bdf8, #c084fc, #f43f5e);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .brand .subtitle {
+      font-size: 0.8rem;
+      color: var(--text-sub);
+      letter-spacing: 0.02em;
+    }
+    .header-badges {
+      display: flex;
+      gap: 0.75rem;
+    }
+    .badge {
+      font-size: 0.75rem;
+      padding: 0.3rem 0.75rem;
+      border-radius: 9999px;
+      background: rgba(56, 189, 248, 0.1);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      color: var(--accent-cyan);
+      font-family: monospace;
+    }
+    .badge.purple {
+      background: rgba(192, 132, 252, 0.1);
+      border-color: rgba(192, 132, 252, 0.3);
+      color: var(--accent-purple);
+    }
+    .badge.amber {
+      background: rgba(251, 191, 36, 0.1);
+      border-color: rgba(251, 191, 36, 0.3);
+      color: var(--accent-amber);
+    }
+
+    main {
+      position: relative;
+      z-index: 10;
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      gap: 1.25rem;
+      padding: 1.25rem 2rem;
+      max-width: 1800px;
+      margin: 0 auto;
+      width: 100%;
+    }
+    @media (max-width: 1200px) {
+      main {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .viewport-section {
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    /* 主全息视口卡片 */
+    .viewport-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      overflow: hidden;
+      backdrop-filter: blur(16px);
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+      display: flex;
+      flex-direction: column;
+    }
+    .card-header {
+      padding: 0.75rem 1.25rem;
+      background: rgba(15, 23, 42, 0.8);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .card-title {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .card-title::before {
+      content: '';
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent-cyan);
+      box-shadow: 0 0 8px var(--accent-cyan);
+    }
+    .canvas-container {
+      position: relative;
+      width: 100%;
+      height: 480px;
+      background: radial-gradient(circle at 50% 50%, rgba(30, 41, 59, 0.4) 0%, rgba(3, 7, 18, 0.95) 100%);
+    }
+    #mainCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      cursor: crosshair;
+    }
+
+    /* 浮动全息读数器 */
+    .hud-overlay {
+      position: absolute;
+      top: 1rem;
+      left: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      pointer-events: none;
+    }
+    .hud-chip {
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      padding: 0.35rem 0.75rem;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-family: monospace;
+      color: var(--accent-cyan);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    }
+    .hud-chip span.val {
+      color: #fff;
+      font-weight: bold;
+    }
+
+    .phase-badge-overlay {
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      border: 1px solid;
+      pointer-events: none;
+      transition: all 0.3s ease;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    }
+    .phase-coulomb {
+      background: rgba(56, 189, 248, 0.15);
+      border-color: rgba(56, 189, 248, 0.5);
+      color: var(--accent-cyan);
+    }
+    .phase-monopole {
+      background: rgba(244, 63, 94, 0.25);
+      border-color: rgba(244, 63, 94, 0.7);
+      color: #ff4d6d;
+      box-shadow: 0 0 25px rgba(244, 63, 94, 0.4);
+      animation: pulseMonopole 1.2s infinite alternate;
+    }
+    .phase-kagome {
+      background: rgba(251, 191, 36, 0.2);
+      border-color: rgba(251, 191, 36, 0.6);
+      color: var(--accent-amber);
+    }
+    @keyframes pulseMonopole {
+      from { transform: scale(1); opacity: 0.85; }
+      to { transform: scale(1.05); opacity: 1; }
+    }
+
+    /* 双科学示波器网格 */
+    .scopes-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.25rem;
+    }
+    @media (max-width: 900px) {
+      .scopes-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+    .scope-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      overflow: hidden;
+      backdrop-filter: blur(16px);
+      display: flex;
+      flex-direction: column;
+    }
+    .scope-container {
+      position: relative;
+      width: 100%;
+      height: 250px;
+      background: #020617;
+    }
+    .scope-container canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    /* 侧边控制面板 */
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+    .panel-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 1.25rem;
+      backdrop-filter: blur(16px);
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+    }
+    .panel-title {
+      font-size: 0.85rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--accent-cyan);
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    /* 预设工况按钮 */
+    .presets-group {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.5rem;
+      margin-bottom: 1.25rem;
+    }
+    .preset-btn {
+      background: rgba(30, 41, 59, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: var(--text-sub);
+      padding: 0.55rem 0.5rem;
+      border-radius: 8px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-align: center;
+    }
+    .preset-btn:hover {
+      background: rgba(56, 189, 248, 0.15);
+      border-color: rgba(56, 189, 248, 0.4);
+      color: var(--text-main);
+    }
+    .preset-btn.active {
+      background: linear-gradient(135deg, rgba(56, 189, 248, 0.25), rgba(192, 132, 252, 0.25));
+      border-color: var(--accent-cyan);
+      color: #fff;
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.3);
+    }
+
+    /* 参数滑动条 */
+    .control-item {
+      margin-bottom: 1rem;
+    }
+    .control-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.78rem;
+      color: var(--text-sub);
+      margin-bottom: 0.35rem;
+    }
+    .control-header .val {
+      font-family: monospace;
+      color: var(--accent-cyan);
+      font-weight: 600;
+    }
+    .slider {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 6px;
+      border-radius: 3px;
+      background: rgba(255, 255, 255, 0.1);
+      outline: none;
+      transition: background 0.2s;
+    }
+    .slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--accent-cyan);
+      cursor: pointer;
+      box-shadow: 0 0 8px var(--accent-cyan);
+      transition: transform 0.1s;
+    }
+    .slider::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    /* 物理量信息卡片 */
+    .metric-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+    }
+    .metric-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.76rem;
+      border-bottom: 1px dashed rgba(255, 255, 255, 0.08);
+      padding-bottom: 0.4rem;
+    }
+    .metric-row span.label {
+      color: var(--text-sub);
+    }
+    .metric-row span.value {
+      font-family: monospace;
+      font-weight: 600;
+      color: #fff;
+    }
+
+    .audio-btn {
+      width: 100%;
+      margin-top: 1rem;
+      padding: 0.65rem;
+      border-radius: 8px;
+      background: linear-gradient(135deg, rgba(56, 189, 248, 0.2), rgba(192, 132, 252, 0.2));
+      border: 1px solid var(--accent-cyan);
+      color: #fff;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 0.5rem;
+      transition: all 0.2s ease;
+    }
+    .audio-btn:hover {
+      background: linear-gradient(135deg, rgba(56, 189, 248, 0.35), rgba(192, 132, 252, 0.35));
+      box-shadow: 0 0 15px rgba(56, 189, 248, 0.4);
+    }
+
+    footer {
+      position: relative;
+      z-index: 10;
+      margin-top: auto;
+      padding: 1rem 2rem;
+      background: rgba(3, 7, 18, 0.85);
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      font-size: 0.75rem;
+      color: var(--text-sub);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      backdrop-filter: blur(10px);
+    }
+  </style>
+</head>
+<body>
+  <canvas class="bg-canvas" id="bgCanvas"></canvas>
+
+  <header>
+    <div class="brand">
+      <h1>拓扑自旋冰与狄拉克弦磁单极子模拟器</h1>
+      <div class="subtitle">Pyrochlore Dy₂Ti₂O₇ · Two-In Two-Out Ice Rule · Emergent Monopoles · Pinch Point Singularities</div>
+    </div>
+    <div class="header-badges">
+      <div class="badge">#211 前沿物理</div>
+      <div class="badge purple">Coulomb Phase</div>
+      <div class="badge amber">Dirac Strings</div>
+    </div>
+  </header>
+
+  <main>
+    <div class="viewport-section">
+      <!-- 主全息视口 -->
+      <div class="viewport-card">
+        <div class="card-header">
+          <div class="card-title">烧绿石四面体三维点阵·演生磁单极子对与狄拉克弦网络视口</div>
+          <div style="font-size: 0.75rem; color: var(--text-sub);">旋转视线：鼠标拖拽 / 单极子随机热扩散</div>
+        </div>
+        <div class="canvas-container">
+          <canvas id="mainCanvas"></canvas>
+          <div class="hud-overlay">
+            <div class="hud-chip">温度 T: <span class="val" id="hudTemp">0.25 K</span></div>
+            <div class="hud-chip">[111] 外磁场 B: <span class="val" id="hudField">0.00 T</span></div>
+            <div class="hud-chip">单极子密度 ρ_m: <span class="val" id="hudMonopoles">0.042 / site</span></div>
+            <div class="hud-chip">狄拉克弦总张力: <span class="val" id="hudTension">0.12 μeV/Å</span></div>
+          </div>
+          <div class="phase-badge-overlay phase-coulomb" id="phaseBadge">无序库仑凝聚相 (2-In 2-Out)</div>
+        </div>
+      </div>
+
+      <!-- 双科学示波器卡片 -->
+      <div class="scopes-grid">
+        <div class="scope-card">
+          <div class="card-header">
+            <div class="card-title" style="color: var(--accent-cyan);">动量空间中子散射结构因子 S(q) & 针状奇异点</div>
+          </div>
+          <div class="scope-container">
+            <canvas id="neutronScopeCanvas"></canvas>
+          </div>
+        </div>
+        <div class="scope-card">
+          <div class="card-header">
+            <div class="card-title" style="color: var(--accent-purple);">单极子热激发密度 ρ_m(T) & 鲍林残余熵 S₀</div>
+          </div>
+          <div class="scope-container">
+            <canvas id="thermoScopeCanvas"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 侧边交互面板 -->
+    <div class="sidebar">
+      <div class="panel-card">
+        <div class="panel-title">典型物理基准预设 (PRESETS)</div>
+        <div class="presets-group">
+          <button class="preset-btn active" id="btnPresetCoulomb">纯库仑相 (2-In 2-Out)</button>
+          <button class="preset-btn" id="btnPresetMonopole">单极子对激发态</button>
+          <button class="preset-btn" id="btnPresetString">狄拉克弦张紧相</button>
+          <button class="preset-btn" id="btnPresetKagome">[111] 卡戈梅自旋冰</button>
+        </div>
+
+        <div class="panel-title">自旋哈密顿量与热力学参数调控</div>
+        <div class="control-item">
+          <div class="control-header">
+            <span>系统温度 T (Kelvin)</span>
+            <span class="val" id="valTemp">0.25 K</span>
+          </div>
+          <input type="range" class="slider" id="sliderTemp" min="0.05" max="3.0" step="0.05" value="0.25">
+        </div>
+
+        <div class="control-item">
+          <div class="control-header">
+            <span>[111] 方向外加磁场 B (Tesla)</span>
+            <span class="val" id="valField">0.00 T</span>
+          </div>
+          <input type="range" class="slider" id="sliderField" min="0.0" max="3.0" step="0.1" value="0.0">
+        </div>
+
+        <div class="control-item">
+          <div class="control-header">
+            <span>近邻交换作用 J_eff (K)</span>
+            <span class="val" id="valJeff">1.11 K</span>
+          </div>
+          <input type="range" class="slider" id="sliderJeff" min="0.2" max="3.0" step="0.05" value="1.11">
+        </div>
+
+        <div class="control-item">
+          <div class="control-header">
+            <span>偶极相互作用能量比 D_nn / J</span>
+            <span class="val" id="valDipole">2.35</span>
+          </div>
+          <input type="range" class="slider" id="sliderDipole" min="0.5" max="5.0" step="0.1" value="2.35">
+        </div>
+
+        <button class="audio-btn" id="btnAudioToggle">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+            <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+          </svg>
+          开启磁单极子规范场声学合成
+        </button>
+      </div>
+
+      <div class="panel-card">
+        <div class="panel-title">自旋冰演生规范场物性读数</div>
+        <div class="metric-list">
+          <div class="metric-row">
+            <span class="label">四面体冰规则违反度</span>
+            <span class="value" id="dispIceViolation">4.2 % (高自旋冻结)</span>
+          </div>
+          <div class="metric-row">
+            <span class="label">演生磁荷量 q_m</span>
+            <span class="value" id="dispCharge">± 4.28 μB/Å</span>
+          </div>
+          <div class="metric-row">
+            <span class="label">鲍林残余熵 S(T→0)</span>
+            <span class="value" id="dispEntropy">1.68 J/(mol·K) [R ln(3/2)]</span>
+          </div>
+          <div class="metric-row">
+            <span class="label">单极子库仑结合能 Δ_m</span>
+            <span class="value" id="dispBinding">4.35 K (热活化能隙)</span>
+          </div>
+          <div class="metric-row">
+            <span class="label">针状点奇点对比度</span>
+            <span class="value" id="dispPinchContrast">0.88 (代数关联)</span>
+          </div>
+          <div class="metric-row">
+            <span class="label">演生 U(1) 光子传播速度</span>
+            <span class="value" id="dispGaugeSpeed">142 m/s</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <div>TOPOLOGICAL SPIN ICE & EMERGENT DIRAC STRING EXPERIMENTAL PLATFORM</div>
+    <div>烧绿石晶格 · 冰规则库仑相 · 演生磁单极子 · 纯前端零依赖</div>
+  </footer>
+
+  <script>
+    /* --- 全局参数与物理状态 --- */
+    const STATE = {
+      temp: 0.25,        // 温度 (K)
+      fieldB: 0.0,       // 磁场 (T)
+      jeff: 1.11,        // J_eff (K)
+      dipoleRatio: 2.35, // D / J
+      audioActive: false,
+      rotX: 0.45,
+      rotY: -0.42,
+      isDragging: false,
+      lastMouseX: 0,
+      lastMouseY: 0
+    };
+
+    const PHYSICS = {
+      monopoleDensity: 0.042, // 单极子密度
+      monopoleCount: 2,
+      iceViolationPct: 4.2,
+      entropy: 1.68,          // J/(mol·K)
+      stringTension: 0.12,    // μeV/Å
+      pinchSharpness: 0.88,
+      isKagomeIce: false
+    };
+
+    /* --- Web Audio 声音合成引擎 --- */
+    let audioCtx = null;
+    let oscThermal = null;
+    let oscMonopoleHop = null;
+    let oscGaugeField = null;
+    let gainMaster = null;
+    let gainThermal = null;
+    let gainHop = null;
+    let gainGauge = null;
+
+    function initAudio() {
+      if (audioCtx) return;
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioContextClass();
+
+      gainMaster = audioCtx.createGain();
+      gainMaster.gain.setValueAtTime(0.18, audioCtx.currentTime);
+      gainMaster.connect(audioCtx.destination);
+
+      // 自旋受挫低频热涨落深沉嗡鸣
+      oscThermal = audioCtx.createOscillator();
+      oscThermal.type = 'triangle';
+      oscThermal.frequency.setValueAtTime(65, audioCtx.currentTime);
+      gainThermal = audioCtx.createGain();
+      gainThermal.gain.setValueAtTime(0.04, audioCtx.currentTime);
+      oscThermal.connect(gainThermal);
+      gainThermal.connect(gainMaster);
+      oscThermal.start();
+
+      // 磁单极子跳跃微观脉冲音
+      oscMonopoleHop = audioCtx.createOscillator();
+      oscMonopoleHop.type = 'sawtooth';
+      oscMonopoleHop.frequency.setValueAtTime(240, audioCtx.currentTime);
+      gainHop = audioCtx.createGain();
+      gainHop.gain.setValueAtTime(0.01, audioCtx.currentTime);
+      oscMonopoleHop.connect(gainHop);
+      gainHop.connect(gainMaster);
+      oscMonopoleHop.start();
+
+      // 演生 U(1) 规范场高 Q 驻波纯音
+      oscGaugeField = audioCtx.createOscillator();
+      oscGaugeField.type = 'sine';
+      oscGaugeField.frequency.setValueAtTime(520, audioCtx.currentTime);
+      gainGauge = audioCtx.createGain();
+      gainGauge.gain.setValueAtTime(0.02, audioCtx.currentTime);
+      oscGaugeField.connect(gainGauge);
+      gainGauge.connect(gainMaster);
+      oscGaugeField.start();
+    }
+
+    function updateAudio() {
+      if (!audioCtx || !STATE.audioActive) return;
+      const now = audioCtx.currentTime;
+
+      // 热涨落频率随温度缩放
+      const tFreq = 45 + STATE.temp * 40;
+      oscThermal.frequency.setTargetAtTime(tFreq, now, 0.05);
+
+      // 单极子跳跃声随单极子密度变化
+      const hopFreq = 180 + PHYSICS.monopoleDensity * 600;
+      oscMonopoleHop.frequency.setTargetAtTime(hopFreq, now, 0.05);
+      const hopGain = Math.min(0.2, 0.01 + PHYSICS.monopoleDensity * 0.4);
+      gainHop.gain.setTargetAtTime(hopGain, now, 0.05);
+
+      // 规范场纯音
+      const gaugeGain = Math.min(0.15, 0.01 + (PHYSICS.pinchSharpness) * 0.05);
+      gainGauge.gain.setTargetAtTime(gaugeGain, now, 0.05);
+    }
+
+    /* --- 物理计算内核 --- */
+    function computePhysics() {
+      const T = STATE.temp;
+      const B = STATE.fieldB;
+
+      // 活化单极子能隙 Δ_m ~ 2 * J_eff * D/J
+      const deltaM = 2.0 * STATE.jeff * (STATE.dipoleRatio * 0.9);
+
+      // 磁单极子阿累尼乌斯热激发密度: ρ_m = exp(-Δ_m / T)
+      const rawDensity = Math.exp(-deltaM / Math.max(0.05, T));
+      PHYSICS.monopoleDensity = Math.min(0.5, Math.max(0.002, rawDensity + B * 0.02));
+      PHYSICS.iceViolationPct = (PHYSICS.monopoleDensity * 100.0);
+
+      // 鲍林残余熵 S(T): 当 T -> 0 时饱和于 R ln(3/2) = 1.68 J/(mol·K)
+      // 在较高温度时逐渐增加至完全无序自旋熵 R ln(2) = 5.76 J/(mol·K)
+      const s0 = 1.68;
+      const sInf = 5.76;
+      PHYSICS.entropy = s0 + (sInf - s0) * (1.0 - Math.exp(-T / 1.5)) - (B * 0.4);
+      PHYSICS.entropy = Math.max(0.1, PHYSICS.entropy);
+
+      // 狄拉克弦张力
+      PHYSICS.stringTension = 0.02 + B * 0.45;
+
+      // 针状奇异点尖锐对比度: 在库仑相最尖锐 (T 极低且 B 极小)，随温度增高而热模糊
+      PHYSICS.pinchSharpness = Math.max(0.1, 0.95 * Math.exp(-T / 1.8) * Math.exp(-B * 0.8));
+
+      // 判定是否进入 [111] 场诱导卡戈梅冰相
+      PHYSICS.isKagomeIce = (B > 0.8 && T < 1.0);
+    }
+
+    /* --- DOM 界面更新与绑定 --- */
+    const hudTemp = document.getElementById('hudTemp');
+    const hudField = document.getElementById('hudField');
+    const hudMonopoles = document.getElementById('hudMonopoles');
+    const hudTension = document.getElementById('hudTension');
+    const phaseBadge = document.getElementById('phaseBadge');
+
+    const dispIceViolation = document.getElementById('dispIceViolation');
+    const dispCharge = document.getElementById('dispCharge');
+    const dispEntropy = document.getElementById('dispEntropy');
+    const dispBinding = document.getElementById('dispBinding');
+    const dispPinchContrast = document.getElementById('dispPinchContrast');
+    const dispGaugeSpeed = document.getElementById('dispGaugeSpeed');
+
+    const sliderTemp = document.getElementById('sliderTemp');
+    const sliderField = document.getElementById('sliderField');
+    const sliderJeff = document.getElementById('sliderJeff');
+    const sliderDipole = document.getElementById('sliderDipole');
+
+    const valTemp = document.getElementById('valTemp');
+    const valField = document.getElementById('valField');
+    const valJeff = document.getElementById('valJeff');
+    const valDipole = document.getElementById('valDipole');
+
+    function updateDOMReadouts() {
+      valTemp.innerText = STATE.temp.toFixed(2) + ' K';
+      valField.innerText = STATE.fieldB.toFixed(2) + ' T';
+      valJeff.innerText = STATE.jeff.toFixed(2) + ' K';
+      valDipole.innerText = STATE.dipoleRatio.toFixed(2);
+
+      hudTemp.innerText = STATE.temp.toFixed(2) + ' K';
+      hudField.innerText = STATE.fieldB.toFixed(2) + ' T';
+      hudMonopoles.innerText = `${PHYSICS.monopoleDensity.toFixed(3)} / site`;
+      hudTension.innerText = `${PHYSICS.stringTension.toFixed(2)} μeV/Å`;
+
+      dispIceViolation.innerText = `${PHYSICS.iceViolationPct.toFixed(1)} % (${PHYSICS.iceViolationPct < 5 ? '极高两进两出保真' : '单极子热激发'})`;
+      dispEntropy.innerText = `${PHYSICS.entropy.toFixed(2)} J/(mol·K)`;
+      dispPinchContrast.innerText = PHYSICS.pinchSharpness.toFixed(2);
+
+      if (PHYSICS.isKagomeIce) {
+        phaseBadge.className = 'phase-badge-overlay phase-kagome';
+        phaseBadge.innerText = '[111] 场诱导三相卡戈梅冰 (Kagome Ice)';
+      } else if (PHYSICS.monopoleDensity > 0.08) {
+        phaseBadge.className = 'phase-badge-overlay phase-monopole';
+        phaseBadge.innerText = '演生磁单极子等离子体态 (Monopole Fluid)';
+      } else {
+        phaseBadge.className = 'phase-badge-overlay phase-coulomb';
+        phaseBadge.innerText = '无序拓扑库仑相 (2-In 2-Out, S₀=R ln(3/2))';
+      }
+    }
+
+    sliderTemp.addEventListener('input', (e) => {
+      STATE.temp = parseFloat(e.target.value);
+      computePhysics();
+      updateDOMReadouts();
+      updateAudio();
+      clearPresetActive();
+    });
+    sliderField.addEventListener('input', (e) => {
+      STATE.fieldB = parseFloat(e.target.value);
+      computePhysics();
+      updateDOMReadouts();
+      updateAudio();
+      clearPresetActive();
+    });
+    sliderJeff.addEventListener('input', (e) => {
+      STATE.jeff = parseFloat(e.target.value);
+      computePhysics();
+      updateDOMReadouts();
+      updateAudio();
+      clearPresetActive();
+    });
+    sliderDipole.addEventListener('input', (e) => {
+      STATE.dipoleRatio = parseFloat(e.target.value);
+      computePhysics();
+      updateDOMReadouts();
+      updateAudio();
+      clearPresetActive();
+    });
+
+    // 预设处理
+    const btnPresetCoulomb = document.getElementById('btnPresetCoulomb');
+    const btnPresetMonopole = document.getElementById('btnPresetMonopole');
+    const btnPresetString = document.getElementById('btnPresetString');
+    const btnPresetKagome = document.getElementById('btnPresetKagome');
+    const presetBtns = [btnPresetCoulomb, btnPresetMonopole, btnPresetString, btnPresetKagome];
+
+    function clearPresetActive() {
+      presetBtns.forEach(b => b.classList.remove('active'));
+    }
+
+    btnPresetCoulomb.addEventListener('click', () => {
+      clearPresetActive();
+      btnPresetCoulomb.classList.add('active');
+      STATE.temp = 0.15;
+      STATE.fieldB = 0.0;
+      STATE.jeff = 1.11;
+      STATE.dipoleRatio = 2.35;
+      syncSliders();
+    });
+    btnPresetMonopole.addEventListener('click', () => {
+      clearPresetActive();
+      btnPresetMonopole.classList.add('active');
+      STATE.temp = 0.85;
+      STATE.fieldB = 0.1;
+      STATE.jeff = 1.0;
+      STATE.dipoleRatio = 2.0;
+      syncSliders();
+    });
+    btnPresetString.addEventListener('click', () => {
+      clearPresetActive();
+      btnPresetString.classList.add('active');
+      STATE.temp = 0.35;
+      STATE.fieldB = 1.2;
+      STATE.jeff = 1.11;
+      STATE.dipoleRatio = 2.5;
+      syncSliders();
+    });
+    btnPresetKagome.addEventListener('click', () => {
+      clearPresetActive();
+      btnPresetKagome.classList.add('active');
+      STATE.temp = 0.2;
+      STATE.fieldB = 2.2;
+      STATE.jeff = 1.11;
+      STATE.dipoleRatio = 2.8;
+      syncSliders();
+    });
+
+    function syncSliders() {
+      sliderTemp.value = STATE.temp;
+      sliderField.value = STATE.fieldB;
+      sliderJeff.value = STATE.jeff;
+      sliderDipole.value = STATE.dipoleRatio;
+      computePhysics();
+      updateDOMReadouts();
+      updateAudio();
+    }
+
+    // 音频按钮
+    const btnAudioToggle = document.getElementById('btnAudioToggle');
+    btnAudioToggle.addEventListener('click', () => {
+      if (!STATE.audioActive) {
+        initAudio();
+        if (audioCtx.state === 'suspended') {
+          audioCtx.resume();
+        }
+        STATE.audioActive = true;
+        btnAudioToggle.innerHTML = `
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="1" y1="1" x2="23" y2="23"></line>
+            <path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"></path>
+            <path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"></path>
+          </svg>
+          已开启声学合成 (静音)
+        `;
+        btnAudioToggle.style.borderColor = 'var(--accent-pink)';
+        updateAudio();
+      } else {
+        STATE.audioActive = false;
+        if (gainMaster) gainMaster.gain.setValueAtTime(0, audioCtx.currentTime);
+        btnAudioToggle.innerHTML = `
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+            <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+          </svg>
+          开启磁单极子规范场声学合成
+        `;
+        btnAudioToggle.style.borderColor = 'var(--accent-cyan)';
+      }
+    });
+
+    /* --- 画布与交互初始化 --- */
+    const bgCanvas = document.getElementById('bgCanvas');
+    const bgCtx = bgCanvas.getContext('2d');
+    const mainCanvas = document.getElementById('mainCanvas');
+    const ctx = mainCanvas.getContext('2d');
+    const neutronScopeCanvas = document.getElementById('neutronScopeCanvas');
+    const nCtx = neutronScopeCanvas.getContext('2d');
+    const thermoScopeCanvas = document.getElementById('thermoScopeCanvas');
+    const tCtx = thermoScopeCanvas.getContext('2d');
+
+    function resizeCanvases() {
+      bgCanvas.width = window.innerWidth;
+      bgCanvas.height = window.innerHeight;
+
+      const rectM = mainCanvas.parentElement.getBoundingClientRect();
+      mainCanvas.width = rectM.width * window.devicePixelRatio;
+      mainCanvas.height = rectM.height * window.devicePixelRatio;
+
+      const rectN = neutronScopeCanvas.parentElement.getBoundingClientRect();
+      neutronScopeCanvas.width = rectN.width * window.devicePixelRatio;
+      neutronScopeCanvas.height = rectN.height * window.devicePixelRatio;
+
+      const rectT = thermoScopeCanvas.parentElement.getBoundingClientRect();
+      thermoScopeCanvas.width = rectT.width * window.devicePixelRatio;
+      thermoScopeCanvas.height = rectT.height * window.devicePixelRatio;
+    }
+    window.addEventListener('resize', resizeCanvases);
+
+    // 鼠标旋转
+    mainCanvas.addEventListener('mousedown', (e) => {
+      STATE.isDragging = true;
+      STATE.lastMouseX = e.clientX;
+      STATE.lastMouseY = e.clientY;
+    });
+    window.addEventListener('mouseup', () => { STATE.isDragging = false; });
+    window.addEventListener('mousemove', (e) => {
+      if (!STATE.isDragging) return;
+      const dx = e.clientX - STATE.lastMouseX;
+      const dy = e.clientY - STATE.lastMouseY;
+      STATE.rotY += dx * 0.006;
+      STATE.rotX = Math.max(-1.1, Math.min(1.1, STATE.rotX + dy * 0.006));
+      STATE.lastMouseX = e.clientX;
+      STATE.lastMouseY = e.clientY;
+    });
+
+    /* --- 烧绿石晶格四面体三维点阵网络 --- */
+    const tetrahedra = [];
+    const spins = [];
+
+    function initPyrochloreLattice() {
+      tetrahedra.length = 0;
+      spins.length = 0;
+
+      // 生成紧凑的立方烧绿石网络 (两个互穿四面体子晶格 A 与 B)
+      const a = 110; // 晶格间距
+      const coords = [
+        [-1, -1, -1], [1, 1, -1], [1, -1, 1], [-1, 1, 1]
+      ];
+
+      for (let ix = -1; ix <= 1; ix++) {
+        for (let iy = -1; iy <= 1; iy++) {
+          for (let iz = -1; iz <= 1; iz++) {
+            const cx = ix * a * 1.5;
+            const cy = iy * a * 1.5;
+            const cz = iz * a * 1.5;
+
+            // 四面体中心
+            const tetA = {
+              cx: cx,
+              cy: cy,
+              cz: cz,
+              type: 'A',
+              charge: 0, // 0: 2-in 2-out, +1: 3-in 1-out, -1: 3-out 1-in
+              vertices: []
+            };
+
+            const rTet = 46;
+            coords.forEach((c, idx) => {
+              const vx = cx + c[0] * rTet * 0.58;
+              const vy = cy + c[1] * rTet * 0.58;
+              const vz = cz + c[2] * rTet * 0.58;
+              tetA.vertices.push({ x: vx, y: vy, z: vz, spinDir: (idx % 2 === 0 ? 1 : -1) });
+            });
+
+            tetrahedra.push(tetA);
+          }
+        }
+      }
+    }
+
+    /* --- 3D 投影函数 --- */
+    function project3D(x, y, z, width, height) {
+      const cosY = Math.cos(STATE.rotY);
+      const sinY = Math.sin(STATE.rotY);
+      const x1 = x * cosY - z * sinY;
+      const z1 = z * cosY + x * sinY;
+
+      const cosX = Math.cos(STATE.rotX);
+      const sinX = Math.sin(STATE.rotX);
+      const y2 = y * cosX - z1 * sinX;
+      const z2 = z1 * cosX + y * sinX;
+
+      const fov = 750;
+      const dist = 700;
+      const pz = z2 + dist;
+      const scale = pz > 1 ? fov / pz : 1;
+
+      return {
+        px: width / 2 + x1 * scale,
+        py: height / 2 + y2 * scale,
+        scale: scale,
+        zDepth: z2
+      };
+    }
+
+    /* --- 主渲染循环 --- */
+    let simTime = 0;
+
+    function renderMain(timestamp) {
+      simTime += 0.03;
+      computePhysics();
+      updateDOMReadouts();
+      updateAudio();
+
+      const w = mainCanvas.width;
+      const h = mainCanvas.height;
+      const dpr = window.devicePixelRatio;
+
+      ctx.clearRect(0, 0, w, h);
+
+      // 动态确定当前处于激发态的单极子四面体对 (一对分离的 +q_m 与 -q_m)
+      const numTets = tetrahedra.length;
+      const p1Idx = Math.floor(numTets * 0.35);
+      const p2Idx = Math.floor(numTets * 0.65);
+
+      // 绘制所有四面体骨架与自旋箭头
+      tetrahedra.forEach((tet, tIdx) => {
+        // 判定该四面体是否为单极子
+        let isPosMonopole = false;
+        let isNegMonopole = false;
+
+        if (PHYSICS.monopoleDensity > 0.03) {
+          if (tIdx === p1Idx) isPosMonopole = true;
+          if (tIdx === p2Idx) isNegMonopole = true;
+        }
+
+        const centerP = project3D(tet.cx, tet.cy, tet.cz, w, h);
+
+        // 四面体棱线
+        ctx.beginPath();
+        for (let i = 0; i < 4; i++) {
+          for (let j = i + 1; j < 4; j++) {
+            const v1 = tet.vertices[i];
+            const v2 = tet.vertices[j];
+            const p1 = project3D(v1.x, v1.y, v1.z, w, h);
+            const p2 = project3D(v2.x, v2.y, v2.z, w, h);
+            ctx.moveTo(p1.px, p1.py);
+            ctx.lineTo(p2.px, p2.py);
+          }
+        }
+        ctx.strokeStyle = (isPosMonopole || isNegMonopole) ? 'rgba(251, 191, 36, 0.45)' : 'rgba(56, 189, 248, 0.15)';
+        ctx.lineWidth = 1 * dpr;
+        ctx.stroke();
+
+        // 绘制四面体各顶点的磁矩自旋箭头 (易轴沿中心与顶点连线)
+        tet.vertices.forEach((v, vIdx) => {
+          // 指向或背离中心: 2 进 2 出
+          const dirIn = v.spinDir;
+          const dx = (v.x - tet.cx);
+          const dy = (v.y - tet.cy);
+          const dz = (v.z - tet.cz);
+          const len = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1;
+
+          const spinLen = 14;
+          const arrowTipX = v.x + (dx / len) * spinLen * dirIn;
+          const arrowTipY = v.y + (dy / len) * spinLen * dirIn;
+          const arrowTipZ = v.z + (dz / len) * spinLen * dirIn;
+
+          const baseP = project3D(v.x, v.y, v.z, w, h);
+          const tipP = project3D(arrowTipX, arrowTipY, arrowTipZ, w, h);
+
+          ctx.beginPath();
+          ctx.moveTo(baseP.px, baseP.py);
+          ctx.lineTo(tipP.px, tipP.py);
+          ctx.strokeStyle = dirIn > 0 ? '#38bdf8' : '#c084fc';
+          ctx.lineWidth = 2 * baseP.scale * dpr;
+          ctx.stroke();
+
+          // 箭头尖端
+          ctx.beginPath();
+          ctx.arc(tipP.px, tipP.py, 2.5 * baseP.scale * dpr, 0, Math.PI * 2);
+          ctx.fillStyle = '#fff';
+          ctx.fill();
+        });
+
+        // 若四面体为磁单极子，绘制发光核与极化云
+        if (isPosMonopole || isNegMonopole) {
+          const mColor = isPosMonopole ? '#f43f5e' : '#38bdf8';
+          const mShadow = isPosMonopole ? '#ff4d6d' : '#0284c7';
+
+          const grad = ctx.createRadialGradient(centerP.px, centerP.py, 2, centerP.px, centerP.py, 24 * centerP.scale * dpr);
+          grad.addColorStop(0, isPosMonopole ? 'rgba(244, 63, 94, 0.95)' : 'rgba(56, 189, 248, 0.95)');
+          grad.addColorStop(0.5, isPosMonopole ? 'rgba(244, 63, 94, 0.35)' : 'rgba(56, 189, 248, 0.35)');
+          grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+
+          ctx.beginPath();
+          ctx.arc(centerP.px, centerP.py, 24 * centerP.scale * dpr, 0, Math.PI * 2);
+          ctx.fillStyle = grad;
+          ctx.fill();
+
+          ctx.beginPath();
+          ctx.arc(centerP.px, centerP.py, 6 * centerP.scale * dpr, 0, Math.PI * 2);
+          ctx.fillStyle = '#fff';
+          ctx.shadowColor = mShadow;
+          ctx.shadowBlur = 12 * centerP.scale * dpr;
+          ctx.fill();
+          ctx.shadowBlur = 0;
+
+          // 标注荷量
+          ctx.fillStyle = '#fff';
+          ctx.font = `${9 * dpr}px monospace`;
+          ctx.fillText(isPosMonopole ? '+q_m (3-In)' : '-q_m (3-Out)', centerP.px + 10 * dpr, centerP.py - 10 * dpr);
+        }
+      });
+
+      // 绘制连接单极子对的不可见狄拉克弦 (Dirac String 翻转自旋链)
+      if (PHYSICS.monopoleDensity > 0.03) {
+        const t1 = tetrahedra[p1Idx];
+        const t2 = tetrahedra[p2Idx];
+        const p1 = project3D(t1.cx, t1.cy, t1.cz, w, h);
+        const p2 = project3D(t2.cx, t2.cy, t2.cz, w, h);
+
+        ctx.strokeStyle = 'rgba(251, 191, 36, 0.85)';
+        ctx.lineWidth = 2.5 * dpr;
+        ctx.setLineDash([4 * dpr, 4 * dpr]);
+        ctx.beginPath();
+        ctx.moveTo(p1.px, p1.py);
+        ctx.lineTo(p2.px, p2.py);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // 狄拉克弦中点光标
+        const midX = (p1.px + p2.px) * 0.5;
+        const midY = (p1.py + p2.py) * 0.5;
+        ctx.fillStyle = '#fbbf24';
+        ctx.font = `${9 * dpr}px monospace`;
+        ctx.fillText('狄拉克弦 (Dirac String)', midX + 10 * dpr, midY - 6 * dpr);
+      }
+    }
+
+    /* --- 示波器 1: 中子散射结构因子 S(q) & 针状奇异点 Pinch Point --- */
+    function renderNeutronScope() {
+      const w = neutronScopeCanvas.width;
+      const h = neutronScopeCanvas.height;
+      const dpr = window.devicePixelRatio;
+
+      nCtx.clearRect(0, 0, w, h);
+
+      // 动量空间伪彩热图尺寸
+      const pLeft = 35 * dpr;
+      const pRight = w - 25 * dpr;
+      const pTop = 25 * dpr;
+      const pBottom = h - 35 * dpr;
+      const cx = (pLeft + pRight) * 0.5;
+      const cy = (pTop + pBottom) * 0.5;
+
+      // 坐标轴
+      nCtx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+      nCtx.lineWidth = 1 * dpr;
+      nCtx.beginPath();
+      nCtx.moveTo(cx, pTop); nCtx.lineTo(cx, pBottom);
+      nCtx.moveTo(pLeft, cy); nCtx.lineTo(pRight, cy);
+      nCtx.stroke();
+
+      nCtx.fillStyle = 'rgba(148, 163, 184, 0.7)';
+      nCtx.font = `${9 * dpr}px monospace`;
+      nCtx.fillText('q_[001] (r.l.u.)', cx + 6 * dpr, pTop + 6 * dpr);
+      nCtx.fillText('q_[hh0]', pRight - 45 * dpr, cy + 14 * dpr);
+
+      // 绘制蝴蝶结针状奇异点 (Pinch Point at (0, 0, 2))
+      // 库仑相中子结构因子公式: S(q) ∝ (1 - (q · n)² / q²)
+      const pinchRadius = (pRight - cx) * 0.75;
+      const sharpness = PHYSICS.pinchSharpness;
+
+      // 绘制蝴蝶结两翼色轮等高线
+      const numRings = 8;
+      for (let r = 1; r <= numRings; r++) {
+        const rad = (r / numRings) * pinchRadius;
+        nCtx.beginPath();
+
+        // 蝴蝶结双瓣轮廓
+        for (let angle = -Math.PI / 3; angle <= Math.PI / 3; angle += 0.05) {
+          const modR = rad * Math.cos(angle * 1.5) * (0.8 + 0.2 * sharpness);
+          const px = cx + modR * Math.cos(angle);
+          const py = cy + modR * Math.sin(angle);
+          if (angle === -Math.PI / 3) nCtx.moveTo(px, py);
+          else nCtx.lineTo(px, py);
+        }
+        for (let angle = Math.PI - Math.PI / 3; angle <= Math.PI + Math.PI / 3; angle += 0.05) {
+          const modR = rad * Math.cos((angle - Math.PI) * 1.5) * (0.8 + 0.2 * sharpness);
+          const px = cx + modR * Math.cos(angle);
+          const py = cy + modR * Math.sin(angle);
+          nCtx.lineTo(px, py);
+        }
+        nCtx.closePath();
+        nCtx.strokeStyle = `rgba(56, 189, 248, ${0.12 * (1.0 - r / numRings) + 0.05})`;
+        nCtx.lineWidth = 2 * dpr;
+        nCtx.stroke();
+      }
+
+      // 中心奇异针尖点发光
+      nCtx.beginPath();
+      nCtx.arc(cx, cy, 3.5 * dpr, 0, Math.PI * 2);
+      nCtx.fillStyle = '#ff758f';
+      nCtx.shadowColor = '#f43f5e';
+      nCtx.shadowBlur = 8 * dpr;
+      nCtx.fill();
+      nCtx.shadowBlur = 0;
+
+      nCtx.fillStyle = '#fbbf24';
+      nCtx.fillText('Pinch Point (0,0,2)', cx + 8 * dpr, cy - 8 * dpr);
+    }
+
+    /* --- 示波器 2: 单极子激发密度 ρ_m(T) & 鲍林残余熵 S₀ --- */
+    function renderThermoScope() {
+      const w = thermoScopeCanvas.width;
+      const h = thermoScopeCanvas.height;
+      const dpr = window.devicePixelRatio;
+
+      tCtx.clearRect(0, 0, w, h);
+
+      // 左半：单极子密度随温度演化
+      const halfW = w * 0.48;
+      const pLeft = 40 * dpr;
+      const pRight = halfW - 10 * dpr;
+      const pTop = 25 * dpr;
+      const pBottom = h - 35 * dpr;
+
+      tCtx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+      tCtx.lineWidth = 1 * dpr;
+      tCtx.beginPath();
+      tCtx.moveTo(pLeft, pTop); tCtx.lineTo(pLeft, pBottom);
+      tCtx.lineTo(pRight, pBottom);
+      tCtx.stroke();
+
+      tCtx.fillStyle = 'rgba(148, 163, 184, 0.7)';
+      tCtx.font = `${9 * dpr}px monospace`;
+      tCtx.fillText('单极子密度 ρ_m', pLeft + 6 * dpr, pTop + 4 * dpr);
+      tCtx.fillText('温度 T (K)', pRight - 40 * dpr, pBottom + 18 * dpr);
+
+      // 绘制阿累尼乌斯热活化曲线 ρ_m(T) = exp(-Δ/T)
+      tCtx.beginPath();
+      let first = true;
+      for (let t = 0.05; t <= 3.0; t += 0.05) {
+        const rho = Math.exp(-4.35 / t);
+        const px = pLeft + ((t - 0.05) / 2.95) * (pRight - pLeft);
+        const py = pBottom - Math.min(1.0, rho / 0.5) * (pBottom - pTop);
+        if (first) { tCtx.moveTo(px, py); first = false; }
+        else { tCtx.lineTo(px, py); }
+      }
+      tCtx.strokeStyle = '#ff758f';
+      tCtx.lineWidth = 2 * dpr;
+      tCtx.stroke();
+
+      // 标出当前温度点
+      const curTX = pLeft + ((STATE.temp - 0.05) / 2.95) * (pRight - pLeft);
+      const curTY = pBottom - Math.min(1.0, PHYSICS.monopoleDensity / 0.5) * (pBottom - pTop);
+      tCtx.beginPath();
+      tCtx.arc(curTX, curTY, 4.5 * dpr, 0, Math.PI * 2);
+      tCtx.fillStyle = '#ff758f';
+      tCtx.fill();
+      tCtx.strokeStyle = '#fff';
+      tCtx.stroke();
+
+      // -------------------------------------------------------------
+      // 右半：鲍林残余熵 S(T)
+      // -------------------------------------------------------------
+      const rLeft = halfW + 30 * dpr;
+      const rRight = w - 20 * dpr;
+      const rBottom = pBottom;
+
+      tCtx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+      tCtx.beginPath();
+      tCtx.moveTo(rLeft, pTop); tCtx.lineTo(rLeft, rBottom);
+      tCtx.lineTo(rRight, rBottom);
+      tCtx.stroke();
+
+      tCtx.fillStyle = 'rgba(148, 163, 184, 0.7)';
+      tCtx.fillText('自旋熵 S [J/(mol·K)]', rLeft + 6 * dpr, pTop + 4 * dpr);
+      tCtx.fillText('温度 T (K)', rRight - 40 * dpr, rBottom + 18 * dpr);
+
+      // 绘制鲍林残余熵曲线
+      tCtx.beginPath();
+      first = true;
+      for (let t = 0.05; t <= 3.0; t += 0.05) {
+        const sVal = 1.68 + (5.76 - 1.68) * (1.0 - Math.exp(-t / 1.5));
+        const px = rLeft + ((t - 0.05) / 2.95) * (rRight - rLeft);
+        const py = rBottom - (sVal / 6.0) * (rBottom - pTop);
+        if (first) { tCtx.moveTo(px, py); first = false; }
+        else { tCtx.lineTo(px, py); }
+      }
+      tCtx.strokeStyle = 'rgba(56, 189, 248, 0.85)';
+      tCtx.lineWidth = 2 * dpr;
+      tCtx.stroke();
+
+      // 标出 Pauling 残余熵平台线 S₀ = R ln(3/2) = 1.68
+      const s0Y = rBottom - (1.68 / 6.0) * (rBottom - pTop);
+      tCtx.strokeStyle = 'rgba(251, 191, 36, 0.6)';
+      tCtx.setLineDash([3 * dpr, 3 * dpr]);
+      tCtx.beginPath();
+      tCtx.moveTo(rLeft, s0Y);
+      tCtx.lineTo(rRight, s0Y);
+      tCtx.stroke();
+      tCtx.setLineDash([]);
+
+      tCtx.fillStyle = '#fbbf24';
+      tCtx.fillText('S₀ = R ln(3/2)', rLeft + 10 * dpr, s0Y - 6 * dpr);
+    }
+
+    /* --- 背景粒子 --- */
+    const bgParticles = [];
+    for (let i = 0; i < 50; i++) {
+      bgParticles.push({
+        x: Math.random() * window.innerWidth,
+        y: Math.random() * window.innerHeight,
+        vx: (Math.random() - 0.5) * 0.35,
+        vy: (Math.random() - 0.5) * 0.35,
+        size: Math.random() * 2 + 1,
+        color: Math.random() > 0.5 ? 'rgba(56, 189, 248, ' : 'rgba(192, 132, 252, '
+      });
+    }
+
+    function renderBg() {
+      bgCtx.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
+      bgParticles.forEach(p => {
+        p.x += p.vx;
+        p.y += p.vy;
+        if (p.x < 0) p.x = bgCanvas.width;
+        if (p.x > bgCanvas.width) p.x = 0;
+        if (p.y < 0) p.y = bgCanvas.height;
+        if (p.y > bgCanvas.height) p.y = 0;
+
+        bgCtx.beginPath();
+        bgCtx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        bgCtx.fillStyle = p.color + '0.45)';
+        bgCtx.fill();
+      });
+    }
+
+    /* --- 总渲染帧循环 --- */
+    function animate(timestamp) {
+      renderBg();
+      renderMain(timestamp);
+      renderNeutronScope();
+      renderThermoScope();
+      requestAnimationFrame(animate);
+    }
+
+    // 启动
+    resizeCanvases();
+    initPyrochloreLattice();
+    computePhysics();
+    updateDOMReadouts();
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>

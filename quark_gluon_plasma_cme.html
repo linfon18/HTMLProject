@@ -1,0 +1,1300 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>夸克-胶子等离子体手征磁效应与相对论重离子对撞全息模拟 - QGP & Chiral Magnetic Effect</title>
+  <style>
+    :root {
+      --bg-dark: #04060b;
+      --panel-bg: rgba(9, 13, 24, 0.85);
+      --panel-border: rgba(244, 63, 94, 0.25);
+      --accent-rose: #f43f5e;
+      --accent-cyan: #06b6d4;
+      --accent-gold: #fbbf24;
+      --accent-purple: #c084fc;
+      --accent-emerald: #10b981;
+      --text-main: #f8fafc;
+      --text-dim: #94a3b8;
+      --font-code: 'JetBrains Mono', 'Fira Code', monospace;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      background: rgba(8, 12, 22, 0.95);
+      border-bottom: 1px solid var(--panel-border);
+      padding: 10px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 20;
+    }
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .badge-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #f43f5e, #c084fc);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 15px rgba(244, 63, 94, 0.4);
+      font-size: 16px;
+      font-weight: bold;
+    }
+    h1 {
+      font-size: 1.05rem;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    h1 span.en {
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      font-weight: normal;
+    }
+    .status-badges {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .badge {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-size: 0.72rem;
+      font-family: var(--font-code);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .badge .val {
+      color: var(--accent-rose);
+      font-weight: 600;
+    }
+    .main-container {
+      flex: 1;
+      display: flex;
+      position: relative;
+      overflow: hidden;
+    }
+    .viewport-area {
+      flex: 1;
+      position: relative;
+      background: radial-gradient(circle at 50% 50%, #0d1222 0%, #04060c 100%);
+      overflow: hidden;
+    }
+    canvas#mainCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    /* HUD Overlay */
+    .hud-overlay {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      pointer-events: none;
+      z-index: 10;
+    }
+    .hud-card {
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+      padding: 8px 14px;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    }
+    .hud-title {
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-dim);
+      margin-bottom: 3px;
+    }
+    .hud-val {
+      font-family: var(--font-code);
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--accent-gold);
+    }
+    .hud-sub {
+      font-size: 0.65rem;
+      color: var(--text-dim);
+      margin-top: 2px;
+    }
+    /* Reaction Plane Compass */
+    .hud-compass {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: 50%;
+      width: 80px;
+      height: 80px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+    }
+
+    /* Right Sidebar Controls & Scopes */
+    .sidebar {
+      width: 370px;
+      background: var(--panel-bg);
+      border-left: 1px solid var(--panel-border);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      z-index: 15;
+      backdrop-filter: blur(12px);
+    }
+    .sidebar-section {
+      padding: 14px 18px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .section-title {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--accent-rose);
+      font-weight: 700;
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    /* Scope Boxes */
+    .scope-box {
+      background: rgba(4, 7, 16, 0.95);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      padding: 10px;
+      margin-bottom: 10px;
+      position: relative;
+    }
+    .scope-box header {
+      background: transparent;
+      border: none;
+      padding: 0 0 6px 0;
+      font-size: 0.7rem;
+      color: var(--text-dim);
+      display: flex;
+      justify-content: space-between;
+    }
+    .scope-canvas-wrap {
+      width: 100%;
+      height: 95px;
+      position: relative;
+    }
+    .scope-canvas-wrap canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    /* Controls */
+    .control-group {
+      margin-bottom: 12px;
+    }
+    .control-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.72rem;
+      margin-bottom: 5px;
+      color: var(--text-dim);
+    }
+    .control-header .val {
+      font-family: var(--font-code);
+      color: #fff;
+    }
+    input[type=range] {
+      -webkit-appearance: none;
+      width: 100%;
+      background: rgba(255, 255, 255, 0.1);
+      height: 4px;
+      border-radius: 2px;
+      outline: none;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--accent-rose);
+      cursor: pointer;
+      box-shadow: 0 0 8px rgba(244, 63, 94, 0.6);
+      transition: transform 0.1s;
+    }
+    input[type=range]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+    /* Buttons */
+    .btn-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    button.btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: var(--text-main);
+      padding: 8px 10px;
+      border-radius: 6px;
+      font-size: 0.72rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    button.btn:hover {
+      background: rgba(244, 63, 94, 0.15);
+      border-color: var(--accent-rose);
+      color: #fff;
+    }
+    button.btn.active {
+      background: var(--accent-rose);
+      border-color: var(--accent-rose);
+      color: #fff;
+      box-shadow: 0 0 12px rgba(244, 63, 94, 0.4);
+    }
+    /* Legend */
+    .legend-box {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 0.7rem;
+      color: var(--text-dim);
+    }
+    .legend-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .legend-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+    .legend-dot.pos { background: var(--accent-rose); box-shadow: 0 0 8px var(--accent-rose); }
+    .legend-dot.neg { background: var(--accent-cyan); box-shadow: 0 0 8px var(--accent-cyan); }
+    .legend-dot.mag { background: var(--accent-purple); box-shadow: 0 0 8px var(--accent-purple); }
+    .legend-dot.sph { background: var(--accent-gold); box-shadow: 0 0 8px var(--accent-gold); }
+
+    .formula-card {
+      background: rgba(244, 63, 94, 0.05);
+      border: 1px dashed rgba(244, 63, 94, 0.3);
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-family: var(--font-code);
+      font-size: 0.72rem;
+      color: #e2e8f0;
+      line-height: 1.5;
+      margin-top: 8px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 顶部状态栏 -->
+  <header>
+    <div class="header-left">
+      <div class="badge-icon">⚡</div>
+      <div>
+        <h1>夸克-胶子等离子体手征磁效应 <span class="en">QGP Chiral Magnetic Effect & Heavy-Ion Collision</span></h1>
+      </div>
+    </div>
+    <div class="status-badges">
+      <div class="badge">对撞系: <span class="val" id="hdrSystem">Au+Au @ 200 GeV</span></div>
+      <div class="badge">冲击参数: <span class="val" id="hdrImpact">7.2 fm</span></div>
+      <div class="badge">瞬态磁场: <span class="val" id="hdrB">6.5 m_π²</span></div>
+      <div class="badge">手征荷差: <span class="val" id="hdrN5">+42</span></div>
+      <div class="badge">电荷偶极分离: <span class="val" id="hdrQcme">0.34</span></div>
+    </div>
+  </header>
+
+  <div class="main-container">
+    <!-- 主视口 -->
+    <div class="viewport-area">
+      <canvas id="mainCanvas"></canvas>
+
+      <!-- HUD 悬浮指示卡片 -->
+      <div class="hud-overlay">
+        <div class="hud-card">
+          <div class="hud-title">瞬态磁感应强度 (Peak B-field)</div>
+          <div class="hud-val" id="hudBField">8.42 × 10¹⁵ T</div>
+          <div class="hud-sub">垂直于反应平面 (B ∥ ŷ)</div>
+        </div>
+        <div class="hud-card">
+          <div class="hud-title">QGP 流体中心温度 (Temperature)</div>
+          <div class="hud-val" id="hudTemp" style="color: var(--accent-rose);">345 MeV</div>
+          <div class="hud-sub">~ 4.0 × 10¹² K (超越强相互作用临界 T_c)</div>
+        </div>
+        <div class="hud-card">
+          <div class="hud-title">CME 感生无耗散电磁电流 (J_CME)</div>
+          <div class="hud-val" id="hudCurrent" style="color: var(--accent-cyan);">1.84 × 10¹⁹ A/m²</div>
+          <div class="hud-sub">J_EM = (e²/2π²) μ₅ B</div>
+        </div>
+        <div class="hud-card">
+          <div class="hud-title">椭圆流各向异性参数 (v₂)</div>
+          <div class="hud-val" id="hudV2" style="color: var(--accent-purple);">0.082</div>
+          <div class="hud-sub">压力梯度驱动动力学各向异性膨胀</div>
+        </div>
+      </div>
+
+      <!-- 反应面指向罗盘 -->
+      <div class="hud-compass">
+        <canvas id="compassCanvas" width="70" height="70"></canvas>
+      </div>
+    </div>
+
+    <!-- 右侧科学示波器与交互面板 -->
+    <div class="sidebar">
+
+      <!-- 示波器 1 -->
+      <div class="sidebar-section">
+        <div class="section-title">
+          <span>示波器 I: 偶极电荷分离与 CME 电流</span>
+          <span style="font-size: 0.65rem; color: var(--accent-rose);" id="scope1Status">J_CME(t) 监测</span>
+        </div>
+        <div class="scope-box">
+          <header>
+            <span>纵向电磁流波形 J_y(t) [×10¹⁹ A/m²]</span>
+            <span id="scopeCurrentVal" style="color: var(--accent-cyan); font-family: var(--font-code);">+1.84</span>
+          </header>
+          <div class="scope-canvas-wrap">
+            <canvas id="scopeCurrentCanvas"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- 示波器 2 -->
+      <div class="sidebar-section">
+        <div class="section-title">
+          <span>示波器 II: 出射强子方位角电荷关联 γ</span>
+          <span style="font-size: 0.65rem; color: var(--accent-gold);">Δγ = γ_OS - γ_SS</span>
+        </div>
+        <div class="scope-box">
+          <header>
+            <span>双粒子角分布关联 ⟨cos(ϕ_α + ϕ_β)⟩</span>
+            <span id="scopeCorrVal" style="color: var(--accent-gold); font-family: var(--font-code);">Δγ = +0.024</span>
+          </header>
+          <div class="scope-canvas-wrap">
+            <canvas id="scopeCorrCanvas"></canvas>
+          </div>
+        </div>
+        <div class="formula-card">
+          <strong>手征磁效应定律 (Chiral Magnetic Effect)</strong><br>
+          J_EM = (e² / 2π²) · μ₅ · B<br>
+          电荷分离: ΔN_ch ∝ μ₅ · ∫ eB dt
+        </div>
+      </div>
+
+      <!-- 参数调节控制 -->
+      <div class="sidebar-section">
+        <div class="section-title">对撞动力学参数控制</div>
+
+        <!-- 冲击参数 b -->
+        <div class="control-group">
+          <div class="control-header">
+            <span>冲击参数 (Impact Parameter b)</span>
+            <span class="val" id="valB">7.2 fm</span>
+          </div>
+          <input type="range" id="slB" min="0" max="13" step="0.2" value="7.2" oninput="updateParam('b', this.value)">
+        </div>
+
+        <!-- 手征化学势 mu_5 -->
+        <div class="control-group">
+          <div class="control-header">
+            <span>手征化学势 (Chiral Potential μ₅)</span>
+            <span class="val" id="valMu5">45 MeV</span>
+          </div>
+          <input type="range" id="slMu5" min="0" max="100" step="1" value="45" oninput="updateParam('mu5', this.value)">
+        </div>
+
+        <!-- 质心对撞能量 -->
+        <div class="control-group">
+          <div class="control-header">
+            <span>束流能量 (Center-of-Mass √s_NN)</span>
+            <span class="val" id="valEnergy">200 GeV</span>
+          </div>
+          <input type="range" id="slEnergy" min="20" max="5020" step="20" value="200" oninput="updateParam('energy', this.value)">
+        </div>
+
+        <!-- 流体粘滞性 eta/s -->
+        <div class="control-group">
+          <div class="control-header">
+            <span>流体粘熵比 (Shear Viscosity η/s)</span>
+            <span class="val" id="valEta">0.08 (1/4π)</span>
+          </div>
+          <input type="range" id="slEta" min="0.04" max="0.40" step="0.01" value="0.08" oninput="updateParam('eta', this.value)">
+        </div>
+
+        <!-- 典型工况预设 -->
+        <div class="section-title" style="margin-top: 15px;">典型物理工况预设</div>
+        <div class="btn-grid">
+          <button class="btn active" id="p1Btn" onclick="applyPreset(1)">RHIC 偏心碰撞 (CME)</button>
+          <button class="btn" id="p2Btn" onclick="applyPreset(2)">Sphaleron 拓扑跃迁暴发</button>
+          <button class="btn" id="p3Btn" onclick="applyPreset(3)">中心对撞 b≈0 (零磁场基准)</button>
+          <button class="btn" id="p4Btn" onclick="applyPreset(4)">零手征化学势 (纯 v₂ 背景)</button>
+        </div>
+      </div>
+
+      <!-- 操作与交互按钮 -->
+      <div class="sidebar-section">
+        <div class="section-title">实时对撞操作</div>
+        <div class="btn-grid" style="grid-template-columns: 1fr 1fr;">
+          <button class="btn" onclick="triggerCollision()">💥 重新激发对撞</button>
+          <button class="btn" onclick="injectSphaleron()">🌀 激发真空拓扑跳变</button>
+          <button class="btn" id="playBtn" onclick="togglePlay()"><span id="playIcon">⏸</span> <span id="playText">暂停仿真</span></button>
+          <button class="btn" onclick="resetSim()">↺ 重置系统</button>
+        </div>
+
+        <div style="margin-top: 14px;" class="legend-box">
+          <div class="legend-row">
+            <div class="legend-dot pos"></div>
+            <span>正电荷强子 (π⁺, p, K⁺) - 受 CME 驱动沿 +B 方向漂移</span>
+          </div>
+          <div class="legend-row">
+            <div class="legend-dot neg"></div>
+            <span>负电荷强子 (π⁻, p̄, K⁻) - 受 CME 驱动沿 -B 方向漂移</span>
+          </div>
+          <div class="legend-row">
+            <div class="legend-dot mag"></div>
+            <span>瞬态正交磁感线 (eB ∥ ŷ) 与旁观者核子束流</span>
+          </div>
+          <div class="legend-row">
+            <div class="legend-dot sph"></div>
+            <span>QCD Sphaleron 拓扑色激发与胶子通量节点</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    // -------------------------------------------------------------
+    // 全局物理参数与状态建模
+    // -------------------------------------------------------------
+    const PARAMS = {
+      impactB: 7.2,       // 冲击参数 b (fm)
+      mu5: 45,            // 手征化学势 μ₅ (MeV)
+      energy: 200,        // 质心能量 √s_NN (GeV)
+      etaOverS: 0.08,     // 粘熵比 η/s
+      paused: false,
+      viewMode: 'transverse', // 'transverse' (x-y) 或 'reaction' (x-z)
+      simTime: 0.0,       // 对撞后演化时间 (fm/c)
+      collided: true
+    };
+
+    // 物理计算缓存与粒子数组
+    let hadrons = [];       // 出射强子粒子
+    let magneticLines = []; // 瞬态磁力线
+    let spectators = [];    // 旁观者核子 (飞驰核碎片)
+    let qgpFireball = [];   // QGP 核心流体元胞
+    let sphalerons = [];    // 拓扑跃迁事件波纹
+
+    // 示波器历史缓存
+    const HISTORY_MAX = 140;
+    let currentHistory = new Array(HISTORY_MAX).fill(0);
+    let osCorrHistory = new Array(HISTORY_MAX).fill(0);
+    let ssCorrHistory = new Array(HISTORY_MAX).fill(0);
+
+    // Canvas 获取与视口适配
+    const mainCanvas = document.getElementById('mainCanvas');
+    const ctx = mainCanvas.getContext('2d');
+    const scopeCurrentCanvas = document.getElementById('scopeCurrentCanvas');
+    const ctxCurrent = scopeCurrentCanvas.getContext('2d');
+    const scopeCorrCanvas = document.getElementById('scopeCorrCanvas');
+    const ctxCorr = scopeCorrCanvas.getContext('2d');
+    const compassCanvas = document.getElementById('compassCanvas');
+    const ctxCompass = compassCanvas.getContext('2d');
+
+    let width = 0, height = 0;
+    let lastTime = performance.now();
+
+    // -------------------------------------------------------------
+    // Web Audio 声效系统
+    // -------------------------------------------------------------
+    let audioCtx = null;
+    function initAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    function playCollisionSound() {
+      if (!audioCtx) return;
+      const t = audioCtx.currentTime;
+      // 超重低频轰鸣 (重离子对撞)
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(140, t);
+      osc.frequency.exponentialRampToValueAtTime(32, t + 0.6);
+
+      gain.gain.setValueAtTime(0.35, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.8);
+
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(t);
+      osc.stop(t + 0.85);
+
+      // 高频强磁场激波
+      const oscHi = audioCtx.createOscillator();
+      const gainHi = audioCtx.createGain();
+      oscHi.type = 'sine';
+      oscHi.frequency.setValueAtTime(880, t);
+      oscHi.frequency.exponentialRampToValueAtTime(220, t + 0.3);
+      gainHi.gain.setValueAtTime(0.18, t);
+      gainHi.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+
+      oscHi.connect(gainHi);
+      gainHi.connect(audioCtx.destination);
+      oscHi.start(t);
+      oscHi.stop(t + 0.4);
+    }
+
+    function playSphaleronSound() {
+      if (!audioCtx) return;
+      const t = audioCtx.currentTime;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(440, t);
+      osc.frequency.linearRampToValueAtTime(880, t + 0.15);
+      osc.frequency.exponentialRampToValueAtTime(180, t + 0.4);
+
+      gain.gain.setValueAtTime(0.2, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.45);
+
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(t);
+      osc.stop(t + 0.48);
+    }
+
+    // -------------------------------------------------------------
+    // 重离子核几何结构与对撞激发
+    // -------------------------------------------------------------
+    function triggerCollision() {
+      initAudio();
+      PARAMS.simTime = 0.0;
+      PARAMS.collided = true;
+      playCollisionSound();
+
+      hadrons = [];
+      qgpFireball = [];
+      sphalerons = [];
+
+      // 1. 初始化两束扁平金核 (Lorentz Contraction factor γ ~ 100)
+      const b_pix = PARAMS.impactB * 16.0; // 空间尺度映射 1 fm ~ 16 px
+      const nucleusRadius = 6.8 * 16.0;
+
+      // 产生旁观者核子碎片飞离 (Spectators)
+      spectators = [];
+      const numNucleons = 197;
+      for (let i = 0; i < numNucleons; i++) {
+        // 核 A (向右飞)
+        const thetaA = Math.random() * Math.PI * 2;
+        const rA = Math.sqrt(Math.random()) * nucleusRadius;
+        const ax = -b_pix * 0.5 + Math.cos(thetaA) * rA;
+        const ay = Math.sin(thetaA) * rA;
+        // 判断是否为重叠区参与者 (Participant) 还是 旁观者 (Spectator)
+        const distFromB = Math.hypot(ax - (b_pix * 0.5), ay);
+        const isParticipant = (distFromB < nucleusRadius);
+
+        if (!isParticipant) {
+          spectators.push({
+            x: ax,
+            y: ay,
+            vx: 380 + Math.random() * 40,
+            vy: (Math.random() - 0.5) * 20,
+            beam: 'A',
+            charge: 1
+          });
+        }
+
+        // 核 B (向左飞)
+        const thetaB = Math.random() * Math.PI * 2;
+        const rB = Math.sqrt(Math.random()) * nucleusRadius;
+        const bx = b_pix * 0.5 + Math.cos(thetaB) * rB;
+        const by = Math.sin(thetaB) * rB;
+        const distFromA = Math.hypot(bx - (-b_pix * 0.5), by);
+        const isParticipantB = (distFromA < nucleusRadius);
+
+        if (!isParticipantB) {
+          spectators.push({
+            x: bx,
+            y: by,
+            vx: -380 - Math.random() * 40,
+            vy: (Math.random() - 0.5) * 20,
+            beam: 'B',
+            charge: 1
+          });
+        }
+      }
+
+      // 2. 产生交叠区 QGP 火球元胞 (Almond-shaped Fireball)
+      const fireballCount = 180;
+      // 空间几何偏心度 ε_2
+      const eps2 = Math.min(0.65, (PARAMS.impactB / 14.0) * 0.85);
+      const rx = 55.0 * (1.0 - eps2 * 0.5);
+      const ry = 55.0 * (1.0 + eps2 * 0.5);
+
+      for (let i = 0; i < fireballCount; i++) {
+        const u = Math.random() * Math.PI * 2;
+        const rad = Math.sqrt(Math.random());
+        const x0 = Math.cos(u) * rad * rx;
+        const y0 = Math.sin(u) * rad * ry;
+
+        // 流体速度：压力梯度驱动椭圆流 (x 方向较陡峭，故 vx > vy)
+        const pGradX = - (x0 / rx) * 90.0 * (1.0 / (1.0 + PARAMS.etaOverS * 3.0));
+        const pGradY = - (y0 / ry) * 60.0 * (1.0 / (1.0 + PARAMS.etaOverS * 3.0));
+
+        qgpFireball.push({
+          x: x0,
+          y: y0,
+          vx: pGradX + (Math.random() - 0.5) * 15,
+          vy: pGradY + (Math.random() - 0.5) * 15,
+          temp: 340 + Math.random() * 80,
+          life: 1.0 + Math.random() * 0.5
+        });
+      }
+
+      // 3. 产生瞬态正交磁场矢量线 (B-field lines)
+      initMagneticField();
+
+      // 4. 初始 Sphaleron 拓扑跃迁
+      injectSphaleron(false);
+    }
+
+    function initMagneticField() {
+      magneticLines = [];
+      const numLines = 14;
+      const bNorm = Math.min(1.0, (PARAMS.impactB / 7.0));
+      for (let i = 0; i < numLines; i++) {
+        const xOffset = (i - numLines / 2) * 22;
+        magneticLines.push({
+          x: xOffset,
+          amplitude: 45 + Math.random() * 20,
+          phase: Math.random() * Math.PI * 2,
+          intensity: bNorm
+        });
+      }
+    }
+
+    function injectSphaleron(playSound = true) {
+      if (playSound) playSphaleronSound();
+      sphalerons.push({
+        x: (Math.random() - 0.5) * 40,
+        y: (Math.random() - 0.5) * 40,
+        radius: 4,
+        maxRadius: 75 + Math.random() * 30,
+        topologicalCharge: Math.random() > 0.5 ? 1 : -1,
+        life: 1.0
+      });
+    }
+
+    // -------------------------------------------------------------
+    // 出射强子产生与手征磁效应 (CME) 偏转模拟
+    // -------------------------------------------------------------
+    function emitHadrons(count = 14) {
+      const eB = getInstantaneousBField(); // 瞬态磁场强度 (m_pi^2)
+      const mu5 = PARAMS.mu5;             // 手征化学势 (MeV)
+      // CME 驱动的电荷不对称漂移冲量: Δp_y = ± C · μ₅ · eB
+      const cmeDrift = (mu5 / 100.0) * (eB / 8.0) * 85.0;
+
+      // 流体力学各向异性椭圆流 v2 调制
+      const v2 = 0.04 + (PARAMS.impactB / 14.0) * 0.08;
+
+      for (let i = 0; i < count; i++) {
+        // 出射电荷类型: +1 (π⁺, p), -1 (π⁻, p̄), 0 (π⁰)
+        const randCharge = Math.random();
+        let charge = 0;
+        if (randCharge < 0.45) charge = 1;
+        else if (randCharge < 0.90) charge = -1;
+        else charge = 0;
+
+        // 基础流体动量各向同性 + 椭圆流调制
+        // dN/dϕ ∝ 1 + 2 v_2 cos(2ϕ)
+        let phi = Math.random() * Math.PI * 2;
+        // 接受-拒绝采样
+        if (Math.random() > (1.0 + 2.0 * v2 * Math.cos(2 * phi)) * 0.7) {
+          phi = Math.random() * Math.PI * 2;
+        }
+
+        const pT = 120 + Math.random() * 160; // 横向动量 MeV/c
+        let vx = Math.cos(phi) * pT;
+        let vy = Math.sin(phi) * pT;
+
+        // 核心：手征磁效应 (CME) 电荷分离漂移
+        // 正电荷沿 +B (即 +y 方向) 受到净漂移
+        // 负电荷沿 -B (即 -y 方向) 受到净漂移
+        if (charge === 1) {
+          vy += cmeDrift * (0.8 + Math.random() * 0.4);
+        } else if (charge === -1) {
+          vy -= cmeDrift * (0.8 + Math.random() * 0.4);
+        }
+
+        const startX = (Math.random() - 0.5) * 30;
+        const startY = (Math.random() - 0.5) * 30;
+
+        hadrons.push({
+          x: startX,
+          y: startY,
+          vx: vx,
+          vy: vy,
+          charge: charge,
+          life: 1.0,
+          maxLife: 1.2 + Math.random() * 0.8,
+          trail: []
+        });
+      }
+    }
+
+    // 瞬态磁场 eB(t) 随时间衰减计算 (Biot-Savart 旁观者飞离)
+    function getInstantaneousBField() {
+      // 碰撞瞬间 (t=0) eB 达到峰值，随旁观者以接近光速飞离，在 t ~ 0.5 - 1.5 fm/c 内急剧衰减
+      const peakB = (PARAMS.impactB / 7.2) * 8.5; // m_pi^2
+      const tau = 0.8; // 衰减特征时间 fm/c
+      const decay = 1.0 / (1.0 + Math.pow(PARAMS.simTime / tau, 2.2));
+      return Math.max(0.1, peakB * decay);
+    }
+
+    // -------------------------------------------------------------
+    // 物理步进更新管线
+    // -------------------------------------------------------------
+    function updateSimulation(dt) {
+      if (PARAMS.paused) return;
+
+      PARAMS.simTime += dt * 3.5; // 仿真时间演化
+
+      // 1. 旁观者核子飞行
+      for (let s of spectators) {
+        s.x += s.vx * dt;
+        s.y += s.vy * dt;
+      }
+
+      // 2. QGP 火球流体膨胀与冷却
+      for (let i = qgpFireball.length - 1; i >= 0; i--) {
+        const cell = qgpFireball[i];
+        cell.x += cell.vx * dt;
+        cell.y += cell.vy * dt;
+        cell.temp -= dt * 65.0; // 绝热冷却
+        cell.life -= dt * 0.45;
+        if (cell.life <= 0) {
+          qgpFireball.splice(i, 1);
+        }
+      }
+
+      // 持续生成出射强子 (强子化与粒子喷出)
+      if (PARAMS.simTime < 4.5 && Math.random() < 0.75) {
+        emitHadrons(6);
+      }
+
+      // 3. 强子飞行与轨迹记录
+      for (let i = hadrons.length - 1; i >= 0; i--) {
+        const h = hadrons[i];
+        h.trail.push({ x: h.x, y: h.y });
+        if (h.trail.length > 12) h.trail.shift();
+
+        h.x += h.vx * dt * 0.9;
+        h.y += h.vy * dt * 0.9;
+
+        h.life -= dt * 0.35;
+        if (h.life <= 0) {
+          hadrons.splice(i, 1);
+        }
+      }
+
+      // 4. Sphaleron 拓扑跃迁波纹演化
+      for (let i = sphalerons.length - 1; i >= 0; i--) {
+        const sph = sphalerons[i];
+        sph.radius += dt * 45.0;
+        sph.life -= dt * 0.6;
+        if (sph.life <= 0 || sph.radius >= sph.maxRadius) {
+          sphalerons.splice(i, 1);
+        }
+      }
+
+      // 5. 示波器信号累积与历史数据更新
+      const curB = getInstantaneousBField();
+      // J_CME = (e^2 / 2π^2) * μ5 * eB
+      const curCurrent = (PARAMS.mu5 / 100.0) * curB * 0.28;
+      currentHistory.push(curCurrent);
+      if (currentHistory.length > HISTORY_MAX) currentHistory.shift();
+
+      // 方位角电荷关联统计 γ_OS 和 γ_SS
+      // CME 导致 Δγ = γ_OS - γ_SS 为正
+      const deltaGamma = (PARAMS.mu5 / 100.0) * (curB / 8.0) * 0.045;
+      const baseV2 = 0.04 + (PARAMS.impactB / 14.0) * 0.08;
+      const osVal = -baseV2 + deltaGamma * 0.8;
+      const ssVal = -baseV2 - deltaGamma * 0.8;
+
+      osCorrHistory.push(osVal);
+      if (osCorrHistory.length > HISTORY_MAX) osCorrHistory.shift();
+      ssCorrHistory.push(ssVal);
+      if (ssCorrHistory.length > HISTORY_MAX) ssCorrHistory.shift();
+    }
+
+    // -------------------------------------------------------------
+    // 主视口图形渲染
+    // -------------------------------------------------------------
+    function renderMainView() {
+      ctx.clearRect(0, 0, width, height);
+
+      const centerX = width * 0.5;
+      const centerY = height * 0.5;
+
+      // 1. 绘制背景深空与束流碰撞坐标轴网格
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
+      ctx.lineWidth = 1;
+      const gridSize = 40;
+      for (let x = 0; x < width; x += gridSize) {
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke();
+      }
+      for (let y = 0; y < height; y += gridSize) {
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke();
+      }
+
+      // 2. 绘制瞬态正交超强外磁场矢量流线 (B-field: 沿垂直方向 +y/-y)
+      const curB = getInstantaneousBField();
+      const bAlpha = Math.min(0.65, (curB / 8.5) * 0.7);
+      ctx.save();
+      ctx.strokeStyle = `rgba(192, 132, 252, ${bAlpha})`;
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([6, 6]);
+
+      for (let line of magneticLines) {
+        const lx = centerX + line.x;
+        ctx.beginPath();
+        ctx.moveTo(lx, centerY - 140);
+        ctx.lineTo(lx, centerY + 140);
+        ctx.stroke();
+
+        // 磁场方向箭头 (指示 +y 方向，向上/向下)
+        const arrowY = centerY - 120 + ((performance.now() * 0.06 + line.phase * 20) % 240);
+        ctx.fillStyle = `rgba(192, 132, 252, ${bAlpha * 1.2})`;
+        ctx.beginPath();
+        ctx.moveTo(lx, arrowY - 6);
+        ctx.lineTo(lx - 4, arrowY + 3);
+        ctx.lineTo(lx + 4, arrowY + 3);
+        ctx.fill();
+      }
+      ctx.restore();
+
+      // 3. 绘制飞离的旁观者核子碎片 (Spectators)
+      for (let s of spectators) {
+        const sx = centerX + s.x;
+        const sy = centerY + s.y;
+        ctx.fillStyle = s.beam === 'A' ? 'rgba(251, 191, 36, 0.7)' : 'rgba(245, 158, 11, 0.7)';
+        ctx.beginPath();
+        ctx.arc(sx, sy, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // 4. 绘制 QCD Sphaleron 拓扑跃迁发光量子波纹
+      for (let sph of sphalerons) {
+        const sx = centerX + sph.x;
+        const sy = centerY + sph.y;
+        ctx.save();
+        ctx.strokeStyle = sph.topologicalCharge > 0 ?
+          `rgba(251, 191, 36, ${sph.life * 0.8})` :
+          `rgba(6, 182, 212, ${sph.life * 0.8})`;
+        ctx.lineWidth = 2.0;
+        ctx.beginPath();
+        ctx.arc(sx, sy, sph.radius, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.fillStyle = sph.topologicalCharge > 0 ?
+          `rgba(251, 191, 36, ${sph.life * 0.15})` :
+          `rgba(6, 182, 212, ${sph.life * 0.15})`;
+        ctx.beginPath();
+        ctx.arc(sx, sy, sph.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      // 5. 绘制核心 QGP 夸克-胶子等离子体火球 (流体等高线热核)
+      for (let cell of qgpFireball) {
+        const sx = centerX + cell.x;
+        const sy = centerY + cell.y;
+        const tNorm = Math.max(0, (cell.temp - 150) / 250);
+        // 温度由红紫渐变到极热亮白
+        const rad = 14.0 * cell.life;
+        const grad = ctx.createRadialGradient(sx, sy, 0, sx, sy, rad);
+        grad.addColorStop(0, `rgba(255, 255, 255, ${cell.life * 0.9})`);
+        grad.addColorStop(0.35, `rgba(244, 63, 94, ${cell.life * 0.75})`);
+        grad.addColorStop(0.8, `rgba(147, 51, 234, ${cell.life * 0.4})`);
+        grad.addColorStop(1, 'rgba(0,0,0,0)');
+
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(sx, sy, rad, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // 6. 绘制出射强子及其 CME 偏转飞行轨迹 (Hadron Tracks)
+      for (let h of hadrons) {
+        // 轨迹
+        if (h.trail.length > 1) {
+          ctx.beginPath();
+          ctx.moveTo(centerX + h.trail[0].x, centerY + h.trail[0].y);
+          for (let p of h.trail) {
+            ctx.lineTo(centerX + p.x, centerY + p.y);
+          }
+          if (h.charge === 1) {
+            ctx.strokeStyle = `rgba(244, 63, 94, ${h.life * 0.7})`; // 正电荷: 玫红
+          } else if (h.charge === -1) {
+            ctx.strokeStyle = `rgba(6, 182, 212, ${h.life * 0.7})`;  // 负电荷: 青蓝
+          } else {
+            ctx.strokeStyle = `rgba(251, 191, 36, ${h.life * 0.5})`; // 中性: 金黄
+          }
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+        }
+
+        // 强子粒子本体
+        const hx = centerX + h.x;
+        const hy = centerY + h.y;
+        ctx.save();
+        if (h.charge === 1) {
+          ctx.fillStyle = '#f43f5e';
+          ctx.shadowColor = '#f43f5e';
+          ctx.shadowBlur = 8;
+        } else if (h.charge === -1) {
+          ctx.fillStyle = '#06b6d4';
+          ctx.shadowColor = '#06b6d4';
+          ctx.shadowBlur = 8;
+        } else {
+          ctx.fillStyle = '#fbbf24';
+          ctx.shadowColor = '#fbbf24';
+          ctx.shadowBlur = 5;
+        }
+        ctx.beginPath();
+        ctx.arc(hx, hy, 3.2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      // 7. 绘制宏观电荷偶极分离箭头提示 (Macroscopic CME Charge Dipole)
+      if (PARAMS.mu5 > 10 && curB > 0.5) {
+        ctx.save();
+        ctx.font = '11px JetBrains Mono, monospace';
+        // 顶部正电荷富集云提示
+        ctx.fillStyle = 'rgba(244, 63, 94, 0.9)';
+        ctx.fillText('▲ +Q 富集区 (π⁺, p) [Along +B]', centerX - 75, centerY - 150);
+        // 底部负电荷富集云提示
+        ctx.fillStyle = 'rgba(6, 182, 212, 0.9)';
+        ctx.fillText('▼ -Q 富集区 (π⁻, p̄) [Along -B]', centerX - 75, centerY + 165);
+        ctx.restore();
+      }
+
+      // 更新 HUD 实时数字
+      document.getElementById('hudBField').textContent = `${(curB * 1.25).toFixed(2)} × 10¹⁵ T`;
+      document.getElementById('hudTemp').textContent = `${Math.max(140, Math.round(360 - PARAMS.simTime * 50))} MeV`;
+      const curJ = (PARAMS.mu5 / 100.0) * curB * 0.28;
+      document.getElementById('hudCurrent').textContent = `${(curJ * 7.5).toFixed(2)} × 10¹⁹ A/m²`;
+      const curV2 = 0.04 + (PARAMS.impactB / 14.0) * 0.08;
+      document.getElementById('hudV2').textContent = `${curV2.toFixed(3)}`;
+
+      // 头部实时更新
+      document.getElementById('hdrB').textContent = `${curB.toFixed(1)} m_π²`;
+      document.getElementById('hdrImpact').textContent = `${PARAMS.impactB.toFixed(1)} fm`;
+      const dipoleQ = (PARAMS.mu5 / 100.0) * (curB / 8.0) * 0.65;
+      document.getElementById('hdrQcme').textContent = `${dipoleQ.toFixed(2)}`;
+
+      renderCompass();
+    }
+
+    // -------------------------------------------------------------
+    // 反应平面指向小罗盘
+    // -------------------------------------------------------------
+    function renderCompass() {
+      ctxCompass.clearRect(0, 0, 70, 70);
+      const cx = 35, cy = 35;
+
+      ctxCompass.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+      ctxCompass.lineWidth = 1;
+      ctxCompass.beginPath();
+      ctxCompass.arc(cx, cy, 30, 0, Math.PI * 2);
+      ctxCompass.stroke();
+
+      // 磁场轴 B ∥ ŷ
+      ctxCompass.strokeStyle = 'var(--accent-purple)';
+      ctxCompass.lineWidth = 2;
+      ctxCompass.beginPath();
+      ctxCompass.moveTo(cx, cy + 26);
+      ctxCompass.lineTo(cx, cy - 26);
+      ctxCompass.stroke();
+
+      ctxCompass.fillStyle = 'var(--accent-purple)';
+      ctxCompass.font = '8px monospace';
+      ctxCompass.fillText('+B', cx - 6, cy - 20);
+
+      // 对撞轴 x 轴
+      ctxCompass.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+      ctxCompass.lineWidth = 1;
+      ctxCompass.beginPath();
+      ctxCompass.moveTo(cx - 24, cy);
+      ctxCompass.lineTo(cx + 24, cy);
+      ctxCompass.stroke();
+      ctxCompass.fillStyle = '#fff';
+      ctxCompass.fillText('Ψ_RP', cx + 10, cy + 10);
+    }
+
+    // -------------------------------------------------------------
+    // 示波器 1 渲染：CME 感生纵向电磁矢量流波形 J_y(t)
+    // -------------------------------------------------------------
+    function renderScopeCurrent() {
+      const w = scopeCurrentCanvas.width / window.devicePixelRatio;
+      const h = scopeCurrentCanvas.height / window.devicePixelRatio;
+      ctxCurrent.clearRect(0, 0, w, h);
+
+      // 零电平基准线
+      ctxCurrent.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+      ctxCurrent.lineWidth = 1;
+      ctxCurrent.beginPath();
+      ctxCurrent.moveTo(0, h * 0.5); ctxCurrent.lineTo(w, h * 0.5);
+      ctxCurrent.stroke();
+
+      // J_CME 波形曲线
+      ctxCurrent.strokeStyle = 'var(--accent-cyan)';
+      ctxCurrent.lineWidth = 2.0;
+      ctxCurrent.beginPath();
+
+      const step = w / (HISTORY_MAX - 1);
+      for (let i = 0; i < currentHistory.length; i++) {
+        const val = currentHistory[i]; // ~ 0 ~ 2.5
+        const normY = (h * 0.5) - (val / 3.0) * (h * 0.42);
+        const x = i * step;
+        if (i === 0) ctxCurrent.moveTo(x, normY);
+        else ctxCurrent.lineTo(x, normY);
+      }
+      ctxCurrent.stroke();
+
+      const lastJ = currentHistory[currentHistory.length - 1] || 0;
+      document.getElementById('scopeCurrentVal').textContent = (lastJ * 7.5).toFixed(2);
+    }
+
+    // -------------------------------------------------------------
+    // 示波器 2 渲染：强子两粒子电荷关联 γ 曲线与 Δγ 间隙
+    // -------------------------------------------------------------
+    function renderScopeCorr() {
+      const w = scopeCorrCanvas.width / window.devicePixelRatio;
+      const h = scopeCorrCanvas.height / window.devicePixelRatio;
+      ctxCorr.clearRect(0, 0, w, h);
+
+      // 零线
+      ctxCorr.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+      ctxCorr.lineWidth = 1;
+      ctxCorr.beginPath();
+      ctxCorr.moveTo(0, h * 0.5); ctxCorr.lineTo(w, h * 0.5);
+      ctxCorr.stroke();
+
+      const step = w / (HISTORY_MAX - 1);
+
+      // 1. 异号电荷关联 γ_OS (红线)
+      ctxCorr.strokeStyle = 'var(--accent-rose)';
+      ctxCorr.lineWidth = 1.8;
+      ctxCorr.beginPath();
+      for (let i = 0; i < osCorrHistory.length; i++) {
+        const val = osCorrHistory[i];
+        const y = (h * 0.5) - val * 240.0;
+        const x = i * step;
+        if (i === 0) ctxCorr.moveTo(x, y);
+        else ctxCorr.lineTo(x, y);
+      }
+      ctxCorr.stroke();
+
+      // 2. 同号电荷关联 γ_SS (蓝线)
+      ctxCorr.strokeStyle = 'var(--accent-cyan)';
+      ctxCorr.lineWidth = 1.8;
+      ctxCorr.beginPath();
+      for (let i = 0; i < ssCorrHistory.length; i++) {
+        const val = ssCorrHistory[i];
+        const y = (h * 0.5) - val * 240.0;
+        const x = i * step;
+        if (i === 0) ctxCorr.moveTo(x, y);
+        else ctxCorr.lineTo(x, y);
+      }
+      ctxCorr.stroke();
+
+      // 间隙标注
+      const curOS = osCorrHistory[osCorrHistory.length - 1] || 0;
+      const curSS = ssCorrHistory[ssCorrHistory.length - 1] || 0;
+      const delta = curOS - curSS;
+      document.getElementById('scopeCorrVal').textContent = `Δγ = ${delta >= 0 ? '+' : ''}${delta.toFixed(4)}`;
+    }
+
+    // -------------------------------------------------------------
+    // 交互与参数控制响应
+    // -------------------------------------------------------------
+    function updateParam(key, val) {
+      if (key === 'b') {
+        PARAMS.impactB = parseFloat(val);
+        document.getElementById('valB').textContent = `${PARAMS.impactB.toFixed(1)} fm`;
+        triggerCollision();
+      }
+      if (key === 'mu5') {
+        PARAMS.mu5 = parseInt(val);
+        document.getElementById('valMu5').textContent = `${PARAMS.mu5} MeV`;
+        document.getElementById('hdrN5').textContent = `+${Math.round(PARAMS.mu5 * 0.93)}`;
+      }
+      if (key === 'energy') {
+        PARAMS.energy = parseInt(val);
+        document.getElementById('valEnergy').textContent = `${PARAMS.energy} GeV`;
+        document.getElementById('hdrSystem').textContent = `Au+Au @ ${PARAMS.energy} GeV`;
+      }
+      if (key === 'eta') {
+        PARAMS.etaOverS = parseFloat(val);
+        document.getElementById('valEta').textContent = `${PARAMS.etaOverS.toFixed(2)}`;
+      }
+    }
+
+    function applyPreset(id) {
+      document.querySelectorAll('.btn-grid button').forEach(b => b.classList.remove('active'));
+      if (id === 1) {
+        document.getElementById('p1Btn').classList.add('active');
+        PARAMS.impactB = 7.2;
+        PARAMS.mu5 = 45;
+        PARAMS.energy = 200;
+        PARAMS.etaOverS = 0.08;
+      } else if (id === 2) {
+        document.getElementById('p2Btn').classList.add('active');
+        PARAMS.impactB = 8.5;
+        PARAMS.mu5 = 95;
+        PARAMS.energy = 200;
+        PARAMS.etaOverS = 0.08;
+        injectSphaleron(true);
+      } else if (id === 3) {
+        document.getElementById('p3Btn').classList.add('active');
+        PARAMS.impactB = 0.5; // 近对心碰撞
+        PARAMS.mu5 = 30;
+        PARAMS.energy = 200;
+        PARAMS.etaOverS = 0.08;
+      } else if (id === 4) {
+        document.getElementById('p4Btn').classList.add('active');
+        PARAMS.impactB = 7.2;
+        PARAMS.mu5 = 0; // 零手征化学势，只有纯背景流体
+        PARAMS.energy = 200;
+        PARAMS.etaOverS = 0.16;
+      }
+
+      document.getElementById('slB').value = PARAMS.impactB;
+      document.getElementById('slMu5').value = PARAMS.mu5;
+      document.getElementById('slEnergy').value = PARAMS.energy;
+      document.getElementById('slEta').value = PARAMS.etaOverS;
+
+      updateParam('b', PARAMS.impactB);
+      updateParam('mu5', PARAMS.mu5);
+      updateParam('energy', PARAMS.energy);
+      updateParam('eta', PARAMS.etaOverS);
+    }
+
+    function togglePlay() {
+      PARAMS.paused = !PARAMS.paused;
+      document.getElementById('playIcon').textContent = PARAMS.paused ? '▶' : '⏸';
+      document.getElementById('playText').textContent = PARAMS.paused ? '继续仿真' : '暂停仿真';
+    }
+
+    function resetSim() {
+      PARAMS.simTime = 0.0;
+      currentHistory.fill(0);
+      osCorrHistory.fill(0);
+      ssCorrHistory.fill(0);
+      triggerCollision();
+    }
+
+    // -------------------------------------------------------------
+    // 视口尺寸适配
+    // -------------------------------------------------------------
+    function resizeCanvases() {
+      const dpr = window.devicePixelRatio || 1;
+      const rect = mainCanvas.parentElement.getBoundingClientRect();
+      width = rect.width;
+      height = rect.height;
+
+      mainCanvas.width = width * dpr;
+      mainCanvas.height = height * dpr;
+      ctx.scale(dpr, dpr);
+
+      // 示波器 1
+      const rectC = scopeCurrentCanvas.parentElement.getBoundingClientRect();
+      scopeCurrentCanvas.width = rectC.width * dpr;
+      scopeCurrentCanvas.height = rectC.height * dpr;
+      ctxCurrent.scale(dpr, dpr);
+
+      // 示波器 2
+      const rectCorr = scopeCorrCanvas.parentElement.getBoundingClientRect();
+      scopeCorrCanvas.width = rectCorr.width * dpr;
+      scopeCorrCanvas.height = rectCorr.height * dpr;
+      ctxCorr.scale(dpr, dpr);
+    }
+
+    window.addEventListener('resize', () => {
+      resizeCanvases();
+      renderMainView();
+      renderScopeCurrent();
+      renderScopeCorr();
+    });
+
+    // -------------------------------------------------------------
+    // 主循环驱动
+    // -------------------------------------------------------------
+    function mainLoop(now) {
+      const dt = Math.min(0.04, (now - lastTime) / 1000.0);
+      lastTime = now;
+
+      updateSimulation(dt);
+      renderMainView();
+      renderScopeCurrent();
+      renderScopeCorr();
+
+      requestAnimationFrame(mainLoop);
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      resizeCanvases();
+      triggerCollision();
+      requestAnimationFrame(mainLoop);
+    });
+  </script>
+</body>
+</html>

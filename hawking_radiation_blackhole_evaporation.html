@@ -1,0 +1,1150 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>微型黑洞霍金辐射量子纠缠与信息悖论蒸发模拟 - Hawking Radiation & Page Curve</title>
+  <style>
+    :root {
+      --bg-dark: #04050a;
+      --panel-bg: rgba(10, 14, 26, 0.82);
+      --panel-border: rgba(56, 189, 248, 0.22);
+      --accent-cyan: #38bdf8;
+      --accent-gold: #fbbf24;
+      --accent-rose: #f43f5e;
+      --accent-purple: #c084fc;
+      --accent-green: #34d399;
+      --text-main: #f8fafc;
+      --text-dim: #94a3b8;
+      --font-code: 'JetBrains Mono', 'Fira Code', monospace;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      background: rgba(8, 12, 22, 0.95);
+      border-bottom: 1px solid var(--panel-border);
+      padding: 10px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 20;
+    }
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .back-btn {
+      text-decoration: none;
+      color: var(--accent-cyan);
+      background: rgba(56, 189, 248, 0.12);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      transition: all 0.25s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .back-btn:hover {
+      background: rgba(56, 189, 248, 0.25);
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.4);
+    }
+    .title-group h1 {
+      font-size: 17px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .title-group p {
+      font-size: 11px;
+      color: var(--text-dim);
+      font-family: var(--font-code);
+      margin-top: 2px;
+    }
+    .status-badges {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .badge {
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 4px 10px;
+      border-radius: 5px;
+      font-size: 11px;
+      font-family: var(--font-code);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .badge-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--accent-rose);
+      box-shadow: 0 0 8px var(--accent-rose);
+      animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 0.4; }
+      50% { opacity: 1; }
+    }
+    .main-workspace {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 390px;
+      overflow: hidden;
+      position: relative;
+    }
+    .viewport-container {
+      position: relative;
+      background: radial-gradient(circle at 45% 50%, #080d1e 0%, #020307 100%);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    canvas#mainCanvas {
+      width: 100%;
+      flex: 1;
+      display: block;
+      cursor: crosshair;
+    }
+    .viewport-overlay {
+      position: absolute;
+      top: 14px;
+      left: 16px;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .hud-stat {
+      background: rgba(8, 14, 26, 0.78);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(56, 189, 248, 0.2);
+      border-left: 3px solid var(--accent-cyan);
+      padding: 5px 12px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-family: var(--font-code);
+      color: #e2e8f0;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+    }
+    .hud-stat span.val {
+      font-weight: 700;
+      color: var(--accent-cyan);
+    }
+    .hud-stat.rose {
+      border-left-color: var(--accent-rose);
+    }
+    .hud-stat.rose span.val {
+      color: var(--accent-rose);
+    }
+    .hud-stat.gold {
+      border-left-color: var(--accent-gold);
+    }
+    .hud-stat.gold span.val {
+      color: var(--accent-gold);
+    }
+    .hud-stat.purple {
+      border-left-color: var(--accent-purple);
+    }
+    .hud-stat.purple span.val {
+      color: var(--accent-purple);
+    }
+
+    /* 右侧控制面板与示波器 */
+    .control-sidebar {
+      background: var(--panel-bg);
+      backdrop-filter: blur(14px);
+      border-left: 1px solid var(--panel-border);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      z-index: 10;
+    }
+    .control-sidebar::-webkit-scrollbar {
+      width: 5px;
+    }
+    .control-sidebar::-webkit-scrollbar-thumb {
+      background: rgba(56, 189, 248, 0.25);
+      border-radius: 3px;
+    }
+    .section-block {
+      padding: 14px 18px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .section-title {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--accent-cyan);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .section-title::before {
+      content: '';
+      display: inline-block;
+      width: 4px;
+      height: 12px;
+      background: var(--accent-cyan);
+      border-radius: 2px;
+    }
+    .param-group {
+      margin-bottom: 12px;
+    }
+    .param-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--text-dim);
+      margin-bottom: 5px;
+      font-family: var(--font-code);
+    }
+    .param-label span.num {
+      color: #fff;
+      font-weight: 600;
+    }
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 5px;
+      background: rgba(255, 255, 255, 0.12);
+      border-radius: 3px;
+      outline: none;
+      transition: background 0.2s;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      background: var(--accent-cyan);
+      box-shadow: 0 0 10px var(--accent-cyan);
+      cursor: pointer;
+    }
+    .btn-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      margin-top: 6px;
+    }
+    .btn {
+      background: rgba(30, 41, 59, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: #cbd5e1;
+      padding: 7px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: center;
+    }
+    .btn:hover {
+      background: rgba(56, 189, 248, 0.18);
+      border-color: rgba(56, 189, 248, 0.4);
+      color: #fff;
+    }
+    .btn.active {
+      background: rgba(56, 189, 248, 0.28);
+      border-color: var(--accent-cyan);
+      color: #fff;
+      font-weight: 600;
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.25);
+    }
+
+    /* 示波器容器 */
+    .scope-box {
+      background: rgba(6, 10, 18, 0.85);
+      border: 1px solid rgba(56, 189, 248, 0.18);
+      border-radius: 6px;
+      padding: 8px;
+      margin-top: 8px;
+      position: relative;
+    }
+    .scope-header {
+      font-size: 11px;
+      color: var(--text-dim);
+      font-family: var(--font-code);
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 4px;
+    }
+    canvas.scope-canvas {
+      width: 100%;
+      height: 95px;
+      display: block;
+      background: #040711;
+      border-radius: 4px;
+    }
+    .legend-row {
+      display: flex;
+      gap: 12px;
+      font-size: 10px;
+      font-family: var(--font-code);
+      margin-top: 5px;
+      color: var(--text-dim);
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .legend-color {
+      width: 8px;
+      height: 8px;
+      border-radius: 2px;
+    }
+
+    /* 物理原理卡片 */
+    .physics-tip {
+      font-size: 11.5px;
+      line-height: 1.6;
+      color: #94a3b8;
+      background: rgba(15, 23, 42, 0.6);
+      padding: 10px 12px;
+      border-radius: 6px;
+      border-left: 2px solid var(--accent-rose);
+    }
+    .physics-tip strong {
+      color: #e2e8f0;
+    }
+
+    /* 底部操作条 */
+    .bottom-bar {
+      display: flex;
+      gap: 8px;
+      padding: 12px 18px;
+      background: rgba(8, 12, 22, 0.95);
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .action-btn {
+      flex: 1;
+      padding: 9px;
+      font-size: 12px;
+      font-weight: 600;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      background: rgba(30, 41, 59, 0.6);
+      color: #fff;
+      cursor: pointer;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+    .action-btn:hover {
+      background: rgba(56, 189, 248, 0.2);
+      border-color: var(--accent-cyan);
+    }
+    .action-btn.danger {
+      background: rgba(244, 63, 94, 0.2);
+      border-color: rgba(244, 63, 94, 0.5);
+    }
+    .action-btn.danger:hover {
+      background: rgba(244, 63, 94, 0.35);
+      box-shadow: 0 0 12px rgba(244, 63, 94, 0.4);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-left">
+      <a href="index.html" class="back-btn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+        返回展厅
+      </a>
+      <div class="title-group">
+        <h1>微型黑洞霍金辐射量子纠缠与信息悖论蒸发模拟 <span style="font-size:12px; color:var(--accent-rose); font-weight:normal;">[Hawking Radiation]</span></h1>
+        <p>弯曲时空量子场论、负能虚粒子隧道吸收、负热容暴烈蒸发与量子幺正性佩奇曲线 (Page Curve) 全息模拟</p>
+      </div>
+    </div>
+    <div class="status-badges">
+      <div class="badge"><div class="badge-dot"></div>负热容失稳蒸发</div>
+      <div class="badge" style="border-color: rgba(244,63,94,0.4);"><span style="color:var(--accent-rose);">T_H:</span> <span id="hdrTemp">1.24×10²² K</span></div>
+      <div class="badge" style="border-color: rgba(192,132,252,0.4);"><span style="color:var(--accent-purple);">S_ent:</span> <span id="hdrEntropy">0.68 S_max</span></div>
+    </div>
+  </header>
+
+  <div class="main-workspace">
+    <!-- 主物理仿真视口 -->
+    <div class="viewport-container" id="viewContainer">
+      <canvas id="mainCanvas"></canvas>
+      <div class="viewport-overlay">
+        <div class="hud-stat rose">
+          霍金辐射温度 T_H: <span class="val" id="hudTemp">1.24×10²² K</span> (T_H ∝ 1/M)
+        </div>
+        <div class="hud-stat">
+          残余黑洞质量 M: <span class="val" id="hudMass">4.82×10¹¹ kg</span> | 视界 r_s: <span class="val" id="hudRs">0.71 fm</span>
+        </div>
+        <div class="hud-stat gold">
+          辐射功率 P_rad: <span class="val" id="hudPower">1.52×10¹⁸ W</span> (P ∝ 1/M²)
+        </div>
+        <div class="hud-stat purple">
+          量子纠缠信息态: <span class="val" id="hudPageStatus">佩奇时间前 (岛前阶段)</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 右侧科学分析与调控系统 -->
+    <div class="control-sidebar">
+      <!-- 预设场景 -->
+      <div class="section-block">
+        <div class="section-title">典型物理蒸发工况 (Presets)</div>
+        <div class="btn-grid">
+          <button class="btn active" id="p1Btn" onclick="applyPreset(1)">终末失稳暴烈爆炸</button>
+          <button class="btn" id="p2Btn" onclick="applyPreset(2)">佩奇相变与信息恢复</button>
+          <button class="btn" id="p3Btn" onclick="applyPreset(3)">慢速准稳态热蒸发</button>
+          <button class="btn" id="p4Btn" onclick="applyPreset(4)">普朗克残余稳定解</button>
+        </div>
+      </div>
+
+      <!-- 核心天体物理参数 -->
+      <div class="section-block">
+        <div class="section-title">黑洞初态与时空演化</div>
+        <div class="param-group">
+          <div class="param-label">
+            <span>初始黑洞质量 M₀ (10¹¹ kg)</span>
+            <span class="num" id="valMass">5.00</span>
+          </div>
+          <input type="range" id="slMass" min="0.8" max="15.0" step="0.2" value="5.0" oninput="updateParam('mass', this.value)">
+        </div>
+        <div class="param-group">
+          <div class="param-label">
+            <span>蒸发加速因子 Time Warp</span>
+            <span class="num" id="valWarp">25×</span>
+          </div>
+          <input type="range" id="slWarp" min="1" max="100" step="1" value="25" oninput="updateParam('warp', this.value)">
+        </div>
+        <div class="param-group">
+          <div class="param-label">
+            <span>真空量子对产生速率 (Pairs/s)</span>
+            <span class="num" id="valPairs">180</span>
+          </div>
+          <input type="range" id="slPairs" min="50" max="400" step="10" value="180" oninput="updateParam('pairs', this.value)">
+        </div>
+        <div class="param-group">
+          <div class="param-label">
+            <span>量子信息模型 (Information Paradigm)</span>
+          </div>
+          <div class="btn-grid">
+            <button class="btn active" id="btnPage" onclick="setInfoMode('page')">幺正佩奇曲线 (Page)</button>
+            <button class="btn" id="btnHawking" onclick="setInfoMode('hawking')">经典信息丢失 (Mixed)</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 示波器 1：质量衰减与霍金温度暴涨 -->
+      <div class="section-block">
+        <div class="section-title">热力学动力学 M(t) & T_H(t)</div>
+        <div class="scope-box">
+          <div class="scope-header">
+            <span>质量 M 与温度 T_H 演化</span>
+            <span id="scopeTau" style="color:var(--accent-rose);">剩余寿命: 4.2 s</span>
+          </div>
+          <canvas id="scopeThermodynamicsCanvas" class="scope-canvas"></canvas>
+          <div class="legend-row">
+            <div class="legend-item"><div class="legend-color" style="background:var(--accent-cyan);"></div>残余质量 M(t)</div>
+            <div class="legend-item"><div class="legend-color" style="background:var(--accent-rose);"></div>霍金温度 T_H(t)</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 示波器 2：佩奇曲线与量子纠缠熵 -->
+      <div class="section-block">
+        <div class="section-title">佩奇曲线：辐射纠缠熵 S_ent(t)</div>
+        <div class="scope-box">
+          <div class="scope-header">
+            <span>纠缠熵 S_ent(t) vs Bekenstein-Hawking S_BH</span>
+            <span id="scopePageTime" style="color:var(--accent-purple);">t_Page = 53.6%</span>
+          </div>
+          <canvas id="scopePageCanvas" class="scope-canvas"></canvas>
+          <div class="legend-row">
+            <div class="legend-item"><div class="legend-color" style="background:var(--accent-purple);"></div>量子幺正纠缠熵 S_ent</div>
+            <div class="legend-item"><div class="legend-color" style="background:rgba(255,255,255,0.25);"></div>黑洞面积熵 S_BH</div>
+            <div class="legend-item"><div class="legend-color" style="background:var(--accent-rose);"></div>经典失真热熵 S_therm</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 物理原理注解 -->
+      <div class="section-block">
+        <div class="physics-tip">
+          <strong>量子真空涨落与负热容暴烈蒸发</strong>：黑洞视界附近的强烈引力潮汐场将量子真空虚粒子对撕开，<strong>负能量粒子</strong>经由量子隧道效应落入视界内削减黑洞质量，而<strong>正能量粒子</strong>逃逸至远处成为霍金辐射。由于黑洞具有负热容（$T_H \propto 1/M$），质量越小蒸发越快，最终在普朗克尺度以极其绚烂的伽马暴爆炸毁灭！
+        </div>
+      </div>
+
+      <!-- 底部控制按钮 -->
+      <div class="bottom-bar">
+        <button class="action-btn" id="btnPlay" onclick="togglePlay()">
+          <span id="playIcon">⏸</span> <span id="playText">暂停仿真</span>
+        </button>
+        <button class="action-btn danger" onclick="triggerPlanckExplosion()">
+          💥 触发引力爆炸
+        </button>
+        <button class="action-btn" onclick="resetBlackHole()">
+          🌌 孕育新黑洞
+        </button>
+        <button class="action-btn" id="btnAudio" onclick="toggleAudio()">
+          🔊 音效: 开
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // -------------------------------------------------------------
+    // 全局物理配置与参数
+    // -------------------------------------------------------------
+    const PARAMS = {
+      initialMass: 5.0,     // 初始质量 (以 10^11 kg 为单位)
+      currentMass: 5.0,
+      timeWarp: 25,         // 时间加速
+      pairRate: 180,
+      infoMode: 'page',     // 'page' or 'hawking'
+      paused: false,
+      audioEnabled: true,
+      time: 0,
+      isExploded: false,
+      explosionProgress: 0  // 爆炸特效进度 0 ~ 1
+    };
+
+    // 音频合成器
+    let audioCtx = null;
+    let gravityRumble = null;
+
+    function initAudio() {
+      if (audioCtx) return;
+      try {
+        const AudioClass = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioClass();
+
+        // 持续重力低频次声嗡鸣
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(45, audioCtx.currentTime);
+
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(120, audioCtx.currentTime);
+
+        osc.connect(filter);
+        filter.connect(gain);
+        gain.connect(audioCtx.destination);
+        gain.gain.setValueAtTime(0.03, audioCtx.currentTime);
+        osc.start();
+
+        gravityRumble = { osc, gain, filter };
+      } catch (e) {
+        console.warn('Web Audio not supported');
+      }
+    }
+
+    function playHawkingChirp(freq) {
+      if (!PARAMS.audioEnabled || !audioCtx) return;
+      try {
+        const now = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now);
+        osc.frequency.exponentialRampToValueAtTime(freq * 1.5, now + 0.08);
+
+        g.gain.setValueAtTime(0.015, now);
+        g.gain.exponentialRampToValueAtTime(0.0001, now + 0.09);
+
+        osc.connect(g);
+        g.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.1);
+      } catch (e) {}
+    }
+
+    function playExplosionBlast() {
+      if (!PARAMS.audioEnabled || !audioCtx) return;
+      try {
+        const now = audioCtx.currentTime;
+        const bufferSize = audioCtx.sampleRate * 2.0;
+        const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (audioCtx.sampleRate * 0.45));
+        }
+        const noise = audioCtx.createBufferSource();
+        noise.buffer = buffer;
+
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(450, now);
+        filter.frequency.exponentialRampToValueAtTime(80, now + 1.8);
+
+        const gain = audioCtx.createGain();
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 1.9);
+
+        noise.connect(filter);
+        filter.connect(gain);
+        gain.connect(audioCtx.destination);
+        noise.start(now);
+      } catch (e) {}
+    }
+
+    function toggleAudio() {
+      PARAMS.audioEnabled = !PARAMS.audioEnabled;
+      const btn = document.getElementById('btnAudio');
+      if (PARAMS.audioEnabled) {
+        initAudio();
+        if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+        btn.textContent = '🔊 音效: 开';
+        if (gravityRumble) gravityRumble.gain.gain.setValueAtTime(0.03, audioCtx.currentTime);
+      } else {
+        btn.textContent = '🔇 音效: 关';
+        if (gravityRumble && audioCtx) gravityRumble.gain.gain.setValueAtTime(0.0, audioCtx.currentTime);
+      }
+    }
+
+    // -------------------------------------------------------------
+    // 物理模型计算
+    // -------------------------------------------------------------
+    function calcBlackHoleState() {
+      const M = Math.max(0.02, PARAMS.currentMass); // 10^11 kg
+      // 史瓦西半径 rs (fm: 10^-15 m) ~ 2GM/c^2 ~ 1.48e-27 * M_kg = 1.48e-16 * M_11 ≈ 0.148 * M_11 fm
+      const rs_fm = 0.148 * M;
+      // 霍金温度 T_H (10^22 K) ~ 6.17 / M_11
+      const T_H = 6.17 / M;
+      // 辐射功率 P (10^18 W) ~ 3.56 / M_11^2
+      const P_rad = 3.56 / (M * M);
+      // 贝肯斯坦-霍金熵 S_BH ∝ M^2
+      const S_BH = Math.pow(M / PARAMS.initialMass, 2);
+      // 纠缠熵 S_ent (Page curve)
+      const fractionRemaining = M / PARAMS.initialMass; // 1 -> 0
+      const fractionEvaporated = 1.0 - fractionRemaining;
+      
+      let S_ent = 0;
+      if (PARAMS.infoMode === 'page') {
+        // Page 曲线：min(S_thermal, S_BH)
+        const S_thermal = fractionEvaporated * 1.6;
+        S_ent = Math.min(S_thermal, S_BH);
+      } else {
+        // Hawking 经典信息丢失：纯热熵单调递增
+        S_ent = fractionEvaporated * 1.6;
+      }
+
+      return { M, rs_fm, T_H, P_rad, S_BH, S_ent, fractionEvaporated };
+    }
+
+    // -------------------------------------------------------------
+    // 虚粒子对粒子系统
+    // -------------------------------------------------------------
+    let virtualPairs = []; // 包含负能粒子与正能粒子
+    let explosionParticles = [];
+
+    function spawnVirtualPair(centerX, centerY, baseRadius) {
+      const angle = Math.random() * Math.PI * 2;
+      const spawnR = baseRadius * (0.95 + Math.random() * 0.25);
+      const px = centerX + Math.cos(angle) * spawnR;
+      const py = centerY + Math.sin(angle) * spawnR;
+
+      // 负粒子向内坠落，正粒子向外逃逸
+      virtualPairs.push({
+        // 负能粒子 (落向奇点)
+        neg: {
+          x: px,
+          y: py,
+          vx: -Math.cos(angle) * (18 + Math.random() * 20),
+          vy: -Math.sin(angle) * (18 + Math.random() * 20),
+          life: 0.6
+        },
+        // 正能粒子 (霍金辐射逃逸)
+        pos: {
+          x: px,
+          y: py,
+          vx: Math.cos(angle) * (35 + Math.random() * 45),
+          vy: Math.sin(angle) * (35 + Math.random() * 45),
+          life: 1.2,
+          energy: 1.0 / Math.max(0.1, PARAMS.currentMass)
+        }
+      });
+
+      if (Math.random() < 0.15) {
+        const freq = 600 + Math.min(2400, (1.0 / Math.max(0.1, PARAMS.currentMass)) * 400);
+        playHawkingChirp(freq);
+      }
+    }
+
+    // -------------------------------------------------------------
+    // 画布与调整尺寸
+    // -------------------------------------------------------------
+    const mainCanvas = document.getElementById('mainCanvas');
+    const ctx = mainCanvas.getContext('2d');
+    const scopeThermodynamicsCanvas = document.getElementById('scopeThermodynamicsCanvas');
+    const ctxThermo = scopeThermodynamicsCanvas.getContext('2d');
+    const scopePageCanvas = document.getElementById('scopePageCanvas');
+    const ctxPage = scopePageCanvas.getContext('2d');
+
+    function resizeCanvases() {
+      const container = document.getElementById('viewContainer');
+      mainCanvas.width = container.clientWidth * window.devicePixelRatio;
+      mainCanvas.height = container.clientHeight * window.devicePixelRatio;
+      ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+      scopeThermodynamicsCanvas.width = scopeThermodynamicsCanvas.clientWidth * window.devicePixelRatio;
+      scopeThermodynamicsCanvas.height = scopeThermodynamicsCanvas.clientHeight * window.devicePixelRatio;
+      ctxThermo.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+      scopePageCanvas.width = scopePageCanvas.clientWidth * window.devicePixelRatio;
+      scopePageCanvas.height = scopePageCanvas.clientHeight * window.devicePixelRatio;
+      ctxPage.scale(window.devicePixelRatio, window.devicePixelRatio);
+    }
+
+    window.addEventListener('resize', resizeCanvases);
+
+    // -------------------------------------------------------------
+    // 物理演化迭代
+    // -------------------------------------------------------------
+    let lastTime = performance.now();
+    let historyPoints = [];
+
+    function updateSimulation(dt) {
+      if (PARAMS.paused) return;
+
+      const w = mainCanvas.width / window.devicePixelRatio;
+      const h = mainCanvas.height / window.devicePixelRatio;
+      const centerX = w * 0.45;
+      const centerY = h * 0.5;
+
+      if (!PARAMS.isExploded) {
+        // 蒸发速率方程：dM/dt = - C / M^2
+        const rateFactor = 0.0035 * (PARAMS.timeWarp / 25.0);
+        const dM = (rateFactor / Math.pow(Math.max(0.08, PARAMS.currentMass), 2)) * dt * 60;
+        PARAMS.currentMass -= dM;
+
+        // 记录历史轨迹点
+        if (Math.random() < 0.25) {
+          const state = calcBlackHoleState();
+          historyPoints.push({
+            mNorm: state.M / PARAMS.initialMass,
+            tNorm: Math.min(1.0, state.T_H / 25.0),
+            sEnt: state.S_ent,
+            sBH: state.S_BH,
+            sTherm: state.fractionEvaporated * 1.6
+          });
+          if (historyPoints.length > 120) historyPoints.shift();
+        }
+
+        // 判定暴烈爆炸条件 (质量跌落至普朗克尺度)
+        if (PARAMS.currentMass <= 0.12) {
+          triggerPlanckExplosion();
+        }
+
+        // 生成虚粒子对
+        const baseRadius = 14 + (PARAMS.currentMass / PARAMS.initialMass) * 48;
+        const numToSpawn = Math.floor((PARAMS.pairRate * dt) * (0.8 + 1.2 / Math.max(0.2, PARAMS.currentMass)));
+        for (let i = 0; i < Math.min(12, numToSpawn); i++) {
+          spawnVirtualPair(centerX, centerY, baseRadius);
+        }
+
+        // 更新虚粒子对动力学
+        for (let i = virtualPairs.length - 1; i >= 0; i--) {
+          const pair = virtualPairs[i];
+          // 负粒子
+          pair.neg.x += pair.neg.vx * dt;
+          pair.neg.y += pair.neg.vy * dt;
+          pair.neg.life -= dt * 1.8;
+
+          // 正粒子
+          pair.pos.x += pair.pos.vx * dt;
+          pair.pos.y += pair.pos.vy * dt;
+          pair.pos.life -= dt * 0.8;
+
+          if (pair.neg.life <= 0 && pair.pos.life <= 0) {
+            virtualPairs.splice(i, 1);
+          }
+        }
+      } else {
+        // 爆炸进度更新
+        PARAMS.explosionProgress += dt * 0.8;
+        for (let p of explosionParticles) {
+          p.x += p.vx * dt;
+          p.y += p.vy * dt;
+          p.life -= dt * 0.5;
+        }
+      }
+
+      PARAMS.time += dt;
+    }
+
+    // -------------------------------------------------------------
+    // 主视口图形渲染
+    // -------------------------------------------------------------
+    function renderMainView() {
+      const w = mainCanvas.width / window.devicePixelRatio;
+      const h = mainCanvas.height / window.devicePixelRatio;
+      const centerX = w * 0.45;
+      const centerY = h * 0.5;
+
+      ctx.clearRect(0, 0, w, h);
+
+      const state = calcBlackHoleState();
+      const currentRadius = 14 + (state.M / PARAMS.initialMass) * 48;
+
+      // 1. 绘制引力测地线弯曲背景网格 (Spacetime Curvature Grid)
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.06)';
+      ctx.lineWidth = 1;
+      const gridSize = 42;
+      for (let x = 0; x < w; x += gridSize) {
+        ctx.beginPath();
+        for (let y = 0; y < h; y += 10) {
+          const dx = x - centerX;
+          const dy = y - centerY;
+          const dist = Math.hypot(dx, dy);
+          const pull = Math.min(25, (currentRadius * 22) / Math.max(30, dist));
+          const nx = x - (dx / Math.max(1, dist)) * pull;
+          const ny = y - (dy / Math.max(1, dist)) * pull;
+          if (y === 0) ctx.moveTo(nx, ny);
+          else ctx.lineTo(nx, ny);
+        }
+        ctx.stroke();
+      }
+
+      if (!PARAMS.isExploded) {
+        // 2. 绘制爱因斯坦光子球晕层 (Photon Sphere Ring & Accretion Glow)
+        const glowGrad = ctx.createRadialGradient(
+          centerX, centerY, currentRadius * 0.8,
+          centerX, centerY, currentRadius * 3.5
+        );
+        glowGrad.addColorStop(0, 'rgba(244, 63, 94, 0.7)');
+        glowGrad.addColorStop(0.35, 'rgba(251, 191, 36, 0.35)');
+        glowGrad.addColorStop(0.7, 'rgba(56, 189, 248, 0.12)');
+        glowGrad.addColorStop(1, 'transparent');
+
+        ctx.fillStyle = glowGrad;
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, currentRadius * 3.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 3. 绘制事件视界绝对黑色阴影核 (Event Horizon Shadow)
+        ctx.fillStyle = '#010204';
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, currentRadius, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 视界边缘发光环
+        ctx.strokeStyle = 'rgba(244, 63, 94, 0.85)';
+        ctx.lineWidth = 2.0;
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, currentRadius, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // 4. 绘制虚粒子对分裂轨迹
+        for (let pair of virtualPairs) {
+          // 负能粒子 (暗紫红色，坠入视界)
+          if (pair.neg.life > 0) {
+            ctx.fillStyle = `rgba(168, 85, 247, ${pair.neg.life * 0.9})`;
+            ctx.beginPath();
+            ctx.arc(pair.neg.x, pair.neg.y, 2.0, 0, Math.PI * 2);
+            ctx.fill();
+          }
+
+          // 正能粒子 (金黄与白亮光辉，逃逸向远处)
+          if (pair.pos.life > 0) {
+            ctx.save();
+            ctx.shadowColor = '#fbbf24';
+            ctx.shadowBlur = 8;
+            ctx.fillStyle = `rgba(251, 191, 36, ${pair.pos.life})`;
+            ctx.beginPath();
+            ctx.arc(pair.pos.x, pair.pos.y, 2.5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+          }
+        }
+      } else {
+        // 5. 普朗克尺度终极暴烈引力爆炸冲击波 (Planck Explosion Shockwave)
+        const shockRadius = PARAMS.explosionProgress * (w * 0.7);
+        const shockAlpha = Math.max(0, 1.0 - PARAMS.explosionProgress);
+
+        ctx.save();
+        ctx.shadowColor = '#fff';
+        ctx.shadowBlur = 30;
+        ctx.strokeStyle = `rgba(255, 255, 255, ${shockAlpha})`;
+        ctx.lineWidth = 4.0;
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, shockRadius, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // 辐射喷射粒子
+        for (let p of explosionParticles) {
+          if (p.life > 0) {
+            ctx.fillStyle = `rgba(244, 63, 94, ${p.life})`;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+        ctx.restore();
+      }
+
+      // 实时更新头部与 HUD 标签
+      document.getElementById('hudTemp').textContent = `${state.T_H.toFixed(2)}×10²² K`;
+      document.getElementById('hdrTemp').textContent = `${state.T_H.toFixed(2)}×10²² K`;
+      document.getElementById('hudMass').textContent = `${state.M.toFixed(2)}×10¹¹ kg`;
+      document.getElementById('hudRs').textContent = `${state.rs_fm.toFixed(2)} fm`;
+      document.getElementById('hudPower').textContent = `${state.P_rad.toFixed(2)}×10¹⁸ W`;
+      document.getElementById('hdrEntropy').textContent = `${state.S_ent.toFixed(2)} S_max`;
+
+      const pageEl = document.getElementById('hudPageStatus');
+      if (PARAMS.isExploded) {
+        pageEl.textContent = '爆炸湮灭 (信息完全由霍金粒子带出)';
+        pageEl.style.color = 'var(--accent-rose)';
+      } else if (state.fractionEvaporated >= 0.536) {
+        pageEl.textContent = '佩奇时间后 (纠缠岛主导，信息快速释放)';
+        pageEl.style.color = 'var(--accent-green)';
+      } else {
+        pageEl.textContent = '佩奇时间前 (岛前阶段，热纠缠单调上升)';
+        pageEl.style.color = 'var(--accent-purple)';
+      }
+    }
+
+    // -------------------------------------------------------------
+    // 示波器 1 渲染：热力学质量与温度曲线
+    // -------------------------------------------------------------
+    function renderScopeThermodynamics() {
+      const w = scopeThermodynamicsCanvas.width / window.devicePixelRatio;
+      const h = scopeThermodynamicsCanvas.height / window.devicePixelRatio;
+      ctxThermo.clearRect(0, 0, w, h);
+
+      // 网格
+      ctxThermo.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+      ctxThermo.lineWidth = 1;
+      ctxThermo.beginPath();
+      ctxThermo.moveTo(0, h * 0.5); ctxThermo.lineTo(w, h * 0.5);
+      ctxThermo.stroke();
+
+      if (historyPoints.length < 2) return;
+
+      const stepX = w / 120;
+
+      // 质量 M(t) 曲线 (青蓝)
+      ctxThermo.strokeStyle = 'var(--accent-cyan)';
+      ctxThermo.lineWidth = 1.8;
+      ctxThermo.beginPath();
+      for (let i = 0; i < historyPoints.length; i++) {
+        const x = i * stepX;
+        const y = h - 6 - historyPoints[i].mNorm * (h * 0.85);
+        if (i === 0) ctxThermo.moveTo(x, y);
+        else ctxThermo.lineTo(x, y);
+      }
+      ctxThermo.stroke();
+
+      // 温度 T_H(t) 曲线 (玫瑰红暴涨)
+      ctxThermo.strokeStyle = 'var(--accent-rose)';
+      ctxThermo.lineWidth = 1.8;
+      ctxThermo.beginPath();
+      for (let i = 0; i < historyPoints.length; i++) {
+        const x = i * stepX;
+        const y = h - 6 - historyPoints[i].tNorm * (h * 0.85);
+        if (i === 0) ctxThermo.moveTo(x, y);
+        else ctxThermo.lineTo(x, y);
+      }
+      ctxThermo.stroke();
+    }
+
+    // -------------------------------------------------------------
+    // 示波器 2 渲染：佩奇曲线与量子纠缠熵
+    // -------------------------------------------------------------
+    function renderScopePage() {
+      const w = scopePageCanvas.width / window.devicePixelRatio;
+      const h = scopePageCanvas.height / window.devicePixelRatio;
+      ctxPage.clearRect(0, 0, w, h);
+
+      // 佩奇时间垂直虚线 t_Page ≈ 53.6%
+      const pageX = w * 0.536;
+      ctxPage.strokeStyle = 'rgba(192, 132, 252, 0.45)';
+      ctxPage.setLineDash([3, 3]);
+      ctxPage.beginPath();
+      ctxPage.moveTo(pageX, 0); ctxPage.lineTo(pageX, h);
+      ctxPage.stroke();
+      ctxPage.setLineDash([]);
+
+      // 理论 Page 曲线背景导轨
+      ctxPage.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+      ctxPage.lineWidth = 1.0;
+      ctxPage.beginPath();
+      for (let x = 0; x < w; x++) {
+        const frac = x / w;
+        const sTherm = frac * 1.6;
+        const sBH = Math.pow(1.0 - frac, 2);
+        const sIdeal = Math.min(sTherm, sBH);
+        const y = h - 6 - sIdeal * (h * 0.85);
+        if (x === 0) ctxPage.moveTo(x, y);
+        else ctxPage.lineTo(x, y);
+      }
+      ctxPage.stroke();
+
+      if (historyPoints.length < 2) return;
+
+      const stepX = w / 120;
+
+      // 动态绘制实际记录的纠缠熵
+      ctxPage.strokeStyle = 'var(--accent-purple)';
+      ctxPage.lineWidth = 2.2;
+      ctxPage.beginPath();
+      for (let i = 0; i < historyPoints.length; i++) {
+        const x = i * stepX;
+        const y = h - 6 - historyPoints[i].sEnt * (h * 0.85);
+        if (i === 0) ctxPage.moveTo(x, y);
+        else ctxPage.lineTo(x, y);
+      }
+      ctxPage.stroke();
+    }
+
+    // -------------------------------------------------------------
+    // 控制与预设交互
+    // -------------------------------------------------------------
+    function updateParam(key, val) {
+      if (key === 'mass') {
+        PARAMS.initialMass = parseFloat(val);
+        PARAMS.currentMass = PARAMS.initialMass;
+        document.getElementById('valMass').textContent = PARAMS.initialMass.toFixed(2);
+        historyPoints = [];
+      }
+      if (key === 'warp') {
+        PARAMS.timeWarp = parseInt(val);
+        document.getElementById('valWarp').textContent = `${PARAMS.timeWarp}×`;
+      }
+      if (key === 'pairs') {
+        PARAMS.pairRate = parseInt(val);
+        document.getElementById('valPairs').textContent = PARAMS.pairRate;
+      }
+    }
+
+    function setInfoMode(mode) {
+      PARAMS.infoMode = mode;
+      document.getElementById('btnPage').classList.toggle('active', mode === 'page');
+      document.getElementById('btnHawking').classList.toggle('active', mode === 'hawking');
+    }
+
+    function applyPreset(id) {
+      document.querySelectorAll('.btn-grid button').forEach(b => b.classList.remove('active'));
+      PARAMS.isExploded = false;
+      if (id === 1) {
+        document.getElementById('p1Btn').classList.add('active');
+        PARAMS.initialMass = 1.8;
+        PARAMS.currentMass = 1.8;
+        PARAMS.timeWarp = 45;
+        setInfoMode('page');
+      } else if (id === 2) {
+        document.getElementById('p2Btn').classList.add('active');
+        PARAMS.initialMass = 5.0;
+        PARAMS.currentMass = 5.0;
+        PARAMS.timeWarp = 25;
+        setInfoMode('page');
+      } else if (id === 3) {
+        document.getElementById('p3Btn').classList.add('active');
+        PARAMS.initialMass = 12.0;
+        PARAMS.currentMass = 12.0;
+        PARAMS.timeWarp = 15;
+        setInfoMode('page');
+      } else if (id === 4) {
+        document.getElementById('p4Btn').classList.add('active');
+        PARAMS.initialMass = 3.0;
+        PARAMS.currentMass = 3.0;
+        PARAMS.timeWarp = 10;
+        setInfoMode('hawking');
+      }
+
+      document.getElementById('slMass').value = PARAMS.initialMass;
+      document.getElementById('slWarp').value = PARAMS.timeWarp;
+      updateParam('mass', PARAMS.initialMass);
+      updateParam('warp', PARAMS.timeWarp);
+      historyPoints = [];
+    }
+
+    function triggerPlanckExplosion() {
+      PARAMS.isExploded = true;
+      PARAMS.explosionProgress = 0;
+      playExplosionBlast();
+
+      const w = mainCanvas.width / window.devicePixelRatio;
+      const h = mainCanvas.height / window.devicePixelRatio;
+      const centerX = w * 0.45;
+      const centerY = h * 0.5;
+
+      explosionParticles = [];
+      for (let i = 0; i < 180; i++) {
+        const ang = Math.random() * Math.PI * 2;
+        const spd = 60 + Math.random() * 220;
+        explosionParticles.push({
+          x: centerX,
+          y: centerY,
+          vx: Math.cos(ang) * spd,
+          vy: Math.sin(ang) * spd,
+          size: 1.5 + Math.random() * 3.0,
+          life: 1.0 + Math.random() * 0.8
+        });
+      }
+    }
+
+    function resetBlackHole() {
+      PARAMS.isExploded = false;
+      PARAMS.currentMass = PARAMS.initialMass;
+      historyPoints = [];
+      virtualPairs = [];
+      explosionParticles = [];
+    }
+
+    function togglePlay() {
+      PARAMS.paused = !PARAMS.paused;
+      document.getElementById('playIcon').textContent = PARAMS.paused ? '▶' : '⏸';
+      document.getElementById('playText').textContent = PARAMS.paused ? '继续仿真' : '暂停仿真';
+    }
+
+    // -------------------------------------------------------------
+    // 主循环运行管线
+    // -------------------------------------------------------------
+    function mainLoop(now) {
+      const dt = Math.min(0.04, (now - lastTime) / 1000.0);
+      lastTime = now;
+
+      updateSimulation(dt);
+      renderMainView();
+      renderScopeThermodynamics();
+      renderScopePage();
+
+      requestAnimationFrame(mainLoop);
+    }
+
+    // 初始化启动
+    window.addEventListener('DOMContentLoaded', () => {
+      resizeCanvases();
+      requestAnimationFrame(mainLoop);
+    });
+  </script>
+</body>
+</html>

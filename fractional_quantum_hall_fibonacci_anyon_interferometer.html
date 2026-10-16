@@ -1,0 +1,1414 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>分数量子霍尔手征边缘态斐波那契任意子干涉仪与通用拓扑量子计算全息模拟器</title>
+  <style>
+    :root {
+      --bg-base: #06080e;
+      --panel-bg: rgba(10, 14, 24, 0.82);
+      --panel-border: rgba(234, 179, 8, 0.28);
+      --accent-gold: #facc15;
+      --accent-cyan: #06b6d4;
+      --accent-purple: #c084fc;
+      --accent-emerald: #10b981;
+      --text-main: #f3f4f6;
+      --text-muted: #9ca3af;
+      --font-mono: 'JetBrains Mono', 'Consolas', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body {
+      background-color: var(--bg-base);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+    }
+
+    /* 3D 视口画布 */
+    #viewport-container {
+      position: relative;
+      flex: 1;
+      height: 100vh;
+      background: radial-gradient(circle at 50% 50%, #0d1527 0%, #06080e 100%);
+      overflow: hidden;
+    }
+
+    #canvas3d {
+      width: 100%;
+      height: 100%;
+      display: block;
+      cursor: grab;
+    }
+
+    #canvas3d:active {
+      cursor: grabbing;
+    }
+
+    /* 顶部全息标题条 */
+    .header-banner {
+      position: absolute;
+      top: 16px;
+      left: 20px;
+      z-index: 10;
+      pointer-events: none;
+      background: rgba(6, 8, 14, 0.75);
+      border: 1px solid var(--panel-border);
+      padding: 12px 20px;
+      border-radius: 8px;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.6);
+    }
+
+    .header-banner h1 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      background: linear-gradient(135deg, #fef08a, #facc15, #06b6d4);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .header-banner .badge {
+      font-size: 0.68rem;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: rgba(234, 179, 8, 0.2);
+      border: 1px solid rgba(234, 179, 8, 0.5);
+      color: #fef08a;
+      font-family: var(--font-mono);
+    }
+
+    .header-banner p {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+      font-family: var(--font-mono);
+    }
+
+    /* 浮动状态徽标 HUD */
+    .hud-telemetry {
+      position: absolute;
+      top: 16px;
+      right: 20px;
+      z-index: 10;
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+      padding: 10px 16px;
+      backdrop-filter: blur(8px);
+      display: flex;
+      gap: 18px;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    }
+
+    .hud-item {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .hud-label {
+      color: var(--text-muted);
+      font-size: 0.68rem;
+    }
+
+    .hud-value {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--accent-gold);
+    }
+
+    .hud-value.cyan { color: var(--accent-cyan); }
+    .hud-value.purple { color: var(--accent-purple); }
+    .hud-value.emerald { color: var(--accent-emerald); }
+
+    /* 底部双示波器面板 */
+    .scope-panel {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      right: 430px;
+      height: 200px;
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: 10px;
+      backdrop-filter: blur(12px);
+      padding: 10px 16px;
+      display: flex;
+      gap: 16px;
+      z-index: 10;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+    }
+
+    .scope-box {
+      flex: 1;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    .scope-header {
+      font-size: 0.75rem;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .scope-header span.tag {
+      color: var(--accent-gold);
+      font-weight: 600;
+    }
+
+    .scope-canvas {
+      flex: 1;
+      width: 100%;
+      background: rgba(4, 7, 13, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 6px;
+    }
+
+    /* 右侧控制控制台 */
+    .control-sidebar {
+      width: 400px;
+      height: 100vh;
+      background: var(--panel-bg);
+      border-left: 1px solid var(--panel-border);
+      backdrop-filter: blur(14px);
+      display: flex;
+      flex-direction: column;
+      z-index: 20;
+      box-shadow: -6px 0 28px rgba(0, 0, 0, 0.7);
+    }
+
+    .sidebar-scroll {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .sidebar-scroll::-webkit-scrollbar {
+      width: 5px;
+    }
+    .sidebar-scroll::-webkit-scrollbar-thumb {
+      background: rgba(234, 179, 8, 0.3);
+      border-radius: 3px;
+    }
+
+    .section-title {
+      font-size: 0.82rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--accent-gold);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-bottom: 1px solid rgba(234, 179, 8, 0.2);
+      padding-bottom: 6px;
+      margin-bottom: 10px;
+    }
+
+    .section-title::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      background: var(--accent-gold);
+      border-radius: 50%;
+      box-shadow: 0 0 8px var(--accent-gold);
+    }
+
+    /* 预设工况芯片按钮组 */
+    .preset-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .preset-btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: var(--text-main);
+      padding: 8px 10px;
+      border-radius: 6px;
+      font-size: 0.74rem;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      text-align: left;
+      line-height: 1.3;
+    }
+
+    .preset-btn:hover {
+      background: rgba(234, 179, 8, 0.15);
+      border-color: var(--accent-gold);
+      color: #fef08a;
+      transform: translateY(-1px);
+    }
+
+    .preset-btn.active {
+      background: linear-gradient(135deg, rgba(234, 179, 8, 0.25), rgba(6, 182, 212, 0.25));
+      border-color: var(--accent-gold);
+      color: #fff;
+      font-weight: 600;
+      box-shadow: 0 0 12px rgba(234, 179, 8, 0.3);
+    }
+
+    /* 物理控制滑块组 */
+    .control-row {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-bottom: 10px;
+    }
+
+    .control-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.73rem;
+      font-family: var(--font-mono);
+    }
+
+    .control-name {
+      color: var(--text-muted);
+    }
+
+    .control-val {
+      color: var(--accent-gold);
+      font-weight: 600;
+    }
+
+    input[type=range] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 5px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 3px;
+      outline: none;
+    }
+
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--accent-gold);
+      cursor: pointer;
+      box-shadow: 0 0 8px rgba(234, 179, 8, 0.8);
+      transition: transform 0.15s;
+    }
+
+    input[type=range]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    /* 脉冲操作按钮 */
+    .action-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 6px;
+    }
+
+    .action-btn {
+      background: rgba(6, 182, 212, 0.12);
+      border: 1px solid rgba(6, 182, 212, 0.35);
+      color: #a5f3fc;
+      padding: 9px;
+      border-radius: 6px;
+      font-size: 0.74rem;
+      font-family: var(--font-mono);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .action-btn:hover {
+      background: rgba(6, 182, 212, 0.25);
+      border-color: #22d3ee;
+      box-shadow: 0 0 14px rgba(6, 182, 212, 0.4);
+    }
+
+    .action-btn.gold {
+      background: rgba(234, 179, 8, 0.15);
+      border-color: rgba(234, 179, 8, 0.4);
+      color: #fef08a;
+    }
+
+    .action-btn.gold:hover {
+      background: rgba(234, 179, 8, 0.3);
+      border-color: #facc15;
+      box-shadow: 0 0 14px rgba(234, 179, 8, 0.5);
+    }
+
+    /* 理论微观公式展板 */
+    .theory-box {
+      background: rgba(0, 0, 0, 0.45);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 6px;
+      padding: 10px 12px;
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      line-height: 1.5;
+      color: #d1d5db;
+    }
+
+    .theory-box code {
+      color: var(--accent-gold);
+      background: rgba(234, 179, 8, 0.1);
+      padding: 1px 4px;
+      border-radius: 3px;
+    }
+
+    .fusion-tree {
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      background: rgba(192, 132, 252, 0.08);
+      border: 1px dashed rgba(192, 132, 252, 0.3);
+      padding: 8px;
+      border-radius: 6px;
+      margin-top: 6px;
+      font-size: 0.74rem;
+    }
+
+    .fusion-tree .rule {
+      color: var(--accent-purple);
+      font-weight: 700;
+    }
+
+    .audio-toggle-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 14px;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      font-size: 0.76rem;
+    }
+
+    .toggle-switch {
+      position: relative;
+      display: inline-block;
+      width: 36px;
+      height: 18px;
+    }
+
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider-toggle {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: #374151;
+      transition: .3s;
+      border-radius: 18px;
+    }
+
+    .slider-toggle:before {
+      position: absolute;
+      content: "";
+      height: 12px;
+      width: 12px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .3s;
+      border-radius: 50%;
+    }
+
+    input:checked + .slider-toggle {
+      background-color: var(--accent-gold);
+    }
+
+    input:checked + .slider-toggle:before {
+      transform: translateX(18px);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 3D 全息交互视口 -->
+  <div id="viewport-container">
+    <canvas id="canvas3d"></canvas>
+
+    <!-- 顶部标题徽标 -->
+    <div class="header-banner">
+      <h1>
+        <span>斐波那契任意子双QPC干涉仪全息模拟器</span>
+        <span class="badge">FQH ν=12/5 · d_τ=1.618</span>
+      </h1>
+      <p>Read-Rezayi Non-Abelian Fibonacci Braiding & Universal Topological Quantum Gate</p>
+    </div>
+
+    <!-- 浮动实时参数 HUD -->
+    <div class="hud-telemetry">
+      <div class="hud-item">
+        <span class="hud-label">干涉相干能见度 V</span>
+        <span class="hud-value" id="hud-vis">0.382 (ϕ⁻²)</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label">微分电导 G_xx (e²/h)</span>
+        <span class="hud-value cyan" id="hud-gxx">1.684</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label">拓扑单比特保真度 F</span>
+        <span class="hud-value purple" id="hud-fidelity">99.86%</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label">AB几何总相位 Φ_total</span>
+        <span class="hud-value emerald" id="hud-abphase">4.71 rad</span>
+      </div>
+    </div>
+
+    <!-- 底部双专业示波器 -->
+    <div class="scope-panel">
+      <!-- 示波器 1: 微分电导干涉谱与黄金比例抑制 -->
+      <div class="scope-box">
+        <div class="scope-header">
+          <span>法布里-珀罗电导振荡谱 G_xx(B, Vg)</span>
+          <span class="tag" id="scope-vis-tag">V = ϕ⁻² = 0.382</span>
+        </div>
+        <canvas id="scope1-canvas" class="scope-canvas"></canvas>
+      </div>
+
+      <!-- 示波器 2: 斐波那契单比特布洛赫球面态与聚变振幅 -->
+      <div class="scope-box">
+        <div class="scope-header">
+          <span>斐波那契逻辑量子比特态密度矢量 |ψ(θ,ϕ)⟩</span>
+          <span class="tag" style="color:var(--accent-purple);" id="scope-qubit-tag">|0⟩+ϕ|1⟩</span>
+        </div>
+        <canvas id="scope2-canvas" class="scope-canvas"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- 右侧系统控制侧边栏 -->
+  <div class="control-sidebar">
+    <div class="sidebar-scroll">
+
+      <!-- 预设工况矩阵 -->
+      <div>
+        <div class="section-title">典型物理实验工况 (Presets)</div>
+        <div class="preset-grid">
+          <button class="preset-btn active" onclick="setPreset('golden')">
+            <strong>黄金比例非阿贝尔态</strong><br>
+            <small style="color:var(--text-muted)">N_τ=1 · V=ϕ⁻² 抑制</small>
+          </button>
+          <button class="preset-btn" onclick="setPreset('pure_ab')">
+            <strong>纯阿哈罗诺夫-玻姆态</strong><br>
+            <small style="color:var(--text-muted)">N_τ=0 · V=1.000 参照</small>
+          </button>
+          <button class="preset-btn" onclick="setPreset('universal_gate')">
+            <strong>通用拓扑编织门</strong><br>
+            <small style="color:var(--text-muted)">τ₁×τ₂ 交换算符 σ₁</small>
+          </button>
+          <button class="preset-btn" onclick="setPreset('thermal')">
+            <strong>热退相干消相极限</strong><br>
+            <small style="color:var(--text-muted)">T=110mK · 边缘波包阻尼</small>
+          </button>
+        </div>
+      </div>
+
+      <!-- 物理场与量子点接触控制 -->
+      <div>
+        <div class="section-title">量子点接触与电磁拓扑参数</div>
+
+        <!-- 磁场强度 B -->
+        <div class="control-row">
+          <div class="control-labels">
+            <span class="control-name">垂直外加磁场 B</span>
+            <span class="control-val" id="val-b">6.40 T</span>
+          </div>
+          <input type="range" id="param-b" min="3.0" max="10.0" step="0.05" value="6.40" oninput="updateParam('b', this.value)">
+        </div>
+
+        <!-- 栅极电压 Vg (调控干涉腔面积/电荷) -->
+        <div class="control-row">
+          <div class="control-labels">
+            <span class="control-name">干涉腔静电栅压 V_gate</span>
+            <span class="control-val" id="val-vg">-0.45 V</span>
+          </div>
+          <input type="range" id="param-vg" min="-1.5" max="0.5" step="0.01" value="-0.45" oninput="updateParam('vg', this.value)">
+        </div>
+
+        <!-- QPC1 隧穿几率 -->
+        <div class="control-row">
+          <div class="control-labels">
+            <span class="control-name">QPC1 隧穿振幅 t₁</span>
+            <span class="control-val" id="val-t1">0.42</span>
+          </div>
+          <input type="range" id="param-t1" min="0.05" max="0.95" step="0.01" value="0.42" oninput="updateParam('t1', this.value)">
+        </div>
+
+        <!-- QPC2 隧穿几率 -->
+        <div class="control-row">
+          <div class="control-labels">
+            <span class="control-name">QPC2 隧穿振幅 t₂</span>
+            <span class="control-val" id="val-t2">0.42</span>
+          </div>
+          <input type="range" id="param-t2" min="0.05" max="0.95" step="0.01" value="0.42" oninput="updateParam('t2', this.value)">
+        </div>
+
+        <!-- 腔内斐波那契任意子数 N_tau -->
+        <div class="control-row">
+          <div class="control-labels">
+            <span class="control-name">干涉腔捕获准粒子数 N_τ</span>
+            <span class="control-val" id="val-ntau">1 个</span>
+          </div>
+          <input type="range" id="param-ntau" min="0" max="3" step="1" value="1" oninput="updateParam('ntau', this.value)">
+        </div>
+
+        <!-- 实验工作温度 T -->
+        <div class="control-row">
+          <div class="control-labels">
+            <span class="control-name">稀释制冷工作温度 T</span>
+            <span class="control-val" id="val-temp">18 mK</span>
+          </div>
+          <input type="range" id="param-temp" min="5" max="120" step="1" value="18" oninput="updateParam('temp', this.value)">
+        </div>
+
+        <!-- 编织角速度 -->
+        <div class="control-row">
+          <div class="control-labels">
+            <span class="control-name">动态编织周转频率 ω_braid</span>
+            <span class="control-val" id="val-wbraid">1.2 rad/s</span>
+          </div>
+          <input type="range" id="param-wbraid" min="0.2" max="3.0" step="0.1" value="1.2" oninput="updateParam('wbraid', this.value)">
+        </div>
+      </div>
+
+      <!-- 交互操作按钮 -->
+      <div>
+        <div class="section-title">拓扑量子相干调控指令</div>
+        <div class="action-grid">
+          <button class="action-btn gold" onclick="triggerBraidingStep()">
+            <span>🌀 单步编织 σ₁</span>
+          </button>
+          <button class="action-btn" onclick="triggerFMatrixRotate()">
+            <span>📐 F-矩阵基底变换</span>
+          </button>
+          <button class="action-btn" onclick="injectQuasiparticle()">
+            <span>⚡ 注入斐波那契τ</span>
+          </button>
+          <button class="action-btn" onclick="resetInterferometer()">
+            <span>🔄 重置相干态</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 声效合成开关 -->
+      <div class="audio-toggle-bar">
+        <span>Web Audio 拓扑和弦合成</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="audio-toggle" onchange="toggleAudio(this.checked)">
+          <span class="slider-toggle"></span>
+        </label>
+      </div>
+
+      <!-- 理论数学与微观聚变法则卡片 -->
+      <div>
+        <div class="section-title">微观聚变与通用拓扑量子代数</div>
+        <div class="theory-box">
+          <p>聚变代数: <code>τ ⊗ τ = 1 ⊕ τ</code></p>
+          <p>量子维度: <code>d_τ = (1+√5)/2 = ϕ ≈ 1.618</code></p>
+          <div class="fusion-tree">
+            <span>基态 |0⟩: (τ⊗τ)→1</span>
+            <span class="rule">⊕</span>
+            <span>激发 |1⟩: (τ⊗τ)→τ</span>
+          </div>
+          <p style="margin-top:6px;">非阿贝尔单圈编织能见度抑制矩阵元:</p>
+          <p><code>V(N_τ=1) = |Tr(M_τ)|/d_τ = ϕ⁻² ≈ 0.382</code></p>
+          <p style="margin-top:4px; font-size:0.68rem; color:var(--text-muted);">
+            无需魔法态蒸馏，密集编织序列即可逼近任意 SU(2) 门（Solovay-Kitaev 定理）。
+          </p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    // ==========================================
+    // 1. 全局系统状态与物理常数
+    // ==========================================
+    const PHI = (1 + Math.sqrt(5)) / 2; // 黄金比例 ~ 1.6180339887
+    const PHI_INV2 = 1.0 / (PHI * PHI); // 0.381966...
+
+    const STATE = {
+      // 物理参数
+      b: 6.40,           // 垂直磁场 (Tesla)
+      vg: -0.45,         // 栅压 (V)
+      t1: 0.42,          // QPC1 隧穿几率
+      t2: 0.42,          // QPC2 隧穿几率
+      ntau: 1,           // 腔内斐波那契准粒子数 (0, 1, 2, 3)
+      temp: 18,          // 温度 (mK)
+      wbraid: 1.2,       // 编织周转频率
+      
+      // 动态运行变量
+      time: 0,
+      braidAngle: 0,     // 编织几何角度
+      pulseTimer: 0,     // 注入脉冲计时
+      fRotateAngle: 0,   // F矩阵旋转角度
+      
+      // 导出物理观测量
+      visibility: PHI_INV2,
+      gxx: 1.684,
+      fidelity: 99.86,
+      abPhase: 0,
+      qubitTheta: 0.628, // 布洛赫极角
+      qubitPhi: 0.0,     // 布洛赫方位角
+      
+      // 边缘流粒子缓存
+      particles: [],
+      numParticles: 120,
+      
+      // 3D 相机与视口
+      camera: {
+        rotX: 38,
+        rotY: -28,
+        zoom: 1.0,
+        isDragging: false,
+        lastX: 0,
+        lastY: 0
+      },
+      
+      audioEnabled: false
+    };
+
+    // 初始化粒子流
+    for (let i = 0; i < STATE.numParticles; i++) {
+      STATE.particles.push({
+        s: Math.random(), // 沿路径的归一化参数 0 ~ 1
+        speed: 0.003 + Math.random() * 0.002,
+        offsetY: (Math.random() - 0.5) * 6,
+        isLoop: Math.random() < 0.35 // 是否在干涉腔内闭合环流
+      });
+    }
+
+    // ==========================================
+    // 2. Web Audio API 量子拓扑和弦合成器
+    // ==========================================
+    let audioCtx = null;
+    let masterGain = null;
+    let oscBase = null;
+    let oscGolden = null;
+    let oscInterf = null;
+
+    function initAudio() {
+      if (audioCtx) return;
+      try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioContext();
+        masterGain = audioCtx.createGain();
+        masterGain.gain.setValueAtTime(0.001, audioCtx.currentTime);
+        masterGain.connect(audioCtx.destination);
+
+        // 基频腔体振荡器 (220 Hz)
+        oscBase = audioCtx.createOscillator();
+        oscBase.type = 'sine';
+        oscBase.frequency.setValueAtTime(220, audioCtx.currentTime);
+        const gainBase = audioCtx.createGain();
+        gainBase.gain.setValueAtTime(0.35, audioCtx.currentTime);
+        oscBase.connect(gainBase);
+        gainBase.connect(masterGain);
+        oscBase.start();
+
+        // 黄金比例谐波振荡器 (220 * 1.618 ≈ 355.96 Hz)
+        oscGolden = audioCtx.createOscillator();
+        oscGolden.type = 'triangle';
+        oscGolden.frequency.setValueAtTime(220 * PHI, audioCtx.currentTime);
+        const gainGolden = audioCtx.createGain();
+        gainGolden.gain.setValueAtTime(0.28, audioCtx.currentTime);
+        oscGolden.connect(gainGolden);
+        gainGolden.connect(masterGain);
+        oscGolden.start();
+
+        // 干涉调相高音层
+        oscInterf = audioCtx.createOscillator();
+        oscInterf.type = 'sine';
+        oscInterf.frequency.setValueAtTime(440 * PHI, audioCtx.currentTime);
+        const gainInterf = audioCtx.createGain();
+        gainInterf.gain.setValueAtTime(0.2, audioCtx.currentTime);
+        oscInterf.connect(gainInterf);
+        gainInterf.connect(masterGain);
+        oscInterf.start();
+      } catch (e) {
+        console.warn("Web Audio not available:", e);
+      }
+    }
+
+    function toggleAudio(enabled) {
+      STATE.audioEnabled = enabled;
+      if (enabled) {
+        initAudio();
+        if (audioCtx && audioCtx.state === 'suspended') {
+          audioCtx.resume();
+        }
+        if (masterGain) {
+          masterGain.gain.setTargetAtTime(0.12, audioCtx.currentTime, 0.05);
+        }
+      } else {
+        if (masterGain && audioCtx) {
+          masterGain.gain.setTargetAtTime(0.0001, audioCtx.currentTime, 0.05);
+        }
+      }
+    }
+
+    function updateAudioParameters() {
+      if (!STATE.audioEnabled || !audioCtx) return;
+      const baseFreq = 180 + STATE.b * 15;
+      oscBase.frequency.setTargetAtTime(baseFreq, audioCtx.currentTime, 0.05);
+      oscGolden.frequency.setTargetAtTime(baseFreq * PHI, audioCtx.currentTime, 0.05);
+      
+      const modFreq = baseFreq * (1.0 + STATE.visibility * 0.8) + Math.sin(STATE.abPhase) * 20;
+      oscInterf.frequency.setTargetAtTime(modFreq, audioCtx.currentTime, 0.05);
+    }
+
+    // ==========================================
+    // 3. 核心物理引擎与哈密顿量演化
+    // ==========================================
+    function updatePhysics() {
+      STATE.time += 0.016;
+      STATE.braidAngle += STATE.wbraid * 0.02;
+
+      // 1. AB 几何相位计算: Φ_AB = 2π * (B * Area + Vg * α) / Φ0
+      const area0 = 1.45; // 归一化干涉腔有效面积
+      const alphaGate = 0.85; // 栅极静电压缩因子
+      STATE.abPhase = (STATE.b * area0 + STATE.vg * alphaGate * 2.8) % (2 * Math.PI);
+
+      // 2. 斐波那契任意子非阿贝尔干涉能见度抑制
+      // 当 N_tau = 0 时为标准阿哈罗诺夫-玻姆干涉 V = 1.0;
+      // 当 N_tau = 1 时受非阿贝尔交换矩阵元限制，能见度精确等于黄金比例倒数平方 ϕ⁻² ≈ 0.382!
+      // 当 N_tau = 2 时，聚变通道 1 ⊕ τ 分裂，平均能见度加权为 (1 + ϕ⁻³)/2
+      let baseVis = 1.0;
+      if (STATE.ntau === 0) {
+        baseVis = 1.0;
+      } else if (STATE.ntau === 1) {
+        baseVis = PHI_INV2; // 0.381966
+      } else if (STATE.ntau === 2) {
+        baseVis = 0.552;
+      } else {
+        baseVis = 0.236; // 多体退相干抑制
+      }
+
+      // 3. 热退相干因子: exp(- 2π kB T L / ħ v_edge)
+      const thermalDamping = Math.exp(- (STATE.temp / 45.0) * 1.2);
+      STATE.visibility = baseVis * thermalDamping;
+
+      // 4. 微分电导公式: G_xx = e²/h [t1² + t2² + 2 t1 t2 V cos(Φ_total)]
+      const t1 = STATE.t1;
+      const t2 = STATE.t2;
+      const interferenceTerm = 2 * t1 * t2 * STATE.visibility * Math.cos(STATE.abPhase + STATE.braidAngle * 0.5);
+      const backgroundG = (t1 * t1 + t2 * t2) * 1.4 + 0.45;
+      STATE.gxx = Math.max(0.05, backgroundG + interferenceTerm);
+
+      // 5. 斐波那契单比特态演化与保真度
+      // 随着编织序列演化，布洛赫矢量在球面上根据 R 与 F 算符进动
+      STATE.qubitTheta = (Math.PI / 5.0) * (1.0 + Math.sin(STATE.braidAngle * 0.7) * 0.4) + STATE.fRotateAngle;
+      STATE.qubitPhi = (STATE.braidAngle * 1.2) % (2 * Math.PI);
+
+      const idealFid = 99.98 - (STATE.temp / 100.0) * 2.5 - (1.0 - thermalDamping) * 4.0;
+      STATE.fidelity = Math.max(85.0, idealFid);
+
+      // 更新 HUD
+      document.getElementById('hud-vis').textContent = `${STATE.visibility.toFixed(3)} ${STATE.ntau === 1 ? '(ϕ⁻²)' : ''}`;
+      document.getElementById('hud-gxx').textContent = STATE.gxx.toFixed(3);
+      document.getElementById('hud-fidelity').textContent = `${STATE.fidelity.toFixed(2)}%`;
+      document.getElementById('hud-abphase').textContent = `${STATE.abPhase.toFixed(2)} rad`;
+
+      // 示波器标签
+      document.getElementById('scope-vis-tag').textContent = `V = ${STATE.visibility.toFixed(3)} (T=${STATE.temp}mK)`;
+      const stateStr = STATE.qubitTheta < 0.8 ? '|0⟩ + ϕ|1⟩' : 'ϕ|0⟩ - |1⟩';
+      document.getElementById('scope-qubit-tag').textContent = `${stateStr} (θ=${(STATE.qubitTheta*180/Math.PI).toFixed(0)}°)`;
+
+      if (STATE.pulseTimer > 0) {
+        STATE.pulseTimer -= 0.016;
+      }
+
+      updateAudioParameters();
+    }
+
+    // ==========================================
+    // 4. 3D 全息投影引擎 (Vanilla Canvas 3D)
+    // ==========================================
+    const canvas3d = document.getElementById('canvas3d');
+    const ctx3d = canvas3d.getContext('2d');
+
+    function resizeCanvas() {
+      const rect = canvas3d.parentElement.getBoundingClientRect();
+      canvas3d.width = rect.width * window.devicePixelRatio;
+      canvas3d.height = rect.height * window.devicePixelRatio;
+      ctx3d.scale(window.devicePixelRatio, window.devicePixelRatio);
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    // 交互拖拽控制
+    canvas3d.addEventListener('mousedown', e => {
+      STATE.camera.isDragging = true;
+      STATE.camera.lastX = e.clientX;
+      STATE.camera.lastY = e.clientY;
+    });
+
+    window.addEventListener('mousemove', e => {
+      if (!STATE.camera.isDragging) return;
+      const dx = e.clientX - STATE.camera.lastX;
+      const dy = e.clientY - STATE.camera.lastY;
+      STATE.camera.rotY += dx * 0.45;
+      STATE.camera.rotX = Math.max(10, Math.min(80, STATE.camera.rotX + dy * 0.45));
+      STATE.camera.lastX = e.clientX;
+      STATE.camera.lastY = e.clientY;
+    });
+
+    window.addEventListener('mouseup', () => {
+      STATE.camera.isDragging = false;
+    });
+
+    canvas3d.addEventListener('wheel', e => {
+      e.preventDefault();
+      STATE.camera.zoom = Math.max(0.6, Math.min(1.8, STATE.camera.zoom - e.deltaY * 0.001));
+    }, { passive: false });
+
+    // 3D 投影函数 (欧拉角旋转)
+    function project3D(x, y, z, cx, cy) {
+      const radX = (STATE.camera.rotX * Math.PI) / 180;
+      const radY = (STATE.camera.rotY * Math.PI) / 180;
+
+      // Y 轴自旋
+      const cosY = Math.cos(radY);
+      const sinY = Math.sin(radY);
+      const x1 = x * cosY + z * sinY;
+      const y1 = y;
+      const z1 = -x * sinY + z * cosY;
+
+      // X 轴俯仰
+      const cosX = Math.cos(radX);
+      const sinX = Math.sin(radX);
+      const x2 = x1;
+      const y2 = y1 * cosX - z1 * sinX;
+      const z2 = y1 * sinX + z1 * cosX;
+
+      // 透视投影
+      const cameraDist = 800;
+      const scale = (cameraDist / (cameraDist + z2)) * STATE.camera.zoom;
+      return {
+        x: cx + x2 * scale,
+        y: cy + y2 * scale,
+        scale: scale,
+        depth: z2
+      };
+    }
+
+    function render3D() {
+      const width = canvas3d.width / window.devicePixelRatio;
+      const height = canvas3d.height / window.devicePixelRatio;
+      const cx = width * 0.42; // 稍微偏左，给右侧示波器与侧边栏留出空间
+      const cy = height * 0.45;
+
+      ctx3d.clearRect(0, 0, width, height);
+
+      // 1. 绘制纳米台面基底网格与半透明霍尔棒
+      const meshSize = 420;
+      const step = 42;
+      ctx3d.save();
+      ctx3d.lineWidth = 1;
+      ctx3d.strokeStyle = 'rgba(234, 179, 8, 0.08)';
+
+      for (let i = -meshSize / 2; i <= meshSize / 2; i += step) {
+        const p1 = project3D(i, 20, -meshSize / 2, cx, cy);
+        const p2 = project3D(i, 20, meshSize / 2, cx, cy);
+        ctx3d.beginPath();
+        ctx3d.moveTo(p1.x, p1.y);
+        ctx3d.lineTo(p2.x, p2.y);
+        ctx3d.stroke();
+
+        const p3 = project3D(-meshSize / 2, 20, i, cx, cy);
+        const p4 = project3D(meshSize / 2, 20, i, cx, cy);
+        ctx3d.beginPath();
+        ctx3d.moveTo(p3.x, p3.y);
+        ctx3d.lineTo(p4.x, p4.y);
+        ctx3d.stroke();
+      }
+      ctx3d.restore();
+
+      // 2. 绘制霍尔棒台面 (2DEG Mesa)
+      const mesaW = 280;
+      const mesaL = 360;
+      const mesaCorners = [
+        project3D(-mesaL / 2, 0, -mesaW / 2, cx, cy),
+        project3D(mesaL / 2, 0, -mesaW / 2, cx, cy),
+        project3D(mesaL / 2, 0, mesaW / 2, cx, cy),
+        project3D(-mesaL / 2, 0, mesaW / 2, cx, cy)
+      ];
+
+      ctx3d.beginPath();
+      ctx3d.moveTo(mesaCorners[0].x, mesaCorners[0].y);
+      for (let i = 1; i < 4; i++) ctx3d.lineTo(mesaCorners[i].x, mesaCorners[i].y);
+      ctx3d.closePath();
+      ctx3d.fillStyle = 'rgba(6, 182, 212, 0.06)';
+      ctx3d.fill();
+      ctx3d.strokeStyle = 'rgba(6, 182, 212, 0.4)';
+      ctx3d.lineWidth = 1.5;
+      ctx3d.stroke();
+
+      // 3. 绘制两个量子点接触 (QPC1 与 QPC2) 劈裂金色栅极
+      const qpcOffset = 80;
+      const gateWidth = 14;
+      const gateGap = 42 + (1.0 - STATE.t1) * 36; // 隧穿阻挡厚度
+
+      function drawQPC(posX, label) {
+        // 上电极
+        const topGate = [
+          project3D(posX - gateWidth, 0, -mesaW / 2, cx, cy),
+          project3D(posX + gateWidth, 0, -mesaW / 2, cx, cy),
+          project3D(posX + gateWidth / 2, 0, -gateGap / 2, cx, cy),
+          project3D(posX - gateWidth / 2, 0, -gateGap / 2, cx, cy)
+        ];
+        ctx3d.beginPath();
+        ctx3d.moveTo(topGate[0].x, topGate[0].y);
+        topGate.forEach(p => ctx3d.lineTo(p.x, p.y));
+        ctx3d.closePath();
+        ctx3d.fillStyle = 'rgba(234, 179, 8, 0.45)';
+        ctx3d.fill();
+        ctx3d.strokeStyle = '#facc15';
+        ctx3d.lineWidth = 1.2;
+        ctx3d.stroke();
+
+        // 下电极
+        const bottomGate = [
+          project3D(posX - gateWidth / 2, 0, gateGap / 2, cx, cy),
+          project3D(posX + gateWidth / 2, 0, gateGap / 2, cx, cy),
+          project3D(posX + gateWidth, 0, mesaW / 2, cx, cy),
+          project3D(posX - gateWidth, 0, mesaW / 2, cx, cy)
+        ];
+        ctx3d.beginPath();
+        ctx3d.moveTo(bottomGate[0].x, bottomGate[0].y);
+        bottomGate.forEach(p => ctx3d.lineTo(p.x, p.y));
+        ctx3d.closePath();
+        ctx3d.fillStyle = 'rgba(234, 179, 8, 0.45)';
+        ctx3d.fill();
+        ctx3d.strokeStyle = '#facc15';
+        ctx3d.lineWidth = 1.2;
+        ctx3d.stroke();
+
+        // 标签
+        const labelPos = project3D(posX, -15, -mesaW / 2 - 12, cx, cy);
+        ctx3d.font = '10px var(--font-mono)';
+        ctx3d.fillStyle = '#fef08a';
+        ctx3d.fillText(label, labelPos.x - 12, labelPos.y);
+      }
+
+      drawQPC(-qpcOffset, 'QPC 1');
+      drawQPC(qpcOffset, 'QPC 2');
+
+      // 4. 绘制中心干涉腔体与磁通束 (Magnetic Flux Beam)
+      const fluxHeight = 70;
+      const fluxTop = project3D(0, -fluxHeight, 0, cx, cy);
+      const fluxBottom = project3D(0, 15, 0, cx, cy);
+
+      const fluxGrad = ctx3d.createLinearGradient(fluxTop.x, fluxTop.y, fluxBottom.x, fluxBottom.y);
+      fluxGrad.addColorStop(0, 'rgba(6, 182, 212, 0.0)');
+      fluxGrad.addColorStop(0.5, 'rgba(6, 182, 212, 0.35)');
+      fluxGrad.addColorStop(1, 'rgba(234, 179, 8, 0.7)');
+
+      ctx3d.beginPath();
+      ctx3d.moveTo(fluxTop.x, fluxTop.y);
+      ctx3d.lineTo(fluxBottom.x, fluxBottom.y);
+      ctx3d.strokeStyle = fluxGrad;
+      ctx3d.lineWidth = 3.5;
+      ctx3d.stroke();
+
+      // 磁通光环
+      for (let r = 0; r < 3; r++) {
+        const ringR = 30 + r * 16;
+        ctx3d.beginPath();
+        for (let a = 0; a <= Math.PI * 2; a += 0.2) {
+          const px = Math.cos(a) * ringR;
+          const pz = Math.sin(a) * (ringR * 0.7);
+          const pt = project3D(px, -fluxHeight * 0.3 + Math.sin(STATE.time * 3 + r) * 4, pz, cx, cy);
+          if (a === 0) ctx3d.moveTo(pt.x, pt.y);
+          else ctx3d.lineTo(pt.x, pt.y);
+        }
+        ctx3d.closePath();
+        ctx3d.strokeStyle = `rgba(6, 182, 212, ${0.4 - r * 0.1})`;
+        ctx3d.lineWidth = 1;
+        ctx3d.stroke();
+      }
+
+      // 5. 绘制干涉腔内捕获的斐波那契准粒子 τ (黄金多面体/六角星)
+      const anyonAngles = [0, (2 * Math.PI) / 3, (4 * Math.PI) / 3];
+      const orbitR = 36;
+      for (let i = 0; i < STATE.ntau; i++) {
+        const theta = STATE.braidAngle + anyonAngles[i];
+        const ax = Math.cos(theta) * orbitR;
+        const az = Math.sin(theta) * orbitR;
+        const ay = -12 + Math.sin(STATE.time * 4 + i) * 6;
+
+        const anyonCenter = project3D(ax, ay, az, cx, cy);
+
+        // 准粒子辉光
+        const pulse = STATE.pulseTimer > 0 ? 1.8 : 1.0;
+        const rad = 10 * anyonCenter.scale * pulse;
+
+        const glow = ctx3d.createRadialGradient(anyonCenter.x, anyonCenter.y, 1, anyonCenter.x, anyonCenter.y, rad * 2.5);
+        glow.addColorStop(0, 'rgba(254, 240, 138, 0.95)');
+        glow.addColorStop(0.4, 'rgba(234, 179, 8, 0.7)');
+        glow.addColorStop(1, 'rgba(192, 132, 252, 0.0)');
+
+        ctx3d.fillStyle = glow;
+        ctx3d.beginPath();
+        ctx3d.arc(anyonCenter.x, anyonCenter.y, rad * 2.5, 0, Math.PI * 2);
+        ctx3d.fill();
+
+        // 六角星核
+        ctx3d.save();
+        ctx3d.translate(anyonCenter.x, anyonCenter.y);
+        ctx3d.rotate(STATE.time * 2 + i);
+        ctx3d.fillStyle = '#fff';
+        ctx3d.beginPath();
+        for (let k = 0; k < 6; k++) {
+          const a1 = (k * Math.PI) / 3;
+          const a2 = a1 + Math.PI / 6;
+          const r1 = rad * 0.8;
+          const r2 = rad * 0.35;
+          if (k === 0) ctx3d.moveTo(Math.cos(a1) * r1, Math.sin(a1) * r1);
+          else ctx3d.lineTo(Math.cos(a1) * r1, Math.sin(a1) * r1);
+          ctx3d.lineTo(Math.cos(a2) * r2, Math.sin(a2) * r2);
+        }
+        ctx3d.closePath();
+        ctx3d.fill();
+        ctx3d.restore();
+
+        // 标注 τ
+        ctx3d.font = 'bold 11px var(--font-mono)';
+        ctx3d.fillStyle = '#fef08a';
+        ctx3d.fillText(`τ_${i + 1}`, anyonCenter.x + 12, anyonCenter.y - 6);
+      }
+
+      // 6. 绘制手征边缘态手征波包流动 (Chiral Edge Flow Particles)
+      STATE.particles.forEach(p => {
+        p.s = (p.s + p.speed) % 1.0;
+
+        let px = 0, pz = 0;
+        if (p.isLoop && STATE.ntau > 0) {
+          // 在干涉腔内环绕闭合路径流动
+          const angle = p.s * Math.PI * 2;
+          const cavityW = qpcOffset * 1.8;
+          const cavityH = 46;
+          px = Math.cos(angle) * (cavityW * 0.45);
+          pz = Math.sin(angle) * (cavityH * 0.5) + p.offsetY * 0.3;
+        } else {
+          // 沿霍尔棒外部边缘流动：上边缘从左向右，下边缘从右向左
+          if (p.s < 0.5) {
+            const sub = p.s / 0.5;
+            px = -mesaL / 2 + sub * mesaL;
+            pz = -mesaW / 2 + 10 + p.offsetY;
+          } else {
+            const sub = (p.s - 0.5) / 0.5;
+            px = mesaL / 2 - sub * mesaL;
+            pz = mesaW / 2 - 10 + p.offsetY;
+          }
+        }
+
+        const pt = project3D(px, -2, pz, cx, cy);
+        const pSize = (p.isLoop ? 2.5 : 2.0) * pt.scale;
+
+        ctx3d.beginPath();
+        ctx3d.arc(pt.x, pt.y, pSize, 0, Math.PI * 2);
+        ctx3d.fillStyle = p.isLoop ? 'rgba(250, 204, 21, 0.9)' : 'rgba(6, 182, 212, 0.85)';
+        ctx3d.shadowColor = p.isLoop ? '#facc15' : '#06b6d4';
+        ctx3d.shadowBlur = 6;
+        ctx3d.fill();
+        ctx3d.shadowBlur = 0;
+      });
+    }
+
+    // ==========================================
+    // 5. 示波器 1: 微分电导干涉振荡谱 G_xx(B, Vg)
+    // ==========================================
+    const s1Canvas = document.getElementById('scope1-canvas');
+    const s1Ctx = s1Canvas.getContext('2d');
+
+    function renderScope1() {
+      const rect = s1Canvas.getBoundingClientRect();
+      s1Canvas.width = rect.width * window.devicePixelRatio;
+      s1Canvas.height = rect.height * window.devicePixelRatio;
+      s1Ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+      const w = rect.width;
+      const h = rect.height;
+      s1Ctx.clearRect(0, 0, w, h);
+
+      // 网格
+      s1Ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+      s1Ctx.lineWidth = 1;
+      for (let x = 0; x < w; x += 30) {
+        s1Ctx.beginPath();
+        s1Ctx.moveTo(x, 0); s1Ctx.lineTo(x, h);
+        s1Ctx.stroke();
+      }
+      for (let y = 0; y < h; y += 25) {
+        s1Ctx.beginPath();
+        s1Ctx.moveTo(0, y); s1Ctx.lineTo(w, y);
+        s1Ctx.stroke();
+      }
+
+      // 零电导基准线与理论黄金比例抑制包络线
+      const midY = h * 0.52;
+      s1Ctx.strokeStyle = 'rgba(234, 179, 8, 0.2)';
+      s1Ctx.setLineDash([4, 4]);
+      s1Ctx.beginPath();
+      s1Ctx.moveTo(0, midY); s1Ctx.lineTo(w, midY);
+      s1Ctx.stroke();
+
+      // 上下能见度包络线
+      const envAmp = 42 * STATE.visibility;
+      s1Ctx.strokeStyle = 'rgba(6, 182, 212, 0.35)';
+      s1Ctx.beginPath();
+      s1Ctx.moveTo(0, midY - envAmp); s1Ctx.lineTo(w, midY - envAmp);
+      s1Ctx.moveTo(0, midY + envAmp); s1Ctx.lineTo(w, midY + envAmp);
+      s1Ctx.stroke();
+      s1Ctx.setLineDash([]);
+
+      // 实时绘制电导振荡曲线
+      s1Ctx.beginPath();
+      s1Ctx.lineWidth = 2;
+      s1Ctx.strokeStyle = '#facc15';
+
+      for (let x = 0; x < w; x++) {
+        const phi = (x * 0.06) + STATE.time * 2.5 + STATE.abPhase;
+        const osc = Math.cos(phi) * envAmp;
+        const y = midY - osc;
+        if (x === 0) s1Ctx.moveTo(x, y);
+        else s1Ctx.lineTo(x, y);
+      }
+      s1Ctx.stroke();
+
+      // 标出当前采样光标点
+      const curX = w * 0.72;
+      const curPhi = (curX * 0.06) + STATE.time * 2.5 + STATE.abPhase;
+      const curY = midY - Math.cos(curPhi) * envAmp;
+
+      s1Ctx.beginPath();
+      s1Ctx.arc(curX, curY, 4.5, 0, Math.PI * 2);
+      s1Ctx.fillStyle = '#fff';
+      s1Ctx.fill();
+      s1Ctx.strokeStyle = '#facc15';
+      s1Ctx.lineWidth = 2;
+      s1Ctx.stroke();
+
+      // 文本刻度
+      s1Ctx.font = '10px var(--font-mono)';
+      s1Ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+      s1Ctx.fillText('G_xx (e²/h)', 8, 14);
+      s1Ctx.fillText(`V_eff = ${(STATE.visibility).toFixed(3)}`, w - 90, 14);
+    }
+
+    // ==========================================
+    // 6. 示波器 2: 斐波那契逻辑量子比特态密度矢量
+    // ==========================================
+    const s2Canvas = document.getElementById('scope2-canvas');
+    const s2Ctx = s2Canvas.getContext('2d');
+
+    function renderScope2() {
+      const rect = s2Canvas.getBoundingClientRect();
+      s2Canvas.width = rect.width * window.devicePixelRatio;
+      s2Canvas.height = rect.height * window.devicePixelRatio;
+      s2Ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+      const w = rect.width;
+      const h = rect.height;
+      s2Ctx.clearRect(0, 0, w, h);
+
+      const cx = w * 0.5;
+      const cy = h * 0.52;
+      const r = Math.min(w, h) * 0.38;
+
+      // 布洛赫球正投影经纬线
+      s2Ctx.lineWidth = 1;
+      s2Ctx.strokeStyle = 'rgba(192, 132, 252, 0.25)';
+      s2Ctx.beginPath();
+      s2Ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      s2Ctx.stroke();
+
+      // 赤道椭圆
+      s2Ctx.beginPath();
+      s2Ctx.ellipse(cx, cy, r, r * 0.32, 0, 0, Math.PI * 2);
+      s2Ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+      s2Ctx.stroke();
+
+      // Z 轴虚线 (基态 |0⟩ 与激发态 |1⟩)
+      s2Ctx.setLineDash([3, 3]);
+      s2Ctx.beginPath();
+      s2Ctx.moveTo(cx, cy - r);
+      s2Ctx.lineTo(cx, cy + r);
+      s2Ctx.stroke();
+      s2Ctx.setLineDash([]);
+
+      // 绘制量子态矢量 |ψ⟩
+      const theta = STATE.qubitTheta;
+      const phi = STATE.qubitPhi;
+
+      const vecX = cx + r * Math.sin(theta) * Math.cos(phi);
+      const vecY = cy - r * Math.cos(theta) + r * Math.sin(theta) * Math.sin(phi) * 0.32;
+
+      s2Ctx.beginPath();
+      s2Ctx.moveTo(cx, cy);
+      s2Ctx.lineTo(vecX, vecY);
+      s2Ctx.strokeStyle = '#c084fc';
+      s2Ctx.lineWidth = 2.5;
+      s2Ctx.stroke();
+
+      // 矢量尖端发光球
+      s2Ctx.beginPath();
+      s2Ctx.arc(vecX, vecY, 5, 0, Math.PI * 2);
+      s2Ctx.fillStyle = '#fef08a';
+      s2Ctx.fill();
+      s2Ctx.strokeStyle = '#c084fc';
+      s2Ctx.stroke();
+
+      // 标签 |0⟩, |1⟩
+      s2Ctx.font = '10px var(--font-mono)';
+      s2Ctx.fillStyle = '#fef08a';
+      s2Ctx.fillText('|0⟩ (1通道)', cx + 6, cy - r + 8);
+      s2Ctx.fillText('|1⟩ (τ通道)', cx + 6, cy + r - 4);
+
+      // 保真度显示
+      s2Ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+      s2Ctx.fillText(`Fidel: ${STATE.fidelity.toFixed(2)}%`, 8, 14);
+      s2Ctx.fillText(`dim H=2 (d_τ=${PHI.toFixed(3)})`, w - 128, 14);
+    }
+
+    // ==========================================
+    // 7. 动画主循环
+    // ==========================================
+    function mainLoop() {
+      updatePhysics();
+      render3D();
+      renderScope1();
+      renderScope2();
+      requestAnimationFrame(mainLoop);
+    }
+    requestAnimationFrame(mainLoop);
+
+    // ==========================================
+    // 8. 交互控制与预设逻辑
+    // ==========================================
+    function updateParam(param, val) {
+      STATE[param] = parseFloat(val);
+      if (param === 'b') {
+        document.getElementById('val-b').textContent = `${parseFloat(val).toFixed(2)} T`;
+      } else if (param === 'vg') {
+        document.getElementById('val-vg').textContent = `${parseFloat(val).toFixed(2)} V`;
+      } else if (param === 't1') {
+        document.getElementById('val-t1').textContent = parseFloat(val).toFixed(2);
+      } else if (param === 't2') {
+        document.getElementById('val-t2').textContent = parseFloat(val).toFixed(2);
+      } else if (param === 'ntau') {
+        document.getElementById('val-ntau').textContent = `${parseInt(val)} 个`;
+      } else if (param === 'temp') {
+        document.getElementById('val-temp').textContent = `${parseInt(val)} mK`;
+      } else if (param === 'wbraid') {
+        document.getElementById('val-wbraid').textContent = `${parseFloat(val).toFixed(1)} rad/s`;
+      }
+    }
+
+    function setPreset(name) {
+      document.querySelectorAll('.preset-btn').forEach(btn => btn.classList.remove('active'));
+      event.currentTarget.classList.add('active');
+
+      if (name === 'golden') {
+        STATE.b = 6.40; STATE.vg = -0.45; STATE.t1 = 0.42; STATE.t2 = 0.42; STATE.ntau = 1; STATE.temp = 18;
+      } else if (name === 'pure_ab') {
+        STATE.b = 6.40; STATE.vg = -0.45; STATE.t1 = 0.42; STATE.t2 = 0.42; STATE.ntau = 0; STATE.temp = 18;
+      } else if (name === 'universal_gate') {
+        STATE.b = 7.80; STATE.vg = -0.30; STATE.t1 = 0.55; STATE.t2 = 0.55; STATE.ntau = 2; STATE.temp = 12; STATE.wbraid = 2.2;
+      } else if (name === 'thermal') {
+        STATE.b = 6.40; STATE.vg = -0.45; STATE.t1 = 0.42; STATE.t2 = 0.42; STATE.ntau = 1; STATE.temp = 110;
+      }
+
+      // 同步滑块与数值显示
+      document.getElementById('param-b').value = STATE.b;
+      document.getElementById('param-vg').value = STATE.vg;
+      document.getElementById('param-t1').value = STATE.t1;
+      document.getElementById('param-t2').value = STATE.t2;
+      document.getElementById('param-ntau').value = STATE.ntau;
+      document.getElementById('param-temp').value = STATE.temp;
+      document.getElementById('param-wbraid').value = STATE.wbraid;
+
+      updateParam('b', STATE.b);
+      updateParam('vg', STATE.vg);
+      updateParam('t1', STATE.t1);
+      updateParam('t2', STATE.t2);
+      updateParam('ntau', STATE.ntau);
+      updateParam('temp', STATE.temp);
+      updateParam('wbraid', STATE.wbraid);
+    }
+
+    function triggerBraidingStep() {
+      STATE.braidAngle += (2 * Math.PI) / 5; // 斐波那契基础编织相移 2π/5
+      STATE.pulseTimer = 0.8;
+      if (STATE.audioEnabled && audioCtx) {
+        const osc = audioCtx.createOscillator();
+        osc.frequency.setValueAtTime(587.33, audioCtx.currentTime); // D5
+        const g = audioCtx.createGain();
+        g.gain.setValueAtTime(0.2, audioCtx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.35);
+        osc.connect(g);
+        g.connect(masterGain);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.35);
+      }
+    }
+
+    function triggerFMatrixRotate() {
+      STATE.fRotateAngle = (STATE.fRotateAngle + Math.PI / 4) % (2 * Math.PI);
+      STATE.pulseTimer = 0.8;
+    }
+
+    function injectQuasiparticle() {
+      STATE.ntau = (STATE.ntau + 1) % 4;
+      document.getElementById('param-ntau').value = STATE.ntau;
+      updateParam('ntau', STATE.ntau);
+      STATE.pulseTimer = 1.0;
+    }
+
+    function resetInterferometer() {
+      STATE.time = 0;
+      STATE.braidAngle = 0;
+      STATE.fRotateAngle = 0;
+      STATE.pulseTimer = 0;
+    }
+  </script>
+</body>
+</html>

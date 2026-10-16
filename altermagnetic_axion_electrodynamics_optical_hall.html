@@ -1,0 +1,1165 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>交错磁体拓扑轴子电动力学与反常光学霍尔自旋轨道角动量全息模拟器</title>
+  <style>
+    :root {
+      --bg: #030712;
+      --panel-bg: rgba(15, 23, 42, 0.78);
+      --panel-border: rgba(56, 189, 248, 0.22);
+      --cyan: #38bdf8;
+      --gold: #fbbf24;
+      --rose: #f43f5e;
+      --emerald: #10b981;
+      --purple: #c084fc;
+      --text-main: #f8fafc;
+      --text-sub: #94a3b8;
+      --font-mono: "Fira Code", "JetBrains Mono", Consolas, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", sans-serif;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+    }
+
+    #app-container {
+      display: grid;
+      grid-template-columns: 1fr 420px;
+      width: 100%;
+      height: 100%;
+      position: relative;
+    }
+
+    #visual-area {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      background: radial-gradient(circle at 50% 50%, #0a1b38 0%, #020617 100%);
+      overflow: hidden;
+    }
+
+    #main-canvas-wrap {
+      flex: 1;
+      position: relative;
+      width: 100%;
+      height: 58%;
+    }
+
+    #mainCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    #scopes-wrap {
+      height: 42%;
+      border-top: 1px solid var(--panel-border);
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      background: rgba(3, 7, 18, 0.88);
+      position: relative;
+    }
+
+    .scope-box {
+      position: relative;
+      border-right: 1px solid rgba(56, 189, 248, 0.12);
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .scope-box:last-child {
+      border-right: none;
+    }
+
+    .scope-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+      font-size: 12px;
+      font-family: var(--font-mono);
+      color: var(--cyan);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .scope-canvas-wrap {
+      flex: 1;
+      position: relative;
+      width: 100%;
+      min-height: 0;
+    }
+
+    .scope-canvas-wrap canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    #ctrl-panel {
+      background: var(--panel-bg);
+      border-left: 1px solid var(--panel-border);
+      backdrop-filter: blur(16px);
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      z-index: 10;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: var(--panel-border) transparent;
+    }
+
+    .panel-header {
+      padding: 18px 20px 14px;
+      border-bottom: 1px solid var(--panel-border);
+    }
+
+    .badge {
+      display: inline-block;
+      font-size: 10px;
+      font-family: var(--font-mono);
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--cyan);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+
+    h1 {
+      font-size: 16px;
+      font-weight: 700;
+      line-height: 1.35;
+      letter-spacing: -0.2px;
+      color: #fff;
+    }
+
+    .subtitle {
+      font-size: 12px;
+      color: var(--text-sub);
+      margin-top: 4px;
+      line-height: 1.4;
+    }
+
+    .section {
+      padding: 16px 20px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .section-title {
+      font-size: 11px;
+      font-family: var(--font-mono);
+      color: var(--cyan);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .section-title::before {
+      content: "";
+      width: 4px;
+      height: 12px;
+      background: var(--cyan);
+      border-radius: 2px;
+    }
+
+    .preset-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .btn-preset {
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(56, 189, 248, 0.2);
+      color: var(--text-main);
+      padding: 9px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      cursor: pointer;
+      text-align: left;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      line-height: 1.3;
+    }
+
+    .btn-preset:hover {
+      background: rgba(56, 189, 248, 0.15);
+      border-color: var(--cyan);
+      transform: translateY(-1px);
+    }
+
+    .btn-preset.active {
+      background: linear-gradient(135deg, rgba(56, 189, 248, 0.25), rgba(192, 132, 252, 0.25));
+      border-color: var(--cyan);
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.3);
+      color: #fff;
+      font-weight: 600;
+    }
+
+    .control-group {
+      margin-bottom: 14px;
+    }
+
+    .control-group:last-child {
+      margin-bottom: 0;
+    }
+
+    .control-label {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+      margin-bottom: 6px;
+      color: var(--text-sub);
+    }
+
+    .control-val {
+      font-family: var(--font-mono);
+      color: var(--cyan);
+      font-weight: 600;
+    }
+
+    input[type=range] {
+      width: 100%;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 2px;
+      outline: none;
+      -webkit-appearance: none;
+      cursor: pointer;
+    }
+
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--cyan);
+      border: 2px solid #0f172a;
+      box-shadow: 0 0 8px rgba(56, 189, 248, 0.8);
+      cursor: pointer;
+      transition: transform 0.1s ease;
+    }
+
+    input[type=range]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    .telemetry-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .telem-card {
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      padding: 8px 10px;
+      border-radius: 6px;
+    }
+
+    .telem-name {
+      font-size: 10px;
+      color: var(--text-sub);
+      margin-bottom: 2px;
+    }
+
+    .telem-value {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: 600;
+      color: #fff;
+    }
+
+    .action-row {
+      display: flex;
+      gap: 10px;
+      margin-top: 6px;
+    }
+
+    .btn-action {
+      flex: 1;
+      padding: 9px;
+      font-size: 11px;
+      font-family: var(--font-mono);
+      border-radius: 6px;
+      cursor: pointer;
+      border: 1px solid var(--panel-border);
+      background: rgba(30, 41, 59, 0.6);
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+
+    .btn-action:hover {
+      background: rgba(56, 189, 248, 0.2);
+      border-color: var(--cyan);
+    }
+
+    .btn-action.active {
+      background: rgba(16, 185, 129, 0.2);
+      border-color: var(--emerald);
+      color: var(--emerald);
+    }
+
+    .info-card {
+      background: rgba(56, 189, 248, 0.06);
+      border-left: 2px solid var(--cyan);
+      padding: 10px 12px;
+      border-radius: 0 6px 6px 0;
+      font-size: 11px;
+      line-height: 1.5;
+      color: var(--text-sub);
+    }
+
+    .info-card strong {
+      color: var(--text-main);
+    }
+
+    .hud-overlay {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .hud-tag {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--cyan);
+      background: rgba(3, 7, 18, 0.7);
+      padding: 3px 8px;
+      border-radius: 3px;
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      backdrop-filter: blur(4px);
+      width: fit-content;
+    }
+  </style>
+</head>
+<body>
+
+<div id="app-container">
+  <div id="visual-area">
+    <div id="main-canvas-wrap">
+      <canvas id="mainCanvas"></canvas>
+      <div class="hud-overlay">
+        <div class="hud-tag">ALTERMAGNETIC AXION ELECTRODYNAMICS ENGINE [d-WAVE SPLITTING J_alt]</div>
+        <div class="hud-tag" id="hudStatus">AXION ANGLE θ = π | TOPOLOGICAL OPTICAL HALL SAM-OAM COUPLING ACTIVE</div>
+      </div>
+    </div>
+
+    <div id="scopes-wrap">
+      <div class="scope-box">
+        <div class="scope-header">
+          <span>轴子场相空间轨迹 (θ vs dθ/dt) 与太赫兹激元谐振</span>
+          <span style="color: var(--gold)" id="telem-omega-axion">Ω_axion: 1.42 THz</span>
+        </div>
+        <div class="scope-canvas-wrap">
+          <canvas id="axionPhaseScope"></canvas>
+        </div>
+      </div>
+
+      <div class="scope-box">
+        <div class="scope-header">
+          <span>反常光学偏振椭圆与轨道角动量 (OAM) 拓扑谱</span>
+          <span style="color: var(--rose)" id="telem-hall-angle">θ_Hall: +28.4°</span>
+        </div>
+        <div class="scope-canvas-wrap">
+          <canvas id="oamScope"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="ctrl-panel">
+    <div class="panel-header">
+      <div class="badge">PROJECT #288 · TOPOLOGICAL ELECTRODYNAMICS</div>
+      <h1>交错磁体拓扑轴子电动力学与反常光学霍尔自旋轨道角动量全息模拟器</h1>
+      <div class="subtitle">Altermagnetic Axion Electrodynamics & Optical Hall SAM-OAM Simulator</div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">典型电动力学工况 (Axionic Regimes)</div>
+      <div class="preset-grid">
+        <button class="btn-preset active" id="btn-pre-1" onclick="applyPreset('quantizedHall')">
+          ① 量子化光学霍尔θ=π<br><span style="color:var(--text-sub);font-size:10px;">Quantized Axion θ=π</span>
+        </button>
+        <button class="btn-preset" id="btn-pre-2" onclick="applyPreset('thzComb')">
+          ② 太赫兹轴子极化激元频梳<br><span style="color:var(--text-sub);font-size:10px;">THz Polariton Comb</span>
+        </button>
+        <button class="btn-preset" id="btn-pre-3" onclick="applyPreset('pureOAM')">
+          ③ 拓扑光涡旋轨道角动量<br><span style="color:var(--text-sub);font-size:10px;">Pure Vortex Beam l=2</span>
+        </button>
+        <button class="btn-preset" id="btn-pre-4" onclick="applyPreset('wittenEffect')">
+          ④ 维滕效应分数束缚电荷<br><span style="color:var(--text-sub);font-size:10px;">Witten Bound Charge</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">轴子-交错相互作用调控 (Parameters)</div>
+
+      <div class="control-group">
+        <div class="control-label">
+          <span>交错磁体d波自旋劈裂 J_alt</span>
+          <span class="control-val" id="val-jalt">1.20 eV</span>
+        </div>
+        <input type="range" id="param-jalt" min="0.10" max="2.50" step="0.05" value="1.20">
+      </div>
+
+      <div class="control-group">
+        <div class="control-label">
+          <span>本征静态轴子角偏置 θ_0</span>
+          <span class="control-val" id="val-theta0">1.00 π</span>
+        </div>
+        <input type="range" id="param-theta0" min="0.00" max="3.14159" step="0.02" value="3.14159">
+      </div>
+
+      <div class="control-group">
+        <div class="control-label">
+          <span>太赫兹泵浦光电场强度 E_THz</span>
+          <span class="control-val" id="val-ethz">0.65 MV/cm</span>
+        </div>
+        <input type="range" id="param-ethz" min="0.00" max="2.00" step="0.05" value="0.65">
+      </div>
+
+      <div class="control-group">
+        <div class="control-label">
+          <span>入射激光束腰半径 w_0</span>
+          <span class="control-val" id="val-w0">35 μm</span>
+        </div>
+        <input type="range" id="param-w0" min="15" max="80" step="1" value="35">
+      </div>
+
+      <div class="control-group">
+        <div class="control-label">
+          <span>轴子场非弹性弛豫阻尼 Γ_axion</span>
+          <span class="control-val" id="val-gamma">0.08</span>
+        </div>
+        <input type="range" id="param-gamma" min="0.01" max="0.50" step="0.01" value="0.08">
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">轴子拓扑遥测 (Axion Telemetry)</div>
+      <div class="telemetry-grid">
+        <div class="telem-card">
+          <div class="telem-name">克尔/法拉第霍尔角 θ_K</div>
+          <div class="telem-value" id="telem-kerr" style="color: var(--cyan);">+28.4° (非互易)</div>
+        </div>
+        <div class="telem-card">
+          <div class="telem-name">维滕束缚电荷 q_Witten</div>
+          <div class="telem-value" id="telem-witten" style="color: var(--emerald);">-0.50 e (分数化)</div>
+        </div>
+        <div class="telem-card">
+          <div class="telem-name">自旋-轨道转换效率 η_SO</div>
+          <div class="telem-value" id="telem-eta">84.2 %</div>
+        </div>
+        <div class="telem-card">
+          <div class="telem-name">光学拓扑荷 (OAM) l</div>
+          <div class="telem-value" id="telem-oam">+1 (手征光涡旋)</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">声频合成与脉冲操作 (Audio & Control)</div>
+      <div class="action-row">
+        <button class="btn-action" id="btn-audio" onclick="toggleAudio()">
+          <span id="audio-icon">🔇</span> 轴子共振声频: 关
+        </button>
+        <button class="btn-action" onclick="injectAxionPulse()">
+          ⚡ 触发超快太赫兹轴子淬火脉冲
+        </button>
+      </div>
+    </div>
+
+    <div class="section" style="border-bottom: none;">
+      <div class="info-card">
+        <strong>前沿物理机制解析：</strong><br>
+        交错磁体具有空间时间反演对称性打破的 $d$ 波自旋劈裂交换场。引入动态轴子项 $\mathcal{L}_{\text{axion}} = \frac{\alpha}{4\pi^2} \theta(\mathbf{r}, t) \mathbf{E}\cdot\mathbf{B}$，光子穿过晶体时发生反常拓扑光学霍尔效应。自旋角动量 (SAM) 与轨道角动量 (OAM) 相干转换，在出射光斑中形成具有相位奇点的拓扑光涡旋（Laguerre-Gaussian 模式）。同时，轴子角偏折 $\theta = \pi$ 产生维滕效应分数化电荷与自发表面霍尔电流。
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/**
+ * 尖端前沿物理引擎：交错磁体拓扑轴子电动力学与反常光学霍尔自旋轨道角动量全息模拟器
+ * Zero Dependencies, Vanilla HTML5 Canvas + Web Audio API
+ */
+
+const STATE = {
+  jAlt: 1.20,       // 交错自旋劈裂 (eV)
+  theta0: Math.PI,  // 静态轴子角
+  eTHz: 0.65,       // 太赫兹外场 (MV/cm)
+  w0: 35,           // 束腰 (μm)
+  gamma: 0.08,      // 阻尼
+  thetaDyn: Math.PI,// 动态轴子角瞬时值
+  dThetaDyn: 0.0,   // 轴子场导数
+  time: 0,
+  dt: 0.016,
+  isAudioOn: false,
+  preset: 'quantizedHall',
+  photons: []
+};
+
+// 初始化光束光子流
+function initPhotons() {
+  STATE.photons = [];
+  const n = 64;
+  for (let i = 0; i < n; i++) {
+    STATE.photons.push({
+      progress: Math.random(),
+      rad: (Math.random() ** 0.5) * 45,
+      angle: Math.random() * Math.PI * 2,
+      spin: i % 2 === 0 ? 1 : -1,
+      speed: 0.006 + Math.random() * 0.004
+    });
+  }
+}
+
+const mainCanvas = document.getElementById('mainCanvas');
+const mainCtx = mainCanvas.getContext('2d');
+const phaseScope = document.getElementById('axionPhaseScope');
+const phaseCtx = phaseScope.getContext('2d');
+const oamScope = document.getElementById('oamScope');
+const oamCtx = oamScope.getContext('2d');
+
+let dpr = window.devicePixelRatio || 1;
+
+function resizeAll() {
+  dpr = window.devicePixelRatio || 1;
+
+  const mRect = mainCanvas.parentElement.getBoundingClientRect();
+  mainCanvas.width = mRect.width * dpr;
+  mainCanvas.height = mRect.height * dpr;
+
+  const pRect = phaseScope.parentElement.getBoundingClientRect();
+  phaseScope.width = pRect.width * dpr;
+  phaseScope.height = pRect.height * dpr;
+
+  const oRect = oamScope.parentElement.getBoundingClientRect();
+  oamScope.width = oRect.width * dpr;
+  oamScope.height = oRect.height * dpr;
+}
+
+window.addEventListener('resize', resizeAll);
+window.addEventListener('DOMContentLoaded', () => {
+  resizeAll();
+  initPhotons();
+  requestAnimationFrame(loop);
+});
+
+// Web Audio 轴子振荡高频相干合成
+let audioCtx = null;
+let oscAxion = null;
+let oscTHZ = null;
+let gainNode = null;
+
+function initAudio() {
+  if (audioCtx) return;
+  const AudioContext = window.AudioContext || window.webkitAudioContext;
+  audioCtx = new AudioContext();
+
+  oscAxion = audioCtx.createOscillator();
+  oscTHZ = audioCtx.createOscillator();
+  gainNode = audioCtx.createGain();
+
+  oscAxion.type = 'sine';
+  oscTHZ.type = 'triangle';
+
+  const thzGain = audioCtx.createGain();
+  thzGain.gain.value = 0.35;
+
+  oscTHZ.connect(thzGain);
+  thzGain.connect(gainNode);
+  oscAxion.connect(gainNode);
+
+  gainNode.gain.setValueAtTime(0.05, audioCtx.currentTime);
+  gainNode.connect(audioCtx.destination);
+
+  oscAxion.start();
+  oscTHZ.start();
+}
+
+function updateAudio() {
+  if (!STATE.isAudioOn || !audioCtx) return;
+  // 轴子场动力学驱动声频调谐
+  const freqAxion = 280 + Math.abs(STATE.dThetaDyn) * 450 + (STATE.jAlt * 120);
+  const freqTHz = 40 + STATE.eTHz * 95;
+
+  oscAxion.frequency.setTargetAtTime(Math.max(80, freqAxion), audioCtx.currentTime, 0.05);
+  oscTHZ.frequency.setTargetAtTime(Math.max(20, freqTHz), audioCtx.currentTime, 0.05);
+}
+
+function toggleAudio() {
+  STATE.isAudioOn = !STATE.isAudioOn;
+  const btn = document.getElementById('btn-audio');
+
+  if (STATE.isAudioOn) {
+    initAudio();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    btn.classList.add('active');
+    btn.innerHTML = '<span>🔊</span> 轴子共振声频: 开';
+  } else {
+    if (audioCtx) {
+      gainNode.gain.setTargetAtTime(0, audioCtx.currentTime, 0.05);
+      setTimeout(() => {
+        if (!STATE.isAudioOn && audioCtx) audioCtx.suspend();
+      }, 60);
+    }
+    btn.classList.remove('active');
+    btn.innerHTML = '<span>🔇</span> 轴子共振声频: 关';
+  }
+}
+
+// 物理核心：反常光学霍尔转角与 OAM 转换
+function calcOpticalHallAngle() {
+  // 霍尔角受轴子角偏置与 d 波交换场调控: θ_H ~ (e^2 / 2pi h) * theta * J_alt
+  const angleRad = (STATE.thetaDyn / Math.PI) * (STATE.jAlt / 2.5) * 0.52;
+  return angleRad * (180 / Math.PI);
+}
+
+// 预设工况配置
+function applyPreset(name) {
+  STATE.preset = name;
+  document.querySelectorAll('.btn-preset').forEach(b => b.classList.remove('active'));
+
+  const pJalt = document.getElementById('param-jalt');
+  const pTheta0 = document.getElementById('param-theta0');
+  const pEthz = document.getElementById('param-ethz');
+  const pW0 = document.getElementById('param-w0');
+  const pGamma = document.getElementById('param-gamma');
+
+  if (name === 'quantizedHall') {
+    document.getElementById('btn-pre-1').classList.add('active');
+    STATE.jAlt = 1.35;
+    STATE.theta0 = Math.PI;
+    STATE.eTHz = 0.20;
+    STATE.w0 = 35;
+    STATE.gamma = 0.06;
+  } else if (name === 'thzComb') {
+    document.getElementById('btn-pre-2').classList.add('active');
+    STATE.jAlt = 1.85;
+    STATE.theta0 = Math.PI * 0.8;
+    STATE.eTHz = 1.65; // 强太赫兹驱动产生混频谐振
+    STATE.w0 = 42;
+    STATE.gamma = 0.03;
+  } else if (name === 'pureOAM') {
+    document.getElementById('btn-pre-3').classList.add('active');
+    STATE.jAlt = 2.20;
+    STATE.theta0 = Math.PI;
+    STATE.eTHz = 0.40;
+    STATE.w0 = 55; // 大束腰高阶光涡旋
+    STATE.gamma = 0.10;
+  } else if (name === 'wittenEffect') {
+    document.getElementById('btn-pre-4').classList.add('active');
+    STATE.jAlt = 1.10;
+    STATE.theta0 = Math.PI;
+    STATE.eTHz = 0.00; // 纯静态轴子分数束缚电荷
+    STATE.w0 = 30;
+    STATE.gamma = 0.15;
+  }
+
+  pJalt.value = STATE.jAlt;
+  pTheta0.value = STATE.theta0;
+  pEthz.value = STATE.eTHz;
+  pW0.value = STATE.w0;
+  pGamma.value = STATE.gamma;
+
+  STATE.thetaDyn = STATE.theta0;
+  STATE.dThetaDyn = 0.0;
+
+  syncInputs();
+}
+
+function syncInputs() {
+  document.getElementById('val-jalt').textContent = STATE.jAlt.toFixed(2) + ' eV';
+  document.getElementById('val-theta0').textContent = (STATE.theta0 / Math.PI).toFixed(2) + ' π';
+  document.getElementById('val-ethz').textContent = STATE.eTHz.toFixed(2) + ' MV/cm';
+  document.getElementById('val-w0').textContent = STATE.w0 + ' μm';
+  document.getElementById('val-gamma').textContent = STATE.gamma.toFixed(2);
+}
+
+// 滑块监听
+document.getElementById('param-jalt').addEventListener('input', (e) => {
+  STATE.jAlt = parseFloat(e.target.value);
+  syncInputs();
+});
+document.getElementById('param-theta0').addEventListener('input', (e) => {
+  STATE.theta0 = parseFloat(e.target.value);
+  STATE.thetaDyn = STATE.theta0;
+  syncInputs();
+});
+document.getElementById('param-ethz').addEventListener('input', (e) => {
+  STATE.eTHz = parseFloat(e.target.value);
+  syncInputs();
+});
+document.getElementById('param-w0').addEventListener('input', (e) => {
+  STATE.w0 = parseFloat(e.target.value);
+  syncInputs();
+});
+document.getElementById('param-gamma').addEventListener('input', (e) => {
+  STATE.gamma = parseFloat(e.target.value);
+  syncInputs();
+});
+
+// 手动注入淬火脉冲
+function injectAxionPulse() {
+  STATE.dThetaDyn += 3.8;
+  if (STATE.isAudioOn && audioCtx) {
+    const oscQ = audioCtx.createOscillator();
+    const gQ = audioCtx.createGain();
+    oscQ.type = 'sawtooth';
+    oscQ.frequency.setValueAtTime(880, audioCtx.currentTime);
+    oscQ.frequency.exponentialRampToValueAtTime(120, audioCtx.currentTime + 0.16);
+    gQ.gain.setValueAtTime(0.2, audioCtx.currentTime);
+    gQ.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.16);
+    oscQ.connect(gQ);
+    gQ.connect(audioCtx.destination);
+    oscQ.start();
+    oscQ.stop(audioCtx.currentTime + 0.17);
+  }
+}
+
+// 主动力学循环
+function loop() {
+  STATE.time += STATE.dt;
+  const t = STATE.time;
+
+  // 轴子场非线性二阶动力学方程数值积分:
+  // d^2 θ / dt^2 + Gamma * dθ/dt + omega_0^2 * sin(θ - θ_0) = E_THz * cos(omega_dr * t)
+  const omega0Sq = 4.5 * (STATE.jAlt ** 2);
+  const driving = STATE.eTHz * 3.5 * Math.cos(t * 5.2);
+  const restoring = -omega0Sq * Math.sin(STATE.thetaDyn - STATE.theta0);
+  const damping = -STATE.gamma * 8.0 * STATE.dThetaDyn;
+
+  const d2Theta = restoring + damping + driving;
+  STATE.dThetaDyn += d2Theta * STATE.dt;
+  STATE.thetaDyn += STATE.dThetaDyn * STATE.dt;
+
+  // 遥测刷新
+  updateTelemetry();
+
+  // 视口与示波器渲染
+  renderMainViewport();
+  renderPhaseScope();
+  renderOAMScope();
+
+  // 音频调节
+  updateAudio();
+
+  requestAnimationFrame(loop);
+}
+
+// 遥测刷新
+function updateTelemetry() {
+  const hallDeg = calcOpticalHallAngle();
+  const wittenQ = -(STATE.thetaDyn / (2 * Math.PI)).toFixed(2);
+  const etaSO = Math.min(99.5, (65 + (STATE.jAlt / 2.5) * 32)).toFixed(1);
+  const oamL = STATE.jAlt > 1.4 ? '+2' : '+1';
+
+  document.getElementById('telem-hall-angle').textContent = `θ_Hall: ${hallDeg >= 0 ? '+' : ''}${hallDeg.toFixed(1)}°`;
+  document.getElementById('telem-kerr').textContent = `${hallDeg >= 0 ? '+' : ''}${hallDeg.toFixed(1)}° (非互易)`;
+  document.getElementById('telem-witten').textContent = `${wittenQ} e (维滕分数化)`;
+  document.getElementById('telem-eta').textContent = `${etaSO} %`;
+  document.getElementById('telem-oam').textContent = `${oamL} (手征光涡旋)`;
+
+  const statusElem = document.getElementById('hudStatus');
+  if (Math.abs(STATE.thetaDyn - Math.PI) < 0.25) {
+    statusElem.textContent = 'AXION ANGLE θ = π | QUANTIZED TOPOLOGICAL HALL SAM-OAM ACTIVE';
+    statusElem.style.color = 'var(--cyan)';
+    statusElem.style.borderColor = 'rgba(56, 189, 248, 0.4)';
+  } else {
+    statusElem.textContent = `DYNAMIC AXION θ(t) = ${(STATE.thetaDyn / Math.PI).toFixed(2)}π | THz POLARITON OSCILLATION`;
+    statusElem.style.color = 'var(--gold)';
+    statusElem.style.borderColor = 'rgba(251, 191, 36, 0.35)';
+  }
+}
+
+// 1. 主全息交互视口渲染 (交错磁晶体实空间晶格与出射拓扑光涡旋截面全息投影)
+function renderMainViewport() {
+  const w = mainCanvas.width;
+  const h = mainCanvas.height;
+  const c = mainCtx;
+  const t = STATE.time;
+
+  c.save();
+  c.clearRect(0, 0, w, h);
+
+  // 背景
+  const gradBg = c.createRadialGradient(w * 0.5, h * 0.5, 15, w * 0.5, h * 0.5, Math.hypot(w, h) * 0.65);
+  gradBg.addColorStop(0, '#0d1f42');
+  gradBg.addColorStop(0.6, '#040b1c');
+  gradBg.addColorStop(1, '#01030a');
+  c.fillStyle = gradBg;
+  c.fillRect(0, 0, w, h);
+
+  // 左右分区分割：左侧为交错磁晶体与激光穿透传播路径，右侧为出射光屏拓扑光涡旋
+  const crystalW = w * 0.48;
+  const screenX = w * 0.74;
+  const screenY = h * 0.5;
+
+  // 1.1 绘制交错磁体微观 d 波自旋晶格 (Altermagnetic Lattice)
+  drawAltermagneticCrystal(c, w * 0.24, h * 0.5, crystalW * 0.75, h * 0.62);
+
+  // 1.2 绘制穿透光束与自旋-轨道耦合轨迹 (SAM-OAM Beam Corridor)
+  drawOpticalBeams(c, w * 0.05, h * 0.5, w * 0.24, screenX, screenY);
+
+  // 1.3 绘制出射空间接收屏上的高阶拓扑光涡旋截面 (Poincaré Vortex Beam)
+  drawPoincareVortexScreen(c, screenX, screenY);
+
+  c.restore();
+}
+
+// 辅助：绘制交错磁体 d 波微观晶格与自旋取向
+function drawAltermagneticCrystal(c, cx, cy, spanW, spanH) {
+  const t = STATE.time;
+  const x1 = cx - spanW * 0.5;
+  const y1 = cy - spanH * 0.5;
+
+  // 晶体轮廓框
+  c.fillStyle = 'rgba(15, 23, 42, 0.55)';
+  c.fillRect(x1, y1, spanW, spanH);
+  c.strokeStyle = 'rgba(56, 189, 248, 0.4)';
+  c.lineWidth = 1.5 * dpr;
+  c.strokeRect(x1, y1, spanW, spanH);
+
+  c.font = `bold ${10 * dpr}px ${getComputedStyle(document.body).getPropertyValue('--font-mono')}`;
+  c.fillStyle = '#38bdf8';
+  c.fillText('ALTERMAGNETIC MEDIUM', x1 + 10 * dpr, y1 + 18 * dpr);
+  c.fillStyle = '#94a3b8';
+  c.fillText('d-wave Split: M_net = 0', x1 + 10 * dpr, y1 + 32 * dpr);
+
+  // 绘制交错自旋格点网格
+  const rows = 5;
+  const cols = 6;
+  const dx = spanW / (cols + 1);
+  const dy = spanH / (rows + 1);
+
+  for (let r = 1; r <= rows; r++) {
+    for (let col = 1; col <= cols; col++) {
+      const px = x1 + col * dx;
+      const py = y1 + r * dy;
+      // d 波四极交错自旋分布
+      const isSpinUp = ((r + col) % 2 === 0);
+      const spinAngle = isSpinUp ? 0 : Math.PI;
+      // 动态轴子场驱动自旋微弱进动
+      const prec = Math.sin(t * 6 + col * 0.5) * (STATE.thetaDyn * 0.15);
+
+      const color = isSpinUp ? '#f43f5e' : '#38bdf8';
+      drawSpinArrow(c, px, py, spinAngle + prec, color);
+    }
+  }
+
+  // 表面轴子霍尔电流指示 (Top/Bottom Surface Currents)
+  c.strokeStyle = '#10b981';
+  c.lineWidth = 2 * dpr;
+  c.setLineDash([6 * dpr, 4 * dpr]);
+  c.beginPath();
+  c.moveTo(x1, y1);
+  c.lineTo(x1 + spanW, y1);
+  c.moveTo(x1 + spanW, y1 + spanH);
+  c.lineTo(x1, y1 + spanH);
+  c.stroke();
+  c.setLineDash([]);
+
+  c.fillStyle = '#10b981';
+  c.fillText('AXION SURFACE HALL CURRENT j_surf', x1 + 20 * dpr, y1 - 6 * dpr);
+}
+
+function drawSpinArrow(c, x, y, ang, color) {
+  const len = 11 * dpr;
+  const ex = x + Math.sin(ang) * len;
+  const ey = y - Math.cos(ang) * len;
+
+  c.strokeStyle = color;
+  c.lineWidth = 1.8 * dpr;
+  c.beginPath();
+  c.moveTo(x, y);
+  c.lineTo(ex, ey);
+  c.stroke();
+
+  c.fillStyle = color;
+  c.beginPath();
+  c.arc(x, y, 2.5 * dpr, 0, Math.PI * 2);
+  c.fill();
+}
+
+// 辅助：绘制穿透光束与自旋-轨道角动量转换流线
+function drawOpticalBeams(c, xIn, yIn, xMid, xScreen, yScreen) {
+  const t = STATE.time;
+
+  // 1. 入射光线 (线偏振输入)
+  c.strokeStyle = '#fbbf24';
+  c.lineWidth = 2.5 * dpr;
+  c.beginPath();
+  c.moveTo(xIn, yIn);
+  c.lineTo(xMid - 60 * dpr, yIn);
+  c.stroke();
+
+  c.fillStyle = '#fbbf24';
+  c.font = `${9 * dpr}px ${getComputedStyle(document.body).getPropertyValue('--font-mono')}`;
+  c.fillText('INPUT SAM (σ = 0)', xIn, yIn - 12 * dpr);
+
+  // 2. 出射发散光锥 (携带拓扑 OAM 螺旋波前)
+  c.strokeStyle = 'rgba(192, 132, 252, 0.45)';
+  c.lineWidth = 1.5 * dpr;
+  c.beginPath();
+  c.moveTo(xMid + 80 * dpr, yIn);
+  c.lineTo(xScreen, yScreen - 70 * dpr);
+  c.moveTo(xMid + 80 * dpr, yIn);
+  c.lineTo(xScreen, yScreen + 70 * dpr);
+  c.stroke();
+
+  // 行进光子流
+  STATE.photons.forEach(pkt => {
+    pkt.progress += pkt.speed;
+    if (pkt.progress > 1.0) pkt.progress = 0.0;
+
+    const px = (xMid + 80 * dpr) + (xScreen - (xMid + 80 * dpr)) * pkt.progress;
+    const spread = pkt.progress * 65 * dpr;
+    const py = yIn + Math.sin(pkt.angle + t * 4) * spread * 0.45;
+
+    c.fillStyle = pkt.spin > 0 ? '#f43f5e' : '#38bdf8';
+    c.beginPath();
+    c.arc(px, py, 2.8 * dpr, 0, Math.PI * 2);
+    c.fill();
+  });
+}
+
+// 辅助：绘制空间光斑接收屏上的拓扑光涡旋截面 (OAM Vortex Profile)
+function drawPoincareVortexScreen(c, cx, cy) {
+  const t = STATE.time;
+  const rad = 75 * dpr;
+  const oamL = STATE.jAlt > 1.4 ? 2 : 1;
+
+  // 屏外框
+  c.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+  c.lineWidth = 1 * dpr;
+  c.strokeRect(cx - rad - 12 * dpr, cy - rad - 12 * dpr, (rad + 12 * dpr) * 2, (rad + 12 * dpr) * 2);
+
+  c.font = `bold ${10 * dpr}px ${getComputedStyle(document.body).getPropertyValue('--font-mono')}`;
+  c.fillStyle = '#c084fc';
+  c.textAlign = 'center';
+  c.fillText(`OUTPUT OAM SCREEN (l = ${oamL})`, cx, cy - rad - 18 * dpr);
+  c.textAlign = 'left';
+
+  // 绘制 Laguerre-Gaussian 拓扑花瓣干涉光斑
+  const nRings = 36;
+  const dPhi = (calcOpticalHallAngle() * Math.PI) / 180.0;
+
+  for (let r = 8 * dpr; r <= rad; r += 3.5 * dpr) {
+    const rNorm = r / rad;
+    const intensity = (rNorm ** (oamL * 2)) * Math.exp(-(rNorm ** 2) * 3.5) * 8.5;
+
+    c.beginPath();
+    for (let i = 0; i <= 48; i++) {
+      const ang = (i / 48) * Math.PI * 2;
+      // 空间相位奇点与花瓣调制
+      const mod = Math.sin(ang * oamL + dPhi + t * 3);
+      const effR = r + mod * 4 * dpr;
+      const px = cx + Math.cos(ang) * effR;
+      const py = cy + Math.sin(ang) * effR;
+
+      if (i === 0) c.moveTo(px, py);
+      else c.lineTo(px, py);
+    }
+    c.strokeStyle = `hsla(280, 85%, 65%, ${Math.min(0.85, intensity)})`;
+    c.lineWidth = 2 * dpr;
+    c.stroke();
+  }
+
+  // 涡旋中心暗奇点 (Phase Singularity)
+  c.fillStyle = '#030712';
+  c.beginPath();
+  c.arc(cx, cy, 7 * dpr, 0, Math.PI * 2);
+  c.fill();
+  c.strokeStyle = '#c084fc';
+  c.lineWidth = 1 * dpr;
+  c.stroke();
+}
+
+// 2. 示波器 1：轴子场相空间轨迹 (θ vs dθ/dt)
+function renderPhaseScope() {
+  const w = phaseScope.width;
+  const h = phaseScope.height;
+  const c = phaseCtx;
+  const t = STATE.time;
+
+  c.save();
+  c.clearRect(0, 0, w, h);
+
+  const padL = 40 * dpr;
+  const padR = 20 * dpr;
+  const padT = 20 * dpr;
+  const padB = 26 * dpr;
+  const plotW = w - padL - padR;
+  const plotH = h - padT - padB;
+  const midX = padL + plotW * 0.5;
+  const midY = padT + plotH * 0.5;
+
+  // 坐标轴
+  c.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+  c.lineWidth = 1 * dpr;
+  c.beginPath();
+  c.moveTo(padL, midY);
+  c.lineTo(padL + plotW, midY); // θ - θ_0
+  c.moveTo(midX, padT);
+  c.lineTo(midX, padT + plotH); // dθ/dt
+  c.stroke();
+
+  c.font = `${9 * dpr}px ${getComputedStyle(document.body).getPropertyValue('--font-mono')}`;
+  c.fillStyle = 'rgba(255, 255, 255, 0.4)';
+  c.fillText('θ - θ₀', padL + plotW - 25 * dpr, midY - 6 * dpr);
+  c.fillText('dθ/dt', midX + 6 * dpr, padT + 10 * dpr);
+
+  // 绘制相空间相干椭圆轨道 (Phase Portrait)
+  c.strokeStyle = '#fbbf24';
+  c.lineWidth = 1.8 * dpr;
+  c.beginPath();
+
+  const ampTheta = Math.abs(STATE.dThetaDyn * 0.18) + (STATE.eTHz * 0.35) + 0.05;
+  const ampDTheta = ampTheta * 2.8;
+
+  for (let i = 0; i <= 64; i++) {
+    const ang = (i / 64) * Math.PI * 2;
+    const px = midX + Math.cos(ang) * ampTheta * (plotW * 0.45);
+    const py = midY - Math.sin(ang) * ampDTheta * (plotH * 0.45);
+    if (i === 0) c.moveTo(px, py);
+    else c.lineTo(px, py);
+  }
+  c.stroke();
+
+  // 当前相空间点
+  const curX = midX + (STATE.thetaDyn - STATE.theta0) * (plotW * 0.35);
+  const curY = midY - (STATE.dThetaDyn / 4.0) * (plotH * 0.45);
+
+  c.fillStyle = '#fbbf24';
+  c.shadowColor = '#fbbf24';
+  c.shadowBlur = 8 * dpr;
+  c.beginPath();
+  c.arc(curX, curY, 4.5 * dpr, 0, Math.PI * 2);
+  c.fill();
+  c.shadowBlur = 0;
+
+  c.restore();
+}
+
+// 3. 示波器 2：反常光学偏振椭圆与 OAM 拓扑谱
+function renderOAMScope() {
+  const w = oamScope.width;
+  const h = oamScope.height;
+  const c = oamCtx;
+
+  c.save();
+  c.clearRect(0, 0, w, h);
+
+  const padL = 40 * dpr;
+  const padR = 20 * dpr;
+  const padT = 20 * dpr;
+  const padB = 26 * dpr;
+  const plotW = w - padL - padR;
+  const plotH = h - padT - padB;
+
+  // 上半部：光学偏振椭圆 (Polarization Ellipse)
+  const ellipH = plotH * 0.46;
+  const ellipMidX = padL + plotW * 0.5;
+  const ellipMidY = padT + ellipH * 0.5;
+
+  c.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+  c.strokeRect(padL, padT, plotW, ellipH);
+
+  c.font = `${9 * dpr}px ${getComputedStyle(document.body).getPropertyValue('--font-mono')}`;
+  c.fillStyle = 'rgba(255, 255, 255, 0.4)';
+  c.fillText('POLARIZATION ELLIPSE θ_Hall', padL + 6 * dpr, padT + 12 * dpr);
+
+  const hallRad = (calcOpticalHallAngle() * Math.PI) / 180.0;
+  const aLen = 32 * dpr;
+  const bLen = 14 * dpr;
+
+  c.save();
+  c.translate(ellipMidX, ellipMidY);
+  c.rotate(-hallRad); // 偏振面非互易旋转
+
+  c.strokeStyle = '#38bdf8';
+  c.lineWidth = 2 * dpr;
+  c.beginPath();
+  c.ellipse(0, 0, aLen, bLen, 0, 0, Math.PI * 2);
+  c.stroke();
+
+  // 偏振主轴指针
+  c.strokeStyle = 'rgba(56, 189, 248, 0.4)';
+  c.setLineDash([3 * dpr, 3 * dpr]);
+  c.beginPath();
+  c.moveTo(-aLen - 8 * dpr, 0);
+  c.lineTo(aLen + 8 * dpr, 0);
+  c.stroke();
+  c.setLineDash([]);
+  c.restore();
+
+  // 下半部：OAM 拓扑模分解柱状图 (l = -1, 0, 1, 2)
+  const barT = padT + ellipH + 14 * dpr;
+  const barH = plotH - ellipH - 14 * dpr;
+
+  c.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+  c.strokeRect(padL, barT, plotW, barH);
+  c.fillStyle = 'rgba(255, 255, 255, 0.4)';
+  c.fillText('OAM SPECTRUM P(l)', padL + 6 * dpr, barT + 12 * dpr);
+
+  const oamModes = [
+    { l: -1, p: 0.05 },
+    { l: 0,  p: 0.12 },
+    { l: 1,  p: STATE.jAlt > 1.4 ? 0.28 : 0.72 },
+    { l: 2,  p: STATE.jAlt > 1.4 ? 0.55 : 0.11 }
+  ];
+
+  const colW = plotW / oamModes.length;
+  oamModes.forEach((m, idx) => {
+    const bx = padL + idx * colW + 8 * dpr;
+    const bWidth = colW - 16 * dpr;
+    const bHeight = m.p * (barH - 24 * dpr);
+    const by = barT + barH - bHeight - 4 * dpr;
+
+    c.fillStyle = m.l > 0 ? '#c084fc' : 'rgba(148, 163, 184, 0.4)';
+    c.fillRect(bx, by, bWidth, bHeight);
+
+    c.fillStyle = '#fff';
+    c.textAlign = 'center';
+    c.fillText(`l=${m.l}`, bx + bWidth * 0.5, barT + barH - 8 * dpr);
+    c.fillText(`${Math.round(m.p * 100)}%`, bx + bWidth * 0.5, by - 4 * dpr);
+    c.textAlign = 'left';
+  });
+
+  c.restore();
+}
+</script>
+</body>
+</html>

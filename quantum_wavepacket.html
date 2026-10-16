@@ -1,0 +1,1064 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>量子波包与隧穿干涉全息模拟器 - 薛定谔时空演化</title>
+<style>
+  :root {
+    --bg-primary: #060814;
+    --panel-bg: rgba(13, 18, 38, 0.75);
+    --panel-border: rgba(99, 130, 246, 0.25);
+    --accent-cyan: #00f0ff;
+    --accent-purple: #bd00ff;
+    --accent-gold: #ffb703;
+    --text-primary: #e2e8f0;
+    --text-dim: #94a3b8;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    overflow: hidden;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    user-select: none;
+  }
+
+  /* 主模拟画布 */
+  #viewport-container {
+    flex: 1;
+    position: relative;
+    height: 100vh;
+    background: radial-gradient(circle at 50% 50%, #0a0d24 0%, #04050d 100%);
+    overflow: hidden;
+  }
+  canvas#simCanvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    cursor: crosshair;
+    image-rendering: pixelated;
+  }
+
+  /* 悬浮剖面图分析器 */
+  #profile-overlay {
+    position: absolute;
+    bottom: 24px;
+    left: 24px;
+    width: 380px;
+    height: 160px;
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    backdrop-filter: blur(16px);
+    box-shadow: 0 12px 36px rgba(0,0,0,0.6);
+    padding: 10px 14px;
+    display: flex;
+    flex-direction: column;
+    pointer-events: none;
+  }
+  .profile-title {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--accent-cyan);
+    margin-bottom: 4px;
+    display: flex;
+    justify-content: space-between;
+  }
+  canvas#profileCanvas {
+    width: 100%;
+    height: 120px;
+    border-radius: 6px;
+    background: rgba(0,0,0,0.4);
+  }
+
+  /* 顶部科幻微仪表盘 */
+  #telemetry-bar {
+    position: absolute;
+    top: 20px;
+    left: 24px;
+    display: flex;
+    gap: 12px;
+    z-index: 10;
+  }
+  .telemetry-chip {
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    backdrop-filter: blur(12px);
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-family: monospace;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  }
+  .chip-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--accent-cyan);
+    box-shadow: 0 0 8px var(--accent-cyan);
+    animation: pulse 2s infinite ease-in-out;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 0.5; transform: scale(0.9); }
+    50% { opacity: 1; transform: scale(1.2); }
+  }
+
+  /* 右侧控制面板 */
+  #control-panel {
+    width: 360px;
+    height: 100vh;
+    background: var(--panel-bg);
+    border-left: 1px solid var(--panel-border);
+    backdrop-filter: blur(20px);
+    overflow-y: auto;
+    padding: 24px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    box-shadow: -10px 0 30px rgba(0,0,0,0.5);
+    z-index: 20;
+  }
+  #control-panel::-webkit-scrollbar { width: 4px; }
+  #control-panel::-webkit-scrollbar-thumb { background: rgba(99, 130, 246, 0.4); border-radius: 4px; }
+
+  .header-group h1 {
+    font-size: 18px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .header-group h1 span {
+    background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .header-group p {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-top: 4px;
+    line-height: 1.4;
+  }
+
+  .section-card {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 10px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .section-card h2 {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--accent-cyan);
+    font-weight: 600;
+  }
+
+  /* 按钮与网格 */
+  .btn-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .preset-btn, .action-btn {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: var(--text-primary);
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: center;
+  }
+  .preset-btn:hover, .action-btn:hover {
+    background: rgba(99, 130, 246, 0.25);
+    border-color: var(--accent-cyan);
+    color: #fff;
+  }
+  .preset-btn.active {
+    background: linear-gradient(135deg, rgba(0, 240, 255, 0.2), rgba(189, 0, 255, 0.25));
+    border-color: var(--accent-cyan);
+    box-shadow: 0 0 12px rgba(0, 240, 255, 0.3);
+    color: #fff;
+    font-weight: 600;
+  }
+
+  /* 控制滑块 */
+  .slider-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .slider-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+  .slider-header span.val {
+    color: var(--accent-cyan);
+    font-family: monospace;
+  }
+  input[type=range] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 4px;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.15);
+    outline: none;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--accent-cyan);
+    cursor: pointer;
+    box-shadow: 0 0 8px var(--accent-cyan);
+    transition: transform 0.1s;
+  }
+  input[type=range]::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+  }
+
+  /* 色环说明图例 */
+  .legend-box {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 10px;
+    border-radius: 6px;
+    background: rgba(0,0,0,0.3);
+    font-size: 11px;
+  }
+  .phase-wheel {
+    width: 140px;
+    height: 8px;
+    border-radius: 4px;
+    background: linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);
+  }
+
+  /* 指示说明卡 */
+  .tip-text {
+    font-size: 11px;
+    line-height: 1.5;
+    color: var(--text-dim);
+  }
+  .tip-text b {
+    color: #fff;
+  }
+</style>
+</head>
+<body>
+
+<!-- 主视口 -->
+<div id="viewport-container">
+  <canvas id="simCanvas"></canvas>
+
+  <!-- 顶部状态遥测 -->
+  <div id="telemetry-bar">
+    <div class="telemetry-chip">
+      <div class="chip-dot"></div>
+      <span>酉性总概率: <span id="stat-norm" style="color:#00f0ff">1.0000</span></span>
+    </div>
+    <div class="telemetry-chip">
+      <span>透射率 T: <span id="stat-t" style="color:#ffb703">0.0%</span></span>
+    </div>
+    <div class="telemetry-chip">
+      <span>反射率 R: <span id="stat-r" style="color:#bd00ff">0.0%</span></span>
+    </div>
+    <div class="telemetry-chip">
+      <span>时间 t: <span id="stat-time" style="color:#fff">0.00</span> fs</span>
+    </div>
+  </div>
+
+  <!-- 底部 1D 切面剖面图 -->
+  <div id="profile-overlay">
+    <div class="profile-title">
+      <span>中心轴波函数剖面 (X-Axis Cross Section)</span>
+      <span style="color:var(--text-dim)">|ψ|² / V(x)</span>
+    </div>
+    <canvas id="profileCanvas" width="350" height="120"></canvas>
+  </div>
+</div>
+
+<!-- 右侧高级控制坞 -->
+<div id="control-panel">
+  <div class="header-group">
+    <h1><span>QUANTUM</span> SCHRÖDINGER</h1>
+    <p>二维含时薛定谔方程波包全息散射与量子隧穿模拟系统</p>
+  </div>
+
+  <!-- 势场预设场景 -->
+  <div class="section-card">
+    <h2>势能场景预设 (Potential Preset)</h2>
+    <div class="btn-grid">
+      <button class="preset-btn active" data-preset="tunneling">量子势垒隧穿</button>
+      <button class="preset-btn" data-preset="double_slit">杨氏双缝干涉</button>
+      <button class="preset-btn" data-preset="harmonic">二维谐振子阱</button>
+      <button class="preset-btn" data-preset="step">阶梯势跃迁</button>
+      <button class="preset-btn" data-preset="lattice">量子点阵晶格</button>
+      <button class="preset-btn" data-preset="free">自由空间耗散</button>
+    </div>
+  </div>
+
+  <!-- 物理参数控制 -->
+  <div class="section-card">
+    <h2>波包与势场参数 (Parameters)</h2>
+    <div class="slider-row">
+      <div class="slider-header">
+        <span>初始动量 kx (入射能量)</span>
+        <span class="val" id="val-kx">1.8</span>
+      </div>
+      <input type="range" id="param-kx" min="0.2" max="3.5" step="0.1" value="1.8">
+    </div>
+
+    <div class="slider-row">
+      <div class="slider-header">
+        <span>势垒高度 V₀ (Barrier Height)</span>
+        <span class="val" id="val-v0">1.6</span>
+      </div>
+      <input type="range" id="param-v0" min="0.0" max="4.0" step="0.1" value="1.6">
+    </div>
+
+    <div class="slider-row">
+      <div class="slider-header">
+        <span>势垒厚度 / 缝宽 (Width)</span>
+        <span class="val" id="val-w">6</span>
+      </div>
+      <input type="range" id="param-w" min="2" max="20" step="1" value="6">
+    </div>
+
+    <div class="slider-row">
+      <div class="slider-header">
+        <span>波包空间扩散标度 σ</span>
+        <span class="val" id="val-sigma">14</span>
+      </div>
+      <input type="range" id="param-sigma" min="8" max="25" step="1" value="14">
+    </div>
+
+    <div class="slider-row">
+      <div class="slider-header">
+        <span>时间步长 演化速率 dt</span>
+        <span class="val" id="val-dt">0.65</span>
+      </div>
+      <input type="range" id="param-dt" min="0.1" max="1.0" step="0.05" value="0.65">
+    </div>
+  </div>
+
+  <!-- 视效与相位色盘 -->
+  <div class="section-card">
+    <h2>波函数相位图例 (Phase Angle arg ψ)</h2>
+    <div class="legend-box">
+      <span>-π</span>
+      <div class="phase-wheel"></div>
+      <span>+π</span>
+    </div>
+    <div class="slider-row" style="margin-top:6px;">
+      <div class="slider-header">
+        <span>概率密度辉光增益 (Brightness)</span>
+        <span class="val" id="val-gain">1.5</span>
+      </div>
+      <input type="range" id="param-gain" min="0.5" max="3.5" step="0.1" value="1.5">
+    </div>
+  </div>
+
+  <!-- 交互与测量操作 -->
+  <div class="section-card">
+    <h2>量子测量与交互 (Interactions)</h2>
+    <div class="btn-grid">
+      <button class="action-btn" id="btn-fire">重新发射波包</button>
+      <button class="action-btn" id="btn-pause">暂停 / 继续演化</button>
+    </div>
+    <div class="btn-grid" style="margin-top:4px;">
+      <button class="action-btn" id="btn-sound" style="border-color:rgba(0,240,255,0.4);">开启量子声学音景</button>
+      <button class="action-btn" id="btn-clear-pot">清空手绘势垒</button>
+    </div>
+    <div class="tip-text" style="margin-top:4px;">
+      💡 <b>交互手势：</b><br>
+      • <b>鼠标左键点击：</b> 执行“位置测量”，触发波函数瞬时坍缩 (Wavefunction Collapse) 为局域态！<br>
+      • <b>按住右键拖拽：</b> 手绘自制量子势垒墙 (Custom Potential Barriers)。
+    </div>
+  </div>
+</div>
+
+<script>
+/**
+ * 薛定谔二维含时波动方程交错网格 FDTD 求解器
+ * i * hbar * d(psi)/dt = (- hbar^2 / (2m) * nabla^2 + V) * psi
+ * 网格尺度: Nx x Ny
+ */
+const NX = 220;
+const NY = 140;
+
+// 网格数组：实部 R、虚部 I、势能面 V
+let psiR = new Float32Array(NX * NY);
+let psiI = new Float32Array(NX * NY);
+let potential = new Float32Array(NX * NY);
+let customV = new Float32Array(NX * NY);
+
+// 物理与模拟全局参数
+let kx = 1.8;
+let ky = 0.0;
+let V0 = 1.6;
+let barrierW = 6;
+let packetSigma = 14;
+let dt = 0.65;
+let gain = 1.5;
+let currentPreset = 'tunneling';
+let isPaused = false;
+let simTime = 0.0;
+
+// 音频系统
+let audioCtx = null;
+let oscLeft = null;
+let oscRight = null;
+let gainNode = null;
+let filterNode = null;
+let isAudioActive = false;
+
+// 画布上下文
+const simCanvas = document.getElementById('simCanvas');
+const simCtx = simCanvas.getContext('2d');
+const profileCanvas = document.getElementById('profileCanvas');
+const profileCtx = profileCanvas.getContext('2d');
+
+// 离屏渲染缓冲区
+let offscreenCanvas = document.createElement('canvas');
+offscreenCanvas.width = NX;
+offscreenCanvas.height = NY;
+let offCtx = offscreenCanvas.getContext('2d');
+let imgData = offCtx.createImageData(NX, NY);
+
+// UI 遥测元素引用
+const statNorm = document.getElementById('stat-norm');
+const statT = document.getElementById('stat-t');
+const statR = document.getElementById('stat-r');
+const statTime = document.getElementById('stat-time');
+
+// 颜色预先计算表（将 360 种相角映射为 HSV->RGB，加速像素渲染）
+const PHASE_PALETTE = [];
+for (let deg = 0; deg < 360; deg++) {
+  const h = deg / 360;
+  // HSV 转 RGB (S=1, V=1)
+  const i = Math.floor(h * 6);
+  const f = h * 6 - i;
+  const q = 1 - f;
+  const t = f;
+  let r = 0, g = 0, b = 0;
+  switch (i % 6) {
+    case 0: r = 1; g = t; b = 0; break;
+    case 1: r = q; g = 1; b = 0; break;
+    case 2: r = 0; g = 1; b = t; break;
+    case 3: r = 0; g = q; b = 1; break;
+    case 4: r = t; g = 0; b = 1; break;
+    case 5: r = 1; g = 0; b = q; break;
+  }
+  PHASE_PALETTE.push([Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)]);
+}
+
+// 初始化波包
+function resetWavepacket(x0 = 50, y0 = 70) {
+  psiR.fill(0);
+  psiI.fill(0);
+  simTime = 0.0;
+
+  const s2 = 2 * packetSigma * packetSigma;
+  let norm = 0;
+
+  for (let y = 0; y < NY; y++) {
+    for (let x = 0; x < NX; x++) {
+      const idx = y * NX + x;
+      const dx = x - x0;
+      const dy = y - y0;
+      const env = Math.exp(-(dx * dx + dy * dy) / s2);
+      const phase = kx * dx + ky * dy;
+
+      const r = env * Math.cos(phase);
+      const im = env * Math.sin(phase);
+
+      psiR[idx] = r;
+      psiI[idx] = im;
+      norm += r * r + im * im;
+    }
+  }
+
+  // 归一化到 1.0
+  const invSqrt = 1.0 / Math.sqrt(norm);
+  for (let i = 0; i < psiR.length; i++) {
+    psiR[i] *= invSqrt;
+    psiI[i] *= invSqrt;
+  }
+}
+
+// 构建势能场
+function rebuildPotential() {
+  potential.fill(0);
+
+  // 叠加自定义绘制的势垒
+  for (let i = 0; i < potential.length; i++) {
+    potential[i] += customV[i];
+  }
+
+  const midX = Math.floor(NX * 0.52);
+  const midY = Math.floor(NY * 0.5);
+
+  switch (currentPreset) {
+    case 'tunneling': {
+      // 竖直矩形势垒
+      const halfW = Math.max(1, Math.floor(barrierW / 2));
+      for (let y = 0; y < NY; y++) {
+        for (let x = midX - halfW; x <= midX + halfW; x++) {
+          if (x >= 0 && x < NX) {
+            potential[y * NX + x] += V0;
+          }
+        }
+      }
+      break;
+    }
+    case 'double_slit': {
+      // 双缝挡板
+      const halfW = Math.max(1, Math.floor(barrierW / 2));
+      const slitGap = 16;
+      const slitHeight = 10;
+      for (let y = 0; y < NY; y++) {
+        const inSlit1 = Math.abs(y - (midY - slitGap)) <= slitHeight;
+        const inSlit2 = Math.abs(y - (midY + slitGap)) <= slitHeight;
+        if (!inSlit1 && !inSlit2) {
+          for (let x = midX - halfW; x <= midX + halfW; x++) {
+            if (x >= 0 && x < NX) {
+              potential[y * NX + x] += V0 * 2.5; // 不可穿透高势垒
+            }
+          }
+        }
+      }
+      break;
+    }
+    case 'harmonic': {
+      // 2D 简谐势阱 V = 0.5 * k * (r^2)
+      const k = 0.0015 * V0;
+      for (let y = 0; y < NY; y++) {
+        for (let x = 0; x < NX; x++) {
+          const dx = x - midX;
+          const dy = y - midY;
+          potential[y * NX + x] += k * (dx * dx + dy * dy);
+        }
+      }
+      break;
+    }
+    case 'step': {
+      // 阶梯势
+      for (let y = 0; y < NY; y++) {
+        for (let x = midX; x < NX; x++) {
+          potential[y * NX + x] += V0 * 0.8;
+        }
+      }
+      break;
+    }
+    case 'lattice': {
+      // 量子点阵晶格
+      const spacing = 18;
+      for (let y = 10; y < NY - 10; y += spacing) {
+        for (let x = midX - 25; x <= midX + 60; x += spacing) {
+          for (let dy = -3; dy <= 3; dy++) {
+            for (let dx = -3; dx <= 3; dx++) {
+              if (dx * dx + dy * dy <= 9) {
+                const px = x + dx;
+                const py = y + dy;
+                if (px >= 0 && px < NX && py >= 0 && py < NY) {
+                  potential[py * NX + px] += V0 * 1.5;
+                }
+              }
+            }
+          }
+        }
+      }
+      break;
+    }
+    case 'free':
+    default:
+      // 无任何内建势垒
+      break;
+  }
+}
+
+/**
+ * 薛定谔演化核心循环 (交错网格 FDTD)
+ * 虚部先演化半步，实部再演化整步
+ */
+function stepSchrodinger() {
+  if (isPaused) return;
+
+  const hbar_m = 0.5; // (hbar / 2m) 归一化常数
+  const stepsPerFrame = 6; // 单帧内部多重微步保证高稳定性
+  const subDt = dt / stepsPerFrame;
+
+  for (let s = 0; s < stepsPerFrame; s++) {
+    // 1. 更新实部 psiR: d(psiR)/dt = -hbar_m * nabla^2(psiI) + V * psiI
+    for (let y = 1; y < NY - 1; y++) {
+      const row = y * NX;
+      for (let x = 1; x < NX - 1; x++) {
+        const idx = row + x;
+        // 拉普拉斯 5 点离散差分
+        const lapI = psiI[idx - 1] + psiI[idx + 1] + psiI[idx - NX] + psiI[idx + NX] - 4.0 * psiI[idx];
+        const dR = -hbar_m * lapI + potential[idx] * psiI[idx];
+        psiR[idx] += dR * subDt;
+      }
+    }
+
+    // 边界条件：虚吸收集 (Mur 吸收层减缓边界硬反射伪影)
+    applyAbsorbingBoundaries(psiR);
+
+    // 2. 更新虚部 psiI: d(psiI)/dt = hbar_m * nabla^2(psiR) - V * psiR
+    for (let y = 1; y < NY - 1; y++) {
+      const row = y * NX;
+      for (let x = 1; x < NX - 1; x++) {
+        const idx = row + x;
+        const lapR = psiR[idx - 1] + psiR[idx + 1] + psiR[idx - NX] + psiR[idx + NX] - 4.0 * psiR[idx];
+        const dI = hbar_m * lapR - potential[idx] * psiR[idx];
+        psiI[idx] -= dI * subDt;
+      }
+    }
+
+    applyAbsorbingBoundaries(psiI);
+  }
+
+  simTime += dt * 0.15;
+}
+
+// 边缘阻尼吸收衰减 (PML / Absorbing Layer)
+function applyAbsorbingBoundaries(arr) {
+  const pad = 12;
+  for (let y = 0; y < NY; y++) {
+    for (let x = 0; x < NX; x++) {
+      let damp = 1.0;
+      if (x < pad) damp *= Math.pow(x / pad, 2);
+      if (x > NX - pad) damp *= Math.pow((NX - x) / pad, 2);
+      if (y < pad) damp *= Math.pow(y / pad, 2);
+      if (y > NY - pad) damp *= Math.pow((NY - y) / pad, 2);
+
+      if (damp < 0.999) {
+        arr[y * NX + x] *= damp;
+      }
+    }
+  }
+}
+
+// 波函数局部测量坍缩
+function collapseAt(targetX, targetY) {
+  // 按照点击位置构造极窄高斯投影
+  const collapseSigma = 3.5;
+  const s2 = 2 * collapseSigma * collapseSigma;
+  let norm = 0;
+
+  for (let y = 0; y < NY; y++) {
+    for (let x = 0; x < NX; x++) {
+      const idx = y * NX + x;
+      const dx = x - targetX;
+      const dy = y - targetY;
+      const factor = Math.exp(-(dx * dx + dy * dy) / s2);
+
+      psiR[idx] *= factor;
+      psiI[idx] *= factor;
+      norm += psiR[idx] * psiR[idx] + psiI[idx] * psiI[idx];
+    }
+  }
+
+  if (norm > 1e-12) {
+    const invSqrt = 1.0 / Math.sqrt(norm);
+    for (let i = 0; i < psiR.length; i++) {
+      psiR[i] *= invSqrt;
+      psiI[i] *= invSqrt;
+    }
+  }
+
+  // 触发一次声效脉冲
+  triggerCollapseAudio();
+}
+
+/**
+ * 渲染函数
+ */
+function renderSimulation() {
+  const data = imgData.data;
+  let totalProb = 0;
+  let leftProb = 0;
+  let rightProb = 0;
+  const barrierX = Math.floor(NX * 0.52);
+
+  // 逐像素合成波函数色彩与势能白光
+  for (let y = 0; y < NY; y++) {
+    const row = y * NX;
+    for (let x = 0; x < NX; x++) {
+      const idx = row + x;
+      const r = psiR[idx];
+      const im = psiI[idx];
+      const prob = r * r + im * im;
+      totalProb += prob;
+
+      if (x < barrierX - 4) leftProb += prob;
+      if (x > barrierX + 4) rightProb += prob;
+
+      const pIdx = idx * 4;
+      const V = potential[idx];
+
+      if (prob > 1e-6) {
+        // 计算相位角 [-pi, pi] -> [0, 359]
+        let angle = Math.atan2(im, r);
+        if (angle < 0) angle += Math.PI * 2;
+        const deg = Math.floor((angle / (Math.PI * 2)) * 360) % 360;
+        const rgb = PHASE_PALETTE[deg];
+
+        // 亮度由概率密度放大
+        const lum = Math.min(1.0, Math.pow(prob * 450.0, 0.6) * gain);
+        data[pIdx] = rgb[0] * lum;
+        data[pIdx + 1] = rgb[1] * lum;
+        data[pIdx + 2] = rgb[2] * lum;
+      } else {
+        data[pIdx] = 6;
+        data[pIdx + 1] = 8;
+        data[pIdx + 2] = 20;
+      }
+
+      // 叠加势垒轮廓半透明高光
+      if (V > 0.05) {
+        const vAlpha = Math.min(220, Math.floor(V * 55));
+        data[pIdx] = Math.min(255, data[pIdx] + vAlpha);
+        data[pIdx + 1] = Math.min(255, data[pIdx + 1] + Math.floor(vAlpha * 0.85));
+        data[pIdx + 2] = Math.min(255, data[pIdx + 2] + Math.floor(vAlpha * 0.5));
+      }
+      data[pIdx + 3] = 255;
+    }
+  }
+
+  offCtx.putImageData(imgData, 0, 0);
+
+  // 绘制放大到主画布
+  simCtx.imageSmoothingEnabled = false;
+  simCtx.drawImage(offscreenCanvas, 0, 0, simCanvas.width, simCanvas.height);
+
+  // 更新统计读数
+  statNorm.innerText = totalProb.toFixed(4);
+  const T = totalProb > 1e-5 ? (rightProb / totalProb) * 100 : 0;
+  const R = totalProb > 1e-5 ? (leftProb / totalProb) * 100 : 0;
+  statT.innerText = T.toFixed(1) + '%';
+  statR.innerText = R.toFixed(1) + '%';
+  statTime.innerText = simTime.toFixed(2);
+
+  // 调制音频参数
+  updateAudioFeedback(rightProb, totalProb);
+
+  // 绘制 1D 剖面
+  renderProfile();
+}
+
+// 绘制中心截面剖面图
+function renderProfile() {
+  const pw = profileCanvas.width;
+  const ph = profileCanvas.height;
+  profileCtx.clearRect(0, 0, pw, ph);
+
+  // 剖面取自水平中线
+  const yMid = Math.floor(NY / 2);
+  const row = yMid * NX;
+
+  // 绘制背景参考虚线
+  profileCtx.strokeStyle = 'rgba(255,255,255,0.1)';
+  profileCtx.lineWidth = 1;
+  profileCtx.beginPath();
+  profileCtx.moveTo(0, ph - 20);
+  profileCtx.lineTo(pw, ph - 20);
+  profileCtx.stroke();
+
+  // 1. 绘制势能高度曲线 V(x)
+  profileCtx.strokeStyle = 'rgba(255, 183, 3, 0.7)';
+  profileCtx.fillStyle = 'rgba(255, 183, 3, 0.15)';
+  profileCtx.lineWidth = 2;
+  profileCtx.beginPath();
+  profileCtx.moveTo(0, ph - 20);
+
+  for (let x = 0; x < NX; x++) {
+    const px = (x / (NX - 1)) * pw;
+    const v = potential[row + x];
+    const py = (ph - 20) - Math.min(ph - 30, v * 28);
+    profileCtx.lineTo(px, py);
+  }
+  profileCtx.lineTo(pw, ph - 20);
+  profileCtx.closePath();
+  profileCtx.fill();
+  profileCtx.stroke();
+
+  // 2. 绘制概率密度曲线 |psi(x)|^2
+  profileCtx.strokeStyle = '#00f0ff';
+  profileCtx.lineWidth = 2;
+  profileCtx.beginPath();
+
+  for (let x = 0; x < NX; x++) {
+    const px = (x / (NX - 1)) * pw;
+    const r = psiR[row + x];
+    const im = psiI[row + x];
+    const prob = (r * r + im * im) * 850.0;
+    const py = (ph - 20) - Math.min(ph - 25, prob);
+    if (x === 0) profileCtx.moveTo(px, py);
+    else profileCtx.lineTo(px, py);
+  }
+  profileCtx.stroke();
+
+  // 3. 绘制实部波幅曲线 Re(psi)
+  profileCtx.strokeStyle = 'rgba(189, 0, 255, 0.5)';
+  profileCtx.lineWidth = 1;
+  profileCtx.setLineDash([2, 3]);
+  profileCtx.beginPath();
+
+  for (let x = 0; x < NX; x++) {
+    const px = (x / (NX - 1)) * pw;
+    const r = psiR[row + x] * 35.0;
+    const py = (ph - 20) - r;
+    if (x === 0) profileCtx.moveTo(px, py);
+    else profileCtx.lineTo(px, py);
+  }
+  profileCtx.stroke();
+  profileCtx.setLineDash([]);
+}
+
+/**
+ * Web Audio 量子共鸣器
+ */
+function initAudio() {
+  if (audioCtx) return;
+  const AudioContext = window.AudioContext || window.webkitAudioContext;
+  audioCtx = new AudioContext();
+
+  // 基频环境无人机低音
+  oscLeft = audioCtx.createOscillator();
+  oscRight = audioCtx.createOscillator();
+  oscLeft.type = 'sine';
+  oscRight.type = 'triangle';
+  oscLeft.frequency.setValueAtTime(65.41, audioCtx.currentTime); // C2
+  oscRight.frequency.setValueAtTime(98.0, audioCtx.currentTime);  // G2
+
+  filterNode = audioCtx.createBiquadFilter();
+  filterNode.type = 'lowpass';
+  filterNode.frequency.setValueAtTime(280, audioCtx.currentTime);
+  filterNode.Q.setValueAtTime(4.0, audioCtx.currentTime);
+
+  gainNode = audioCtx.createGain();
+  gainNode.gain.setValueAtTime(0.12, audioCtx.currentTime);
+
+  oscLeft.connect(filterNode);
+  oscRight.connect(filterNode);
+  filterNode.connect(gainNode);
+  gainNode.connect(audioCtx.destination);
+
+  oscLeft.start();
+  oscRight.start();
+  isAudioActive = true;
+}
+
+function updateAudioFeedback(rightProb, totalProb) {
+  if (!isAudioActive || !audioCtx) return;
+  const tRatio = totalProb > 1e-4 ? rightProb / totalProb : 0;
+  // 透射越强，共振滤波器截止频率越高
+  const targetFreq = 220 + tRatio * 750;
+  filterNode.frequency.setTargetAtTime(targetFreq, audioCtx.currentTime, 0.1);
+}
+
+function triggerCollapseAudio() {
+  if (!isAudioActive || !audioCtx) return;
+  const pulseOsc = audioCtx.createOscillator();
+  const pulseGain = audioCtx.createGain();
+  pulseOsc.type = 'sine';
+  pulseOsc.frequency.setValueAtTime(440, audioCtx.currentTime);
+  pulseOsc.frequency.exponentialRampToValueAtTime(80, audioCtx.currentTime + 0.35);
+
+  pulseGain.gain.setValueAtTime(0.25, audioCtx.currentTime);
+  pulseGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.35);
+
+  pulseOsc.connect(pulseGain);
+  pulseGain.connect(audioCtx.destination);
+  pulseOsc.start();
+  pulseOsc.stop(audioCtx.currentTime + 0.4);
+}
+
+/**
+ * 视口与交互响应
+ */
+function handleResize() {
+  const container = document.getElementById('viewport-container');
+  simCanvas.width = container.clientWidth;
+  simCanvas.height = container.clientHeight;
+}
+window.addEventListener('resize', handleResize);
+
+// 鼠标交互：点击坍缩，右键绘制势垒
+let isRightMouseDown = false;
+
+simCanvas.addEventListener('contextmenu', e => e.preventDefault());
+
+simCanvas.addEventListener('mousedown', e => {
+  const rect = simCanvas.getBoundingClientRect();
+  const gridX = Math.floor(((e.clientX - rect.left) / rect.width) * NX);
+  const gridY = Math.floor(((e.clientY - rect.top) / rect.height) * NY);
+
+  if (e.button === 0) {
+    // 左键测量坍缩
+    collapseAt(gridX, gridY);
+  } else if (e.button === 2) {
+    // 右键画势垒
+    isRightMouseDown = true;
+    paintBarrier(gridX, gridY);
+  }
+});
+
+window.addEventListener('mouseup', () => {
+  isRightMouseDown = false;
+});
+
+simCanvas.addEventListener('mousemove', e => {
+  if (isRightMouseDown) {
+    const rect = simCanvas.getBoundingClientRect();
+    const gridX = Math.floor(((e.clientX - rect.left) / rect.width) * NX);
+    const gridY = Math.floor(((e.clientY - rect.top) / rect.height) * NY);
+    paintBarrier(gridX, gridY);
+  }
+});
+
+function paintBarrier(cx, cy) {
+  const radius = 3;
+  for (let dy = -radius; dy <= radius; dy++) {
+    for (let dx = -radius; dx <= radius; dx++) {
+      if (dx * dx + dy * dy <= radius * radius) {
+        const x = cx + dx;
+        const y = cy + dy;
+        if (x >= 0 && x < NX && y >= 0 && y < NY) {
+          customV[y * NX + x] = V0 * 2.0;
+        }
+      }
+    }
+  }
+  rebuildPotential();
+}
+
+/**
+ * UI 按钮与滑块事件绑定
+ */
+// 预设切换
+document.querySelectorAll('.preset-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentPreset = btn.dataset.preset;
+    rebuildPotential();
+    resetWavepacket();
+  });
+});
+
+// 重置发射
+document.getElementById('btn-fire').addEventListener('click', () => {
+  resetWavepacket();
+});
+
+// 暂停/继续
+const btnPause = document.getElementById('btn-pause');
+btnPause.addEventListener('click', () => {
+  isPaused = !isPaused;
+  btnPause.innerText = isPaused ? '继续演化' : '暂停演化';
+});
+
+// 声音切换
+const btnSound = document.getElementById('btn-sound');
+btnSound.addEventListener('click', () => {
+  if (!audioCtx) {
+    initAudio();
+    btnSound.innerText = '量子声学: 运行中';
+    btnSound.style.background = 'rgba(0,240,255,0.2)';
+  } else {
+    if (audioCtx.state === 'running') {
+      audioCtx.suspend();
+      btnSound.innerText = '开启量子声学音景';
+      btnSound.style.background = 'rgba(255,255,255,0.06)';
+    } else {
+      audioCtx.resume();
+      btnSound.innerText = '量子声学: 运行中';
+      btnSound.style.background = 'rgba(0,240,255,0.2)';
+    }
+  }
+});
+
+// 清空手绘势垒
+document.getElementById('btn-clear-pot').addEventListener('click', () => {
+  customV.fill(0);
+  rebuildPotential();
+});
+
+// 参数滑块绑定
+const paramKx = document.getElementById('param-kx');
+paramKx.addEventListener('input', e => {
+  kx = parseFloat(e.target.value);
+  document.getElementById('val-kx').innerText = kx.toFixed(1);
+  resetWavepacket();
+});
+
+const paramV0 = document.getElementById('param-v0');
+paramV0.addEventListener('input', e => {
+  V0 = parseFloat(e.target.value);
+  document.getElementById('val-v0').innerText = V0.toFixed(1);
+  rebuildPotential();
+});
+
+const paramW = document.getElementById('param-w');
+paramW.addEventListener('input', e => {
+  barrierW = parseInt(e.target.value);
+  document.getElementById('val-w').innerText = barrierW;
+  rebuildPotential();
+});
+
+const paramSigma = document.getElementById('param-sigma');
+paramSigma.addEventListener('input', e => {
+  packetSigma = parseInt(e.target.value);
+  document.getElementById('val-sigma').innerText = packetSigma;
+  resetWavepacket();
+});
+
+const paramDt = document.getElementById('param-dt');
+paramDt.addEventListener('input', e => {
+  dt = parseFloat(e.target.value);
+  document.getElementById('val-dt').innerText = dt.toFixed(2);
+});
+
+const paramGain = document.getElementById('param-gain');
+paramGain.addEventListener('input', e => {
+  gain = parseFloat(e.target.value);
+  document.getElementById('val-gain').innerText = gain.toFixed(1);
+});
+
+// 主循环
+function loop() {
+  stepSchrodinger();
+  renderSimulation();
+  requestAnimationFrame(loop);
+}
+
+// 启动初始化
+handleResize();
+rebuildPotential();
+resetWavepacket();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

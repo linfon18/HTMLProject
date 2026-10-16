@@ -1,0 +1,1140 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>交错磁体交替对称性自旋劈裂与超快输运全息模拟 - Altermagnetism & Spin-Splitting</title>
+  <style>
+    :root {
+      --bg-dark: #030611;
+      --panel-bg: rgba(9, 15, 30, 0.86);
+      --panel-border: rgba(244, 63, 94, 0.25);
+      --accent-spin-up: #f43f5e;
+      --accent-spin-dn: #06b6d4;
+      --accent-gold: #fbbf24;
+      --accent-purple: #c084fc;
+      --accent-emerald: #10b981;
+      --text-main: #f8fafc;
+      --text-dim: #94a3b8;
+      --font-code: 'JetBrains Mono', 'Fira Code', monospace;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      background: rgba(7, 12, 24, 0.96);
+      border-bottom: 1px solid var(--panel-border);
+      padding: 10px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 20;
+    }
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .badge-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #f43f5e, #06b6d4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 15px rgba(244, 63, 94, 0.4);
+      font-size: 16px;
+      font-weight: bold;
+    }
+    h1 {
+      font-size: 1.05rem;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    h1 span.en {
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      font-weight: normal;
+    }
+    .status-badges {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .badge {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-size: 0.72rem;
+      font-family: var(--font-code);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .badge .val {
+      color: var(--accent-spin-up);
+      font-weight: 600;
+    }
+    .main-container {
+      flex: 1;
+      display: flex;
+      position: relative;
+      overflow: hidden;
+    }
+    .viewport-area {
+      flex: 1;
+      position: relative;
+      background: radial-gradient(circle at 50% 50%, #0d172e 0%, #030611 100%);
+      overflow: hidden;
+    }
+    canvas#mainCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    /* HUD Overlay */
+    .hud-overlay {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      pointer-events: none;
+      z-index: 10;
+    }
+    .hud-card {
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+      padding: 8px 14px;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    }
+    .hud-title {
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-dim);
+      margin-bottom: 3px;
+    }
+    .hud-val {
+      font-family: var(--font-code);
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--accent-gold);
+    }
+    .hud-sub {
+      font-size: 0.65rem;
+      color: var(--text-dim);
+      margin-top: 2px;
+    }
+    /* Controls and Scopes Sidebar */
+    .sidebar {
+      width: 370px;
+      background: var(--panel-bg);
+      border-left: 1px solid var(--panel-border);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      z-index: 15;
+      backdrop-filter: blur(12px);
+    }
+    .sidebar-section {
+      padding: 14px 18px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .section-title {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--accent-spin-up);
+      font-weight: 700;
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    /* Scope Boxes */
+    .scope-box {
+      background: rgba(3, 7, 16, 0.95);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      padding: 10px;
+      margin-bottom: 10px;
+      position: relative;
+    }
+    .scope-box header {
+      background: transparent;
+      border: none;
+      padding: 0 0 6px 0;
+      font-size: 0.7rem;
+      color: var(--text-dim);
+      display: flex;
+      justify-content: space-between;
+    }
+    .scope-canvas-wrap {
+      width: 100%;
+      height: 95px;
+      position: relative;
+    }
+    .scope-canvas-wrap canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    /* Controls */
+    .control-group {
+      margin-bottom: 12px;
+    }
+    .control-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.72rem;
+      margin-bottom: 5px;
+      color: var(--text-dim);
+    }
+    .control-header .val {
+      font-family: var(--font-code);
+      color: #fff;
+    }
+    input[type=range] {
+      -webkit-appearance: none;
+      width: 100%;
+      background: rgba(255, 255, 255, 0.1);
+      height: 4px;
+      border-radius: 2px;
+      outline: none;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--accent-spin-up);
+      cursor: pointer;
+      box-shadow: 0 0 8px rgba(244, 63, 94, 0.6);
+      transition: transform 0.1s;
+    }
+    input[type=range]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+    /* Buttons */
+    .btn-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    button.btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: var(--text-main);
+      padding: 8px 10px;
+      border-radius: 6px;
+      font-size: 0.72rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    button.btn:hover {
+      background: rgba(244, 63, 94, 0.15);
+      border-color: var(--accent-spin-up);
+      color: #fff;
+    }
+    button.btn.active {
+      background: var(--accent-spin-up);
+      border-color: var(--accent-spin-up);
+      color: #fff;
+      font-weight: 700;
+      box-shadow: 0 0 12px rgba(244, 63, 94, 0.4);
+    }
+    /* Legend */
+    .legend-box {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 0.7rem;
+      color: var(--text-dim);
+    }
+    .legend-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .legend-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+    .legend-dot.spin-up { background: var(--accent-spin-up); box-shadow: 0 0 8px var(--accent-spin-up); }
+    .legend-dot.spin-dn { background: var(--accent-spin-dn); box-shadow: 0 0 8px var(--accent-spin-dn); }
+    .legend-dot.node { background: var(--accent-gold); box-shadow: 0 0 8px var(--accent-gold); }
+    .legend-dot.afm { background: var(--accent-purple); box-shadow: 0 0 8px var(--accent-purple); }
+
+    .formula-card {
+      background: rgba(244, 63, 94, 0.05);
+      border: 1px dashed rgba(244, 63, 94, 0.3);
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-family: var(--font-code);
+      font-size: 0.72rem;
+      color: #e2e8f0;
+      line-height: 1.5;
+      margin-top: 8px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 顶部状态栏 -->
+  <header>
+    <div class="header-left">
+      <div class="badge-icon">⇅</div>
+      <div>
+        <h1>交错磁体交替自旋劈裂与超快输运 <span class="en">Altermagnetism & d-Wave Spin Splitting</span></h1>
+      </div>
+    </div>
+    <div class="status-badges">
+      <div class="badge">代表材料: <span class="val" id="hdrMaterial">RuO₂ (金红石交错磁体)</span></div>
+      <div class="badge">自旋能隙 Δ_d: <span class="val" id="hdrDelta">840 meV</span></div>
+      <div class="badge">宏观净磁矩: <span class="val" id="hdrM">M_net ≡ 0 (无杂散场)</span></div>
+      <div class="badge">自旋极化率 P_spin: <span class="val" id="hdrPol">88.5 %</span></div>
+      <div class="badge">共振频率: <span class="val" id="hdrThz">1.85 THz</span></div>
+    </div>
+  </header>
+
+  <div class="main-container">
+    <!-- 主交互全息视口 -->
+    <div class="viewport-area">
+      <canvas id="mainCanvas"></canvas>
+
+      <!-- HUD 悬浮指示卡片 -->
+      <div class="hud-overlay">
+        <div class="hud-card">
+          <div class="hud-title">d-波非相对论自旋劈裂能谱</div>
+          <div class="hud-val" id="hudBand">E_σ(k) = ε₀(k) + σ Δ_d (kx² - ky²)</div>
+          <div class="hud-sub">完全无需自旋轨道耦合 (SOC = 0) 的巨大交换劈裂</div>
+        </div>
+        <div class="hud-card">
+          <div class="hud-title">动量空间交替四叶草费米面</div>
+          <div class="hud-val" id="hudFermi" style="color: var(--accent-gold);">四重旋转对称 C₄·T 破缺简并</div>
+          <div class="hud-sub">kx = ± ky 为严格自旋全简并节点线 (Nodal Lines)</div>
+        </div>
+        <div class="hud-card">
+          <div class="hud-title">注入电场与自旋极化流向 (Spin Current)</div>
+          <div class="hud-val" id="hudCurrent" style="color: var(--accent-spin-up);">P_spin = 88.5% (自旋 ↑ 占优)</div>
+          <div class="hud-sub">沿 [110] 晶向电场激发 100% 高度极化弹道自旋流</div>
+        </div>
+        <div class="hud-card">
+          <div class="hud-title">超快自旋进动动力学 (THz Dynamics)</div>
+          <div class="hud-val" id="hudThz" style="color: var(--accent-spin-dn);">f_AFM = 1.85 THz</div>
+          <div class="hud-sub">超越传统铁磁吉赫兹千倍的太赫兹超快自旋操控</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 右侧科学示波器与交互面板 -->
+    <div class="sidebar">
+
+      <!-- 示波器 1 -->
+      <div class="sidebar-section">
+        <div class="section-title">
+          <span>示波器 I: 动量空间能带色散 E(k) 剖面</span>
+          <span style="font-size: 0.65rem; color: var(--accent-spin-up);" id="scope1Status">Γ ➔ X ➔ M ➔ Γ</span>
+        </div>
+        <div class="scope-box">
+          <header>
+            <span>自旋 ↑ (红) 与自旋 ↓ (蓝) 巨大劈裂峰</span>
+            <span id="scopeDispVal" style="color: var(--accent-gold); font-family: var(--font-code);">ΔE_max = 840 meV</span>
+          </header>
+          <div class="scope-canvas-wrap">
+            <canvas id="scopeDispCanvas"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- 示波器 2 -->
+      <div class="sidebar-section">
+        <div class="section-title">
+          <span>示波器 II: 自旋极化度 P(ϕ) 与晶体霍尔效应</span>
+          <span style="font-size: 0.65rem; color: var(--accent-spin-dn);">四重对称性 cos(2ϕ)</span>
+        </div>
+        <div class="scope-box">
+          <header>
+            <span>随电场注入晶向方位角 ϕ 周期性翻转</span>
+            <span id="scopePolVal" style="color: var(--accent-spin-dn); font-family: var(--font-code);">P_spin = +88.5%</span>
+          </header>
+          <div class="scope-canvas-wrap">
+            <canvas id="scopePolCanvas"></canvas>
+          </div>
+        </div>
+        <div class="formula-card">
+          <strong>交错磁性基本定义 (Altermagnetic Symmetry)</strong><br>
+          {C₄ || [C₁' | τ]} 空间自旋群保护<br>
+          净磁化 M = 0，但在动量空间实现如铁磁般的 100% 自旋极化输出！
+        </div>
+      </div>
+
+      <!-- 参数调节控制 -->
+      <div class="sidebar-section">
+        <div class="section-title">交错磁体微观参数控制</div>
+
+        <!-- d波劈裂强度 Delta_d -->
+        <div class="control-group">
+          <div class="control-header">
+            <span>交错交换劈裂能 (Spin-Splitting Δ_d)</span>
+            <span class="val" id="valDelta">840 meV</span>
+          </div>
+          <input type="range" id="slDelta" min="100" max="1400" step="20" value="840" oninput="updateParam('delta', this.value)">
+        </div>
+
+        <!-- 电场注入晶向角 phi -->
+        <div class="control-group">
+          <div class="control-header">
+            <span>电场注入方位角 (Field Angle ϕ)</span>
+            <span class="val" id="valPhi">15°</span>
+          </div>
+          <input type="range" id="slPhi" min="0" max="360" step="1" value="15" oninput="updateParam('phi', this.value)">
+        </div>
+
+        <!-- 外加驱动电场 E -->
+        <div class="control-group">
+          <div class="control-header">
+            <span>驱动电场强度 (Electric Field E_x)</span>
+            <span class="val" id="valE">45 kV/cm</span>
+          </div>
+          <input type="range" id="slE" min="0" max="100" step="2" value="45" oninput="updateParam('e', this.value)">
+        </div>
+
+        <!-- 费米能级 E_F -->
+        <div class="control-group">
+          <div class="control-header">
+            <span>费米能级偏移 (Fermi Energy E_F)</span>
+            <span class="val" id="valEf">0 meV</span>
+          </div>
+          <input type="range" id="slEf" min="-400" max="400" step="10" value="0" oninput="updateParam('ef', this.value)">
+        </div>
+
+        <!-- 典型工况预设 -->
+        <div class="section-title" style="margin-top: 15px;">典型物理材料体系预设</div>
+        <div class="btn-grid">
+          <button class="btn active" id="p1Btn" onclick="applyPreset(1)">RuO₂ (典型 d-波交错磁体)</button>
+          <button class="btn" id="p2Btn" onclick="applyPreset(2)">MnTe (g-波六角交错磁体)</button>
+          <button class="btn" id="p3Btn" onclick="applyPreset(3)">纯共线反铁磁 (全简并对比)</button>
+          <button class="btn" id="p4Btn" onclick="applyPreset(4)">节点线注入 (零自旋极化)</button>
+        </div>
+      </div>
+
+      <!-- 操作与交互按钮 -->
+      <div class="sidebar-section">
+        <div class="section-title">实时太赫兹动力学控制</div>
+        <div class="btn-grid" style="grid-template-columns: 1fr 1fr;">
+          <button class="btn" onclick="fireSpinPulse()">⚡ 注入太赫兹自旋脉冲</button>
+          <button class="btn" onclick="toggleViewMode()"><span id="viewModeText">切换为动量费米面全屏</span></button>
+          <button class="btn" id="playBtn" onclick="togglePlay()"><span id="playIcon">⏸</span> <span id="playText">暂停仿真</span></button>
+          <button class="btn" onclick="resetSim()">↺ 重置系统</button>
+        </div>
+
+        <div style="margin-top: 14px;" class="legend-box">
+          <div class="legend-row">
+            <div class="legend-dot spin-up"></div>
+            <span>自旋向上载流子 (Spin-Up, kx² > ky² 象限花瓣)</span>
+          </div>
+          <div class="legend-row">
+            <div class="legend-dot spin-dn"></div>
+            <span>自旋向下载流子 (Spin-Down, ky² > kx² 象限花瓣)</span>
+          </div>
+          <div class="legend-row">
+            <div class="legend-dot node"></div>
+            <span>自旋完全简并节点线 (Nodal Lines kx = ± ky)</span>
+          </div>
+          <div class="legend-row">
+            <div class="legend-dot afm"></div>
+            <span>反平行配对晶格 (Ru/Mn 双亚晶格，Net M = 0)</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    // -------------------------------------------------------------
+    // 全局物理模型参数与状态
+    // -------------------------------------------------------------
+    const PARAMS = {
+      deltaD: 840,       // d波劈裂能量 Δ_d (meV)
+      phiDeg: 15,        // 电场注入晶向方位角 (度)
+      eField: 45,        // 驱动电场 (kV/cm)
+      eF: 0,             // 费米能级 (meV)
+      paused: false,
+      viewMode: 'split', // 'split' (实空间+动量空间) 或 'momentum' (纯费米面大图)
+      camRotX: 0.45,
+      camRotY: -0.55,
+      thzPhase: 0.0,
+      spinPulse: 1.0
+    };
+
+    // 载流子粒子体系
+    let spinUpElectrons = [];
+    let spinDnElectrons = [];
+    let latticeAtoms = [];
+
+    // 示波器历史缓存
+    const HISTORY_LEN = 140;
+    let polHistory = new Array(HISTORY_LEN).fill(0);
+
+    // Canvas 获取
+    const mainCanvas = document.getElementById('mainCanvas');
+    const ctx = mainCanvas.getContext('2d');
+    const scopeDispCanvas = document.getElementById('scopeDispCanvas');
+    const ctxDisp = scopeDispCanvas.getContext('2d');
+    const scopePolCanvas = document.getElementById('scopePolCanvas');
+    const ctxPol = scopePolCanvas.getContext('2d');
+
+    let width = 0, height = 0;
+    let lastTime = performance.now();
+
+    // -------------------------------------------------------------
+    // Web Audio 太赫兹自旋波共振声效
+    // -------------------------------------------------------------
+    let audioCtx = null;
+    function initAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    function playThzSound() {
+      if (!audioCtx) return;
+      const t = audioCtx.currentTime;
+      // 超高频太赫兹自旋波脉冲
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(740, t);
+      osc.frequency.exponentialRampToValueAtTime(180, t + 0.22);
+
+      gain.gain.setValueAtTime(0.18, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.28);
+
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(t);
+      osc.stop(t + 0.3);
+    }
+
+    // -------------------------------------------------------------
+    // 实空间晶格与自旋粒子初始化
+    // -------------------------------------------------------------
+    function initLatticeAndParticles() {
+      // 金红石结构亚晶格 A (自旋向上) 与 B (自旋向下)
+      latticeAtoms = [];
+      const cols = 6;
+      const rows = 4;
+      const spacingX = 42;
+      const spacingY = 42;
+
+      for (let r = -rows; r <= rows; r++) {
+        for (let c = -cols; c <= cols; c++) {
+          const isA = (Math.abs(r + c) % 2 === 0);
+          latticeAtoms.push({
+            x: c * spacingX,
+            y: r * spacingY,
+            z: isA ? -8 : 8,
+            sublattice: isA ? 'A' : 'B',
+            spin: isA ? 1 : -1
+          });
+        }
+      }
+
+      // 自旋向上粒子流 (粉红)
+      spinUpElectrons = [];
+      for (let i = 0; i < 28; i++) {
+        spinUpElectrons.push({
+          x: (Math.random() - 0.5) * 160,
+          y: (Math.random() - 0.5) * 160,
+          trail: []
+        });
+      }
+
+      // 自旋向下粒子流 (青蓝)
+      spinDnElectrons = [];
+      for (let i = 0; i < 28; i++) {
+        spinDnElectrons.push({
+          x: (Math.random() - 0.5) * 160,
+          y: (Math.random() - 0.5) * 160,
+          trail: []
+        });
+      }
+    }
+
+    function fireSpinPulse() {
+      initAudio();
+      playThzSound();
+      PARAMS.spinPulse = 2.5;
+    }
+
+    function toggleViewMode() {
+      if (PARAMS.viewMode === 'split') {
+        PARAMS.viewMode = 'momentum';
+        document.getElementById('viewModeText').textContent = '切换为分屏交互视角';
+      } else {
+        PARAMS.viewMode = 'split';
+        document.getElementById('viewModeText').textContent = '切换为动量费米面全屏';
+      }
+    }
+
+    // -------------------------------------------------------------
+    // 物理动力学步进更新
+    // -------------------------------------------------------------
+    function updateSimulation(dt) {
+      if (PARAMS.paused) return;
+
+      PARAMS.thzPhase += dt * 14.0;
+      PARAMS.spinPulse = Math.max(1.0, PARAMS.spinPulse - dt * 2.0);
+
+      // 电场注入方向向量
+      const phiRad = (PARAMS.phiDeg * Math.PI) / 180.0;
+      const eDirX = Math.cos(phiRad);
+      const eDirY = Math.sin(phiRad);
+
+      // 交错磁体群速度色散: v_σ = ∇_k E_σ(k)
+      // d波自旋劈裂: 自旋向上与向下感受相反的各向异性质量张量
+      // P_spin = cos(2*phi)
+      const pSpin = Math.cos(2 * phiRad) * (PARAMS.deltaD / 840.0);
+
+      // 自旋向上载流子漂移 (偏向 kx 轴)
+      const vDrive = (PARAMS.eField / 45.0) * 120.0 * PARAMS.spinPulse;
+      const vxUp = (eDirX * 1.35) * vDrive;
+      const vyUp = (eDirY * 0.70) * vDrive;
+
+      for (let p of spinUpElectrons) {
+        p.trail.push({ x: p.x, y: p.y });
+        if (p.trail.length > 8) p.trail.shift();
+
+        p.x += vxUp * dt;
+        p.y += vyUp * dt;
+        if (p.x > 180) p.x = -180;
+        if (p.x < -180) p.x = 180;
+        if (p.y > 180) p.y = -180;
+        if (p.y < -180) p.y = 180;
+      }
+
+      // 自旋向下载流子漂移 (偏向 ky 轴)
+      const vxDn = (eDirX * 0.70) * vDrive;
+      const vyDn = (eDirY * 1.35) * vDrive;
+
+      for (let p of spinDnElectrons) {
+        p.trail.push({ x: p.x, y: p.y });
+        if (p.trail.length > 8) p.trail.shift();
+
+        p.x += vxDn * dt;
+        p.y += vyDn * dt;
+        if (p.x > 180) p.x = -180;
+        if (p.x < -180) p.x = 180;
+        if (p.y > 180) p.y = -180;
+        if (p.y < -180) p.y = 180;
+      }
+
+      // 示波器 2：极化率历史
+      polHistory.push(pSpin);
+      if (polHistory.length > HISTORY_LEN) polHistory.shift();
+    }
+
+    // -------------------------------------------------------------
+    // 3D 投影与图形渲染
+    // -------------------------------------------------------------
+    function project3D(x, y, z, cx, cy, scale = 1.0) {
+      const cosY = Math.cos(PARAMS.camRotY);
+      const sinY = Math.sin(PARAMS.camRotY);
+      const cosX = Math.cos(PARAMS.camRotX);
+      const sinX = Math.sin(PARAMS.camRotX);
+
+      const x1 = x * cosY - z * sinY;
+      const z1 = x * sinY + z * cosY;
+
+      const y2 = y * cosX - z1 * sinX;
+      const z2 = y * sinX + z1 * cosX;
+
+      return {
+        px: cx + x1 * scale,
+        py: cy + y2 * scale,
+        depth: z2
+      };
+    }
+
+    function renderMainView() {
+      ctx.clearRect(0, 0, width, height);
+
+      // 1. 绘制背景网格
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
+      ctx.lineWidth = 1;
+      const gridSize = 40;
+      for (let x = 0; x < width; x += gridSize) {
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke();
+      }
+      for (let y = 0; y < height; y += gridSize) {
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke();
+      }
+
+      if (PARAMS.viewMode === 'split') {
+        // 左半屏：实空间金红石交错晶格与自旋弹道输运
+        const cxLeft = width * 0.28;
+        const cyLeft = height * 0.5;
+
+        renderRealSpaceLattice(cxLeft, cyLeft);
+
+        // 分割虚线
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.moveTo(width * 0.55, 0);
+        ctx.lineTo(width * 0.55, height);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // 右半屏：动量空间四叶草 d-波自旋劈裂费米面
+        const cxRight = width * 0.77;
+        const cyRight = height * 0.5;
+        renderMomentumFermiSurface(cxRight, cyRight, 110);
+
+      } else {
+        // 全屏动量空间费米面大图
+        const cx = width * 0.5;
+        const cy = height * 0.5;
+        renderMomentumFermiSurface(cx, cy, 180);
+      }
+
+      // 实时更新 HUD 数据
+      const phiRad = (PARAMS.phiDeg * Math.PI) / 180.0;
+      const pSpin = Math.cos(2 * phiRad) * (PARAMS.deltaD / 840.0);
+      const polPercent = (pSpin * 100).toFixed(1);
+
+      document.getElementById('hudCurrent').textContent = `P_spin = ${polPercent}% (${pSpin >= 0 ? '自旋 ↑ 占优' : '自旋 ↓ 占优'})`;
+      document.getElementById('hdrDelta').textContent = `${PARAMS.deltaD} meV`;
+      document.getElementById('hdrPol').textContent = `${polPercent} %`;
+    }
+
+    // 绘制实空间晶格
+    function renderRealSpaceLattice(cx, cy) {
+      ctx.save();
+      ctx.font = '11px JetBrains Mono, monospace';
+      ctx.fillStyle = '#fff';
+      ctx.fillText('实空间: RuO₂ 金红石八面体交错晶格 (Net M = 0)', cx - 140, cy - 160);
+
+      // 晶格连线
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+      ctx.lineWidth = 1;
+      for (let atom of latticeAtoms) {
+        const p1 = project3D(atom.x, atom.y, atom.z, cx, cy);
+        // 连接相邻
+        const p2 = project3D(atom.x + 42, atom.y, atom.z, cx, cy);
+        const p3 = project3D(atom.x, atom.y + 42, atom.z, cx, cy);
+        ctx.beginPath();
+        ctx.moveTo(p1.px, p1.py); ctx.lineTo(p2.px, p2.py);
+        ctx.moveTo(p1.px, p1.py); ctx.lineTo(p3.px, p3.py);
+        ctx.stroke();
+      }
+
+      // 绘制原子与反平行自旋磁矩
+      for (let atom of latticeAtoms) {
+        const p = project3D(atom.x, atom.y, atom.z, cx, cy);
+        const spinLen = 14;
+        const pTip = project3D(atom.x, atom.y, atom.z + atom.spin * spinLen, cx, cy);
+
+        // 自旋矢量
+        ctx.strokeStyle = atom.spin === 1 ? 'var(--accent-spin-up)' : 'var(--accent-spin-dn)';
+        ctx.lineWidth = 2.0;
+        ctx.beginPath();
+        ctx.moveTo(p.px, p.py);
+        ctx.lineTo(pTip.px, pTip.py);
+        ctx.stroke();
+
+        ctx.fillStyle = ctx.strokeStyle;
+        ctx.beginPath();
+        ctx.arc(pTip.px, pTip.py, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 原子核
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+        ctx.beginPath();
+        ctx.arc(p.px, p.py, 3.2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // 绘制自旋流粒子与轨迹 (自旋向上: 粉红; 自旋向下: 青蓝)
+      for (let p of spinUpElectrons) {
+        const p3d = project3D(p.x, p.y, -12, cx, cy);
+        ctx.fillStyle = '#f43f5e';
+        ctx.beginPath();
+        ctx.arc(p3d.px, p3d.py, 3.0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      for (let p of spinDnElectrons) {
+        const p3d = project3D(p.x, p.y, 12, cx, cy);
+        ctx.fillStyle = '#06b6d4';
+        ctx.beginPath();
+        ctx.arc(p3d.px, p3d.py, 3.0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    // 绘制动量空间四叶草 d-波费米面
+    function renderMomentumFermiSurface(cx, cy, radius) {
+      ctx.save();
+      ctx.font = '11px JetBrains Mono, monospace';
+      ctx.fillStyle = 'var(--accent-gold)';
+      ctx.fillText('动量空间: d-波交错自旋劈裂费米面 (Four-leaf Clover)', cx - 150, cy - radius - 15);
+
+      // 动量轴 kx, ky
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(cx - radius - 20, cy); ctx.lineTo(cx + radius + 20, cy);
+      ctx.moveTo(cx, cy - radius - 20); ctx.lineTo(cx, cy + radius + 20);
+      ctx.stroke();
+
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+      ctx.fillText('kx', cx + radius + 25, cy + 4);
+      ctx.fillText('ky', cx - 6, cy - radius - 25);
+
+      // 节点线 Nodal Lines (kx = ± ky)
+      ctx.strokeStyle = 'rgba(251, 191, 36, 0.4)';
+      ctx.lineWidth = 1.2;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.moveTo(cx - radius, cy - radius); ctx.lineTo(cx + radius, cy + radius);
+      ctx.moveTo(cx - radius, cy + radius); ctx.lineTo(cx + radius, cy - radius);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = '#fbbf24';
+      ctx.fillText('节点线 Nodal Line (自旋完全简并)', cx + radius * 0.35, cy + radius * 0.95);
+
+      // 四叶草花瓣绘制
+      // 自旋向上能带费米面: kx^2 > ky^2 膨胀
+      const deltaFactor = (PARAMS.deltaD / 840.0) * 0.35;
+
+      // 1. 自旋向上 (粉红费米面)
+      ctx.strokeStyle = '#f43f5e';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      const numPts = 90;
+      for (let i = 0; i <= numPts; i++) {
+        const theta = (i / numPts) * Math.PI * 2;
+        // d波调制半径 r(θ) = r0 * (1 + delta * cos(2θ))
+        const r = radius * (0.75 + deltaFactor * Math.cos(2 * theta));
+        const px = cx + Math.cos(theta) * r;
+        const py = cy + Math.sin(theta) * r;
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      ctx.stroke();
+
+      // 2. 自旋向下 (青蓝费米面)
+      ctx.strokeStyle = '#06b6d4';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      for (let i = 0; i <= numPts; i++) {
+        const theta = (i / numPts) * Math.PI * 2;
+        // 反相 d波调制 r(θ) = r0 * (1 - delta * cos(2θ))
+        const r = radius * (0.75 - deltaFactor * Math.cos(2 * theta));
+        const px = cx + Math.cos(theta) * r;
+        const py = cy + Math.sin(theta) * r;
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      ctx.stroke();
+
+      // 象限极化标注
+      ctx.font = '12px JetBrains Mono, monospace';
+      ctx.fillStyle = '#f43f5e';
+      ctx.fillText('自旋 ↑ 占优', cx + radius * 0.45, cy - 8);
+      ctx.fillText('自旋 ↑ 占优', cx - radius * 0.85, cy - 8);
+      ctx.fillStyle = '#06b6d4';
+      ctx.fillText('自旋 ↓ 占优', cx - 35, cy - radius * 0.5);
+      ctx.fillText('自旋 ↓ 占优', cx - 35, cy + radius * 0.55);
+
+      // 电场注入方向指针
+      const phiRad = (PARAMS.phiDeg * Math.PI) / 180.0;
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 2.0;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(cx + Math.cos(phiRad) * (radius * 0.9), cy - Math.sin(phiRad) * (radius * 0.9));
+      ctx.stroke();
+      ctx.fillStyle = '#fff';
+      ctx.fillText(`E (ϕ = ${PARAMS.phiDeg}°)`, cx + Math.cos(phiRad) * (radius * 0.9) + 5, cy - Math.sin(phiRad) * (radius * 0.9));
+
+      ctx.restore();
+    }
+
+    // -------------------------------------------------------------
+    // 示波器 1 渲染：动量空间能带色散剖面 E(k)
+    // -------------------------------------------------------------
+    function renderScopeDispersion() {
+      const w = scopeDispCanvas.width / window.devicePixelRatio;
+      const h = scopeDispCanvas.height / window.devicePixelRatio;
+      ctxDisp.clearRect(0, 0, w, h);
+
+      // 零能基线
+      ctxDisp.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+      ctxDisp.lineWidth = 1;
+      ctxDisp.beginPath();
+      ctxDisp.moveTo(0, h * 0.5); ctxDisp.lineTo(w, h * 0.5);
+      ctxDisp.stroke();
+
+      const midX = w * 0.5;
+      const splitMax = (PARAMS.deltaD / 840.0) * (h * 0.32);
+
+      // 1. 自旋向上能带 E_↑(k) (粉红)
+      ctxDisp.strokeStyle = 'var(--accent-spin-up)';
+      ctxDisp.lineWidth = 2.0;
+      ctxDisp.beginPath();
+      for (let x = 0; x < w; x++) {
+        const dk = (x - midX) / (w * 0.35);
+        // E(k) = k^2 + Δ·(kx^2 - ky^2)
+        const eBase = (Math.pow(dk, 2) - 0.6) * (h * 0.4);
+        const eSplit = splitMax * Math.cos(dk * 2.8);
+        const y = (h * 0.5) - (eBase + eSplit);
+        if (x === 0) ctxDisp.moveTo(x, y);
+        else ctxDisp.lineTo(x, y);
+      }
+      ctxDisp.stroke();
+
+      // 2. 自旋向下能带 E_↓(k) (青蓝)
+      ctxDisp.strokeStyle = 'var(--accent-spin-dn)';
+      ctxDisp.lineWidth = 2.0;
+      ctxDisp.beginPath();
+      for (let x = 0; x < w; x++) {
+        const dk = (x - midX) / (w * 0.35);
+        const eBase = (Math.pow(dk, 2) - 0.6) * (h * 0.4);
+        const eSplit = -splitMax * Math.cos(dk * 2.8);
+        const y = (h * 0.5) - (eBase + eSplit);
+        if (x === 0) ctxDisp.moveTo(x, y);
+        else ctxDisp.lineTo(x, y);
+      }
+      ctxDisp.stroke();
+
+      document.getElementById('scopeDispVal').textContent = `ΔE_max = ${PARAMS.deltaD} meV`;
+    }
+
+    // -------------------------------------------------------------
+    // 示波器 2 渲染：自旋极化度 P(ϕ) 随方位角演化
+    // -------------------------------------------------------------
+    function renderScopePolarization() {
+      const w = scopePolCanvas.width / window.devicePixelRatio;
+      const h = scopePolCanvas.height / window.devicePixelRatio;
+      ctxPol.clearRect(0, 0, w, h);
+
+      // 零极化平分线
+      ctxPol.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+      ctxPol.lineWidth = 1;
+      ctxPol.beginPath();
+      ctxPol.moveTo(0, h * 0.5); ctxPol.lineTo(w, h * 0.5);
+      ctxPol.stroke();
+
+      // 极化率曲线
+      ctxPol.strokeStyle = 'var(--accent-spin-dn)';
+      ctxPol.lineWidth = 2.0;
+      ctxPol.beginPath();
+
+      const step = w / (HISTORY_LEN - 1);
+      for (let i = 0; i < polHistory.length; i++) {
+        const val = polHistory[i]; // -1.0 ~ +1.0
+        const y = (h * 0.5) - val * (h * 0.42);
+        const x = i * step;
+        if (i === 0) ctxPol.moveTo(x, y);
+        else ctxPol.lineTo(x, y);
+      }
+      ctxPol.stroke();
+
+      const lastP = polHistory[polHistory.length - 1] || 0;
+      document.getElementById('scopePolVal').textContent = `P_spin = ${(lastP * 100).toFixed(1)}%`;
+    }
+
+    // -------------------------------------------------------------
+    // 交互与参数控制响应
+    // -------------------------------------------------------------
+    function updateParam(key, val) {
+      if (key === 'delta') {
+        PARAMS.deltaD = parseInt(val);
+        document.getElementById('valDelta').textContent = `${PARAMS.deltaD} meV`;
+      }
+      if (key === 'phi') {
+        PARAMS.phiDeg = parseInt(val);
+        document.getElementById('valPhi').textContent = `${PARAMS.phiDeg}°`;
+      }
+      if (key === 'e') {
+        PARAMS.eField = parseInt(val);
+        document.getElementById('valE').textContent = `${PARAMS.eField} kV/cm`;
+      }
+      if (key === 'ef') {
+        PARAMS.eF = parseInt(val);
+        document.getElementById('valEf').textContent = `${PARAMS.eF >= 0 ? '+' : ''}${PARAMS.eF} meV`;
+      }
+    }
+
+    function applyPreset(id) {
+      document.querySelectorAll('.btn-grid button').forEach(b => b.classList.remove('active'));
+      if (id === 1) {
+        document.getElementById('p1Btn').classList.add('active');
+        PARAMS.deltaD = 840;
+        PARAMS.phiDeg = 15;
+        PARAMS.eField = 45;
+        PARAMS.eF = 0;
+        document.getElementById('hdrMaterial').textContent = 'RuO₂ (典型交错磁体)';
+      } else if (id === 2) {
+        document.getElementById('p2Btn').classList.add('active');
+        PARAMS.deltaD = 1100;
+        PARAMS.phiDeg = 45;
+        PARAMS.eField = 60;
+        PARAMS.eF = -120;
+        document.getElementById('hdrMaterial').textContent = 'MnTe (g-波六角交错磁体)';
+      } else if (id === 3) {
+        document.getElementById('p3Btn').classList.add('active');
+        PARAMS.deltaD = 0; // 全简并常规反铁磁对比
+        PARAMS.phiDeg = 0;
+        PARAMS.eField = 30;
+        PARAMS.eF = 0;
+        document.getElementById('hdrMaterial').textContent = '常规反铁磁体 (Δ_d = 0)';
+      } else if (id === 4) {
+        document.getElementById('p4Btn').classList.add('active');
+        PARAMS.deltaD = 840;
+        PARAMS.phiDeg = 45; // 节点线方向注入，P_spin = 0
+        PARAMS.eField = 50;
+        PARAMS.eF = 0;
+        document.getElementById('hdrMaterial').textContent = '节点线注入 (P_spin ≡ 0)';
+      }
+
+      document.getElementById('slDelta').value = PARAMS.deltaD;
+      document.getElementById('slPhi').value = PARAMS.phiDeg;
+      document.getElementById('slE').value = PARAMS.eField;
+      document.getElementById('slEf').value = PARAMS.eF;
+
+      updateParam('delta', PARAMS.deltaD);
+      updateParam('phi', PARAMS.phiDeg);
+      updateParam('e', PARAMS.eField);
+      updateParam('ef', PARAMS.eF);
+
+      fireSpinPulse();
+    }
+
+    function togglePlay() {
+      PARAMS.paused = !PARAMS.paused;
+      document.getElementById('playIcon').textContent = PARAMS.paused ? '▶' : '⏸';
+      document.getElementById('playText').textContent = PARAMS.paused ? '继续仿真' : '暂停仿真';
+    }
+
+    function resetSim() {
+      polHistory.fill(0);
+      initLatticeAndParticles();
+    }
+
+    // 鼠标拖拽视角
+    let isDragging = false;
+    let prevMouseX = 0, prevMouseY = 0;
+
+    mainCanvas.addEventListener('mousedown', (e) => {
+      isDragging = true;
+      prevMouseX = e.clientX;
+      prevMouseY = e.clientY;
+      initAudio();
+    });
+
+    window.addEventListener('mouseup', () => { isDragging = false; });
+
+    mainCanvas.addEventListener('mousemove', (e) => {
+      if (!isDragging) return;
+      const dx = e.clientX - prevMouseX;
+      const dy = e.clientY - prevMouseY;
+      PARAMS.camRotY += dx * 0.008;
+      PARAMS.camRotX += dy * 0.008;
+      prevMouseX = e.clientX;
+      prevMouseY = e.clientY;
+    });
+
+    // -------------------------------------------------------------
+    // 视口尺寸适配
+    // -------------------------------------------------------------
+    function resizeCanvases() {
+      const dpr = window.devicePixelRatio || 1;
+      const rect = mainCanvas.parentElement.getBoundingClientRect();
+      width = rect.width;
+      height = rect.height;
+
+      mainCanvas.width = width * dpr;
+      mainCanvas.height = height * dpr;
+      ctx.scale(dpr, dpr);
+
+      const rectDisp = scopeDispCanvas.parentElement.getBoundingClientRect();
+      scopeDispCanvas.width = rectDisp.width * dpr;
+      scopeDispCanvas.height = rectDisp.height * dpr;
+      ctxDisp.scale(dpr, dpr);
+
+      const rectPol = scopePolCanvas.parentElement.getBoundingClientRect();
+      scopePolCanvas.width = rectPol.width * dpr;
+      scopePolCanvas.height = rectPol.height * dpr;
+      ctxPol.scale(dpr, dpr);
+    }
+
+    window.addEventListener('resize', () => {
+      resizeCanvases();
+      renderMainView();
+      renderScopeDispersion();
+      renderScopePolarization();
+    });
+
+    // -------------------------------------------------------------
+    // 主循环驱动
+    // -------------------------------------------------------------
+    function mainLoop(now) {
+      const dt = Math.min(0.04, (now - lastTime) / 1000.0);
+      lastTime = now;
+
+      updateSimulation(dt);
+      renderMainView();
+      renderScopeDispersion();
+      renderScopePolarization();
+
+      requestAnimationFrame(mainLoop);
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      resizeCanvases();
+      initLatticeAndParticles();
+      requestAnimationFrame(mainLoop);
+    });
+  </script>
+</body>
+</html>

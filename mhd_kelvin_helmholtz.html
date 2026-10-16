@@ -1,0 +1,981 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>等离子体磁流体力学 (MHD) 剪切失稳与磁重联全息模拟器</title>
+<style>
+  :root {
+    --bg-primary: #04050d;
+    --panel-bg: rgba(9, 13, 28, 0.78);
+    --panel-border: rgba(244, 63, 94, 0.28);
+    --accent-rose: #f43f5e;
+    --accent-gold: #fbbf24;
+    --accent-cyan: #06b6d4;
+    --text-primary: #f8fafc;
+    --text-dim: #94a3b8;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    overflow: hidden;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    user-select: none;
+  }
+
+  /* 主模拟视口 */
+  #viewport-container {
+    flex: 1;
+    position: relative;
+    height: 100vh;
+    background: #020306;
+    overflow: hidden;
+  }
+  canvas#mhdCanvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    cursor: crosshair;
+    image-rendering: pixelated;
+  }
+
+  /* 顶部科幻遥测条 */
+  #telemetry-bar {
+    position: absolute;
+    top: 20px;
+    left: 24px;
+    display: flex;
+    gap: 12px;
+    z-index: 10;
+  }
+  .telemetry-chip {
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    backdrop-filter: blur(12px);
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-family: monospace;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+  }
+  .chip-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--accent-rose);
+    box-shadow: 0 0 8px var(--accent-rose);
+    animation: pulse 1.8s infinite ease-in-out;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 0.5; transform: scale(0.9); }
+    50% { opacity: 1; transform: scale(1.3); }
+  }
+
+  /* 悬浮动能与磁能演化图表 HUD */
+  #energy-overlay {
+    position: absolute;
+    bottom: 24px;
+    left: 24px;
+    width: 370px;
+    height: 160px;
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    backdrop-filter: blur(16px);
+    box-shadow: 0 12px 36px rgba(0,0,0,0.6);
+    padding: 10px 14px;
+    display: flex;
+    flex-direction: column;
+    pointer-events: none;
+  }
+  .overlay-title {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--accent-rose);
+    margin-bottom: 6px;
+    display: flex;
+    justify-content: space-between;
+  }
+  canvas#energyCanvas {
+    width: 100%;
+    height: 120px;
+    border-radius: 6px;
+    background: rgba(0,0,0,0.45);
+  }
+
+  /* 右侧控制面板 */
+  #control-panel {
+    width: 360px;
+    height: 100vh;
+    background: var(--panel-bg);
+    border-left: 1px solid var(--panel-border);
+    backdrop-filter: blur(20px);
+    overflow-y: auto;
+    padding: 24px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    box-shadow: -10px 0 30px rgba(0,0,0,0.6);
+    z-index: 20;
+  }
+  #control-panel::-webkit-scrollbar { width: 4px; }
+  #control-panel::-webkit-scrollbar-thumb { background: rgba(244, 63, 94, 0.4); border-radius: 4px; }
+
+  .header-group h1 {
+    font-size: 18px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .header-group h1 span {
+    background: linear-gradient(135deg, var(--accent-rose), var(--accent-gold));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .header-group p {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-top: 4px;
+    line-height: 1.4;
+  }
+
+  .section-card {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 10px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .section-card h2 {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--accent-rose);
+    font-weight: 600;
+  }
+
+  /* 按钮与网格 */
+  .btn-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .preset-btn, .action-btn {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: var(--text-primary);
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: center;
+  }
+  .preset-btn:hover, .action-btn:hover {
+    background: rgba(244, 63, 94, 0.25);
+    border-color: var(--accent-rose);
+    color: #fff;
+  }
+  .preset-btn.active, .action-btn.active {
+    background: linear-gradient(135deg, rgba(244, 63, 94, 0.25), rgba(251, 191, 36, 0.2));
+    border-color: var(--accent-rose);
+    box-shadow: 0 0 12px rgba(244, 63, 94, 0.35);
+    color: #fff;
+    font-weight: 600;
+  }
+
+  /* 控制滑块 */
+  .slider-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .slider-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+  .slider-header span.val {
+    color: var(--accent-gold);
+    font-family: monospace;
+  }
+  input[type=range] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 4px;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.15);
+    outline: none;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--accent-rose);
+    cursor: pointer;
+    box-shadow: 0 0 8px var(--accent-rose);
+    transition: transform 0.1s;
+  }
+  input[type=range]::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+  }
+
+  .legend-box {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 10px;
+    border-radius: 6px;
+    background: rgba(0,0,0,0.3);
+    font-size: 11px;
+  }
+  .plasma-bar {
+    width: 140px;
+    height: 8px;
+    border-radius: 4px;
+    background: linear-gradient(to right, #06b6d4, #1e1b4b, #f43f5e, #fbbf24);
+  }
+
+  .tip-text {
+    font-size: 11px;
+    line-height: 1.5;
+    color: var(--text-dim);
+  }
+  .tip-text b { color: #fff; }
+</style>
+</head>
+<body>
+
+<!-- 主模拟视口 -->
+<div id="viewport-container">
+  <canvas id="mhdCanvas"></canvas>
+
+  <!-- 顶部状态遥测 -->
+  <div id="telemetry-bar">
+    <div class="telemetry-chip">
+      <div class="chip-dot"></div>
+      <span>阿尔芬数 M_A: <span id="stat-ma" style="color:var(--accent-gold)">1.45</span></span>
+    </div>
+    <div class="telemetry-chip">
+      <span>磁重联状态: <span id="stat-reconnect" style="color:var(--accent-rose)">剪切层失稳卷曲</span></span>
+    </div>
+    <div class="telemetry-chip">
+      <span>电流片峰值 |J_z|: <span id="stat-jz" style="color:#38bdf8">2.84</span></span>
+    </div>
+    <div class="telemetry-chip">
+      <span>FPS: <span id="stat-fps" style="color:#fff">60</span></span>
+    </div>
+  </div>
+
+  <!-- 悬浮动能与磁能时域图表 HUD -->
+  <div id="energy-overlay">
+    <div class="overlay-title">
+      <span>MHD 能量转换与发电机效应 (Energy Partition)</span>
+      <span style="color:var(--accent-rose)">Kinetic (Rose) / Magnetic (Gold)</span>
+    </div>
+    <canvas id="energyCanvas" width="340" height="120"></canvas>
+  </div>
+</div>
+
+<!-- 右侧控制坞 -->
+<div id="control-panel">
+  <div class="header-group">
+    <h1><span>MHD</span> RECONNECTION</h1>
+    <p>等离子体磁流体动力学开尔文-亥姆霍兹剪切失稳与磁重联模拟系统</p>
+  </div>
+
+  <!-- 磁层拓扑预设 -->
+  <div class="section-card">
+    <h2>磁层剪切流拓扑预设 (MHD Topology)</h2>
+    <div class="btn-grid">
+      <button class="preset-btn active" data-preset="parallel_b">平行均质磁场 (B ∥ U)</button>
+      <button class="preset-btn" data-preset="harris_sheet">哈里斯反向电流片 (Harris Sheet)</button>
+      <button class="preset-btn" data-preset="magnetic_island">四极磁岛并合 (Islands)</button>
+      <button class="preset-btn" data-preset="hydro_only">纯流体失稳 (B = 0)</button>
+    </div>
+  </div>
+
+  <!-- 物理参数控制 -->
+  <div class="section-card">
+    <h2>磁流体动力学参数 (Parameters)</h2>
+    <div class="slider-row">
+      <div class="slider-header">
+        <span>初始磁场强度 B₀ (Magnetic Field)</span>
+        <span class="val" id="val-b0">0.24</span>
+      </div>
+      <input type="range" id="param-b0" min="0.0" max="0.6" step="0.02" value="0.24">
+    </div>
+
+    <div class="slider-row">
+      <div class="slider-header">
+        <span>剪切速度流跃变 ΔU (Shear Speed)</span>
+        <span class="val" id="val-shear">0.65</span>
+      </div>
+      <input type="range" id="param-shear" min="0.2" max="1.2" step="0.05" value="0.65">
+    </div>
+
+    <div class="slider-row">
+      <div class="slider-header">
+        <span>磁阻率 / 欧姆耗散 η_m (Resistivity)</span>
+        <span class="val" id="val-eta">0.003</span>
+      </div>
+      <input type="range" id="param-eta" min="0.0005" max="0.015" step="0.0005" value="0.003">
+    </div>
+
+    <div class="slider-row">
+      <div class="slider-header">
+        <span>剪切扰动模数 (Wave Modes)</span>
+        <span class="val" id="val-modes">2</span>
+      </div>
+      <input type="range" id="param-modes" min="1" max="5" step="1" value="2">
+    </div>
+  </div>
+
+  <!-- 视效与磁力线显示 -->
+  <div class="section-card">
+    <h2>视效与等离子体图例 (Visualization)</h2>
+    <div class="legend-box">
+      <span style="color:#06b6d4">反向剪切流</span>
+      <div class="plasma-bar"></div>
+      <span style="color:#fbbf24">正向高速流</span>
+    </div>
+
+    <div class="btn-grid" style="margin-top:6px;">
+      <button class="action-btn active" id="btn-mag-lines">绘制高能磁力线</button>
+      <button class="action-btn active" id="btn-show-current">叠加电流片辉光</button>
+    </div>
+
+    <div class="btn-grid" style="margin-top:4px;">
+      <button class="action-btn" id="btn-reset">重置流场微扰</button>
+      <button class="action-btn active" id="btn-sound">开启磁重联等离子音景</button>
+    </div>
+  </div>
+
+  <!-- 交互说明卡 -->
+  <div class="tip-text">
+    💡 <b>磁流体开尔文-亥姆霍兹与磁重联原理：</b><br>
+    • <b>磁张力稳定效应：</b> 磁力线相当于具有弹性的拉伸细丝，对小尺度界面弯曲施加洛伦兹回弹力 ($\mathbf{J} \times \mathbf{B}$)。当流速超过阿尔芬速度临界点时，剪切力克服磁张力卷成巨型“猫眼”涡。<br>
+    • <b>磁重联 (Magnetic Reconnection)：</b> 在强剪切作用下，反向平行的磁力线被压入 X 型中性点，电阻耗散导致拓扑断裂重接，剧烈释放高能耀斑！<br>
+    • <b>鼠标交互：</b> 在画布中点击或拖拽可直接向等离子体剪切层注入垂直扰动冲量！
+  </div>
+</div>
+
+<script>
+/**
+ * 2D 磁流体动力学 (MHD) 求解器
+ * 网格尺度: NX x NY
+ * 磁场采用磁矢势 Az 保证严格无散度: div(B) = 0
+ */
+const NX = 220;
+const NY = 130;
+const N = NX * NY;
+
+// 流体物理量
+let rho = new Float32Array(N);    // 密度
+let ux = new Float32Array(N);     // 速度 x
+let uy = new Float32Array(N);     // 速度 y
+let Az = new Float32Array(N);     // 磁矢势 (B = curl(Az * z_hat) = (dAz/dy, -dAz/dx))
+let Jz = new Float32Array(N);     // 电流密度 Jz = - laplacian(Az)
+
+// 临时缓冲区
+let rhoNext = new Float32Array(N);
+let uxNext = new Float32Array(N);
+let uyNext = new Float32Array(N);
+let AzNext = new Float32Array(N);
+
+// 控制参数
+let B0 = 0.24;                    // 背景特征磁场
+let shearSpeed = 0.65;            // 上下速度差
+let etaM = 0.003;                 // 磁阻率
+let waveModes = 2;                // 界面初始波动数
+let currentPreset = 'parallel_b';
+let showMagLines = true;
+let showCurrent = true;
+
+// 能量时域记录
+const HIST_LEN = 140;
+let eKinHist = new Float32Array(HIST_LEN);
+let eMagHist = new Float32Array(HIST_LEN);
+let histIdx = 0;
+
+// 画布引用
+const mhdCanvas = document.getElementById('mhdCanvas');
+const mhdCtx = mhdCanvas.getContext('2d');
+const energyCanvas = document.getElementById('energyCanvas');
+const energyCtx = energyCanvas.getContext('2d');
+
+// 离屏渲染缓冲区
+let offCanvas = document.createElement('canvas');
+offCanvas.width = NX;
+offCanvas.height = NY;
+let offCtx = offCanvas.getContext('2d');
+let imgData = offCtx.createImageData(NX, NY);
+
+// Web Audio API
+let audioCtx = null;
+let mhdDroneOsc = null;
+let mhdFilter = null;
+let mhdGain = null;
+let isAudioActive = false;
+
+// 帧率
+let lastTime = performance.now();
+let frames = 0;
+
+/**
+ * 初始化 MHD 剪切层与磁场
+ */
+function initMHD() {
+  const midY = Math.floor(NY * 0.5);
+  const shearWidth = 8.0;
+
+  for (let y = 0; y < NY; y++) {
+    const dy = y - midY;
+    // 典型双曲正切速度剖面 tanh(dy / a)
+    const tanhProf = Math.tanh(dy / shearWidth);
+    const uX0 = shearSpeed * 0.5 * tanhProf;
+
+    for (let x = 0; x < NX; x++) {
+      const idx = y * NX + x;
+
+      // 界面正弦微扰
+      const pert = 0.08 * Math.sin((x / NX) * Math.PI * 2 * waveModes) * Math.exp(-(dy * dy) / 120.0);
+
+      ux[idx] = uX0;
+      uy[idx] = pert * shearSpeed;
+      rho[idx] = 1.0 + 0.3 * tanhProf; // 上下微小密度跃变
+
+      switch (currentPreset) {
+        case 'parallel_b':
+          // 顺流平行磁场: Bx = B0, By = 0 -> Az = B0 * y
+          Az[idx] = B0 * y;
+          break;
+
+        case 'harris_sheet':
+          // 哈里斯反向磁场: Bx = B0 * tanh(dy / a)
+          // Az = integral(Bx dy) = B0 * shearWidth * ln(cosh(dy / a))
+          Az[idx] = B0 * shearWidth * Math.log(Math.cosh(dy / shearWidth));
+          break;
+
+        case 'magnetic_island':
+          // 周期性磁岛拓扑
+          Az[idx] = B0 * 12.0 * (Math.cos((x / NX) * Math.PI * 2 * waveModes) * Math.sin((y / NY) * Math.PI * 2));
+          break;
+
+        case 'hydro_only':
+        default:
+          Az[idx] = 0;
+          break;
+      }
+    }
+  }
+
+  // 计算初始电流密度
+  computeCurrentDensity();
+}
+
+/**
+ * 计算电流密度 Jz = - nabla^2(Az)
+ */
+function computeCurrentDensity() {
+  for (let y = 1; y < NY - 1; y++) {
+    const row = y * NX;
+    for (let x = 0; x < NX; x++) {
+      const xL = x > 0 ? x - 1 : NX - 1;
+      const xR = x < NX - 1 ? x + 1 : 0;
+      const idx = row + x;
+
+      const lap = Az[row + xL] + Az[row + xR] + Az[(y - 1) * NX + x] + Az[(y + 1) * NX + x] - 4.0 * Az[idx];
+      Jz[idx] = -lap;
+    }
+  }
+}
+
+/**
+ * MHD 求解器核心迭代步
+ * 结合磁对流、洛伦兹力加速度与磁阻重联
+ */
+function stepMHD() {
+  const dt = 0.45;
+
+  computeCurrentDensity();
+
+  // 1. 动量更新：叠加洛伦兹力 F_L = J x B
+  for (let y = 1; y < NY - 1; y++) {
+    const row = y * NX;
+    for (let x = 0; x < NX; x++) {
+      const idx = row + x;
+      const xL = x > 0 ? x - 1 : NX - 1;
+      const xR = x < NX - 1 ? x + 1 : 0;
+
+      // 磁场分量 Bx = dAz/dy, By = - dAz/dx
+      const Bx = (Az[(y + 1) * NX + x] - Az[(y - 1) * NX + x]) * 0.5;
+      const By = -(Az[row + xR] - Az[row + xL]) * 0.5;
+
+      // 洛伦兹力 F_x = Jz * By, F_y = - Jz * Bx
+      const currJ = Jz[idx];
+      const Fx = currJ * By;
+      const Fy = -currJ * Bx;
+
+      const invRho = 1.0 / rho[idx];
+      ux[idx] += Fx * invRho * dt;
+      uy[idx] += Fy * invRho * dt;
+
+      // 弱流体黏度耗散
+      const lapUx = ux[row + xL] + ux[row + xR] + ux[(y - 1) * NX + x] + ux[(y + 1) * NX + x] - 4.0 * ux[idx];
+      const lapUy = uy[row + xL] + uy[row + xR] + uy[(y - 1) * NX + x] + uy[(y + 1) * NX + x] - 4.0 * uy[idx];
+      ux[idx] += 0.002 * lapUx;
+      uy[idx] += 0.002 * lapUy;
+    }
+  }
+
+  // 2. 半拉格朗日对流求解：输运 rho, ux, uy, Az
+  for (let y = 1; y < NY - 1; y++) {
+    const row = y * NX;
+    for (let x = 0; x < NX; x++) {
+      const idx = row + x;
+
+      // 回溯点
+      let bx = x - ux[idx] * dt;
+      let by = y - uy[idx] * dt;
+
+      // 边界处理: X 轴周期性，Y 轴反射/夹紧
+      while (bx < 0) bx += NX;
+      while (bx >= NX) bx -= NX;
+      by = Math.max(1, Math.min(NY - 2, by));
+
+      // 双线性插值回溯
+      const ix = Math.floor(bx);
+      const iy = Math.floor(by);
+      const fx = bx - ix;
+      const fy = by - iy;
+      const ix1 = (ix + 1) % NX;
+
+      const i00 = iy * NX + ix;
+      const i10 = iy * NX + ix1;
+      const i01 = (iy + 1) * NX + ix;
+      const i11 = (iy + 1) * NX + ix1;
+
+      rhoNext[idx] = (1 - fy) * ((1 - fx) * rho[i00] + fx * rho[i10]) + fy * ((1 - fx) * rho[i01] + fx * rho[i11]);
+      uxNext[idx]  = (1 - fy) * ((1 - fx) * ux[i00]  + fx * ux[i10])  + fy * ((1 - fx) * ux[i01]  + fx * ux[i11]);
+      uyNext[idx]  = (1 - fy) * ((1 - fx) * uy[i00]  + fx * uy[i10])  + fy * ((1 - fx) * uy[i01]  + fx * uy[i11]);
+      AzNext[idx]  = (1 - fy) * ((1 - fx) * Az[i00]  + fx * Az[i10])  + fy * ((1 - fx) * Az[i01]  + fx * Az[i11]);
+
+      // 叠加磁扩散 (欧姆耗散驱动磁重联)
+      const lapAz = Az[row + (x > 0 ? x - 1 : NX - 1)] + Az[row + (x < NX - 1 ? x + 1 : 0)] +
+                    Az[(y - 1) * NX + x] + Az[(y + 1) * NX + x] - 4.0 * Az[idx];
+      AzNext[idx] += etaM * lapAz * dt;
+    }
+  }
+
+  // 3. 交换数据缓冲区
+  rho.set(rhoNext);
+  ux.set(uxNext);
+  uy.set(uyNext);
+  Az.set(AzNext);
+
+  // 4. 统计能量与重联物理指标
+  measureEnergies();
+}
+
+/**
+ * 测量动能与磁能统计
+ */
+function measureEnergies() {
+  let eKin = 0;
+  let eMag = 0;
+  let maxJ = 0;
+
+  for (let y = 1; y < NY - 1; y++) {
+    const row = y * NX;
+    for (let x = 0; x < NX; x++) {
+      const idx = row + x;
+      const xL = x > 0 ? x - 1 : NX - 1;
+      const xR = x < NX - 1 ? x + 1 : 0;
+
+      // 动能密度 0.5 * rho * (u^2)
+      const u2 = ux[idx] * ux[idx] + uy[idx] * uy[idx];
+      eKin += 0.5 * rho[idx] * u2;
+
+      // 磁能密度 0.5 * B^2
+      const Bx = (Az[(y + 1) * NX + x] - Az[(y - 1) * NX + x]) * 0.5;
+      const By = -(Az[row + xR] - Az[row + xL]) * 0.5;
+      const B2 = Bx * Bx + By * By;
+      eMag += 0.5 * B2;
+
+      const jAbs = Math.abs(Jz[idx]);
+      if (jAbs > maxJ) maxJ = jAbs;
+    }
+  }
+
+  eKinHist[histIdx] = eKin / N;
+  eMagHist[histIdx] = eMag / N;
+  histIdx = (histIdx + 1) % HIST_LEN;
+
+  // 更新 HUD 遥测数值
+  const ma = (shearSpeed / Math.max(0.01, B0)).toFixed(2);
+  document.getElementById('stat-ma').innerText = ma;
+  document.getElementById('stat-jz').innerText = maxJ.toFixed(2);
+
+  const reconTag = document.getElementById('stat-reconnect');
+  if (maxJ > 2.2) {
+    reconTag.innerText = 'X点强磁重联爆发中 ⚡';
+    reconTag.style.color = 'var(--accent-rose)';
+    triggerReconnectionSound();
+  } else {
+    reconTag.innerText = '剪切层失稳卷曲';
+    reconTag.style.color = 'var(--accent-gold)';
+  }
+
+  updateAudioFeedback(eKin, eMag);
+  renderEnergyChart();
+}
+
+/**
+ * 渲染全场等离子体密度、电流片发光与磁力线
+ */
+function renderSimulation() {
+  const data = imgData.data;
+
+  // 1. 逐像素着色等离子体
+  for (let i = 0; i < N; i++) {
+    const pIdx = i * 4;
+    const u = ux[i];
+    const r = rho[i];
+    const j = Math.abs(Jz[i]);
+
+    // 颜色渐变: 反向流为青蓝 (#06b6d4)，正向高速流为暖红/橙黄 (#f43f5e, #fbbf24)
+    const normU = Math.max(-1.0, Math.min(1.0, u / (shearSpeed * 0.6)));
+
+    let cr = 0, cg = 0, cb = 0;
+    if (normU > 0) {
+      cr = Math.floor(18 + normU * 220);
+      cg = Math.floor(10 + normU * 75);
+      cb = Math.floor(25 + normU * 30);
+    } else {
+      cr = Math.floor(18 + (-normU) * 10);
+      cg = Math.floor(10 + (-normU) * 160);
+      cb = Math.floor(25 + (-normU) * 200);
+    }
+
+    // 叠加电流片高能白热辉光
+    if (showCurrent && j > 0.4) {
+      const jGlow = Math.min(220, Math.floor((j - 0.4) * 85));
+      cr = Math.min(255, cr + jGlow);
+      cg = Math.min(255, cg + jGlow);
+      cb = Math.min(255, cb + Math.floor(jGlow * 1.2));
+    }
+
+    data[pIdx] = cr;
+    data[pIdx + 1] = cg;
+    data[pIdx + 2] = cb;
+    data[pIdx + 3] = 255;
+  }
+
+  offCtx.putImageData(imgData, 0, 0);
+
+  // 缩放绘制到主画布
+  mhdCtx.imageSmoothingEnabled = false;
+  mhdCtx.drawImage(offCanvas, 0, 0, mhdCanvas.width, mhdCanvas.height);
+
+  // 2. 绘制磁力线等高线 Az(x, y) = const
+  if (showMagLines) {
+    drawMagneticFieldLines();
+  }
+}
+
+/**
+ * 绘制磁矢势 Az 的等值线 (磁力线追踪)
+ */
+function drawMagneticFieldLines() {
+  const scaleX = mhdCanvas.width / NX;
+  const scaleY = mhdCanvas.height / NY;
+
+  mhdCtx.strokeStyle = 'rgba(251, 191, 36, 0.45)';
+  mhdCtx.lineWidth = 1.2;
+
+  // 取 16 条离散等势磁力线
+  const contourLevels = 16;
+  const dAz = (B0 * NY * 1.2) / contourLevels;
+
+  for (let c = -contourLevels / 2; c <= contourLevels / 2; c++) {
+    const targetAz = c * dAz;
+
+    mhdCtx.beginPath();
+    for (let x = 0; x < NX; x += 2) {
+      // 沿每列竖直扫描等值点
+      for (let y = 1; y < NY - 1; y += 2) {
+        const idx = y * NX + x;
+        const idxNext = (y + 1) * NX + x;
+
+        if ((Az[idx] - targetAz) * (Az[idxNext] - targetAz) <= 0) {
+          const t = Math.abs(Az[idx] - targetAz) / Math.max(1e-5, Math.abs(Az[idxNext] - Az[idx]));
+          const px = x * scaleX;
+          const py = (y + t) * scaleY;
+
+          mhdCtx.rect(px, py, 1.5, 1.5);
+        }
+      }
+    }
+    mhdCtx.stroke();
+  }
+}
+
+/**
+ * 绘制动能与磁能演化图表 HUD
+ */
+function renderEnergyChart() {
+  const w = energyCanvas.width;
+  const h = energyCanvas.height;
+  energyCtx.clearRect(0, 0, w, h);
+
+  energyCtx.strokeStyle = 'rgba(255,255,255,0.12)';
+  energyCtx.beginPath();
+  energyCtx.moveTo(0, h * 0.5);
+  energyCtx.lineTo(w, h * 0.5);
+  energyCtx.stroke();
+
+  // 1. 动能曲线 (玫瑰红)
+  energyCtx.strokeStyle = '#f43f5e';
+  energyCtx.lineWidth = 2;
+  energyCtx.beginPath();
+  for (let i = 0; i < HIST_LEN; i++) {
+    const idx = (histIdx + i) % HIST_LEN;
+    const px = (i / (HIST_LEN - 1)) * w;
+    const py = (h - 15) - Math.min(h - 25, eKinHist[idx] * (h * 4.5));
+    if (i === 0) energyCtx.moveTo(px, py);
+    else energyCtx.lineTo(px, py);
+  }
+  energyCtx.stroke();
+
+  // 2. 磁能曲线 (金黄色)
+  energyCtx.strokeStyle = '#fbbf24';
+  energyCtx.lineWidth = 1.5;
+  energyCtx.setLineDash([3, 2]);
+  energyCtx.beginPath();
+  for (let i = 0; i < HIST_LEN; i++) {
+    const idx = (histIdx + i) % HIST_LEN;
+    const px = (i / (HIST_LEN - 1)) * w;
+    const py = (h - 15) - Math.min(h - 25, eMagHist[idx] * (h * 5.0));
+    if (i === 0) energyCtx.moveTo(px, py);
+    else energyCtx.lineTo(px, py);
+  }
+  energyCtx.stroke();
+  energyCtx.setLineDash([]);
+}
+
+/**
+ * Web Audio 等离子体阿尔芬波与磁重联声效
+ */
+function initAudio() {
+  if (audioCtx) return;
+  const AudioContext = window.AudioContext || window.webkitAudioContext;
+  audioCtx = new AudioContext();
+
+  mhdDroneOsc = audioCtx.createOscillator();
+  mhdDroneOsc.type = 'sawtooth';
+  mhdDroneOsc.frequency.setValueAtTime(58.0, audioCtx.currentTime); // Bb1
+
+  mhdFilter = audioCtx.createBiquadFilter();
+  mhdFilter.type = 'lowpass';
+  mhdFilter.frequency.setValueAtTime(190, audioCtx.currentTime);
+  mhdFilter.Q.setValueAtTime(3.5, audioCtx.currentTime);
+
+  mhdGain = audioCtx.createGain();
+  mhdGain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+
+  mhdDroneOsc.connect(mhdFilter);
+  mhdFilter.connect(mhdGain);
+  mhdGain.connect(audioCtx.destination);
+
+  mhdDroneOsc.start();
+  isAudioActive = true;
+}
+
+function updateAudioFeedback(eKin, eMag) {
+  if (!isAudioActive || !audioCtx) return;
+  const targetFreq = 160 + (eKin / N) * 800 + (eMag / N) * 600;
+  mhdFilter.frequency.setTargetAtTime(targetFreq, audioCtx.currentTime, 0.1);
+}
+
+function triggerReconnectionSound() {
+  if (!isAudioActive || !audioCtx) return;
+  const now = audioCtx.currentTime;
+  const burstOsc = audioCtx.createOscillator();
+  const burstGain = audioCtx.createGain();
+
+  burstOsc.type = 'triangle';
+  burstOsc.frequency.setValueAtTime(740, now);
+  burstOsc.frequency.exponentialRampToValueAtTime(140, now + 0.25);
+
+  burstGain.gain.setValueAtTime(0.18, now);
+  burstGain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+
+  burstOsc.connect(burstGain);
+  burstGain.connect(audioCtx.destination);
+  burstOsc.start(now);
+  burstOsc.stop(now + 0.3);
+}
+
+/**
+ * 鼠标交互：直接注入剪切层扰动
+ */
+let isMouseDown = false;
+mhdCanvas.addEventListener('mousedown', e => {
+  isMouseDown = true;
+  injectPerturbation(e);
+});
+
+window.addEventListener('mouseup', () => { isMouseDown = false; });
+
+mhdCanvas.addEventListener('mousemove', e => {
+  if (isMouseDown) injectPerturbation(e);
+});
+
+function injectPerturbation(e) {
+  const rect = mhdCanvas.getBoundingClientRect();
+  const gx = Math.floor(((e.clientX - rect.left) / rect.width) * NX);
+  const gy = Math.floor(((e.clientY - rect.top) / rect.height) * NY);
+  const r = 6;
+
+  for (let dy = -r; dy <= r; dy++) {
+    for (let dx = -r; dx <= r; dx++) {
+      if (dx * dx + dy * dy <= r * r) {
+        const x = (gx + dx + NX) % NX;
+        const y = Math.max(1, Math.min(NY - 2, gy + dy));
+        uy[y * NX + x] += (e.movementY || -2) * 0.12;
+      }
+    }
+  }
+}
+
+/**
+ * UI 按钮与滑块事件绑定
+ */
+// 预设切换
+document.querySelectorAll('.preset-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentPreset = btn.dataset.preset;
+    initMHD();
+  });
+});
+
+// 磁场滑块
+document.getElementById('param-b0').addEventListener('input', e => {
+  B0 = parseFloat(e.target.value);
+  document.getElementById('val-b0').innerText = B0.toFixed(2);
+  initMHD();
+});
+
+// 剪切速度滑块
+document.getElementById('param-shear').addEventListener('input', e => {
+  shearSpeed = parseFloat(e.target.value);
+  document.getElementById('val-shear').innerText = shearSpeed.toFixed(2);
+  initMHD();
+});
+
+// 磁阻率滑块
+document.getElementById('param-eta').addEventListener('input', e => {
+  etaM = parseFloat(e.target.value);
+  document.getElementById('val-eta').innerText = etaM.toFixed(4);
+});
+
+// 扰动模数
+document.getElementById('param-modes').addEventListener('input', e => {
+  waveModes = parseInt(e.target.value);
+  document.getElementById('val-modes').innerText = waveModes;
+  initMHD();
+});
+
+// 开关按钮
+const btnMagLines = document.getElementById('btn-mag-lines');
+btnMagLines.addEventListener('click', () => {
+  showMagLines = !showMagLines;
+  btnMagLines.classList.toggle('active', showMagLines);
+});
+
+const btnShowCurrent = document.getElementById('btn-show-current');
+btnShowCurrent.addEventListener('click', () => {
+  showCurrent = !showCurrent;
+  btnShowCurrent.classList.toggle('active', showCurrent);
+});
+
+document.getElementById('btn-reset').addEventListener('click', () => {
+  initMHD();
+});
+
+// 声音开关
+const btnSound = document.getElementById('btn-sound');
+btnSound.addEventListener('click', () => {
+  if (!audioCtx) {
+    initAudio();
+    btnSound.innerText = '等离子音景: 运行中';
+    btnSound.style.background = 'rgba(244, 63, 94, 0.25)';
+    btnSound.style.borderColor = 'var(--accent-rose)';
+  } else {
+    if (audioCtx.state === 'running') {
+      audioCtx.suspend();
+      btnSound.innerText = '开启磁重联等离子音景';
+      btnSound.style.background = 'rgba(255, 255, 255, 0.06)';
+      btnSound.style.borderColor = 'rgba(255, 255, 255, 0.12)';
+    } else {
+      audioCtx.resume();
+      btnSound.innerText = '等离子音景: 运行中';
+      btnSound.style.background = 'rgba(244, 63, 94, 0.25)';
+      btnSound.style.borderColor = 'var(--accent-rose)';
+    }
+  }
+});
+
+// 视口自适应
+function handleResize() {
+  const container = document.getElementById('viewport-container');
+  mhdCanvas.width = container.clientWidth;
+  mhdCanvas.height = container.clientHeight;
+}
+window.addEventListener('resize', handleResize);
+
+/**
+ * 主循环驱动
+ */
+function animate() {
+  stepMHD();
+  renderSimulation();
+
+  frames++;
+  const now = performance.now();
+  if (now - lastTime >= 500) {
+    const fps = Math.round((frames * 1000) / (now - lastTime));
+    document.getElementById('stat-fps').innerText = fps;
+    frames = 0;
+    lastTime = now;
+  }
+
+  requestAnimationFrame(animate);
+}
+
+// 启动
+handleResize();
+initMHD();
+requestAnimationFrame(animate);
+</script>
+</body>
+</html>

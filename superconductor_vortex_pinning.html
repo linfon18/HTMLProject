@@ -1,0 +1,1169 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第二类超导体磁通钉扎与量子悬浮 - Type-II Superconductor Flux Pinning</title>
+<style>
+  :root {
+    --bg-dark: #020617;
+    --panel-bg: rgba(15, 23, 42, 0.82);
+    --panel-border: rgba(56, 189, 248, 0.25);
+    --cyan: #38bdf8;
+    --emerald: #10b981;
+    --gold: #fbbf24;
+    --hot-rose: #f43f5e;
+    --plasma-purple: #c084fc;
+    --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    user-select: none;
+  }
+
+  body {
+    background-color: var(--bg-dark);
+    color: #f1f5f9;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* 顶栏 HUD */
+  header {
+    background: rgba(2, 6, 23, 0.92);
+    backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--panel-border);
+    padding: 0.75rem 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 50;
+  }
+
+  .brand-group {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+  }
+
+  .levitation-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #0284c7, #38bdf8, #10b981);
+    box-shadow: 0 0 16px rgba(16, 185, 129, 0.6);
+    animation: floatLevitate 3s ease-in-out infinite alternate;
+  }
+
+  @keyframes floatLevitate {
+    0% { transform: translateY(0px) rotate(0deg); }
+    100% { transform: translateY(-6px) rotate(3deg); filter: drop-shadow(0 0 12px var(--cyan)); }
+  }
+
+  h1 {
+    font-size: 1.15rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    background: linear-gradient(90deg, #ffffff, var(--cyan), var(--emerald));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .brand-sub {
+    font-size: 0.75rem;
+    color: #94a3b8;
+    font-family: var(--font-mono);
+  }
+
+  .actions {
+    display: flex;
+    gap: 0.6rem;
+    align-items: center;
+  }
+
+  .btn {
+    background: rgba(56, 189, 248, 0.1);
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    color: #e2e8f0;
+    padding: 0.4rem 0.85rem;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-family: var(--font-mono);
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .btn:hover {
+    background: rgba(56, 189, 248, 0.25);
+    border-color: var(--cyan);
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.3);
+  }
+
+  .btn.active {
+    background: var(--emerald);
+    color: #020617;
+    font-weight: 600;
+    border-color: var(--emerald);
+  }
+
+  /* 主视口布局 */
+  main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 1rem;
+    padding: 1rem;
+    height: calc(100vh - 65px);
+    overflow: hidden;
+  }
+
+  @media (max-width: 1024px) {
+    main {
+      grid-template-columns: 1fr;
+      height: auto;
+      overflow-y: auto;
+    }
+  }
+
+  .viewport-col {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    height: 100%;
+    position: relative;
+  }
+
+  .canvas-card {
+    flex: 1.5;
+    background: radial-gradient(circle at center, #06182c 0%, #020617 95%);
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: inset 0 0 50px rgba(0, 0, 0, 0.9);
+  }
+
+  #mainCanvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    cursor: grab;
+  }
+
+  #mainCanvas:active {
+    cursor: grabbing;
+  }
+
+  /* 画布内 HUD */
+  .canvas-hud {
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    pointer-events: none;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    background: rgba(2, 6, 23, 0.75);
+    padding: 0.65rem 0.85rem;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+  }
+
+  .hud-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 1.2rem;
+  }
+
+  .hud-lbl {
+    color: #94a3b8;
+  }
+
+  .hud-val {
+    color: #fff;
+    font-weight: 600;
+  }
+
+  .hud-val.pinned {
+    color: var(--emerald);
+    text-shadow: 0 0 8px rgba(16, 185, 129, 0.6);
+  }
+
+  .hud-val.creeping {
+    color: var(--gold);
+  }
+
+  /* 悬浮微缩 3D 监视镜 */
+  .macro-levitation-inset {
+    position: absolute;
+    bottom: 1rem;
+    right: 1rem;
+    width: 220px;
+    height: 150px;
+    background: rgba(2, 6, 23, 0.85);
+    border: 1px solid rgba(56, 189, 248, 0.35);
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(8px);
+  }
+
+  .inset-title {
+    position: absolute;
+    top: 0.35rem;
+    left: 0.5rem;
+    font-size: 0.68rem;
+    color: var(--cyan);
+    font-family: var(--font-mono);
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  #insetCanvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  /* 底部图表面板 */
+  .analysis-card {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+    min-height: 190px;
+  }
+
+  @media (max-width: 768px) {
+    .analysis-card {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .chart-box {
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    padding: 0.6rem;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    backdrop-filter: blur(8px);
+  }
+
+  .chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.75rem;
+    color: #94a3b8;
+    margin-bottom: 0.4rem;
+    font-family: var(--font-mono);
+  }
+
+  .chart-canvas {
+    flex: 1;
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  /* 右侧控制栏 */
+  .control-col {
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    padding: 1.2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.1rem;
+    overflow-y: auto;
+    backdrop-filter: blur(12px);
+  }
+
+  .section-title {
+    font-size: 0.82rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--cyan);
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    border-bottom: 1px solid rgba(56, 189, 248, 0.2);
+    padding-bottom: 0.35rem;
+  }
+
+  .control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .control-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.78rem;
+    color: #cbd5e1;
+  }
+
+  .val-badge {
+    font-family: var(--font-mono);
+    color: var(--cyan);
+    font-size: 0.75rem;
+  }
+
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 5px;
+    background: #1e293b;
+    border-radius: 3px;
+    outline: none;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--cyan);
+    cursor: pointer;
+    box-shadow: 0 0 8px var(--cyan);
+    transition: transform 0.1s;
+  }
+
+  input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+  }
+
+  .btn-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
+  }
+
+  .mode-btn {
+    background: rgba(30, 41, 59, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #94a3b8;
+    padding: 0.5rem;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.2s;
+    font-family: var(--font-mono);
+  }
+
+  .mode-btn.selected {
+    background: rgba(16, 185, 129, 0.2);
+    border-color: var(--emerald);
+    color: #fff;
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.25);
+  }
+
+  .info-card {
+    background: rgba(2, 6, 23, 0.55);
+    border: 1px dashed rgba(56, 189, 248, 0.3);
+    border-radius: 8px;
+    padding: 0.75rem;
+    font-size: 0.72rem;
+    color: #94a3b8;
+    line-height: 1.5;
+  }
+
+  .formula {
+    font-family: var(--font-mono);
+    color: #38bdf8;
+    margin-top: 0.3rem;
+    font-size: 0.68rem;
+    white-space: pre-wrap;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand-group">
+    <div class="levitation-icon"></div>
+    <div>
+      <h1>第二类超导体磁通钉扎与量子悬浮</h1>
+      <div class="brand-sub">Type-II Superconductor Fluxon Pinning & Quantum Levitation Trapping</div>
+    </div>
+  </div>
+  <div class="actions">
+    <button class="btn" id="btnAudio">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+        <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+      </svg>
+      磁通跳跃音: 关
+    </button>
+    <button class="btn" id="btnCoolDown">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+      </svg>
+      液氮深冷超导 (77 K)
+    </button>
+    <button class="btn" id="btnDefects">随机重构钉扎中心</button>
+  </div>
+</header>
+
+<main>
+  <!-- 左侧主模拟视口与分析图表 -->
+  <div class="viewport-col">
+    <div class="canvas-card" id="canvasCard">
+      <canvas id="mainCanvas"></canvas>
+
+      <!-- 画布浮动 HUD -->
+      <div class="canvas-hud">
+        <div class="hud-row">
+          <span class="hud-lbl">超导体温度 T:</span>
+          <span class="hud-val" id="hudTemp">77.3 K (液氮温区)</span>
+        </div>
+        <div class="hud-row">
+          <span class="hud-lbl">穿透磁通量子数 N_Φ:</span>
+          <span class="hud-val" id="hudVortexCount">142 根 Φ₀</span>
+        </div>
+        <div class="hud-row">
+          <span class="hud-lbl">纳米钉扎锁定率:</span>
+          <span class="hud-val pinned" id="hudPinRatio">94.8% (刚性固锁)</span>
+        </div>
+        <div class="hud-row">
+          <span class="hud-lbl">临界电流密度 J_c:</span>
+          <span class="hud-val" id="hudJc">1.25 × 10⁶ A/cm²</span>
+        </div>
+        <div class="hud-row">
+          <span class="hud-lbl">悬浮力刚度 k_z:</span>
+          <span class="hud-val pinned" id="hudLevStiff">840 N/m (空间刚性锁)</span>
+        </div>
+      </div>
+
+      <!-- 右下角宏观量子悬浮监视器 -->
+      <div class="macro-levitation-inset">
+        <div class="inset-title">宏观量子悬浮 (3D 悬空监视)</div>
+        <canvas id="insetCanvas"></canvas>
+      </div>
+    </div>
+
+    <!-- 底部双图表 -->
+    <div class="analysis-card">
+      <div class="chart-box">
+        <div class="chart-header">
+          <span>H-T 超导相图与舒勃尼科夫混合态</span>
+          <span style="color:var(--emerald)">H_c1 < H_ext < H_c2</span>
+        </div>
+        <canvas class="chart-canvas" id="phaseChart"></canvas>
+      </div>
+
+      <div class="chart-box">
+        <div class="chart-header">
+          <span>输运电流脱钉 V-I 伏安特性曲线</span>
+          <span style="color:var(--gold)">J > J_c 粘滞耗散流动</span>
+        </div>
+        <canvas class="chart-canvas" id="viChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- 右侧交互调控面板 -->
+  <div class="control-col">
+    <div>
+      <div class="section-title">外加磁场与温度调节</div>
+      <div class="control-group" style="margin-top:0.8rem">
+        <div class="control-label">
+          <span>外加磁感应强度 B_ext (Magnetic Field)</span>
+          <span class="val-badge" id="valB">0.45 T</span>
+        </div>
+        <input type="range" id="sliderB" min="0.05" max="1.2" step="0.02" value="0.45">
+      </div>
+
+      <div class="control-group" style="margin-top:0.8rem">
+        <div class="control-label">
+          <span>工作温度 T (YBCO 临界 Tc = 93 K)</span>
+          <span class="val-badge" id="valT">77.0 K</span>
+        </div>
+        <input type="range" id="sliderT" min="10.0" max="110.0" step="1.0" value="77.0">
+      </div>
+
+      <div class="control-group" style="margin-top:0.8rem">
+        <div class="control-label">
+          <span>输运电流密度 J (Transport Current)</span>
+          <span class="val-badge" id="valJ">0.15 J_c</span>
+        </div>
+        <input type="range" id="sliderJ" min="0.0" max="2.0" step="0.05" value="0.15">
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title">微观缺陷与钉扎势阱</div>
+      <div class="control-group" style="margin-top:0.8rem">
+        <div class="control-label">
+          <span>纳米缺陷钉扎势阱强度 U_p</span>
+          <span class="val-badge" id="valUp">强钉扎 (高温超导)</span>
+        </div>
+        <input type="range" id="sliderUp" min="0.2" max="2.5" step="0.1" value="1.5">
+      </div>
+
+      <div class="control-group" style="margin-top:0.8rem">
+        <span class="control-label" style="margin-bottom:0.3rem">超导相态预设</span>
+        <div class="btn-grid">
+          <button class="mode-btn selected" id="btnModeYBCO">YBCO 强钉扎悬浮</button>
+          <button class="mode-btn" id="btnModeMeissner">迈斯纳完全排斥态</button>
+          <button class="mode-btn" id="btnModeLattice">纯净阿布里科索夫点阵</button>
+          <button class="mode-btn" id="btnModeDepin">高电流脱钉雪崩</button>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title">物理机制与微观理论</div>
+      <div class="info-card">
+        <strong>量子化磁通线 (Fluxon / Abrikosov Vortex):</strong>
+        <div class="formula">Φ₀ = h / (2e) ≈ 2.07 × 10⁻¹⁵ Wb</div>
+        <p style="margin-top:0.5rem">
+          在第二类超导体混合态中，磁力线以<strong>量子化单磁通管道</strong>刺穿体内。
+        </p>
+        <p style="margin-top:0.4rem">
+          涡核被内部晶格纳米缺陷牢牢捕获（<strong>磁通钉扎 Flux Pinning</strong>），使得任何试图改变磁通构型的外力都会遭遇强大的回复弹性，从而实现无论正向、倾斜还是<strong>完全倒挂也能悬停的“量子悬浮”</strong>！
+        </p>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+/**
+ * 第二类超导体磁通钉扎与量子悬浮 (Type-II Superconductor Fluxon Pinning)
+ * 2D 朗之万分子动力学 (Langevin MD) + 宏观 3D 量子悬浮刚度模拟器
+ */
+
+// 物理与模拟常数
+const PHI_0 = 2.0678e-15;       // 磁通量子 (Wb)
+const LAMBDA_L = 14.0;          // 伦敦穿透深度 (像素标度)
+const XI_COH = 3.5;             // 相干长度 (涡核半径)
+const T_C = 93.0;               // YBCO 临界温度 (K)
+
+// 交互调控参数
+let B_ext = 0.45;               // 外磁场 (T)
+let Temp_K = 77.0;              // 晶格温度 (K)
+let J_transport = 0.15;         // 输运电流 (相对于 Jc)
+let U_pinning = 1.5;            // 钉扎势能强度系数
+
+// 磁通线与纳米钉扎中心列表
+const vortices = [];
+const pinCenters = [];
+const MAX_VORTICES = 180;
+const PIN_COUNT = 90;
+
+// 宏观量子悬浮物体状态 (用于 Inset 画布)
+let levState = {
+  x: 0,
+  y: -25,
+  z: 32,
+  angle: 0.15,
+  vx: 0,
+  vz: 0,
+  isDragging: false,
+  dragStartY: 0
+};
+
+// Web Audio API (磁通跳跃 Barkhausen 爆鸣与超导嗡鸣)
+let audioCtx = null;
+let humOsc = null;
+let humGain = null;
+let audioEnabled = false;
+
+function initAudio() {
+  if (audioCtx) return;
+  const AudioContext = window.AudioContext || window.webkitAudioContext;
+  audioCtx = new AudioContext();
+
+  humOsc = audioCtx.createOscillator();
+  humGain = audioCtx.createGain();
+  humOsc.type = 'sine';
+  humOsc.frequency.setValueAtTime(80, audioCtx.currentTime);
+
+  humOsc.connect(humGain);
+  humGain.connect(audioCtx.destination);
+  humGain.gain.setValueAtTime(0.015, audioCtx.currentTime);
+  humOsc.start();
+}
+
+function playFluxJumpClick() {
+  if (!audioEnabled || !audioCtx) return;
+  const now = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+
+  osc.type = 'triangle';
+  osc.frequency.setValueAtTime(600 + Math.random() * 800, now);
+  osc.frequency.exponentialRampToValueAtTime(80, now + 0.03);
+
+  gain.gain.setValueAtTime(0.08, now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.025);
+
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc.start(now);
+  osc.stop(now + 0.03);
+}
+
+// 初始化纳米钉扎中心缺陷地形
+function initPinningLandscape(w, h) {
+  pinCenters.length = 0;
+  for (let i = 0; i < PIN_COUNT; i++) {
+    pinCenters.push({
+      x: 30 + Math.random() * (w - 60),
+      y: 30 + Math.random() * (h - 60),
+      radius: 8 + Math.random() * 12,
+      depth: 1.0 + Math.random() * 0.8
+    });
+  }
+}
+
+// 根据外场 B_ext 调整磁通线密度
+function updateVortexPopulation(w, h) {
+  // 磁通线目标数量正比于外磁场
+  const isSuperconducting = Temp_K < T_C;
+  const targetCount = isSuperconducting ? Math.min(MAX_VORTICES, Math.floor(B_ext * 220)) : 0;
+
+  while (vortices.length < targetCount) {
+    vortices.push({
+      x: 40 + Math.random() * (w - 80),
+      y: 40 + Math.random() * (h - 80),
+      vx: (Math.random() - 0.5) * 0.5,
+      vy: (Math.random() - 0.5) * 0.5,
+      isPinned: false
+    });
+  }
+
+  while (vortices.length > targetCount) {
+    vortices.pop();
+  }
+}
+
+// 磁通涡旋动力学 (Vortex Langevin Dynamics)
+function stepVortices(w, h, dt) {
+  if (Temp_K >= T_C || vortices.length === 0) return;
+
+  const dragGamma = 1.2; // 粘滞阻尼系数 (Bardeen-Stephen 磁通流动阻尼)
+  const thermalNoise = Math.sqrt(Temp_K / 77.0) * 0.45;
+  let pinnedCount = 0;
+
+  for (let i = 0; i < vortices.length; i++) {
+    const v1 = vortices[i];
+    let fx = 0, fy = 0;
+
+    // 1. 涡旋间相互排斥力 (Modified Bessel Function 拟合: exp(-r/λ) / sqrt(r))
+    for (let j = 0; j < vortices.length; j++) {
+      if (i === j) continue;
+      const v2 = vortices[j];
+      const dx = v1.x - v2.x;
+      const dy = v1.y - v2.y;
+      const r2 = dx * dx + dy * dy + 1e-4;
+      const r = Math.sqrt(r2);
+
+      if (r < LAMBDA_L * 4.0) {
+        const fRep = (35.0 / Math.max(XI_COH, r)) * Math.exp(-r / LAMBDA_L);
+        fx += (dx / r) * fRep;
+        fy += (dy / r) * fRep;
+      }
+    }
+
+    // 2. 缺陷中心钉扎恢复吸引力 (Pinning Well Force)
+    let minPinDist = 1e9;
+    for (const pin of pinCenters) {
+      const dx = pin.x - v1.x;
+      const dy = pin.y - v1.y;
+      const r = Math.hypot(dx, dy);
+
+      if (r < pin.radius) {
+        const fPin = U_pinning * pin.depth * (1.0 - r / pin.radius) * 12.0;
+        fx += (dx / Math.max(0.1, r)) * fPin;
+        fy += (dy / Math.max(0.1, r)) * fPin;
+        if (r < minPinDist) minPinDist = r;
+      }
+    }
+
+    v1.isPinned = (minPinDist < 6.0 && U_pinning > 0.4);
+    if (v1.isPinned) pinnedCount++;
+
+    // 3. 输运电流洛伦兹驱动力: F_L = J x Φ0 (沿 x 方向推动)
+    const fLorentzX = J_transport * 18.0;
+    fx += fLorentzX;
+
+    // 4. 热涨落布朗扰动
+    fx += (Math.random() - 0.5) * thermalNoise * 14.0;
+    fy += (Math.random() - 0.5) * thermalNoise * 14.0;
+
+    // 5. 边界屏蔽电流排斥力 (防止逃离超导块材外)
+    const margin = 25;
+    if (v1.x < margin) fx += (margin - v1.x) * 4.0;
+    if (v1.x > w - margin) fx -= (v1.x - (w - margin)) * 4.0;
+    if (v1.y < margin) fy += (margin - v1.y) * 4.0;
+    if (v1.y > h - margin) fy -= (v1.y - (h - margin)) * 4.0;
+
+    // 粘滞动力学积分: v = F / γ
+    v1.vx = fx / dragGamma;
+    v1.vy = fy / dragGamma;
+
+    v1.x += v1.vx * dt;
+    v1.y += v1.vy * dt;
+
+    // 约束在画布内
+    v1.x = Math.max(margin, Math.min(w - margin, v1.x));
+    v1.y = Math.max(margin, Math.min(h - margin, v1.y));
+  }
+
+  // 更新 HUD 钉扎率与跳跃声
+  const pinRatio = vortices.length > 0 ? (pinnedCount / vortices.length) * 100 : 0;
+  hudPinRatio.textContent = `${pinRatio.toFixed(1)}% (${pinRatio > 70 ? '刚性固锁' : '脱钉蠕变'})`;
+  if (Math.random() < 0.08 && J_transport > 0.8) {
+    playFluxJumpClick();
+  }
+}
+
+// DOM 与画布
+const canvasCard = document.getElementById('canvasCard');
+const mainCanvas = document.getElementById('mainCanvas');
+const mainCtx = mainCanvas.getContext('2d');
+const insetCanvas = document.getElementById('insetCanvas');
+const insetCtx = insetCanvas.getContext('2d');
+const phaseChart = document.getElementById('phaseChart');
+const phaseCtx = phaseChart.getContext('2d');
+const viChart = document.getElementById('viChart');
+const viCtx = viChart.getContext('2d');
+
+const hudTemp = document.getElementById('hudTemp');
+const hudVortexCount = document.getElementById('hudVortexCount');
+const hudPinRatio = document.getElementById('hudPinRatio');
+const hudJc = document.getElementById('hudJc');
+const hudLevStiff = document.getElementById('hudLevStiff');
+
+const sliderB = document.getElementById('sliderB');
+const sliderT = document.getElementById('sliderT');
+const sliderJ = document.getElementById('sliderJ');
+const sliderUp = document.getElementById('sliderUp');
+const valB = document.getElementById('valB');
+const valT = document.getElementById('valT');
+const valJ = document.getElementById('valJ');
+const valUp = document.getElementById('valUp');
+
+const btnAudio = document.getElementById('btnAudio');
+const btnCoolDown = document.getElementById('btnCoolDown');
+const btnDefects = document.getElementById('btnDefects');
+const modeBtns = document.querySelectorAll('.mode-btn');
+
+// 画布尺寸适配
+function resizeCanvas() {
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvasCard.getBoundingClientRect();
+  mainCanvas.width = rect.width * dpr;
+  mainCanvas.height = rect.height * dpr;
+  mainCtx.scale(dpr, dpr);
+
+  const iRect = insetCanvas.parentElement.getBoundingClientRect();
+  insetCanvas.width = (iRect.width) * dpr;
+  insetCanvas.height = (iRect.height) * dpr;
+  insetCtx.scale(dpr, dpr);
+
+  const pRect = phaseChart.parentElement.getBoundingClientRect();
+  phaseChart.width = (pRect.width - 20) * dpr;
+  phaseChart.height = (pRect.height - 40) * dpr;
+  phaseCtx.scale(dpr, dpr);
+
+  viChart.width = (pRect.width - 20) * dpr;
+  viChart.height = (pRect.height - 40) * dpr;
+  viCtx.scale(dpr, dpr);
+}
+
+window.addEventListener('resize', resizeCanvas);
+
+// 绘制微观磁通涡旋与超导晶格势能地形
+function renderMain() {
+  const dpr = window.devicePixelRatio || 1;
+  const w = mainCanvas.width / dpr;
+  const h = mainCanvas.height / dpr;
+
+  mainCtx.clearRect(0, 0, w, h);
+
+  // 1. 绘制超导块体底板边缘与伦敦屏蔽区
+  mainCtx.save();
+  mainCtx.strokeStyle = 'rgba(56, 189, 248, 0.4)';
+  mainCtx.lineWidth = 2.0;
+  mainCtx.strokeRect(20, 20, w - 40, h - 40);
+
+  // 2. 绘制微观纳米缺陷钉扎势阱 (Pinning Potential Wells)
+  for (const pin of pinCenters) {
+    const grad = mainCtx.createRadialGradient(pin.x, pin.y, 1, pin.x, pin.y, pin.radius);
+    grad.addColorStop(0, 'rgba(16, 185, 129, 0.4)');
+    grad.addColorStop(0.7, 'rgba(16, 185, 129, 0.12)');
+    grad.addColorStop(1, 'rgba(16, 185, 129, 0.0)');
+
+    mainCtx.fillStyle = grad;
+    mainCtx.beginPath();
+    mainCtx.arc(pin.x, pin.y, pin.radius, 0, Math.PI * 2);
+    mainCtx.fill();
+
+    // 缺陷中心凹陷标记
+    mainCtx.fillStyle = 'rgba(16, 185, 129, 0.6)';
+    mainCtx.beginPath();
+    mainCtx.arc(pin.x, pin.y, 2.0, 0, Math.PI * 2);
+    mainCtx.fill();
+  }
+
+  // 3. 绘制磁通涡旋线 (Vortices / Fluxons)
+  for (const v of vortices) {
+    // 涡核周围伦敦穿透深度环流 (Shielding Supercurrent Whirl)
+    const vGrad = mainCtx.createRadialGradient(v.x, v.y, XI_COH, v.x, v.y, LAMBDA_L * 1.6);
+    if (v.isPinned) {
+      vGrad.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
+      vGrad.addColorStop(0.25, 'rgba(16, 185, 129, 0.7)');
+      vGrad.addColorStop(0.7, 'rgba(6, 182, 212, 0.25)');
+      vGrad.addColorStop(1, 'rgba(2, 6, 23, 0.0)');
+    } else {
+      vGrad.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
+      vGrad.addColorStop(0.25, 'rgba(251, 191, 36, 0.7)');
+      vGrad.addColorStop(0.7, 'rgba(244, 63, 94, 0.25)');
+      vGrad.addColorStop(1, 'rgba(2, 6, 23, 0.0)');
+    }
+
+    mainCtx.fillStyle = vGrad;
+    mainCtx.beginPath();
+    mainCtx.arc(v.x, v.y, LAMBDA_L * 1.6, 0, Math.PI * 2);
+    mainCtx.fill();
+
+    // 涡核中心正常态管道 (Normal Core)
+    mainCtx.fillStyle = '#ffffff';
+    mainCtx.shadowColor = v.isPinned ? '#10b981' : '#fbbf24';
+    mainCtx.shadowBlur = 8;
+    mainCtx.beginPath();
+    mainCtx.arc(v.x, v.y, XI_COH * 0.8, 0, Math.PI * 2);
+    mainCtx.fill();
+  }
+  mainCtx.restore();
+
+  // 更新 HUD 文本
+  hudVortexCount.textContent = `${vortices.length} 根 Φ₀`;
+}
+
+// 绘制宏观 3D 量子悬浮监视器 (超导块体在磁铁轨道上方刚性悬浮)
+function renderInset() {
+  const dpr = window.devicePixelRatio || 1;
+  const w = insetCanvas.width / dpr;
+  const h = insetCanvas.height / dpr;
+
+  insetCtx.clearRect(0, 0, w, h);
+
+  const cx = w * 0.5;
+  const cy = h * 0.65;
+
+  // 1. 绘制下方永磁体环形轨道 (Permanent Magnet Track)
+  insetCtx.save();
+  insetCtx.fillStyle = '#1e293b';
+  insetCtx.strokeStyle = '#475569';
+  insetCtx.lineWidth = 1.5;
+
+  // 环形透视椭圆轨道
+  insetCtx.beginPath();
+  insetCtx.ellipse(cx, cy + 25, 75, 25, 0, 0, Math.PI * 2);
+  insetCtx.fill();
+  insetCtx.stroke();
+
+  // 轨道磁极分段条纹 (N/S 磁极交替)
+  insetCtx.strokeStyle = 'rgba(56, 189, 248, 0.4)';
+  for (let a = 0; a < Math.PI * 2; a += Math.PI / 4) {
+    const mx = cx + Math.cos(a) * 75;
+    const my = cy + 25 + Math.sin(a) * 25;
+    insetCtx.beginPath();
+    insetCtx.moveTo(mx, my);
+    insetCtx.lineTo(mx, my + 10);
+    insetCtx.stroke();
+  }
+
+  // 2. 绘制悬浮超导块材 (Floating YBCO Pellet)
+  const isSuspended = Temp_K < T_C;
+  const targetZ = isSuspended ? 32 : 0;
+  // 弹性恢复动力学
+  levState.vz += (targetZ - levState.z) * 0.15 - levState.vz * 0.2;
+  levState.z += levState.vz;
+
+  const pelletY = cy + 25 - levState.z;
+  const pelletW = 46;
+  const pelletH = 14;
+
+  // 悬浮量子通量线簇光束
+  if (isSuspended && levState.z > 5) {
+    insetCtx.strokeStyle = 'rgba(16, 185, 129, 0.45)';
+    insetCtx.lineWidth = 1.2;
+    for (let lx = -pelletW * 0.4; lx <= pelletW * 0.4; lx += 10) {
+      insetCtx.beginPath();
+      insetCtx.moveTo(cx + lx, pelletY + pelletH * 0.5);
+      insetCtx.lineTo(cx + lx * 1.2, cy + 25);
+      insetCtx.stroke();
+    }
+  }
+
+  // 超导体方块
+  insetCtx.fillStyle = isSuspended ? '#0284c7' : '#334155';
+  insetCtx.strokeStyle = isSuspended ? '#38bdf8' : '#64748b';
+  insetCtx.lineWidth = 1.5;
+  insetCtx.shadowColor = isSuspended ? '#10b981' : 'transparent';
+  insetCtx.shadowBlur = isSuspended ? 12 : 0;
+
+  insetCtx.beginPath();
+  insetCtx.rect(cx - pelletW * 0.5, pelletY - pelletH * 0.5, pelletW, pelletH);
+  insetCtx.fill();
+  insetCtx.stroke();
+
+  // 倒挂/悬浮刚度标签
+  insetCtx.fillStyle = isSuspended ? '#10b981' : '#f43f5e';
+  insetCtx.font = '9px monospace';
+  insetCtx.textAlign = 'center';
+  insetCtx.fillText(isSuspended ? '量子悬浮锁定 (77K)' : '失去超导 (正常态坠落)', cx, pelletY - pelletH * 0.5 - 6);
+  insetCtx.restore();
+}
+
+// 绘制 H-T 超导相图
+function renderPhaseChart() {
+  const dpr = window.devicePixelRatio || 1;
+  const w = phaseChart.width / dpr;
+  const h = phaseChart.height / dpr;
+
+  phaseCtx.clearRect(0, 0, w, h);
+
+  // 坐标十字
+  phaseCtx.save();
+  phaseCtx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+  phaseCtx.lineWidth = 1;
+  phaseCtx.beginPath();
+  phaseCtx.moveTo(30, 10);
+  phaseCtx.lineTo(30, h - 20);
+  phaseCtx.lineTo(w - 10, h - 20);
+  phaseCtx.stroke();
+
+  // H_c2(T) = H_c2(0) * [1 - (T/Tc)^2] (第二临界场曲线)
+  phaseCtx.strokeStyle = '#38bdf8';
+  phaseCtx.lineWidth = 1.8;
+  phaseCtx.beginPath();
+  for (let t = 0; t <= 93; t += 2) {
+    const px = 30 + (t / 100.0) * (w - 45);
+    const hNorm = Math.max(0, 1.0 - Math.pow(t / T_C, 2));
+    const py = (h - 20) - hNorm * (h - 35);
+    if (t === 0) phaseCtx.moveTo(px, py);
+    else phaseCtx.lineTo(px, py);
+  }
+  phaseCtx.stroke();
+
+  // H_c1(T) 第一临界场曲线 (非常靠近底端)
+  phaseCtx.strokeStyle = '#10b981';
+  phaseCtx.lineWidth = 1.6;
+  phaseCtx.beginPath();
+  for (let t = 0; t <= 93; t += 2) {
+    const px = 30 + (t / 100.0) * (w - 45);
+    const hNorm = Math.max(0, 0.15 * (1.0 - Math.pow(t / T_C, 2)));
+    const py = (h - 20) - hNorm * (h - 35);
+    if (t === 0) phaseCtx.moveTo(px, py);
+    else phaseCtx.lineTo(px, py);
+  }
+  phaseCtx.stroke();
+
+  // 当前工况点标记
+  const curPx = 30 + (Temp_K / 100.0) * (w - 45);
+  const curPy = (h - 20) - (B_ext / 1.2) * (h - 35);
+  phaseCtx.fillStyle = '#ffffff';
+  phaseCtx.shadowColor = '#10b981';
+  phaseCtx.shadowBlur = 10;
+  phaseCtx.beginPath();
+  phaseCtx.arc(curPx, curPy, 3.5, 0, Math.PI * 2);
+  phaseCtx.fill();
+
+  // 区域文本标注
+  phaseCtx.fillStyle = 'rgba(16, 185, 129, 0.7)';
+  phaseCtx.font = '10px monospace';
+  phaseCtx.fillText('混合态 (舒勃尼科夫态)', 45, (h - 20) * 0.55);
+  phaseCtx.fillText('迈斯纳态', 35, h - 25);
+  phaseCtx.restore();
+}
+
+// 绘制 V-I 伏安特性曲线 (展示脱钉流动耗散)
+function renderVIChart() {
+  const dpr = window.devicePixelRatio || 1;
+  const w = viChart.width / dpr;
+  const h = viChart.height / dpr;
+
+  viCtx.clearRect(0, 0, w, h);
+
+  viCtx.save();
+  viCtx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+  viCtx.lineWidth = 1;
+  viCtx.beginPath();
+  viCtx.moveTo(30, 10);
+  viCtx.lineTo(30, h - 20);
+  viCtx.lineTo(w - 10, h - 20);
+  viCtx.stroke();
+
+  // 临界电流点 Jc
+  const jcPx = 30 + 0.5 * (w - 45);
+  viCtx.strokeStyle = 'rgba(251, 191, 36, 0.4)';
+  viCtx.setLineDash([4, 4]);
+  viCtx.beginPath();
+  viCtx.moveTo(jcPx, 10);
+  viCtx.lineTo(jcPx, h - 20);
+  viCtx.stroke();
+  viCtx.setLineDash([]);
+
+  // V(I) 曲线: I < Ic 时 V=0, I > Ic 时 V = R_eff * (I - Ic)^alpha
+  viCtx.strokeStyle = '#fbbf24';
+  viCtx.lineWidth = 2.0;
+  viCtx.beginPath();
+
+  for (let i = 0; i <= 60; i++) {
+    const jNorm = i / 30.0; // 0 到 2.0 Jc
+    const px = 30 + (jNorm / 2.0) * (w - 45);
+    let vVal = 0;
+    if (jNorm > 1.0) {
+      vVal = Math.pow(jNorm - 1.0, 1.8) * 0.85;
+    }
+    const py = (h - 20) - vVal * (h - 35);
+    if (i === 0) viCtx.moveTo(px, py);
+    else viCtx.lineTo(px, py);
+  }
+  viCtx.stroke();
+
+  // 当前工况工作点
+  const curJNorm = J_transport;
+  const curPx = 30 + (curJNorm / 2.0) * (w - 45);
+  let curVVal = curJNorm > 1.0 ? Math.pow(curJNorm - 1.0, 1.8) * 0.85 : 0;
+  const curPy = (h - 20) - curVVal * (h - 35);
+
+  viCtx.fillStyle = '#ffffff';
+  viCtx.shadowColor = '#fbbf24';
+  viCtx.shadowBlur = 8;
+  viCtx.beginPath();
+  viCtx.arc(curPx, curPy, 3.5, 0, Math.PI * 2);
+  viCtx.fill();
+  viCtx.restore();
+}
+
+// 主积分动画循环
+function animate() {
+  const dpr = window.devicePixelRatio || 1;
+  const w = mainCanvas.width / dpr;
+  const h = mainCanvas.height / dpr;
+
+  stepVortices(w, h, 0.4);
+  renderMain();
+  renderInset();
+  renderPhaseChart();
+  renderVIChart();
+
+  requestAnimationFrame(animate);
+}
+
+// 控件事件绑定
+sliderB.addEventListener('input', (e) => {
+  B_ext = parseFloat(e.target.value);
+  valB.textContent = `${B_ext.toFixed(2)} T`;
+  const dpr = window.devicePixelRatio || 1;
+  updateVortexPopulation(mainCanvas.width / dpr, mainCanvas.height / dpr);
+});
+
+sliderT.addEventListener('input', (e) => {
+  Temp_K = parseFloat(e.target.value);
+  valT.textContent = `${Temp_K.toFixed(1)} K`;
+  hudTemp.textContent = `${Temp_K.toFixed(1)} K (${Temp_K < T_C ? '超导态' : '正常态'})`;
+  const dpr = window.devicePixelRatio || 1;
+  updateVortexPopulation(mainCanvas.width / dpr, mainCanvas.height / dpr);
+});
+
+sliderJ.addEventListener('input', (e) => {
+  J_transport = parseFloat(e.target.value);
+  valJ.textContent = `${J_transport.toFixed(2)} J_c`;
+});
+
+sliderUp.addEventListener('input', (e) => {
+  U_pinning = parseFloat(e.target.value);
+  valUp.textContent = U_pinning > 1.8 ? '极强人工钉扎' : (U_pinning > 0.8 ? '强钉扎 (高温超导)' : '弱钉扎 (纯净晶体)');
+});
+
+btnCoolDown.addEventListener('click', () => {
+  Temp_K = 77.3;
+  sliderT.value = 77.3;
+  valT.textContent = '77.3 K';
+  hudTemp.textContent = '77.3 K (液氮温区)';
+  const dpr = window.devicePixelRatio || 1;
+  updateVortexPopulation(mainCanvas.width / dpr, mainCanvas.height / dpr);
+});
+
+btnDefects.addEventListener('click', () => {
+  const dpr = window.devicePixelRatio || 1;
+  initPinningLandscape(mainCanvas.width / dpr, mainCanvas.height / dpr);
+});
+
+btnAudio.addEventListener('click', () => {
+  initAudio();
+  audioEnabled = !audioEnabled;
+  btnAudio.classList.toggle('active', audioEnabled);
+  btnAudio.innerHTML = `
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+      <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+    </svg>
+    磁通跳跃音: ${audioEnabled ? '开' : '关'}
+  `;
+});
+
+modeBtns.forEach((btn) => {
+  btn.addEventListener('click', () => {
+    modeBtns.forEach((b) => b.classList.remove('selected'));
+    btn.classList.add('selected');
+
+    if (btn.id === 'btnModeYBCO') {
+      B_ext = 0.45; Temp_K = 77.0; J_transport = 0.15; U_pinning = 1.5;
+    } else if (btn.id === 'btnModeMeissner') {
+      B_ext = 0.06; Temp_K = 77.0; J_transport = 0.0; U_pinning = 1.0;
+    } else if (btn.id === 'btnModeLattice') {
+      B_ext = 0.55; Temp_K = 35.0; J_transport = 0.0; U_pinning = 0.2;
+    } else if (btn.id === 'btnModeDepin') {
+      B_ext = 0.65; Temp_K = 82.0; J_transport = 1.45; U_pinning = 0.8;
+    }
+
+    sliderB.value = B_ext; valB.textContent = `${B_ext.toFixed(2)} T`;
+    sliderT.value = Temp_K; valT.textContent = `${Temp_K.toFixed(1)} K`;
+    sliderJ.value = J_transport; valJ.textContent = `${J_transport.toFixed(2)} J_c`;
+    sliderUp.value = U_pinning;
+    const dpr = window.devicePixelRatio || 1;
+    updateVortexPopulation(mainCanvas.width / dpr, mainCanvas.height / dpr);
+  });
+});
+
+// 初始化启动
+window.addEventListener('DOMContentLoaded', () => {
+  resizeCanvas();
+  const dpr = window.devicePixelRatio || 1;
+  const w = mainCanvas.width / dpr;
+  const h = mainCanvas.height / dpr;
+  initPinningLandscape(w, h);
+  updateVortexPopulation(w, h);
+  animate();
+});
+</script>
+</body>
+</html>

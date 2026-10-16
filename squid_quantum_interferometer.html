@@ -1,0 +1,1389 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>超导量子干涉仪SQUID与约瑟夫森效应 - Superconducting Quantum Interferometer</title>
+<style>
+  :root {
+    --bg-dark: #020617;
+    --panel-bg: rgba(15, 23, 42, 0.85);
+    --panel-border: rgba(56, 189, 248, 0.22);
+    --primary: #38bdf8;
+    --accent-emerald: #10b981;
+    --accent-purple: #c084fc;
+    --accent-rose: #f43f5e;
+    --accent-amber: #f59e0b;
+    --text-main: #f8fafc;
+    --text-muted: #94a3b8;
+    --font-mono: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    user-select: none;
+  }
+
+  body {
+    background-color: var(--bg-dark);
+    color: var(--text-main);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+  }
+
+  /* 顶栏 HUD */
+  header {
+    background: rgba(2, 6, 23, 0.94);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--panel-border);
+    padding: 0.75rem 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 50;
+  }
+
+  .brand-group {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .brand-badge {
+    background: linear-gradient(135deg, #0284c7, #8b5cf6);
+    color: white;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 0.25rem 0.65rem;
+    border-radius: 6px;
+    letter-spacing: 0.08em;
+    box-shadow: 0 0 15px rgba(56, 189, 248, 0.4);
+  }
+
+  h1 {
+    font-size: 1.15rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    background: linear-gradient(to right, #ffffff, #bae6fd, #c084fc);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .nav-stats {
+    display: flex;
+    gap: 1.25rem;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+  }
+
+  .stat-chip {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .stat-label {
+    color: var(--text-muted);
+  }
+
+  .stat-val {
+    color: var(--primary);
+    font-weight: 600;
+  }
+
+  /* 主网格布局 */
+  main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 390px;
+    gap: 1rem;
+    padding: 1rem 1.5rem;
+    max-width: 1920px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  @media (max-width: 1180px) {
+    main {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  /* 左侧主模拟视窗 */
+  .simulation-view {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .canvas-card {
+    position: relative;
+    background: #01040f;
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    overflow: hidden;
+    height: 570px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.7);
+    display: flex;
+    flex-direction: column;
+  }
+
+  #mainCanvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    cursor: default;
+  }
+
+  /* 悬浮控制层 */
+  .canvas-overlay-top {
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    right: 1rem;
+    display: flex;
+    justify-content: space-between;
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  .mode-indicator {
+    background: rgba(15, 23, 42, 0.88);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--panel-border);
+    padding: 0.4rem 0.85rem;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.82rem;
+  }
+
+  .mode-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent-emerald);
+    box-shadow: 0 0 10px var(--accent-emerald);
+    animation: pulseGlow 1.8s infinite ease-in-out;
+  }
+
+  @keyframes pulseGlow {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.35; transform: scale(0.85); }
+  }
+
+  .canvas-overlay-bottom {
+    position: absolute;
+    bottom: 1rem;
+    left: 1rem;
+    right: 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  .toolbar {
+    display: flex;
+    gap: 0.5rem;
+    background: rgba(15, 23, 42, 0.9);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--panel-border);
+    padding: 0.4rem 0.6rem;
+    border-radius: 10px;
+    pointer-events: auto;
+  }
+
+  .btn {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: var(--text-main);
+    padding: 0.38rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    transition: all 0.2s ease;
+  }
+
+  .btn:hover {
+    background: rgba(56, 189, 248, 0.25);
+    border-color: rgba(56, 189, 248, 0.5);
+    transform: translateY(-1px);
+  }
+
+  .btn.active {
+    background: #0284c7;
+    border-color: #38bdf8;
+    color: #ffffff;
+    box-shadow: 0 0 12px rgba(56, 189, 248, 0.4);
+  }
+
+  /* 底部快速诊断条 */
+  .quick-metrics {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.75rem;
+  }
+
+  .metric-card {
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    padding: 0.65rem 0.9rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .metric-title {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .metric-value {
+    font-family: var(--font-mono);
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #ffffff;
+    display: flex;
+    align-items: baseline;
+    gap: 0.3rem;
+  }
+
+  .metric-unit {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    font-weight: normal;
+  }
+
+  /* 右侧综合面板 */
+  aside {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+  }
+
+  .panel-box {
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    padding: 1.1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+    backdrop-filter: blur(12px);
+  }
+
+  .panel-box h2 {
+    font-size: 0.9rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    letter-spacing: 0.02em;
+    color: #e2e8f0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    padding-bottom: 0.5rem;
+  }
+
+  .panel-tag {
+    font-size: 0.7rem;
+    color: var(--primary);
+    font-family: var(--font-mono);
+    background: rgba(56, 189, 248, 0.1);
+    padding: 0.15rem 0.45rem;
+    border-radius: 4px;
+    border: 1px solid rgba(56, 189, 248, 0.2);
+  }
+
+  /* 模式网格 */
+  .mode-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+  }
+
+  .mode-btn {
+    background: rgba(15, 23, 42, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    padding: 0.65rem 0.6rem;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+
+  .mode-btn:hover {
+    border-color: rgba(56, 189, 248, 0.4);
+    background: rgba(30, 41, 59, 0.8);
+  }
+
+  .mode-btn.active {
+    background: rgba(2, 132, 199, 0.25);
+    border-color: var(--primary);
+    box-shadow: 0 0 15px rgba(56, 189, 248, 0.25);
+  }
+
+  .mode-btn-name {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #ffffff;
+  }
+
+  .mode-btn-desc {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    line-height: 1.25;
+  }
+
+  /* 控制滑块行 */
+  .control-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .control-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.78rem;
+  }
+
+  .control-title {
+    color: var(--text-muted);
+  }
+
+  .control-val {
+    font-family: var(--font-mono);
+    color: var(--primary);
+    font-weight: 500;
+  }
+
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 5px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.1);
+    outline: none;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--primary);
+    cursor: pointer;
+    box-shadow: 0 0 8px var(--primary);
+    transition: transform 0.1s;
+  }
+
+  input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+  }
+
+  /* 辅助图表 */
+  .chart-container {
+    position: relative;
+    width: 100%;
+    height: 135px;
+    background: #01040f;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    overflow: hidden;
+  }
+
+  .chart-canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  .formula-card {
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    padding: 0.65rem 0.8rem;
+    font-family: var(--font-mono);
+    font-size: 0.74rem;
+    color: #cbd5e1;
+    line-height: 1.5;
+  }
+
+  .formula-highlight {
+    color: var(--accent-amber);
+  }
+
+  .toast {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    background: rgba(15, 23, 42, 0.95);
+    border: 1px solid var(--primary);
+    color: #ffffff;
+    padding: 0.6rem 1.1rem;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    transform: translateY(10px);
+    z-index: 100;
+  }
+
+  .toast.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand-group">
+    <div class="brand-badge">MACROSCOPIC QUANTUM</div>
+    <h1>超导量子干涉仪SQUID与约瑟夫森效应全息交互</h1>
+  </div>
+  <div class="nav-stats">
+    <div class="stat-chip">
+      <span class="stat-label">磁通量子 Φ₀:</span>
+      <span class="stat-val">2.0678×10⁻¹⁵ Wb</span>
+    </div>
+    <div class="stat-chip">
+      <span class="stat-label">时均约瑟夫森电压 &lt;V&gt;:</span>
+      <span class="stat-val" id="statAvgVoltage">0.00 μV</span>
+    </div>
+    <div class="stat-chip">
+      <span class="stat-label">干涉超流 Ic(Φ):</span>
+      <span class="stat-val" id="statMaxSupercurrent">1.98 Ic</span>
+    </div>
+  </div>
+</header>
+
+<main>
+  <!-- 左侧主模拟视窗 -->
+  <div class="simulation-view">
+    <div class="canvas-card">
+      <canvas id="mainCanvas"></canvas>
+
+      <!-- 顶部 HUD 指示 -->
+      <div class="canvas-overlay-top">
+        <div class="mode-indicator">
+          <div class="mode-dot" id="modeDot"></div>
+          <span id="modeDisplayTitle">DC-SQUID 零阻超流基态 (Zero-Voltage)</span>
+        </div>
+        <div class="mode-indicator" style="font-family:var(--font-mono); font-size:0.78rem;">
+          <span>磁通锁定 (FLL): </span>
+          <span style="color:var(--accent-emerald);" id="fllState">CLOSED LOOP</span>
+        </div>
+      </div>
+
+      <!-- 底部控制按钮 -->
+      <div class="canvas-overlay-bottom">
+        <div class="mode-indicator" style="font-family:var(--font-mono); font-size:0.75rem;">
+          <div>库珀对相差 Δϕ₁: <span style="color:var(--primary);" id="hudPhi1">0.12 rad</span></div>
+          <div>库珀对相差 Δϕ₂: <span style="color:var(--accent-purple);" id="hudPhi2">0.18 rad</span></div>
+        </div>
+
+        <div class="toolbar">
+          <button class="btn" id="btnPlayPause">
+            <span id="playIcon">⏸</span> 暂停
+          </button>
+          <button class="btn" id="btnStep">⏭ 单步</button>
+          <button class="btn" id="btnResetPhase">🔄 复位初相</button>
+          <button class="btn active" id="btnFLL">🎛️ FLL锁定</button>
+          <button class="btn active" id="btnAudio">🔊 声效</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 快速指标条 -->
+    <div class="quick-metrics">
+      <div class="metric-card">
+        <span class="metric-title">环内穿透磁通 Φ_tot</span>
+        <div class="metric-value">
+          <span id="metricPhiTot">0.05</span>
+          <span class="metric-unit">Φ₀</span>
+        </div>
+      </div>
+      <div class="metric-card">
+        <span class="metric-title">抗磁屏蔽环流 J_circ</span>
+        <div class="metric-value">
+          <span id="metricCircCurrent">-0.08</span>
+          <span class="metric-unit">Ic</span>
+        </div>
+      </div>
+      <div class="metric-card">
+        <span class="metric-title">相滑移频率 f_Josephson</span>
+        <div class="metric-value">
+          <span id="metricFreqJ">0.0</span>
+          <span class="metric-unit">GHz</span>
+        </div>
+      </div>
+      <div class="metric-card">
+        <span class="metric-title">磁灵敏度灵敏极限</span>
+        <div class="metric-value">
+          <span id="metricSensitivity" style="color:var(--accent-emerald);">1.2</span>
+          <span class="metric-unit">fT/√Hz</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 右侧交互与解析面板 -->
+  <aside>
+    <!-- 生物磁信号检测模式 -->
+    <div class="panel-box">
+      <h2>
+        <span>探测应用信号源 (fT Magnetometry)</span>
+        <span class="panel-tag">SIGNALS</span>
+      </h2>
+      <div class="mode-grid">
+        <div class="mode-btn active" data-source="mcg">
+          <div class="mode-btn-name">① 心磁图 (MCG)</div>
+          <div class="mode-btn-desc">心脏希氏束P-QRS-T微弱生物交变磁场 (~50 pT)</div>
+        </div>
+        <div class="mode-btn" data-source="meg">
+          <div class="mode-btn-name">② 脑磁图 (MEG)</div>
+          <div class="mode-btn-desc">大脑皮层神经元放电 Alpha 节律 (8-12 Hz, ~100 fT)</div>
+        </div>
+        <div class="mode-btn" data-source="step">
+          <div class="mode-btn-name">③ 阶跃磁通穿刺</div>
+          <div class="mode-btn-desc">孤立单磁通量子跳跃进入环体产生的宏观相滑</div>
+        </div>
+        <div class="mode-btn" data-source="scan">
+          <div class="mode-btn-name">④ 连续磁通扫描</div>
+          <div class="mode-btn-desc">线性扫描外场，观测周期余弦量子干涉条纹</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RCSJ 参数与电磁控制 -->
+    <div class="panel-box">
+      <h2>
+        <span>RCSJ 动力学与偏置控制</span>
+        <span class="panel-tag">CONTROLS</span>
+      </h2>
+
+      <div class="control-row">
+        <div class="control-header">
+          <span class="control-title">直流偏置电流 Ibias / Ic</span>
+          <span class="control-val" id="valIbias">1.80 Ic</span>
+        </div>
+        <input type="range" id="rangeIbias" min="0.0" max="3.0" step="0.02" value="1.80">
+      </div>
+
+      <div class="control-row">
+        <div class="control-header">
+          <span class="control-title">外加静态偏置磁通 Φext / Φ0</span>
+          <span class="control-val" id="valPhiExt">0.25 Φ₀</span>
+        </div>
+        <input type="range" id="rangePhiExt" min="0.0" max="2.5" step="0.01" value="0.25">
+      </div>
+
+      <div class="control-row">
+        <div class="control-header">
+          <span class="control-title">阻尼参数 βc (Stewart-McCumber)</span>
+          <span class="control-val" id="valBetaC">0.20 (过阻尼)</span>
+        </div>
+        <input type="range" id="rangeBetaC" min="0.0" max="3.0" step="0.05" value="0.20">
+      </div>
+
+      <div class="control-row">
+        <div class="control-header">
+          <span class="control-title">热噪声与量子涨落 T / Tc</span>
+          <span class="control-val" id="valNoise">0.05</span>
+        </div>
+        <input type="range" id="rangeNoise" min="0.0" max="0.30" step="0.01" value="0.05">
+      </div>
+    </div>
+
+    <!-- 图表 1：V-Φ 伏特-磁通干涉特性曲线 -->
+    <div class="panel-box">
+      <h2>
+        <span>SQUID V-Φ 伏特-磁通干涉曲线</span>
+        <span class="panel-tag">V-Φ CURVE</span>
+      </h2>
+      <div class="chart-container">
+        <canvas class="chart-canvas" id="vPhiCanvas"></canvas>
+      </div>
+      <div class="formula-card">
+        <div>Ic(Φ) = 2·Ic · <span class="formula-highlight">|cos(π·Φ/Φ₀)|</span></div>
+        <div>V = (R/2) · <span class="formula-highlight">√(Ib² - Ic(Φ)²)</span> (当 Ib &gt; Ic)</div>
+      </div>
+    </div>
+
+    <!-- 图表 2：飞特斯拉超微磁场实时示波器 -->
+    <div class="panel-box">
+      <h2>
+        <span>飞特斯拉实时磁强示波器 (fT Scope)</span>
+        <span class="panel-tag">OSCILLOSCOPE</span>
+      </h2>
+      <div class="chart-container">
+        <canvas class="chart-canvas" id="scopeCanvas"></canvas>
+      </div>
+    </div>
+  </aside>
+</main>
+
+<div class="toast" id="toast">磁通锁定环路已启用</div>
+
+<script>
+/**
+ * 超导量子干涉仪 (DC-SQUID) 与约瑟夫森效应 (Josephson Effect)
+ * RCSJ (Resistively and Capacitively Shunted Junction) 阻尼非线性动力学仿真
+ */
+
+// 物理状态变量
+let phase1 = 0.0;     // 结 1 库珀对宏观相位差
+let phase2 = 0.0;     // 结 2 库珀对宏观相位差
+let dphase1 = 0.0;    // 相速度 dphi1/dt (等价于瞬间电压 V1)
+let dphase2 = 0.0;    // 相速度 dphi2/dt (等价于瞬间电压 V2)
+let avgVoltage = 0.0; // 宏观时均电压 <V>
+
+// 控制与环境参数
+let Ibias = 1.80;     // 偏置电流 (归一化以 Ic 为单位)
+let staticPhiExt = 0.25; // 静态外加磁通 (以 Phi0 为单位)
+let betaC = 0.20;     // Stewart-McCumber 阻尼参数
+let noiseLevel = 0.05;// 热噪声振幅
+let fllEnabled = true;// 磁通锁定环路 (Flux-Locked Loop)
+let isPlaying = true;
+let audioEnabled = true;
+let currentSource = 'mcg'; // 'mcg', 'meg', 'step', 'scan'
+
+// 生物与外界磁场信号模拟时钟
+let signalTime = 0;
+let signalPhi = 0;
+
+// 时域历史波形缓存 (示波器用)
+const SCOPE_POINTS = 160;
+let scopeBuffer = new Float32Array(SCOPE_POINTS);
+let scopeHead = 0;
+
+// 超导环内库珀对粒子示踪系统
+const NUM_COOPER_PAIRS = 75;
+let cooperPairs = [];
+function initCooperPairs() {
+  cooperPairs = [];
+  for (let i = 0; i < NUM_COOPER_PAIRS; i++) {
+    cooperPairs.push({
+      arm: Math.random() < 0.5 ? 1 : 2, // 1: 上臂, 2: 下臂
+      pos: Math.random(),               // 沿环周向归一化位置 0~1
+      speed: 0.015
+    });
+  }
+}
+initCooperPairs();
+
+// 穿透超导环的磁通量子漏斗线束
+const NUM_FLUX_LINES = 24;
+let fluxLines = [];
+function initFluxLines() {
+  fluxLines = [];
+  for (let i = 0; i < NUM_FLUX_LINES; i++) {
+    fluxLines.push({
+      angle: (i / NUM_FLUX_LINES) * Math.PI * 2,
+      radOffset: Math.random() * 0.4 + 0.2,
+      phaseOffset: Math.random() * Math.PI * 2
+    });
+  }
+}
+initFluxLines();
+
+// 计算当前外加生理/人工瞬时磁场
+function getDynamicExternalFlux(t) {
+  let bioPhi = 0;
+  if (currentSource === 'mcg') {
+    // 心磁图 ECG/MCG 周期性 P-QRS-T 波形 (周期约 1.0 秒)
+    const cycle = (t * 1.2) % 1.0;
+    if (cycle > 0.15 && cycle < 0.22) {
+      // P 波
+      bioPhi = 0.03 * Math.sin(((cycle - 0.15) / 0.07) * Math.PI);
+    } else if (cycle >= 0.25 && cycle <= 0.32) {
+      // QRS 陡峭主波群
+      const u = (cycle - 0.25) / 0.07;
+      if (u < 0.2) bioPhi = -0.05 * Math.sin((u / 0.2) * Math.PI);
+      else if (u < 0.6) bioPhi = 0.22 * Math.sin(((u - 0.2) / 0.4) * Math.PI);
+      else bioPhi = -0.07 * Math.sin(((u - 0.6) / 0.4) * Math.PI);
+    } else if (cycle > 0.42 && cycle < 0.58) {
+      // T 波
+      bioPhi = 0.06 * Math.sin(((cycle - 0.42) / 0.16) * Math.PI);
+    }
+  } else if (currentSource === 'meg') {
+    // 脑磁图 Alpha 节律 (10 Hz) 伴随微弱包络涨落 (~100 fT)
+    bioPhi = 0.045 * Math.sin(t * 10.0 * 2 * Math.PI) * (0.8 + 0.3 * Math.sin(t * 1.5));
+  } else if (currentSource === 'step') {
+    // 阶跃磁通穿刺
+    bioPhi = (Math.sin(t * 1.8) > 0) ? 0.35 : -0.15;
+  } else if (currentSource === 'scan') {
+    // 连续连续三角扫描波
+    const scanPeriod = 6.0;
+    const scanPhase = (t % scanPeriod) / scanPeriod;
+    bioPhi = (scanPhase < 0.5 ? scanPhase * 2 : 2 - scanPhase * 2) * 1.5;
+  }
+  return staticPhiExt + bioPhi;
+}
+
+// RCSJ 动力学四阶龙格库塔 / Verlet 离散步进
+const dt_sim = 0.035;
+
+function stepRCSJ() {
+  signalTime += dt_sim * 0.15;
+  const currentExtPhi = getDynamicExternalFlux(signalTime);
+
+  // 双结总超流与环内磁通自洽方程：
+  // phi2 - phi1 = 2 * pi * Phi_total
+  // 环路电感屏蔽系数 betaL = 2*L*Ic/Phi0 (取典型值 0.5)
+  const betaL = 0.45;
+  const targetPhaseDiff = 2.0 * Math.PI * currentExtPhi;
+
+  // 热涨落白噪声
+  const noise1 = (Math.random() - 0.5) * noiseLevel * 2.0;
+  const noise2 = (Math.random() - 0.5) * noiseLevel * 2.0;
+
+  // 两个约瑟夫森结的偏置分配：Ib/2 加上感应环流 J
+  // 闭合环磁通自洽求解
+  const phaseDiff = phase2 - phase1;
+  const circCurrent = (phaseDiff - targetPhaseDiff) / (2.0 * Math.PI * Math.max(0.1, betaL));
+  const I1 = Ibias * 0.5 - circCurrent;
+  const I2 = Ibias * 0.5 + circCurrent;
+
+  // 结 1 RCSJ: betaC * d2phi1/dt2 + dphi1/dt + sin(phi1) = I1 + noise1
+  let acc1 = (I1 - Math.sin(phase1) - dphase1 + noise1);
+  if (betaC > 0.05) acc1 /= betaC;
+
+  // 结 2 RCSJ: betaC * d2phi2/dt2 + dphi2/dt + sin(phi2) = I2 + noise2
+  let acc2 = (I2 - Math.sin(phase2) - dphase2 + noise2);
+  if (betaC > 0.05) acc2 /= betaC;
+
+  // 简化的半隐式欧拉-韦尔莱积分
+  dphase1 += acc1 * dt_sim;
+  dphase2 += acc2 * dt_sim;
+  phase1 += dphase1 * dt_sim;
+  phase2 += dphase2 * dt_sim;
+
+  // 计算瞬时与平滑电压 <V> = hbar/(2e) * <dphi/dt>
+  const instV = 0.5 * (Math.abs(dphase1) + Math.abs(dphase2));
+  avgVoltage = avgVoltage * 0.95 + instV * 0.05;
+
+  // 记录示波器波形 (模拟经过 FLL 积分锁定后的极灵敏磁通读出)
+  scopeBuffer[scopeHead] = currentExtPhi;
+  scopeHead = (scopeHead + 1) % SCOPE_POINTS;
+
+  // 更新库珀对流动
+  for (let cp of cooperPairs) {
+    const drift = (avgVoltage > 0.05 ? avgVoltage * 0.025 : 0.004) * (cp.arm === 1 ? (I1 >= 0 ? 1 : -1) : (I2 >= 0 ? 1 : -1));
+    cp.pos = (cp.pos + drift + 1.0) % 1.0;
+  }
+}
+
+// 主画布 Canvas
+const canvas = document.getElementById('mainCanvas');
+const ctx = canvas.getContext('2d');
+
+function resizeCanvas() {
+  const rect = canvas.parentElement.getBoundingClientRect();
+  canvas.width = rect.width;
+  canvas.height = rect.height;
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+// 全息 SQUID 超导芯片与倾斜洗衣板势能绘制
+function renderSimulation() {
+  const w = canvas.width;
+  const h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+
+  // 背景微弱量子网格
+  ctx.strokeStyle = 'rgba(56, 189, 248, 0.04)';
+  ctx.lineWidth = 1;
+  const gridSize = 32;
+  for (let x = 0; x < w; x += gridSize) {
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, h);
+    ctx.stroke();
+  }
+  for (let y = 0; y < h; y += gridSize) {
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(w, y);
+    ctx.stroke();
+  }
+
+  // 划分区域：上半部为 3D/全息 SQUID 环，下半部为倾斜洗衣板势阱 (Washboard Potential)
+  const squidCenterY = h * 0.38;
+  const washboardCenterY = h * 0.80;
+
+  // ================= 1. SQUID 超导环全息视图 =================
+  const ringR = Math.min(w * 0.18, 110);
+  const ringThickness = ringR * 0.28;
+  const centerX = w * 0.5;
+
+  // 穿过环孔的磁通量子漏斗线束
+  const currentExtPhi = getDynamicExternalFlux(signalTime);
+  const fluxDensity = Math.min(1.0, currentExtPhi / 2.0);
+
+  ctx.save();
+  // 环心穿透磁通辉光
+  const fluxGrad = ctx.createRadialGradient(centerX, squidCenterY, 5, centerX, squidCenterY, ringR - ringThickness * 0.5);
+  fluxGrad.addColorStop(0, `rgba(192, 132, 252, ${0.15 + fluxDensity * 0.35})`);
+  fluxGrad.addColorStop(1, 'rgba(192, 132, 252, 0)');
+  ctx.fillStyle = fluxGrad;
+  ctx.beginPath();
+  ctx.arc(centerX, squidCenterY, ringR - ringThickness * 0.5, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 磁力线刺破箭头束
+  for (let fl of fluxLines) {
+    const lineR = (ringR - ringThickness * 0.9) * fl.radOffset;
+    const lx = centerX + Math.cos(fl.angle + signalTime * 0.5) * lineR;
+    const ly = squidCenterY + Math.sin(fl.angle + signalTime * 0.5) * lineR * 0.65; // 椭圆透视
+    ctx.fillStyle = `rgba(192, 132, 252, ${0.4 + fluxDensity * 0.6})`;
+    ctx.beginPath();
+    ctx.arc(lx, ly, 2.2 + fluxDensity * 1.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 绘制向上穿出的微透视磁力线
+    ctx.strokeStyle = `rgba(192, 132, 252, ${0.25 + fluxDensity * 0.4})`;
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(lx, ly + 14);
+    ctx.lineTo(lx, ly - 18);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // 绘制超导薄膜环
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(centerX, squidCenterY, ringR, 0, Math.PI * 2);
+  ctx.arc(centerX, squidCenterY, ringR - ringThickness, 0, Math.PI * 2, true);
+  ctx.fillStyle = 'rgba(15, 23, 42, 0.95)';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(56, 189, 248, 0.7)';
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
+
+  // 超导环外沿辉光
+  ctx.shadowColor = '#38bdf8';
+  ctx.shadowBlur = 16;
+  ctx.stroke();
+  ctx.restore();
+
+  // 绘制左右两个约瑟夫森纳米隧道结 (Josephson Junctions)
+  // 左结 J1 (位于 -ringR+thickness/2), 右结 J2 (位于 +ringR-thickness/2)
+  const junctionW = 16;
+  const junctionH = ringThickness + 6;
+
+  function drawJunction(jx, jy, label, phaseVal, isUpper) {
+    ctx.save();
+    // 纳米势垒氧化层
+    ctx.fillStyle = '#f59e0b';
+    ctx.fillRect(jx - junctionW * 0.5, jy - junctionH * 0.5, junctionW, junctionH);
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 1.2;
+    ctx.strokeRect(jx - junctionW * 0.5, jy - junctionH * 0.5, junctionW, junctionH);
+
+    // 势垒结十字标志
+    ctx.strokeStyle = '#020617';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(jx - 5, jy - 6);
+    ctx.lineTo(jx + 5, jy + 6);
+    ctx.moveTo(jx + 5, jy - 6);
+    ctx.lineTo(jx - 5, jy + 6);
+    ctx.stroke();
+
+    // 标签与实时相位
+    ctx.fillStyle = '#e2e8f0';
+    ctx.font = '10px var(--font-mono)';
+    ctx.textAlign = 'center';
+    ctx.fillText(`${label}`, jx, jy + (isUpper ? -18 : 22));
+    ctx.fillStyle = '#38bdf8';
+    ctx.fillText(`ϕ: ${(phaseVal % (Math.PI * 2)).toFixed(2)}`, jx, jy + (isUpper ? -7 : 33));
+    ctx.restore();
+  }
+
+  const j1X = centerX - (ringR - ringThickness * 0.5);
+  const j2X = centerX + (ringR - ringThickness * 0.5);
+  drawJunction(j1X, squidCenterY, '约瑟夫森结 J₁', phase1, true);
+  drawJunction(j2X, squidCenterY, '约瑟夫森结 J₂', phase2, true);
+
+  // 绘制偏置电流流注箭头 (从顶部注入，从底部流出)
+  ctx.save();
+  ctx.strokeStyle = '#38bdf8';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  // 顶端电流输入端
+  ctx.moveTo(centerX, squidCenterY - ringR - 35);
+  ctx.lineTo(centerX, squidCenterY - ringR);
+  // 底端电流输出端
+  ctx.moveTo(centerX, squidCenterY + ringR);
+  ctx.lineTo(centerX, squidCenterY + ringR + 35);
+  ctx.stroke();
+
+  // 箭头尖端
+  ctx.fillStyle = '#38bdf8';
+  ctx.beginPath();
+  ctx.moveTo(centerX - 6, squidCenterY - ringR - 6);
+  ctx.lineTo(centerX + 6, squidCenterY - ringR - 6);
+  ctx.lineTo(centerX, squidCenterY - ringR + 2);
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.moveTo(centerX - 6, squidCenterY + ringR + 25);
+  ctx.lineTo(centerX + 6, squidCenterY + ringR + 25);
+  ctx.lineTo(centerX, squidCenterY + ringR + 33);
+  ctx.fill();
+
+  ctx.font = '11px var(--font-mono)';
+  ctx.textAlign = 'center';
+  ctx.fillText(`Ibias = ${Ibias.toFixed(2)} Ic`, centerX + 60, squidCenterY - ringR - 15);
+  ctx.restore();
+
+  // 绘制流经超导环的微观库珀对 (Cooper Pairs)
+  ctx.save();
+  const loopMidR = ringR - ringThickness * 0.5;
+  for (let cp of cooperPairs) {
+    // 角度分布：arm=1 从上向下走左半圆，arm=2 走右半圆
+    let theta = 0;
+    if (cp.arm === 1) {
+      theta = -Math.PI * 0.5 - cp.pos * Math.PI;
+    } else {
+      theta = -Math.PI * 0.5 + cp.pos * Math.PI;
+    }
+
+    const cpx = centerX + Math.cos(theta) * loopMidR;
+    const cpy = squidCenterY + Math.sin(theta) * loopMidR;
+
+    // 库珀对发光双微粒
+    ctx.fillStyle = '#38bdf8';
+    ctx.shadowColor = '#06b6d4';
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    ctx.arc(cpx - 2, cpy, 2.5, 0, Math.PI * 2);
+    ctx.arc(cpx + 2, cpy, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+
+  // ================= 2. 倾斜洗衣板势能 (Washboard Potential) =================
+  // U(phi) = -cos(phi) - (Ibias/Ic)*phi
+  ctx.save();
+  const wbW = w * 0.88;
+  const wbStartX = (w - wbW) * 0.5;
+  const slope = Ibias * 0.42; // 随偏置电流线性倾斜坡度
+
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath();
+  ctx.moveTo(wbStartX, washboardCenterY - 45);
+  ctx.lineTo(wbStartX + wbW, washboardCenterY + 45);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // 绘制倾斜洗衣板势能曲线
+  ctx.beginPath();
+  ctx.strokeStyle = '#c084fc';
+  ctx.lineWidth = 2.5;
+  ctx.shadowColor = '#a855f7';
+  ctx.shadowBlur = 10;
+
+  const numWbPoints = 180;
+  let ballScreenX = 0;
+  let ballScreenY = 0;
+  const currentPhi = phase1; // 跟踪结 1 的瞬时相位
+
+  for (let i = 0; i <= numWbPoints; i++) {
+    const t = (i / numWbPoints);
+    const phi = (t - 0.5) * (Math.PI * 6.5) + (currentPhi * 0.25);
+    const px = wbStartX + t * wbW;
+    // 势能计算: -cos(phi) - slope*phi
+    const uVal = -Math.cos(phi) - (Ibias * 0.5) * (phi * 0.35);
+    const py = washboardCenterY + uVal * 18;
+
+    if (i === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+
+    // 确定相位质点在势能井中的屏幕坐标
+    if (i === Math.floor(numWbPoints * 0.5)) {
+      ballScreenX = px;
+      ballScreenY = py;
+    }
+  }
+  ctx.stroke();
+
+  // 绘制在势能井中滑移震荡的“相位质点”
+  ctx.shadowBlur = 20;
+  ctx.shadowColor = '#38bdf8';
+  ctx.fillStyle = '#38bdf8';
+  ctx.beginPath();
+  ctx.arc(ballScreenX, ballScreenY, 7.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // 若相速度 dphase1 较大（发生相滑移），喷溅能量光芒
+  if (Math.abs(dphase1) > 0.8) {
+    ctx.fillStyle = '#f59e0b';
+    for (let k = 0; k < 6; k++) {
+      const spAng = Math.random() * Math.PI * 2;
+      const spDist = Math.random() * 16 + 8;
+      ctx.beginPath();
+      ctx.arc(ballScreenX + Math.cos(spAng) * spDist, ballScreenY + Math.sin(spAng) * spDist, 1.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // 势能图标题与物理机制说明
+  ctx.fillStyle = '#94a3b8';
+  ctx.font = '10px var(--font-mono)';
+  ctx.textAlign = 'left';
+  ctx.fillText('倾斜洗衣板势阱 (Tilted Washboard Potential U(ϕ) = -cosϕ - (Ib/Ic)·ϕ)', wbStartX + 10, washboardCenterY - 48);
+
+  const stateText = (Ibias < 1.0 && Math.abs(dphase1) < 0.2)
+    ? '【超导零阻态】相位质点束缚在势阱极小值中，时均电压 <V> = 0'
+    : '【有限阻性态】偏置电流克服势垒，质点沿倾斜坡道持续滑落产生宏观电压 <V> > 0';
+  ctx.fillStyle = (Ibias < 1.0 && Math.abs(dphase1) < 0.2) ? '#10b981' : '#f59e0b';
+  ctx.fillText(stateText, wbStartX + 10, washboardCenterY + 48);
+  ctx.restore();
+}
+
+// 辅助图表 1：V-Φ 伏特-磁通干涉周期曲线
+const vPhiCanvas = document.getElementById('vPhiCanvas');
+const vPhiCtx = vPhiCanvas.getContext('2d');
+
+function renderVPhiChart() {
+  const w = vPhiCanvas.width = vPhiCanvas.parentElement.clientWidth;
+  const h = vPhiCanvas.height = vPhiCanvas.parentElement.clientHeight;
+  vPhiCtx.clearRect(0, 0, w, h);
+
+  const padL = 35;
+  const padR = 15;
+  const padT = 15;
+  const padB = 25;
+  const plotW = w - padL - padR;
+  const plotH = h - padT - padB;
+
+  // 网格线
+  vPhiCtx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
+  vPhiCtx.lineWidth = 1;
+  for (let y = padT; y <= padT + plotH; y += plotH * 0.5) {
+    vPhiCtx.beginPath();
+    vPhiCtx.moveTo(padL, y);
+    vPhiCtx.lineTo(padL + plotW, y);
+    vPhiCtx.stroke();
+  }
+
+  // 坐标轴标注
+  vPhiCtx.fillStyle = '#64748b';
+  vPhiCtx.font = '9px var(--font-mono)';
+  vPhiCtx.fillText('0', padL, h - 8);
+  vPhiCtx.fillText('1Φ₀', padL + plotW * 0.33 - 10, h - 8);
+  vPhiCtx.fillText('2Φ₀', padL + plotW * 0.66 - 10, h - 8);
+  vPhiCtx.fillText('3Φ₀', padL + plotW - 15, h - 8);
+  vPhiCtx.fillText('V_max', 2, padT + 8);
+  vPhiCtx.fillText('0.0', 12, padT + plotH);
+
+  // 理论 V-Phi 曲线: V(Phi) = (R/2) * sqrt(max(0, Ib^2 - Ic(Phi)^2))
+  vPhiCtx.beginPath();
+  vPhiCtx.strokeStyle = '#38bdf8';
+  vPhiCtx.lineWidth = 2;
+  const samples = 100;
+  for (let i = 0; i <= samples; i++) {
+    const phiNorm = (i / samples) * 3.0; // 0 ~ 3 Phi0
+    const icPhi = 2.0 * Math.abs(Math.cos(Math.PI * phiNorm));
+    let vVal = 0;
+    if (Ibias > icPhi) {
+      vVal = Math.sqrt(Ibias * Ibias - icPhi * icPhi);
+    }
+    const px = padL + (i / samples) * plotW;
+    const py = padT + plotH - (vVal / 3.0) * plotH;
+    if (i === 0) vPhiCtx.moveTo(px, py);
+    else vPhiCtx.lineTo(px, py);
+  }
+  vPhiCtx.stroke();
+
+  // 当前外加磁通工作点标记
+  const currentExtPhi = getDynamicExternalFlux(signalTime) % 3.0;
+  const curIcPhi = 2.0 * Math.abs(Math.cos(Math.PI * currentExtPhi));
+  let curV = 0;
+  if (Ibias > curIcPhi) {
+    curV = Math.sqrt(Ibias * Ibias - curIcPhi * curIcPhi);
+  }
+  const curPx = padL + (currentExtPhi / 3.0) * plotW;
+  const curPy = padT + plotH - (curV / 3.0) * plotH;
+
+  vPhiCtx.fillStyle = '#f43f5e';
+  vPhiCtx.beginPath();
+  vPhiCtx.arc(curPx, curPy, 4.5, 0, Math.PI * 2);
+  vPhiCtx.fill();
+  vPhiCtx.strokeStyle = '#ffffff';
+  vPhiCtx.lineWidth = 1.5;
+  vPhiCtx.stroke();
+
+  // 工作点切线斜率 (dV/dPhi 灵敏度)
+  vPhiCtx.fillStyle = '#f43f5e';
+  vPhiCtx.font = '8px var(--font-mono)';
+  vPhiCtx.fillText('工作偏置点', curPx + 8, curPy - 6);
+}
+
+// 辅助图表 2：飞特斯拉微弱磁信号实时示波器
+const scopeCanvas = document.getElementById('scopeCanvas');
+const scopeCtx = scopeCanvas.getContext('2d');
+
+function renderScopeChart() {
+  const w = scopeCanvas.width = scopeCanvas.parentElement.clientWidth;
+  const h = scopeCanvas.height = scopeCanvas.parentElement.clientHeight;
+  scopeCtx.clearRect(0, 0, w, h);
+
+  // 示波器网格
+  scopeCtx.strokeStyle = 'rgba(16, 185, 129, 0.12)';
+  scopeCtx.lineWidth = 1;
+  const sx = w / 8;
+  const sy = h / 4;
+  for (let x = 0; x < w; x += sx) {
+    scopeCtx.beginPath();
+    scopeCtx.moveTo(x, 0);
+    scopeCtx.lineTo(x, h);
+    scopeCtx.stroke();
+  }
+  for (let y = 0; y < h; y += sy) {
+    scopeCtx.beginPath();
+    scopeCtx.moveTo(0, y);
+    scopeCtx.lineTo(w, y);
+    scopeCtx.stroke();
+  }
+
+  // 示波波形绘制
+  scopeCtx.beginPath();
+  scopeCtx.strokeStyle = '#10b981';
+  scopeCtx.lineWidth = 2;
+  scopeCtx.shadowColor = '#10b981';
+  scopeCtx.shadowBlur = 8;
+
+  const midY = h * 0.5;
+  for (let i = 0; i < SCOPE_POINTS; i++) {
+    const idx = (scopeHead + i) % SCOPE_POINTS;
+    const val = scopeBuffer[idx] - staticPhiExt; // 相对波动
+    const px = (i / (SCOPE_POINTS - 1)) * w;
+    const py = midY - val * (h * 0.95);
+    if (i === 0) scopeCtx.moveTo(px, py);
+    else scopeCtx.lineTo(px, py);
+  }
+  scopeCtx.stroke();
+
+  // 标尺信息
+  scopeCtx.fillStyle = '#10b981';
+  scopeCtx.font = '9px var(--font-mono)';
+  scopeCtx.fillText('CH1: 50 fT/div', 8, 14);
+  scopeCtx.fillText('FLL Locked: 100 kHz BW', w - 130, 14);
+}
+
+// Web Audio 量子声学合成器
+let audioCtx = null;
+let josephsonOsc = null;
+let clickGain = null;
+
+function initAudio() {
+  if (audioCtx) return;
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextClass) return;
+  audioCtx = new AudioContextClass();
+
+  josephsonOsc = audioCtx.createOscillator();
+  const mainGain = audioCtx.createGain();
+
+  josephsonOsc.type = 'sawtooth';
+  josephsonOsc.frequency.setValueAtTime(180, audioCtx.currentTime);
+  mainGain.gain.setValueAtTime(0.012, audioCtx.currentTime);
+
+  josephsonOsc.connect(mainGain);
+  mainGain.connect(audioCtx.destination);
+  josephsonOsc.start();
+}
+
+function updateAudioFeedback() {
+  if (!audioCtx || !audioEnabled) return;
+  // 根据相滑移速度调制微波降频声音
+  const targetFreq = 120 + Math.abs(dphase1) * 350 + (avgVoltage > 0.05 ? 140 : 0);
+  josephsonOsc.frequency.setTargetAtTime(Math.min(1200, targetFreq), audioCtx.currentTime, 0.06);
+}
+
+// HUD 指标与文本刷新
+function updateHUDMetrics() {
+  const currentExtPhi = getDynamicExternalFlux(signalTime);
+  const circCurrent = (phase2 - phase1 - 2.0 * Math.PI * currentExtPhi) / (2.0 * Math.PI * 0.45);
+  const maxSuper = 2.0 * Math.abs(Math.cos(Math.PI * currentExtPhi));
+
+  document.getElementById('statAvgVoltage').textContent = `${(avgVoltage * 12.4).toFixed(2)} μV`;
+  document.getElementById('statMaxSupercurrent').textContent = `${maxSuper.toFixed(2)} Ic`;
+  document.getElementById('hudPhi1').textContent = `${(phase1 % (Math.PI * 2)).toFixed(2)} rad`;
+  document.getElementById('hudPhi2').textContent = `${(phase2 % (Math.PI * 2)).toFixed(2)} rad`;
+
+  document.getElementById('metricPhiTot').textContent = currentExtPhi.toFixed(2);
+  document.getElementById('metricCircCurrent').textContent = circCurrent.toFixed(2);
+
+  const freqGHz = (avgVoltage * 12.4 * 0.4836).toFixed(1);
+  document.getElementById('metricFreqJ').textContent = freqGHz;
+
+  const modeTitle = (Ibias < maxSuper)
+    ? 'DC-SQUID 零阻超流基态 (Zero-Voltage)'
+    : '约瑟夫森交流相滑移态 (AC Voltage State)';
+  document.getElementById('modeDisplayTitle').textContent = modeTitle;
+}
+
+// 主渲染与步进循环
+let frameCount = 0;
+function animate() {
+  if (isPlaying) {
+    stepRCSJ();
+    stepRCSJ();
+  }
+
+  renderSimulation();
+
+  frameCount++;
+  if (frameCount % 4 === 0) {
+    updateHUDMetrics();
+    renderVPhiChart();
+    renderScopeChart();
+    updateAudioFeedback();
+  }
+
+  requestAnimationFrame(animate);
+}
+requestAnimationFrame(animate);
+
+// 用户交互控制
+const modeBtns = document.querySelectorAll('.mode-btn');
+modeBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    modeBtns.forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentSource = btn.dataset.source;
+    signalTime = 0;
+    const names = { mcg: '心磁图 (MCG)', meg: '脑磁图 (MEG)', step: '阶跃磁通穿刺', scan: '连续磁通扫描' };
+    showToast(`信号源已切换为: ${names[currentSource]}`);
+  });
+});
+
+// 偏置电流滑块
+const rangeIb = document.getElementById('rangeIbias');
+rangeIb.addEventListener('input', (e) => {
+  Ibias = parseFloat(e.target.value);
+  document.getElementById('valIbias').textContent = `${Ibias.toFixed(2)} Ic`;
+});
+
+// 偏置磁通滑块
+const rangePhi = document.getElementById('rangePhiExt');
+rangePhi.addEventListener('input', (e) => {
+  staticPhiExt = parseFloat(e.target.value);
+  document.getElementById('valPhiExt').textContent = `${staticPhiExt.toFixed(2)} Φ₀`;
+});
+
+// 阻尼参数滑块
+const rangeBeta = document.getElementById('rangeBetaC');
+rangeBeta.addEventListener('input', (e) => {
+  betaC = parseFloat(e.target.value);
+  const tag = betaC < 0.8 ? '(过阻尼)' : '(欠阻尼滞后)';
+  document.getElementById('valBetaC').textContent = `${betaC.toFixed(2)} ${tag}`;
+});
+
+// 噪声滑块
+const rangeN = document.getElementById('rangeNoise');
+rangeN.addEventListener('input', (e) => {
+  noiseLevel = parseFloat(e.target.value);
+  document.getElementById('valNoise').textContent = noiseLevel.toFixed(2);
+});
+
+// 按钮控制
+const btnPlayPause = document.getElementById('btnPlayPause');
+btnPlayPause.addEventListener('click', () => {
+  isPlaying = !isPlaying;
+  document.getElementById('playIcon').textContent = isPlaying ? '⏸' : '▶';
+  btnPlayPause.childNodes[2].textContent = isPlaying ? ' 暂停' : ' 继续';
+  initAudio();
+});
+
+document.getElementById('btnStep').addEventListener('click', () => {
+  isPlaying = false;
+  document.getElementById('playIcon').textContent = '▶';
+  btnPlayPause.childNodes[2].textContent = ' 继续';
+  stepRCSJ();
+  renderSimulation();
+  updateHUDMetrics();
+});
+
+document.getElementById('btnResetPhase').addEventListener('click', () => {
+  phase1 = 0;
+  phase2 = 0;
+  dphase1 = 0;
+  dphase2 = 0;
+  avgVoltage = 0;
+  showToast('超导宏观相位已复位');
+});
+
+const btnFLL = document.getElementById('btnFLL');
+btnFLL.addEventListener('click', () => {
+  fllEnabled = !fllEnabled;
+  btnFLL.classList.toggle('active', fllEnabled);
+  document.getElementById('fllState').textContent = fllEnabled ? 'CLOSED LOOP' : 'OPEN LOOP';
+  document.getElementById('fllState').style.color = fllEnabled ? 'var(--accent-emerald)' : 'var(--accent-rose)';
+  showToast(`磁通锁定环路: ${fllEnabled ? '已开启闭环锁定' : '开环'}`);
+});
+
+const btnAudio = document.getElementById('btnAudio');
+btnAudio.addEventListener('click', () => {
+  audioEnabled = !audioEnabled;
+  btnAudio.classList.toggle('active', audioEnabled);
+  if (audioEnabled) {
+    initAudio();
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  }
+});
+
+let toastTimer = null;
+function showToast(msg) {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    toast.classList.remove('show');
+  }, 2200);
+}
+
+window.addEventListener('click', () => {
+  if (audioEnabled) initAudio();
+}, { once: true });
+</script>
+
+</body>
+</html>

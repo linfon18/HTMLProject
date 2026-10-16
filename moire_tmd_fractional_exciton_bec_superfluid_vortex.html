@@ -1,0 +1,1237 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>双层扭转TMD分数激子绝缘体莫尔激子相干玻色-爱因斯坦凝聚与拓扑超流涡旋晶格全息模拟器</title>
+  <style>
+    :root {
+      --bg-color: #030712;
+      --card-bg: rgba(15, 23, 42, 0.78);
+      --card-border: rgba(168, 85, 247, 0.28);
+      --accent-purple: #a855f7;
+      --accent-cyan: #38bdf8;
+      --accent-emerald: #10b981;
+      --accent-rose: #f43f5e;
+      --accent-gold: #fbbf24;
+      --accent-indigo: #6366f1;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+    }
+
+    #canvas-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 1;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    .ui-layer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 10;
+      pointer-events: none;
+      display: grid;
+      grid-template-columns: 340px 1fr 380px;
+      padding: 18px;
+      gap: 16px;
+    }
+
+    .panel {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      backdrop-filter: blur(16px);
+      border-radius: 14px;
+      padding: 16px;
+      pointer-events: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      overflow-y: auto;
+      max-height: calc(100vh - 36px);
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.55), inset 0 0 16px rgba(168, 85, 247, 0.05);
+      scrollbar-width: thin;
+      scrollbar-color: var(--accent-purple) transparent;
+    }
+
+    .panel::-webkit-scrollbar {
+      width: 4px;
+    }
+    .panel::-webkit-scrollbar-thumb {
+      background: var(--accent-purple);
+      border-radius: 2px;
+    }
+
+    .title-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: var(--accent-purple);
+      background: rgba(168, 85, 247, 0.12);
+      padding: 4px 10px;
+      border-radius: 20px;
+      border: 1px solid rgba(168, 85, 247, 0.35);
+      width: fit-content;
+    }
+
+    h1 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      line-height: 1.35;
+      background: linear-gradient(135deg, #f3e8ff 0%, #c084fc 50%, #38bdf8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-top: 2px;
+    }
+
+    .subtitle {
+      font-size: 0.76rem;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+
+    .metric-card {
+      background: rgba(30, 41, 59, 0.65);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      border-radius: 8px;
+      padding: 8px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .metric-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 3px;
+      height: 100%;
+      background: var(--accent-purple);
+    }
+
+    .metric-card.cyan::before { background: var(--accent-cyan); }
+    .metric-card.gold::before { background: var(--accent-gold); }
+    .metric-card.rose::before { background: var(--accent-rose); }
+    .metric-card.emerald::before { background: var(--accent-emerald); }
+
+    .metric-label {
+      font-size: 0.68rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .metric-val {
+      font-size: 1.05rem;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', Consolas, monospace;
+      color: var(--text-main);
+    }
+
+    .section-title {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--accent-purple);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 4px;
+    }
+
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .slider-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.74rem;
+    }
+
+    .slider-val {
+      font-family: monospace;
+      color: var(--accent-purple);
+      font-weight: 600;
+    }
+
+    input[type=range] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 4px;
+      border-radius: 2px;
+      background: rgba(255, 255, 255, 0.15);
+      outline: none;
+      cursor: pointer;
+    }
+
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--accent-purple);
+      cursor: pointer;
+      box-shadow: 0 0 8px var(--accent-purple);
+      transition: transform 0.1s;
+    }
+
+    input[type=range]::-webkit-slider-thumb:hover {
+      transform: scale(1.25);
+    }
+
+    .btn-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 6px;
+    }
+
+    .btn {
+      background: rgba(30, 41, 59, 0.85);
+      border: 1px solid rgba(168, 85, 247, 0.25);
+      color: var(--text-main);
+      padding: 8px 10px;
+      border-radius: 6px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: center;
+    }
+
+    .btn:hover {
+      background: rgba(168, 85, 247, 0.2);
+      border-color: var(--accent-purple);
+      box-shadow: 0 0 12px rgba(168, 85, 247, 0.35);
+      transform: translateY(-1px);
+    }
+
+    .btn.active {
+      background: linear-gradient(135deg, rgba(168, 85, 247, 0.35), rgba(56, 189, 248, 0.3));
+      border-color: var(--accent-purple);
+      color: #c084fc;
+      box-shadow: 0 0 10px rgba(168, 85, 247, 0.4);
+    }
+
+    .osc-box {
+      background: rgba(10, 15, 30, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .osc-title {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .osc-canvas {
+      width: 100%;
+      height: 105px;
+      background: #020617;
+      border-radius: 4px;
+      border: 1px solid rgba(168, 85, 247, 0.15);
+    }
+
+    .center-hud {
+      grid-column: 2;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      align-items: center;
+      pointer-events: none;
+      padding-bottom: 12px;
+    }
+
+    .top-pill {
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(168, 85, 247, 0.3);
+      padding: 6px 16px;
+      border-radius: 20px;
+      backdrop-filter: blur(10px);
+      font-size: 0.76rem;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    }
+
+    .hud-status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent-emerald);
+      box-shadow: 0 0 8px var(--accent-emerald);
+      animation: pulse 1.8s infinite;
+    }
+
+    @keyframes pulse {
+      0% { opacity: 0.4; transform: scale(0.9); }
+      50% { opacity: 1; transform: scale(1.15); }
+      100% { opacity: 0.4; transform: scale(0.9); }
+    }
+
+    .bottom-hint {
+      background: rgba(15, 23, 42, 0.75);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      padding: 6px 14px;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      backdrop-filter: blur(8px);
+    }
+
+    .audio-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(30, 41, 59, 0.5);
+      padding: 6px 10px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      font-size: 0.72rem;
+    }
+
+    .toggle-switch {
+      position: relative;
+      width: 32px;
+      height: 18px;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 9px;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    .toggle-switch.active {
+      background: var(--accent-purple);
+    }
+
+    .toggle-switch::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #fff;
+      transition: 0.2s;
+    }
+
+    .toggle-switch.active::after {
+      transform: translateX(14px);
+    }
+  </style>
+</head>
+<body>
+  <div id="canvas-container">
+    <canvas id="mainCanvas"></canvas>
+  </div>
+
+  <div class="ui-layer">
+    <!-- Left Panel: Core Controls & Theory -->
+    <div class="panel">
+      <div class="title-badge">Moire-TMD BEC #363</div>
+      <h1>双层扭转TMD分数激子绝缘体莫尔激子相干BEC与拓扑超流涡旋晶格</h1>
+      <p class="subtitle">Twisted TMD Fractional Exciton BEC Superfluid & Chiral Vortex Lattice Holographic Simulator</p>
+
+      <!-- Key Metrics -->
+      <div class="metrics-grid">
+        <div class="metric-card">
+          <span class="metric-label">凝聚体分数 n₀/n</span>
+          <span class="metric-val" id="val-n0">84.6 %</span>
+        </div>
+        <div class="metric-card cyan">
+          <span class="metric-label">超流刚度 ρ_s</span>
+          <span class="metric-val" id="val-rhos">1.84 meV</span>
+        </div>
+        <div class="metric-card emerald">
+          <span class="metric-label">相干长度 ξ_bec</span>
+          <span class="metric-val" id="val-xi">14.2 nm</span>
+        </div>
+        <div class="metric-card gold">
+          <span class="metric-label">涡旋量子荷 w_tot</span>
+          <span class="metric-val" id="val-vortices">+7 ℏ/M</span>
+        </div>
+      </div>
+
+      <!-- Presets -->
+      <div class="section-title">⚡ 运行工况预设 (Presets)</div>
+      <div class="btn-grid">
+        <button class="btn" id="preset-1" onclick="applyPreset(1)">ν=1/3 分数激子绝缘体</button>
+        <button class="btn active" id="preset-2" onclick="applyPreset(2)">宏观纯相干BEC凝聚</button>
+        <button class="btn" id="preset-3" onclick="applyPreset(3)">阿布里科索夫涡旋晶格</button>
+        <button class="btn" id="preset-4" onclick="applyPreset(4)">BKT拓扑临界融化相</button>
+      </div>
+
+      <!-- Micro Parameters Sliders -->
+      <div class="section-title">🎛️ 微观物理参数 (Micro-Params)</div>
+
+      <div class="control-group">
+        <div class="slider-header">
+          <span>莫尔扭转角 θ_twist</span>
+          <span class="slider-val" id="val-theta">2.10°</span>
+        </div>
+        <input type="range" id="param-theta" min="1.1" max="5.0" step="0.05" value="2.10">
+      </div>
+
+      <div class="control-group">
+        <div class="slider-header">
+          <span>激子填充数 ν_ex</span>
+          <span class="slider-val" id="val-nuex">0.85 ν₀</span>
+        </div>
+        <input type="range" id="param-nuex" min="0.1" max="1.5" step="0.02" value="0.85">
+      </div>
+
+      <div class="control-group">
+        <div class="slider-header">
+          <span>垂直门极电场 E_perp</span>
+          <span class="slider-val" id="val-eperp">1.20 V/nm</span>
+        </div>
+        <input type="range" id="param-eperp" min="0.0" max="3.0" step="0.05" value="1.20">
+      </div>
+
+      <div class="control-group">
+        <div class="slider-header">
+          <span>有效温度 T / T_BKT</span>
+          <span class="slider-val" id="val-temp">0.35 T_c</span>
+        </div>
+        <input type="range" id="param-temp" min="0.05" max="2.2" step="0.02" value="0.35">
+      </div>
+
+      <div class="control-group">
+        <div class="slider-header">
+          <span>伪磁场/旋转角速度 Ω_rot</span>
+          <span class="slider-val" id="val-omega">1.60 rad/s</span>
+        </div>
+        <input type="range" id="param-omega" min="0.0" max="5.0" step="0.05" value="1.60">
+      </div>
+
+      <div class="control-group">
+        <div class="slider-header">
+          <span>层间杂化隧穿 t_inter</span>
+          <span class="slider-val" id="val-tinter">3.50 meV</span>
+        </div>
+        <input type="range" id="param-tinter" min="0.2" max="8.0" step="0.1" value="3.50">
+      </div>
+
+      <div class="audio-toggle">
+        <span>量子超流声学声子合成音 (Web Audio)</span>
+        <div class="toggle-switch active" id="audioToggle" onclick="toggleAudio()"></div>
+      </div>
+    </div>
+
+    <!-- Center HUD Prompt -->
+    <div class="center-hud">
+      <div class="top-pill">
+        <div class="hud-status-dot"></div>
+        <span id="hud-status">宏观量子相干态建立 | 阿布里科索夫六角手征涡旋自发对齐中</span>
+      </div>
+      <div class="bottom-hint">
+        🖱️ 鼠标左键拖拽旋转空间视锥 | 滚轮无级拉伸景深 | 双击视角初始重置 | 空格键冻结动力学演化
+      </div>
+    </div>
+
+    <!-- Right Panel: Dual Channel Oscilloscopes & Micro Mechanism -->
+    <div class="panel">
+      <div class="section-title">📊 双通道实时物理示波器</div>
+
+      <!-- Channel 1: Momentum Condensation Peak n(k) -->
+      <div class="osc-box">
+        <div class="osc-title">
+          <span>通道 1: 激子准动量凝聚分布谱 n(k)</span>
+          <span style="color:var(--accent-cyan); font-family:monospace;">k=0 BEC奇异峰</span>
+        </div>
+        <canvas class="osc-canvas" id="osc1"></canvas>
+      </div>
+
+      <!-- Channel 2: Superfluid Stiffness & BKT Transition -->
+      <div class="osc-box">
+        <div class="osc-title">
+          <span>通道 2: 超流刚度 ρ_s(T) 与 BKT 拓扑普适相变</span>
+          <span style="color:var(--accent-purple); font-family:monospace;">Nelson-Kosterlitz跳变</span>
+        </div>
+        <canvas class="osc-canvas" id="osc2"></canvas>
+      </div>
+
+      <!-- Microscopic Mechanism Card -->
+      <div class="metric-card" style="margin-top:6px; padding:12px; background:rgba(15,23,42,0.9);">
+        <div style="font-size:0.72rem; font-weight:700; color:var(--accent-purple); margin-bottom:4px;">
+          🔬 TMD 莫尔激子微观相干方程：
+        </div>
+        <div style="font-size:0.66rem; color:var(--text-muted); line-height:1.45; font-family:monospace;">
+          d_ex = e · d_⊥ ẑ [巨层间电偶极子]<br>
+          H_moire = ∑ V_M(r_i) + ∑ V_dipole(r_i - r_j)<br>
+          ψ_BEC(r) = √n₀ · exp[ i ∑ w_k arg(r - r_k) ]<br>
+          ρ_s(T_BKT) = (2/π) k_B T_BKT [BKT拓扑相变律]
+        </div>
+      </div>
+
+      <!-- Vortex Lattice Configuration Info -->
+      <div class="metric-card gold" style="padding:10px;">
+        <span class="metric-label" style="color:var(--accent-gold);">拓扑涡旋核点阵密度与相干流速</span>
+        <div style="font-size:0.72rem; font-family:monospace; margin-top:4px; color:#f8fafc;" id="vortex-desc">
+          阿布里科索夫角阵列: 7 个量子化点旋涡 | 伪环流线速度: 4.8 km/s
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* =========================================================================
+       1. GLOBAL STATE & PARAMETERS
+       ========================================================================= */
+    const STATE = {
+      theta: 2.10,     // 扭转角 (度)
+      nuex: 0.85,      // 填充数
+      eperp: 1.20,     // 垂直门极电场 (V/nm)
+      temp: 0.35,      // 有效温度 T/Tc
+      omega: 1.60,     // 旋转/伪磁场角速度 (rad/s)
+      tinter: 3.50,    // 层间杂化 (meV)
+
+      // Calculated Physical Observables
+      n0Frac: 84.6,
+      rhoS: 1.84,
+      xiBec: 14.2,
+      numVortices: 7,
+
+      // Time & Animation
+      time: 0,
+      paused: false,
+      audioEnabled: true,
+
+      // 3D Camera Controls
+      camRotX: 0.52,
+      camRotY: -0.45,
+      camZoom: 1.05,
+      camTargetRotX: 0.52,
+      camTargetRotY: -0.45,
+      camTargetZoom: 1.05,
+      isDragging: false,
+      lastMouseX: 0,
+      lastMouseY: 0
+    };
+
+    /* =========================================================================
+       2. MOIRE LATTICE & EXCITON DIPOLE NETWORK
+       ========================================================================= */
+    const EXCITONS = [];
+    const VORTICES = [];
+    const NUM_HEX_RINGS = 4;
+
+    function initMoireLattice() {
+      EXCITONS.length = 0;
+      // Moire wavelength L_M ~ a0 / theta
+      const moirePitch = 34.0 * (2.1 / STATE.theta);
+
+      // Generate hexagonal Moire sites
+      for (let q = -NUM_HEX_RINGS; q <= NUM_HEX_RINGS; q++) {
+        const r1 = Math.max(-NUM_HEX_RINGS, -q - NUM_HEX_RINGS);
+        const r2 = Math.min(NUM_HEX_RINGS, -q + NUM_HEX_RINGS);
+        for (let r = r1; r <= r2; r++) {
+          const x = moirePitch * (Math.sqrt(3) * q + Math.sqrt(3) * 0.5 * r);
+          const y = moirePitch * (1.5 * r);
+          const dist = Math.sqrt(x * x + y * y);
+          if (dist < 210) {
+            EXCITONS.push({
+              x: x,
+              y: y,
+              zTop: 18.0,    // Top layer (Electron)
+              zBot: -18.0,   // Bottom layer (Hole)
+              phase: 0,
+              amp: 1.0,
+              pinned: false
+            });
+          }
+        }
+      }
+    }
+
+    // Dynamic Abrikosov Vortex Cores
+    function updateVortices() {
+      VORTICES.length = 0;
+      // Number of vortices scales with pseudo-rotation omega
+      const count = Math.min(19, Math.floor(STATE.omega * 3.6));
+      STATE.numVortices = count;
+
+      if (count === 0) return;
+
+      // Central core
+      VORTICES.push({ x: 0, y: 0, winding: +1 });
+
+      if (count > 1) {
+        // Hexagonal surrounding vortex ring
+        const ringCount = Math.min(6, count - 1);
+        const ringRadius = 75.0 / Math.max(0.6, Math.sqrt(STATE.omega));
+        for (let i = 0; i < ringCount; i++) {
+          const angle = (i * 2 * Math.PI) / ringCount + (STATE.time * 0.4);
+          VORTICES.push({
+            x: ringRadius * Math.cos(angle),
+            y: ringRadius * Math.sin(angle),
+            winding: +1
+          });
+        }
+      }
+
+      if (count > 7) {
+        // Outer vortex ring
+        const outerCount = count - 7;
+        const outerRadius = 145.0 / Math.max(0.6, Math.sqrt(STATE.omega));
+        for (let i = 0; i < outerCount; i++) {
+          const angle = (i * 2 * Math.PI) / outerCount - (STATE.time * 0.25) + 0.35;
+          VORTICES.push({
+            x: outerRadius * Math.cos(angle),
+            y: outerRadius * Math.sin(angle),
+            winding: +1
+          });
+        }
+      }
+    }
+
+    /* =========================================================================
+       3. SUPERFLUID STREAM PARTICLES
+       ========================================================================= */
+    const STREAM_PARTICLES = [];
+    const MAX_STREAM = 180;
+
+    class SuperfluidParticle {
+      constructor() {
+        this.reset();
+      }
+
+      reset() {
+        const rad = 25 + Math.random() * 165;
+        const ang = Math.random() * Math.PI * 2;
+        this.x = rad * Math.cos(ang);
+        this.y = rad * Math.sin(ang);
+        this.z = (Math.random() - 0.5) * 12;
+        this.life = 0.5 + Math.random() * 0.5;
+        this.trail = [];
+      }
+
+      update() {
+        // Velocity field vs = ℏ/M * ∇θ computed from sum of vortex circulations
+        let vx = 0;
+        let vy = 0;
+
+        for (let i = 0; i < VORTICES.length; i++) {
+          const v = VORTICES[i];
+          const dx = this.x - v.x;
+          const dy = this.y - v.y;
+          const r2 = Math.max(120, dx * dx + dy * dy);
+          // Circulation field v = (-dy, dx) / r^2
+          const speed = (28.0 * v.winding) / r2;
+          vx += -dy * speed;
+          vy += dx * speed;
+        }
+
+        // Global background rotation
+        const rGlobal = Math.sqrt(this.x * this.x + this.y * this.y);
+        const rotV = STATE.omega * 0.6;
+        vx += -this.y * (rotV / 100);
+        vy += this.x * (rotV / 100);
+
+        this.x += vx;
+        this.y += vy;
+        this.z = Math.sin(STATE.time * 2.0 + this.x * 0.03) * 6.0;
+
+        this.trail.push({ x: this.x, y: this.y, z: this.z });
+        if (this.trail.length > 8) this.trail.shift();
+
+        if (this.x * this.x + this.y * this.y > 45000) {
+          this.reset();
+        }
+      }
+    }
+
+    function initStreamParticles() {
+      STREAM_PARTICLES.length = 0;
+      for (let i = 0; i < MAX_STREAM; i++) {
+        STREAM_PARTICLES.push(new SuperfluidParticle());
+      }
+    }
+
+    /* =========================================================================
+       4. PHYSICAL OBSERVABLES CALCULATION
+       ========================================================================= */
+    function updatePhysics() {
+      // 1. Condensate fraction n0/n based on BKT transition law
+      const tRatio = STATE.temp;
+      let rawN0 = 0;
+      if (tRatio < 1.0) {
+        rawN0 = (1.0 - Math.pow(tRatio, 1.8)) * 96.0;
+      } else {
+        rawN0 = Math.max(0.1, 4.0 * Math.exp(-(tRatio - 1.0) * 3.5));
+      }
+
+      // Dipole pinning suppression if close to fractional filling 1/3 or 2/3
+      const distToPin = Math.min(Math.abs(STATE.nuex - 0.333), Math.abs(STATE.nuex - 0.666));
+      if (distToPin < 0.08) {
+        const pinSuppression = 1.0 - (0.08 - distToPin) / 0.08 * 0.75;
+        rawN0 *= pinSuppression;
+      }
+      STATE.n0Frac = Math.max(0.05, Math.min(99.4, rawN0));
+
+      // 2. Superfluid stiffness rho_s
+      const rawRho = (STATE.n0Frac / 100.0) * (STATE.tinter * 0.52) * (1.0 + STATE.eperp * 0.2);
+      STATE.rhoS = Math.max(0.02, Math.min(4.8, rawRho));
+
+      // 3. Healing / coherence length xi_bec (nm)
+      const rawXi = 8.5 / Math.max(0.15, Math.sqrt(STATE.rhoS));
+      STATE.xiBec = Math.max(4.2, Math.min(38.0, rawXi));
+
+      // Update DOM Text
+      document.getElementById('val-n0').textContent = STATE.n0Frac.toFixed(1) + ' %';
+      document.getElementById('val-rhos').textContent = STATE.rhoS.toFixed(2) + ' meV';
+      document.getElementById('val-xi').textContent = STATE.xiBec.toFixed(1) + ' nm';
+      document.getElementById('val-vortices').textContent = `+${STATE.numVortices} ℏ/M`;
+
+      document.getElementById('vortex-desc').textContent = 
+        `阿布里科索夫角阵列: ${STATE.numVortices} 个量子化点旋涡 | 环流线速度: ${(STATE.omega * 3.2).toFixed(1)} km/s`;
+    }
+
+    /* =========================================================================
+       5. 3D PROJECTION & RENDERING
+       ========================================================================= */
+    const mainCanvas = document.getElementById('mainCanvas');
+    const ctx = mainCanvas.getContext('2d');
+    let width, height;
+
+    function resizeCanvas() {
+      width = window.innerWidth;
+      height = window.innerHeight;
+      mainCanvas.width = width;
+      mainCanvas.height = height;
+    }
+    window.addEventListener('resize', resizeCanvas);
+
+    function project3D(x, y, z) {
+      const cosY = Math.cos(STATE.camRotY);
+      const sinY = Math.sin(STATE.camRotY);
+      const x1 = x * cosY + z * sinY;
+      const z1 = -x * sinY + z * cosY;
+
+      const cosX = Math.cos(STATE.camRotX);
+      const sinX = Math.sin(STATE.camRotX);
+      const y2 = y * cosX - z1 * sinX;
+      const z2 = y * sinX + z1 * cosX;
+
+      const cameraDist = 480;
+      const pz = z2 + cameraDist;
+      const safeZ = Math.max(25, pz);
+      const scale = (cameraDist / safeZ) * STATE.camZoom;
+
+      return {
+        x: width * 0.5 + x1 * scale,
+        y: height * 0.5 + y2 * scale,
+        scale: scale,
+        depth: z2
+      };
+    }
+
+    function render3DScene() {
+      ctx.clearRect(0, 0, width, height);
+
+      // Camera smooth interpolation
+      STATE.camRotX += (STATE.camTargetRotX - STATE.camRotX) * 0.08;
+      STATE.camRotY += (STATE.camTargetRotY - STATE.camRotY) * 0.08;
+      STATE.camZoom += (STATE.camTargetZoom - STATE.camZoom) * 0.08;
+
+      // 1. Draw Horizon Nebula Glow
+      const horizonProj = project3D(0, 0, -25);
+      const grad = ctx.createRadialGradient(
+        horizonProj.x, horizonProj.y, 10,
+        horizonProj.x, horizonProj.y, 420 * STATE.camZoom
+      );
+      grad.addColorStop(0, 'rgba(88, 28, 135, 0.25)');
+      grad.addColorStop(0.5, 'rgba(15, 23, 42, 0.16)');
+      grad.addColorStop(1, 'rgba(3, 7, 18, 0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, width, height);
+
+      // 2. Draw Moire Exciton Dipoles (Top Electron + Vertical Dipole + Bottom Hole)
+      const dipoleLength = 16.0 * (1.0 + STATE.eperp * 0.35);
+
+      for (let i = 0; i < EXCITONS.length; i++) {
+        const ex = EXCITONS[i];
+
+        // Compute local phase from vortex windings
+        let phase = 0;
+        let ampSuppression = 1.0;
+        for (let v = 0; v < VORTICES.length; v++) {
+          const vx = VORTICES[v];
+          const dx = ex.x - vx.x;
+          const dy = ex.y - vx.y;
+          const r = Math.sqrt(dx * dx + dy * dy);
+          phase += Math.atan2(dy, dx) * vx.winding;
+          // Core suppression of BEC order parameter
+          ampSuppression *= Math.min(1.0, r / (STATE.xiBec * 1.8));
+        }
+
+        const hue = ((phase * 180 / Math.PI + STATE.time * 60) % 360 + 360) % 360;
+        const pTop = project3D(ex.x, ex.y, dipoleLength);
+        const pBot = project3D(ex.x, ex.y, -dipoleLength);
+
+        // Dipole Connector Line
+        const lineAlpha = Math.max(0.12, 0.55 * ampSuppression * (STATE.n0Frac / 100.0));
+        ctx.strokeStyle = `hsla(${hue}, 85%, 65%, ${lineAlpha})`;
+        ctx.lineWidth = 1.2 * pTop.scale;
+        ctx.beginPath();
+        ctx.moveTo(pTop.x, pTop.y);
+        ctx.lineTo(pBot.x, pBot.y);
+        ctx.stroke();
+
+        // Top Layer (Electron Disk - Cyan/Hue)
+        const rE = Math.max(2, 4.0 * pTop.scale * ampSuppression);
+        ctx.fillStyle = `hsla(${hue}, 90%, 65%, 0.85)`;
+        ctx.beginPath();
+        ctx.arc(pTop.x, pTop.y, rE, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Bottom Layer (Hole Disk - Rose/Opposite Hue)
+        const rH = Math.max(2, 3.8 * pBot.scale * ampSuppression);
+        ctx.fillStyle = `hsla(${(hue + 140) % 360}, 90%, 60%, 0.85)`;
+        ctx.beginPath();
+        ctx.arc(pBot.x, pBot.y, rH, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // 3. Render Abrikosov Vortex Cores (Singular Topological Wells)
+      for (let v = 0; v < VORTICES.length; v++) {
+        const vx = VORTICES[v];
+        const pCenter = project3D(vx.x, vx.y, 0);
+
+        const coreR = Math.max(6, (STATE.xiBec * 1.5) * pCenter.scale);
+        const vGrad = ctx.createRadialGradient(
+          pCenter.x, pCenter.y, 1,
+          pCenter.x, pCenter.y, coreR * 2.2
+        );
+        vGrad.addColorStop(0, 'rgba(244, 63, 94, 0.95)');
+        vGrad.addColorStop(0.35, 'rgba(168, 85, 247, 0.45)');
+        vGrad.addColorStop(1, 'rgba(168, 85, 247, 0)');
+
+        ctx.fillStyle = vGrad;
+        ctx.beginPath();
+        ctx.arc(pCenter.x, pCenter.y, coreR * 2.2, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Vortex Core Eye
+        ctx.fillStyle = '#f8fafc';
+        ctx.beginPath();
+        ctx.arc(pCenter.x, pCenter.y, Math.max(2, 3.5 * pCenter.scale), 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // 4. Render Superfluid Stream Particles
+      for (let i = 0; i < STREAM_PARTICLES.length; i++) {
+        const sp = STREAM_PARTICLES[i];
+        if (!STATE.paused) sp.update();
+
+        if (sp.trail.length > 1) {
+          ctx.beginPath();
+          for (let j = 0; j < sp.trail.length; j++) {
+            const tr = sp.trail[j];
+            const p = project3D(tr.x, tr.y, tr.z);
+            if (j === 0) ctx.moveTo(p.x, p.y);
+            else ctx.lineTo(p.x, p.y);
+          }
+          ctx.strokeStyle = 'rgba(56, 189, 248, 0.55)';
+          ctx.lineWidth = 1.2;
+          ctx.stroke();
+        }
+
+        const head = project3D(sp.x, sp.y, sp.z);
+        ctx.fillStyle = '#38bdf8';
+        ctx.beginPath();
+        ctx.arc(head.x, head.y, 2.2 * head.scale, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    /* =========================================================================
+       6. DUAL CHANNEL OSCILLOSCOPES
+       ========================================================================= */
+    const osc1 = document.getElementById('osc1');
+    const ctx1 = osc1.getContext('2d');
+    const osc2 = document.getElementById('osc2');
+    const ctx2 = osc2.getContext('2d');
+
+    function renderOscilloscopes() {
+      const w1 = osc1.width = osc1.clientWidth;
+      const h1 = osc1.height = osc1.clientHeight;
+      const w2 = osc2.width = osc2.clientWidth;
+      const h2 = osc2.height = osc2.clientHeight;
+
+      // ---------------- Channel 1: Momentum Condensation Peak n(k) ----------------
+      ctx1.fillStyle = '#020617';
+      ctx1.fillRect(0, 0, w1, h1);
+
+      ctx1.strokeStyle = 'rgba(255, 255, 255, 0.06)';
+      ctx1.lineWidth = 1;
+      for (let x = 0; x < w1; x += 30) {
+        ctx1.beginPath(); ctx1.moveTo(x, 0); ctx1.lineTo(x, h1); ctx1.stroke();
+      }
+      for (let y = 0; y < h1; y += 22) {
+        ctx1.beginPath(); ctx1.moveTo(0, y); ctx1.lineTo(w1, y); ctx1.stroke();
+      }
+
+      // n(k) Curve
+      ctx1.beginPath();
+      ctx1.strokeStyle = '#38bdf8';
+      ctx1.lineWidth = 2.0;
+
+      const midX = w1 * 0.5;
+      const becHeight = (STATE.n0Frac / 100.0) * (h1 - 25);
+      const peakWidth = 8.0 + (STATE.temp * 22.0);
+
+      for (let x = 0; x < w1; x += 2) {
+        const dx = x - midX;
+        // Thermal Gaussian + Sharp BEC Peak
+        const thermal = (h1 - 18) - 12.0 * Math.exp(-(dx * dx) / 1200.0);
+        const becPeak = becHeight * Math.exp(-(dx * dx) / (peakWidth * peakWidth));
+        const y = Math.max(10, thermal - becPeak);
+
+        if (x === 0) ctx1.moveTo(x, y);
+        else ctx1.lineTo(x, y);
+      }
+      ctx1.stroke();
+
+      ctx1.fillStyle = '#38bdf8';
+      ctx1.font = '9px monospace';
+      ctx1.fillText(`k=0 奇异凝聚峰 [n₀=${STATE.n0Frac.toFixed(1)}%]`, 8, 16);
+
+      // ---------------- Channel 2: Superfluid Stiffness rho_s(T) & BKT Jump ----------------
+      ctx2.fillStyle = '#020617';
+      ctx2.fillRect(0, 0, w2, h2);
+
+      ctx2.strokeStyle = 'rgba(255, 255, 255, 0.06)';
+      ctx2.lineWidth = 1;
+      for (let x = 0; x < w2; x += 30) {
+        ctx2.beginPath(); ctx2.moveTo(x, 0); ctx2.lineTo(x, h2); ctx2.stroke();
+      }
+      for (let y = 0; y < h2; y += 22) {
+        ctx2.beginPath(); ctx2.moveTo(0, y); ctx2.lineTo(w2, y); ctx2.stroke();
+      }
+
+      // Universal Jump Line: rho_s = (2/pi) * T
+      ctx2.strokeStyle = 'rgba(251, 191, 36, 0.55)';
+      ctx2.setLineDash([4, 4]);
+      ctx2.beginPath();
+      ctx2.moveTo(10, h2 - 12);
+      ctx2.lineTo(w2 * 0.55, h2 - (h2 - 24) * 0.65);
+      ctx2.stroke();
+      ctx2.setLineDash([]);
+
+      // Stiffness Curve rho_s(T)
+      ctx2.beginPath();
+      ctx2.strokeStyle = '#a855f7';
+      ctx2.lineWidth = 2.2;
+
+      for (let x = 10; x < w2 - 10; x += 2) {
+        const tVal = (x / (w2 * 0.55));
+        let rhoVal = 0;
+        if (tVal <= 1.0) {
+          rhoVal = (1.0 - Math.pow(tVal, 2.2)) * (h2 - 28);
+        } else {
+          rhoVal = 0;
+        }
+        const y = h2 - 14 - rhoVal;
+        if (x === 10) ctx2.moveTo(x, y);
+        else ctx2.lineTo(x, y);
+      }
+      ctx2.stroke();
+
+      // Current Operating Point Indicator
+      const curX = 10 + Math.min(w2 - 20, STATE.temp * (w2 * 0.55));
+      const curY = h2 - 14 - (STATE.rhoS / 4.8) * (h2 - 28);
+      ctx2.fillStyle = '#f43f5e';
+      ctx2.beginPath();
+      ctx2.arc(curX, curY, 4, 0, Math.PI * 2);
+      ctx2.fill();
+
+      ctx2.fillStyle = '#c084fc';
+      ctx2.font = '9px monospace';
+      ctx2.fillText(`ρ_s = ${STATE.rhoS.toFixed(2)} meV (T/T_c=${STATE.temp.toFixed(2)})`, 8, 16);
+    }
+
+    /* =========================================================================
+       7. WEB AUDIO API SYNTHESIS
+       ========================================================================= */
+    let audioCtx = null;
+    let osc1A = null;
+    let osc1B = null;
+    let gainA = null;
+
+    function initAudio() {
+      if (audioCtx) return;
+      try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioContext();
+
+        osc1A = audioCtx.createOscillator();
+        osc1B = audioCtx.createOscillator();
+        gainA = audioCtx.createGain();
+
+        osc1A.type = 'sine';
+        osc1B.type = 'triangle';
+
+        osc1A.frequency.setValueAtTime(260, audioCtx.currentTime);
+        osc1B.frequency.setValueAtTime(520, audioCtx.currentTime);
+
+        gainA.gain.setValueAtTime(0.04, audioCtx.currentTime);
+
+        osc1A.connect(gainA);
+        osc1B.connect(gainA);
+        gainA.connect(audioCtx.destination);
+
+        osc1A.start();
+        osc1B.start();
+      } catch (e) {
+        console.warn('Web Audio unavailable:', e);
+      }
+    }
+
+    function updateAudioTone() {
+      if (!audioCtx || !STATE.audioEnabled) return;
+      const baseF = 180 + (STATE.rhoS * 75);
+      const modF = baseF * (1.0 + STATE.omega * 0.18);
+      osc1A.frequency.setTargetAtTime(baseF, audioCtx.currentTime, 0.08);
+      osc1B.frequency.setTargetAtTime(modF, audioCtx.currentTime, 0.08);
+    }
+
+    function toggleAudio() {
+      STATE.audioEnabled = !STATE.audioEnabled;
+      const toggle = document.getElementById('audioToggle');
+      if (STATE.audioEnabled) {
+        toggle.classList.add('active');
+        if (!audioCtx) initAudio();
+        else if (audioCtx.state === 'suspended') audioCtx.resume();
+        if (gainA) gainA.gain.setTargetAtTime(0.04, audioCtx.currentTime, 0.05);
+      } else {
+        toggle.classList.remove('active');
+        if (gainA) gainA.gain.setTargetAtTime(0.0, audioCtx.currentTime, 0.05);
+      }
+    }
+
+    /* =========================================================================
+       8. UI EVENT HANDLERS & PRESETS
+       ========================================================================= */
+    function applyPreset(id) {
+      document.querySelectorAll('.btn-grid .btn').forEach((b, idx) => {
+        b.classList.toggle('active', idx + 1 === id);
+      });
+
+      if (id === 1) {
+        // ν=1/3 分数激子绝缘体
+        STATE.theta = 2.40;
+        STATE.nuex = 0.33;
+        STATE.eperp = 0.50;
+        STATE.temp = 0.15;
+        STATE.omega = 0.20;
+        STATE.tinter = 1.20;
+      } else if (id === 2) {
+        // 宏观纯相干BEC凝聚
+        STATE.theta = 2.10;
+        STATE.nuex = 0.85;
+        STATE.eperp = 1.20;
+        STATE.temp = 0.22;
+        STATE.omega = 0.80;
+        STATE.tinter = 4.50;
+      } else if (id === 3) {
+        // 阿布里科索夫手征涡旋晶格
+        STATE.theta = 1.80;
+        STATE.nuex = 1.00;
+        STATE.eperp = 1.80;
+        STATE.temp = 0.30;
+        STATE.omega = 3.60;
+        STATE.tinter = 5.20;
+      } else if (id === 4) {
+        // BKT拓扑临界融化相
+        STATE.theta = 3.20;
+        STATE.nuex = 0.65;
+        STATE.eperp = 2.40;
+        STATE.temp = 1.15;
+        STATE.omega = 2.20;
+        STATE.tinter = 2.80;
+      }
+
+      syncSliders();
+      initMoireLattice();
+      updateVortices();
+      updatePhysics();
+    }
+
+    function syncSliders() {
+      document.getElementById('param-theta').value = STATE.theta;
+      document.getElementById('val-theta').textContent = STATE.theta.toFixed(2) + '°';
+
+      document.getElementById('param-nuex').value = STATE.nuex;
+      document.getElementById('val-nuex').textContent = STATE.nuex.toFixed(2) + ' ν₀';
+
+      document.getElementById('param-eperp').value = STATE.eperp;
+      document.getElementById('val-eperp').textContent = STATE.eperp.toFixed(2) + ' V/nm';
+
+      document.getElementById('param-temp').value = STATE.temp;
+      document.getElementById('val-temp').textContent = STATE.temp.toFixed(2) + ' T_c';
+
+      document.getElementById('param-omega').value = STATE.omega;
+      document.getElementById('val-omega').textContent = STATE.omega.toFixed(2) + ' rad/s';
+
+      document.getElementById('param-tinter').value = STATE.tinter;
+      document.getElementById('val-tinter').textContent = STATE.tinter.toFixed(2) + ' meV';
+    }
+
+    function setupSliderListeners() {
+      const bind = (id, param, unit, scale = 1, fixed = 2) => {
+        const el = document.getElementById(id);
+        const valEl = document.getElementById('val-' + param);
+        el.addEventListener('input', (e) => {
+          STATE[param] = parseFloat(e.target.value) * scale;
+          valEl.textContent = STATE[param].toFixed(fixed) + ' ' + unit;
+          if (param === 'theta') initMoireLattice();
+          if (param === 'omega') updateVortices();
+          updatePhysics();
+          updateAudioTone();
+        });
+      };
+
+      bind('param-theta', 'theta', '°', 1, 2);
+      bind('param-nuex', 'nuex', 'ν₀', 1, 2);
+      bind('param-eperp', 'eperp', 'V/nm', 1, 2);
+      bind('param-temp', 'temp', 'T_c', 1, 2);
+      bind('param-omega', 'omega', 'rad/s', 1, 2);
+      bind('param-tinter', 'tinter', 'meV', 1, 2);
+    }
+
+    function setupMouseControls() {
+      window.addEventListener('mousedown', (e) => {
+        if (e.target.id === 'mainCanvas') {
+          STATE.isDragging = true;
+          STATE.lastMouseX = e.clientX;
+          STATE.lastMouseY = e.clientY;
+          initAudio();
+        }
+      });
+
+      window.addEventListener('mousemove', (e) => {
+        if (!STATE.isDragging) return;
+        const dx = e.clientX - STATE.lastMouseX;
+        const dy = e.clientY - STATE.lastMouseY;
+        STATE.camTargetRotY += dx * 0.008;
+        STATE.camTargetRotX += dy * 0.008;
+        STATE.camTargetRotX = Math.max(-1.4, Math.min(1.4, STATE.camTargetRotX));
+        STATE.lastMouseX = e.clientX;
+        STATE.lastMouseY = e.clientY;
+      });
+
+      window.addEventListener('mouseup', () => {
+        STATE.isDragging = false;
+      });
+
+      window.addEventListener('wheel', (e) => {
+        if (e.target.id === 'mainCanvas') {
+          STATE.camTargetZoom *= (e.deltaY > 0 ? 0.92 : 1.08);
+          STATE.camTargetZoom = Math.max(0.45, Math.min(2.5, STATE.camTargetZoom));
+        }
+      }, { passive: true });
+
+      window.addEventListener('dblclick', (e) => {
+        if (e.target.id === 'mainCanvas') {
+          STATE.camTargetRotX = 0.52;
+          STATE.camTargetRotY = -0.45;
+          STATE.camTargetZoom = 1.05;
+        }
+      });
+
+      window.addEventListener('keydown', (e) => {
+        if (e.code === 'Space') {
+          STATE.paused = !STATE.paused;
+          document.getElementById('hud-status').textContent = STATE.paused
+            ? '⏸️ 动力学演化已暂停 (按空格键继续)'
+            : '宏观量子相干态建立 | 阿布里科索夫六角手征涡旋自发对齐中';
+        }
+      });
+    }
+
+    /* =========================================================================
+       9. MAIN ANIMATION LOOP
+       ========================================================================= */
+    function animate() {
+      requestAnimationFrame(animate);
+
+      if (!STATE.paused) {
+        STATE.time += 0.016;
+        updateVortices();
+      }
+
+      render3DScene();
+      renderOscilloscopes();
+      updateAudioTone();
+    }
+
+    /* =========================================================================
+       10. INITIALIZATION
+       ========================================================================= */
+    window.addEventListener('DOMContentLoaded', () => {
+      resizeCanvas();
+      initMoireLattice();
+      updateVortices();
+      initStreamParticles();
+      setupSliderListeners();
+      setupMouseControls();
+      updatePhysics();
+      animate();
+    });
+  </script>
+</body>
+</html>

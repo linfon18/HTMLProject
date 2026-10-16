@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>史瓦西黑洞引力透镜与吸积盘射线追踪模拟器</title>
+<style>
+  :root {
+    --bg-primary: #030408;
+    --panel-bg: rgba(10, 14, 28, 0.78);
+    --panel-border: rgba(99, 130, 246, 0.28);
+    --accent-orange: #ff7b00;
+    --accent-blue: #00d4ff;
+    --accent-gold: #ffc837;
+    --text-primary: #f1f5f9;
+    --text-dim: #94a3b8;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    overflow: hidden;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    user-select: none;
+  }
+
+  /* 主视口射线追踪画布 */
+  #viewport-container {
+    flex: 1;
+    position: relative;
+    height: 100vh;
+    background: #000;
+    overflow: hidden;
+  }
+  canvas#glCanvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    cursor: grab;
+    image-rendering: auto;
+  }
+  canvas#glCanvas:active {
+    cursor: grabbing;
+  }
+
+  /* 顶部科幻微仪表盘 */
+  #telemetry-bar {
+    position: absolute;
+    top: 20px;
+    left: 24px;
+    display: flex;
+    gap: 12px;
+    z-index: 10;
+  }
+  .telemetry-chip {
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    backdrop-filter: blur(12px);
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-family: monospace;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+  }
+  .chip-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--accent-orange);
+    box-shadow: 0 0 8px var(--accent-orange);
+    animation: pulse 1.8s infinite ease-in-out;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 0.6; transform: scale(0.9); }
+    50% { opacity: 1; transform: scale(1.2); }
+  }
+
+  /* 悬浮 2D 测地线偏折轨迹 HUD */
+  #geodesic-overlay {
+    position: absolute;
+    bottom: 24px;
+    left: 24px;
+    width: 320px;
+    height: 200px;
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    backdrop-filter: blur(16px);
+    box-shadow: 0 12px 36px rgba(0,0,0,0.6);
+    padding: 10px 14px;
+    display: flex;
+    flex-direction: column;
+    pointer-events: none;
+  }
+  .overlay-title {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--accent-blue);
+    margin-bottom: 6px;
+    display: flex;
+    justify-content: space-between;
+  }
+  canvas#geodesicCanvas {
+    width: 100%;
+    height: 155px;
+    border-radius: 6px;
+    background: rgba(0,0,0,0.5);
+  }
+
+  /* 右侧控制面板 */
+  #control-panel {
+    width: 360px;
+    height: 100vh;
+    background: var(--panel-bg);
+    border-left: 1px solid var(--panel-border);
+    backdrop-filter: blur(20px);
+    overflow-y: auto;
+    padding: 24px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    box-shadow: -10px 0 30px rgba(0,0,0,0.6);
+    z-index: 20;
+  }
+  #control-panel::-webkit-scrollbar { width: 4px; }
+  #control-panel::-webkit-scrollbar-thumb { background: rgba(99, 130, 246, 0.4); border-radius: 4px; }
+
+  .header-group h1 {
+    font-size: 18px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .header-group h1 span {
+    background: linear-gradient(135deg, var(--accent-orange), var(--accent-gold));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .header-group p {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-top: 4px;
+    line-height: 1.4;
+  }
+
+  .section-card {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 10px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .section-card h2 {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--accent-orange);
+    font-weight: 600;
+  }
+
+  /* 控制滑块 */
+  .slider-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .slider-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+  .slider-header span.val {
+    color: var(--accent-blue);
+    font-family: monospace;
+  }
+  input[type=range] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 4px;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.15);
+    outline: none;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--accent-orange);
+    cursor: pointer;
+    box-shadow: 0 0 8px var(--accent-orange);
+    transition: transform 0.1s;
+  }
+  input[type=range]::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+  }
+
+  /* 按钮与网格 */
+  .btn-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .action-btn {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: var(--text-primary);
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: center;
+  }
+  .action-btn:hover {
+    background: rgba(255, 123, 0, 0.25);
+    border-color: var(--accent-orange);
+    color: #fff;
+  }
+  .action-btn.active {
+    background: linear-gradient(135deg, rgba(255, 123, 0, 0.25), rgba(255, 200, 55, 0.2));
+    border-color: var(--accent-orange);
+    box-shadow: 0 0 12px rgba(255, 123, 0, 0.35);
+    color: #fff;
+    font-weight: 600;
+  }
+
+  .tip-text {
+    font-size: 11px;
+    line-height: 1.5;
+    color: var(--text-dim);
+  }
+  .tip-text b { color: #fff; }
+</style>
+</head>
+<body>
+
+<!-- 主渲染视口 -->
+<div id="viewport-container">
+  <canvas id="glCanvas"></canvas>
+
+  <!-- 顶部遥测信息 -->
+  <div id="telemetry-bar">
+    <div class="telemetry-chip">
+      <div class="chip-dot"></div>
+      <span>事件视界 r_s: <span id="stat-rs" style="color:var(--accent-orange)">2.00 M</span></span>
+    </div>
+    <div class="telemetry-chip">
+      <span>光子球层: <span id="stat-rph" style="color:var(--accent-gold)">3.00 M</span></span>
+    </div>
+    <div class="telemetry-chip">
+      <span>ISCO 轨道: <span id="stat-isco" style="color:var(--accent-blue)">6.00 M</span></span>
+    </div>
+    <div class="telemetry-chip">
+      <span>FPS: <span id="stat-fps" style="color:#fff">60</span></span>
+    </div>
+  </div>
+
+  <!-- 悬浮 2D 测地线追踪分析器 -->
+  <div id="geodesic-overlay">
+    <div class="overlay-title">
+      <span>光子测地线偏折模拟 (Geodesic Deflection)</span>
+      <span style="color:var(--accent-gold)">b / r_s</span>
+    </div>
+    <canvas id="geodesicCanvas" width="300" height="150"></canvas>
+  </div>
+</div>
+
+<!-- 右侧控制面板 -->
+<div id="control-panel">
+  <div class="header-group">
+    <h1><span>SCHWARZSCHILD</span> LENS</h1>
+    <p>爱因斯坦广义相对论史瓦西黑洞时空弯曲与吸积盘射线追踪系统</p>
+  </div>
+
+  <!-- 物理参数控制 -->
+  <div class="section-card">
+    <h2>时空几何参数 (Spacetime)</h2>
+    <div class="slider-row">
+      <div class="slider-header">
+        <span>黑洞质量 M (Mass)</span>
+        <span class="val" id="val-mass">1.0</span>
+      </div>
+      <input type="range" id="param-mass" min="0.5" max="2.2" step="0.1" value="1.0">
+    </div>
+
+    <div class="slider-row">
+      <div class="slider-header">
+        <span>观察者轨道距离 R</span>
+        <span class="val" id="val-dist">15.0</span>
+      </div>
+      <input type="range" id="param-dist" min="7.0" max="26.0" step="0.5" value="15.0">
+    </div>
+
+    <div class="slider-row">
+      <div class="slider-header">
+        <span>轨道俯视角 倾角 θ</span>
+        <span class="val" id="val-pitch">14°</span>
+      </div>
+      <input type="range" id="param-pitch" min="-80" max="80" step="1" value="14">
+    </div>
+  </div>
+
+  <!-- 吸积盘参数控制 -->
+  <div class="section-card">
+    <h2>开普勒吸积盘 (Accretion Disk)</h2>
+    <div class="slider-row">
+      <div class="slider-header">
+        <span>吸积盘内径 R_in (ISCO)</span>
+        <span class="val" id="val-rin">3.0</span>
+      </div>
+      <input type="range" id="param-rin" min="2.0" max="5.0" step="0.2" value="3.0">
+    </div>
+
+    <div class="slider-row">
+      <div class="slider-header">
+        <span>吸积盘外径 R_out</span>
+        <span class="val" id="val-rout">9.5</span>
+      </div>
+      <input type="range" id="param-rout" min="6.0" max="16.0" step="0.5" value="9.5">
+    </div>
+
+    <div class="slider-row">
+      <div class="slider-header">
+        <span>气体旋转速度 / 多普勒增益</span>
+        <span class="val" id="val-beaming">1.3</span>
+      </div>
+      <input type="range" id="param-beaming" min="0.0" max="2.5" step="0.1" value="1.3">
+    </div>
+
+    <div class="btn-grid">
+      <button class="action-btn active" id="btn-doppler">相对论多普勒射束</button>
+      <button class="action-btn active" id="btn-disk">吸积盘渲染</button>
+    </div>
+  </div>
+
+  <!-- 视效与性能控制 -->
+  <div class="section-card">
+    <h2>追踪引擎与渲染 (Engine)</h2>
+    <div class="slider-row">
+      <div class="slider-header">
+        <span>渲染采样精度 (Resolution)</span>
+        <span class="val" id="val-res">180p</span>
+      </div>
+      <input type="range" id="param-res" min="120" max="320" step="20" value="180">
+    </div>
+
+    <div class="slider-row">
+      <div class="slider-header">
+        <span>最大测地线步数 (Max Steps)</span>
+        <span class="val" id="val-steps">70</span>
+      </div>
+      <input type="range" id="param-steps" min="35" max="130" step="5" value="70">
+    </div>
+
+    <div class="btn-grid">
+      <button class="action-btn" id="btn-sound">开启引力波音景</button>
+      <button class="action-btn" id="btn-reset-cam">重置观测视角</button>
+    </div>
+  </div>
+
+  <div class="tip-text">
+    💡 <b>相对论引力透镜现象：</b><br>
+    • <b>黑洞阴影与爱因斯坦光环：</b> 临界光线绕行半周或一周形成双侧虚像，吸积盘背面被引力向上折射形成壮观的拱门环。<br>
+    • <b>多普勒集束效应：</b> 吸积盘向观察者旋转的一侧（通常是左侧）显著蓝移并极具增亮，远离侧红移暗化。<br>
+    • <b>鼠标交互：</b> 在主画布中按住左键拖拽可全向 3D 环绕黑洞漫游！
+  </div>
+</div>
+
+<script>
+/**
+ * 史瓦西黑洞光子测地线射线追踪引擎
+ * 基于数值差分积分广义相对论光线运动方程
+ */
+
+// 物理参数
+let M = 1.0;                 // 黑洞几何质量 (G=c=1)
+let Rs = 2.0 * M;            // 史瓦西事件视界半径
+let camDist = 15.0;          // 相机轨道半径
+let camYaw = 0.0;            // 绕 Y 轴水平转角
+let camPitch = 14 * Math.PI / 180; // 俯仰角
+let diskRin = 3.0;           // 吸积盘内边界
+let diskRout = 9.5;          // 吸积盘外边界
+let beamingFactor = 1.3;     // 相对论多普勒与射束放大系数
+let enableDoppler = true;
+let enableDisk = true;
+
+// 追踪质量参数
+let raySteps = 70;
+let renderWidth = 180;
+let renderHeight = 110;
+
+// 画布元素
+const glCanvas = document.getElementById('glCanvas');
+const glCtx = glCanvas.getContext('2d');
+const geodesicCanvas = document.getElementById('geodesicCanvas');
+const geoCtx = geodesicCanvas.getContext('2d');
+
+// 离屏渲染缓冲区
+let offCanvas = document.createElement('canvas');
+offCanvas.width = renderWidth;
+offCanvas.height = renderHeight;
+let offCtx = offCanvas.getContext('2d');
+let imgData = offCtx.createImageData(renderWidth, renderHeight);
+
+// Web Audio API 引力波嗡鸣器
+let audioCtx = null;
+let humOsc1 = null;
+let humOsc2 = null;
+let humGain = null;
+let isAudioActive = false;
+
+// 性能监测
+let lastTime = performance.now();
+let frameCount = 0;
+let fps = 60;
+
+/**
+ * 初始化与视口缩放
+ */
+function handleResize() {
+  const container = document.getElementById('viewport-container');
+  glCanvas.width = container.clientWidth;
+  glCanvas.height = container.clientHeight;
+}
+window.addEventListener('resize', handleResize);
+
+/**
+ * 射线追踪核心：计算穿过弯曲时空的光线
+ */
+function traceRay(origin, dir) {
+  let pos = [origin[0], origin[1], origin[2]];
+  let vel = [dir[0], dir[1], dir[2]];
+
+  let color = [0, 0, 0];
+  let accumulatedDisk = [0, 0, 0];
+  let diskOpacity = 0.0;
+
+  let rPrev = Math.hypot(pos[0], pos[1], pos[2]);
+  let yPrev = pos[1];
+
+  const dLambda = 0.32; // 测地线仿射参数积分步长
+
+  for (let step = 0; step < raySteps; step++) {
+    const r = Math.hypot(pos[0], pos[1], pos[2]);
+
+    // 1. 被事件视界完全吞噬捕获
+    if (r <= Rs * 1.02) {
+      // 绝对黑洞阴影
+      return accumulatedDisk;
+    }
+
+    // 2. 逃逸到深空天球背景
+    if (r > 35.0) {
+      break;
+    }
+
+    // 广义相对论光线偏折加速度
+    // d^2(x)/d(lambda)^2 = - (3/2) * Rs * (L^2 / r^5) * x
+    const lx = pos[1] * vel[2] - pos[2] * vel[1];
+    const ly = pos[2] * vel[0] - pos[0] * vel[2];
+    const lz = pos[0] * vel[1] - pos[1] * vel[0];
+    const L2 = lx * lx + ly * ly + lz * lz;
+
+    const r3 = r * r * r;
+    const r5 = r3 * r * r;
+    const accelMag = -1.5 * Rs * L2 / r5;
+
+    // 二阶积分
+    vel[0] += accelMag * pos[0] * dLambda;
+    vel[1] += accelMag * pos[1] * dLambda;
+    vel[2] += accelMag * pos[2] * dLambda;
+
+    // 光速归一化
+    const vLen = Math.hypot(vel[0], vel[1], vel[2]);
+    vel[0] /= vLen;
+    vel[1] /= vLen;
+    vel[2] /= vLen;
+
+    const nextPos = [
+      pos[0] + vel[0] * dLambda,
+      pos[1] + vel[1] * dLambda,
+      pos[2] + vel[2] * dLambda
+    ];
+
+    // 3. 穿越赤道面判定 (y 从正到负或从负到正)
+    if (enableDisk && (yPrev * nextPos[1] <= 0) && Math.abs(nextPos[1] - yPrev) > 1e-6) {
+      // 线性插值找到穿透赤道面的精确径向位置
+      const tHit = Math.abs(yPrev) / (Math.abs(yPrev) + Math.abs(nextPos[1]));
+      const hitX = pos[0] + vel[0] * dLambda * tHit;
+      const hitZ = pos[2] + vel[2] * dLambda * tHit;
+      const hitR = Math.hypot(hitX, hitZ);
+
+      if (hitR >= diskRin && hitR <= diskRout) {
+        // 开普勒轨道盘物质速度与相对论集束
+        // 盘旋转角速度 omega = sqrt(M / r^3)
+        const vDisk = Math.sqrt(0.5 * Rs / hitR);
+        // 盘气体切向方向 (-Z, 0, X) / R
+        const tanX = -hitZ / hitR;
+        const tanZ = hitX / hitR;
+
+        // 光线朝向相机，速度分量与气体速度的点积
+        const dotProd = -(vel[0] * tanX + vel[2] * tanZ) * vDisk;
+
+        // 引力红移因子
+        const gGrav = Math.sqrt(Math.max(0.01, 1.0 - Rs / hitR));
+        // 运动多普勒因子
+        const gamma = 1.0 / Math.sqrt(Math.max(0.01, 1.0 - vDisk * vDisk));
+        let doppler = 1.0 / (gamma * (1.0 - dotProd));
+
+        if (!enableDoppler) doppler = 1.0;
+
+        const totalShift = gGrav * doppler;
+        // 射束辐射增强: I ~ shift^3.5
+        const intensity = Math.pow(totalShift, 3.2 * beamingFactor);
+
+        // 依据径向距离的温度衰减
+        const diskFade = Math.sin(((hitR - diskRin) / (diskRout - diskRin)) * Math.PI);
+        const emit = Math.min(2.5, intensity * diskFade);
+
+        // 依据多普勒频移调整色彩 (蓝移偏向亮白/青，红移偏向深红/橙)
+        let cr = 255 * emit;
+        let cg = 160 * emit * (0.5 + totalShift * 0.5);
+        let cb = 60 * emit * (totalShift * totalShift);
+
+        const alpha = Math.min(1.0, 0.45 * emit);
+        accumulatedDisk[0] += cr * alpha * (1.0 - diskOpacity);
+        accumulatedDisk[1] += cg * alpha * (1.0 - diskOpacity);
+        accumulatedDisk[2] += cb * alpha * (1.0 - diskOpacity);
+        diskOpacity += alpha;
+
+        if (diskOpacity >= 0.95) {
+          return accumulatedDisk;
+        }
+      }
+    }
+
+    yPrev = nextPos[1];
+    pos = nextPos;
+  }
+
+  // 4. 采样逃逸背景天球 (程序化银河天顶与深空星光)
+  const normV = Math.hypot(vel[0], vel[1], vel[2]);
+  const vx = vel[0] / normV;
+  const vy = vel[1] / normV;
+  const vz = vel[2] / normV;
+
+  // 天球经纬角
+  const theta = Math.acos(Math.max(-1, Math.min(1, vy)));
+  const phi = Math.atan2(vz, vx);
+
+  // 银河系中心光带高斯发光
+  const bandDist = Math.abs(vy);
+  let bgGlow = Math.exp(-bandDist * 7.0) * 0.45;
+
+  // 程序化恒星网格伪随机亮点
+  const starHash = Math.sin(phi * 24.0 + theta * 18.0) * 43758.5453;
+  const starVal = starHash - Math.floor(starHash);
+  let starBrightness = starVal > 0.985 ? Math.pow((starVal - 0.985) / 0.015, 3) * 1.5 : 0.0;
+
+  let bgR = 12 + bgGlow * 180 + starBrightness * 255;
+  let bgG = 16 + bgGlow * 120 + starBrightness * 255;
+  let bgB = 35 + bgGlow * 240 + starBrightness * 255;
+
+  color[0] = accumulatedDisk[0] + bgR * (1.0 - diskOpacity);
+  color[1] = accumulatedDisk[1] + bgG * (1.0 - diskOpacity);
+  color[2] = accumulatedDisk[2] + bgB * (1.0 - diskOpacity);
+
+  return color;
+}
+
+/**
+ * 完整帧全像素光线追踪
+ */
+function renderFrame() {
+  const data = imgData.data;
+
+  // 计算摄像机位置与坐标系矩阵
+  const cx = camDist * Math.cos(camPitch) * Math.sin(camYaw);
+  const cy = camDist * Math.sin(camPitch);
+  const cz = camDist * Math.cos(camPitch) * Math.cos(camYaw);
+  const camPos = [cx, cy, cz];
+
+  // 摄像机朝向黑洞中心 (0,0,0)
+  const forward = [-cx / camDist, -cy / camDist, -cz / camDist];
+  // 右向量
+  const right = [
+    Math.cos(camYaw),
+    0,
+    -Math.sin(camYaw)
+  ];
+  // 上向量
+  const up = [
+    forward[1] * right[2] - forward[2] * right[1],
+    forward[2] * right[0] - forward[0] * right[2],
+    forward[0] * right[1] - forward[1] * right[0]
+  ];
+
+  const aspect = renderWidth / renderHeight;
+  const fovScale = Math.tan(35 * Math.PI / 180);
+
+  let p = 0;
+  for (let y = 0; y < renderHeight; y++) {
+    const ny = (1.0 - 2.0 * (y + 0.5) / renderHeight) * fovScale;
+    for (let x = 0; x < renderWidth; x++) {
+      const nx = (2.0 * (x + 0.5) / renderWidth - 1.0) * aspect * fovScale;
+
+      // 像素射线方向
+      const rDir = [
+        forward[0] + nx * right[0] + ny * up[0],
+        forward[1] + nx * right[1] + ny * up[1],
+        forward[2] + nx * right[2] + ny * up[2]
+      ];
+      const dLen = Math.hypot(rDir[0], rDir[1], rDir[2]);
+      rDir[0] /= dLen;
+      rDir[1] /= dLen;
+      rDir[2] /= dLen;
+
+      // 执行时空追踪
+      const col = traceRay(camPos, rDir);
+
+      data[p++] = Math.min(255, col[0]);
+      data[p++] = Math.min(255, col[1]);
+      data[p++] = Math.min(255, col[2]);
+      data[p++] = 255;
+    }
+  }
+
+  offCtx.putImageData(imgData, 0, 0);
+
+  // 双线性插值放大输出至主画布
+  glCtx.imageSmoothingEnabled = true;
+  glCtx.imageSmoothingQuality = 'medium';
+  glCtx.drawImage(offCanvas, 0, 0, glCanvas.width, glCanvas.height);
+
+  // 计算并显示 FPS
+  frameCount++;
+  const now = performance.now();
+  if (now - lastTime >= 500) {
+    fps = Math.round((frameCount * 1000) / (now - lastTime));
+    document.getElementById('stat-fps').innerText = fps;
+    frameCount = 0;
+    lastTime = now;
+  }
+
+  // 绘制 2D 测地线偏折示意图
+  drawGeodesicDiagram();
+}
+
+/**
+ * 绘制 2D 测地线光线偏折分析图
+ */
+function drawGeodesicDiagram() {
+  const w = geodesicCanvas.width;
+  const h = geodesicCanvas.height;
+  geoCtx.clearRect(0, 0, w, h);
+
+  const cx = w * 0.45;
+  const cy = h * 0.5;
+  const scale = 14.0; // 像素/M
+
+  // 1. 绘制事件视界与光子球
+  geoCtx.fillStyle = '#000';
+  geoCtx.strokeStyle = 'var(--accent-orange)';
+  geoCtx.lineWidth = 1.5;
+  geoCtx.beginPath();
+  geoCtx.arc(cx, cy, Rs * scale, 0, Math.PI * 2);
+  geoCtx.fill();
+  geoCtx.stroke();
+
+  // 光子球层虚线
+  geoCtx.strokeStyle = 'rgba(255, 200, 55, 0.6)';
+  geoCtx.setLineDash([3, 3]);
+  geoCtx.beginPath();
+  geoCtx.arc(cx, cy, 1.5 * Rs * scale, 0, Math.PI * 2);
+  geoCtx.stroke();
+  geoCtx.setLineDash([]);
+
+  // 吸积盘赤道线
+  geoCtx.strokeStyle = 'rgba(255, 123, 0, 0.4)';
+  geoCtx.lineWidth = 2;
+  geoCtx.beginPath();
+  geoCtx.moveTo(cx - diskRout * scale, cy);
+  geoCtx.lineTo(cx - diskRin * scale, cy);
+  geoCtx.moveTo(cx + diskRin * scale, cy);
+  geoCtx.lineTo(cx + diskRout * scale, cy);
+  geoCtx.stroke();
+
+  // 2. 模拟发射 9 条不同冲击参数 b 的平行光线
+  const bList = [1.2, 2.1, 2.58, 2.7, 3.0, 3.6, 4.4, 5.5, 7.0];
+
+  for (let b of bList) {
+    let px = -w * 0.4;
+    let py = b * Rs;
+    let vx = 1.0;
+    let vy = 0.0;
+    const dt = 0.25;
+
+    geoCtx.beginPath();
+    let isCaptured = false;
+
+    for (let step = 0; step < 120; step++) {
+      const scrX = cx + px * scale;
+      const scrY = cy - py * scale;
+
+      if (step === 0) geoCtx.moveTo(scrX, scrY);
+      else geoCtx.lineTo(scrX, scrY);
+
+      const r = Math.hypot(px, py);
+      if (r <= Rs) {
+        isCaptured = true;
+        break;
+      }
+      if (px > w * 0.5) break;
+
+      // 角动量守恒引力加速度
+      const L = px * vy - py * vx;
+      const r5 = Math.pow(r, 5);
+      const acc = -1.5 * Rs * (L * L) / r5;
+
+      vx += acc * px * dt;
+      vy += acc * py * dt;
+      const vl = Math.hypot(vx, vy);
+      vx /= vl;
+      vy /= vl;
+
+      px += vx * dt;
+      py += vy * dt;
+    }
+
+    geoCtx.strokeStyle = isCaptured ? 'rgba(255, 60, 60, 0.6)' : 'rgba(0, 212, 255, 0.65)';
+    geoCtx.lineWidth = isCaptured ? 1.5 : 1.0;
+    geoCtx.stroke();
+  }
+}
+
+/**
+ * Web Audio 引力波空间共鸣
+ */
+function initAudio() {
+  if (audioCtx) return;
+  const AudioContext = window.AudioContext || window.webkitAudioContext;
+  audioCtx = new AudioContext();
+
+  // 双振荡器低频拍频
+  humOsc1 = audioCtx.createOscillator();
+  humOsc2 = audioCtx.createOscillator();
+  humOsc1.type = 'sawtooth';
+  humOsc2.type = 'sine';
+
+  humOsc1.frequency.setValueAtTime(54.0, audioCtx.currentTime); // A1
+  humOsc2.frequency.setValueAtTime(55.2, audioCtx.currentTime); // 1.2 Hz 引力波干涉拍频
+
+  const filter = audioCtx.createBiquadFilter();
+  filter.type = 'lowpass';
+  filter.frequency.setValueAtTime(140, audioCtx.currentTime);
+
+  humGain = audioCtx.createGain();
+  humGain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+
+  humOsc1.connect(filter);
+  humOsc2.connect(filter);
+  filter.connect(humGain);
+  humGain.connect(audioCtx.destination);
+
+  humOsc1.start();
+  humOsc2.start();
+  isAudioActive = true;
+}
+
+/**
+ * 鼠标交互拖拽漫游
+ */
+let isDragging = false;
+let startMouseX = 0;
+let startMouseY = 0;
+
+glCanvas.addEventListener('mousedown', e => {
+  isDragging = true;
+  startMouseX = e.clientX;
+  startMouseY = e.clientY;
+});
+
+window.addEventListener('mouseup', () => {
+  isDragging = false;
+});
+
+window.addEventListener('mousemove', e => {
+  if (!isDragging) return;
+  const dx = e.clientX - startMouseX;
+  const dy = e.clientY - startMouseY;
+  startMouseX = e.clientX;
+  startMouseY = e.clientY;
+
+  camYaw -= dx * 0.006;
+  camPitch += dy * 0.006;
+
+  // 限制俯仰角在 [-85, 85] 度之间
+  camPitch = Math.max(-1.45, Math.min(1.45, camPitch));
+
+  // 同步面板滑块
+  document.getElementById('param-pitch').value = Math.round(camPitch * 180 / Math.PI);
+  document.getElementById('val-pitch').innerText = Math.round(camPitch * 180 / Math.PI) + '°';
+});
+
+// 滚轮缩放相机距离
+glCanvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  camDist = Math.max(6.5, Math.min(28.0, camDist + e.deltaY * 0.015));
+  document.getElementById('param-dist').value = camDist.toFixed(1);
+  document.getElementById('val-dist').innerText = camDist.toFixed(1);
+}, { passive: false });
+
+/**
+ * UI 事件绑定
+ */
+// 质量滑块
+const paramMass = document.getElementById('param-mass');
+paramMass.addEventListener('input', e => {
+  M = parseFloat(e.target.value);
+  Rs = 2.0 * M;
+  document.getElementById('val-mass').innerText = M.toFixed(1);
+  document.getElementById('stat-rs').innerText = Rs.toFixed(2) + ' M';
+  document.getElementById('stat-rph').innerText = (1.5 * Rs).toFixed(2) + ' M';
+  document.getElementById('stat-isco').innerText = (3.0 * Rs).toFixed(2) + ' M';
+});
+
+// 距离与倾角
+const paramDist = document.getElementById('param-dist');
+paramDist.addEventListener('input', e => {
+  camDist = parseFloat(e.target.value);
+  document.getElementById('val-dist').innerText = camDist.toFixed(1);
+});
+
+const paramPitch = document.getElementById('param-pitch');
+paramPitch.addEventListener('input', e => {
+  camPitch = parseFloat(e.target.value) * Math.PI / 180;
+  document.getElementById('val-pitch').innerText = e.target.value + '°';
+});
+
+// 吸积盘控制
+document.getElementById('param-rin').addEventListener('input', e => {
+  diskRin = parseFloat(e.target.value);
+  document.getElementById('val-rin').innerText = diskRin.toFixed(1);
+});
+
+document.getElementById('param-rout').addEventListener('input', e => {
+  diskRout = parseFloat(e.target.value);
+  document.getElementById('val-rout').innerText = diskRout.toFixed(1);
+});
+
+document.getElementById('param-beaming').addEventListener('input', e => {
+  beamingFactor = parseFloat(e.target.value);
+  document.getElementById('val-beaming').innerText = beamingFactor.toFixed(1);
+});
+
+// 按钮开关
+const btnDoppler = document.getElementById('btn-doppler');
+btnDoppler.addEventListener('click', () => {
+  enableDoppler = !enableDoppler;
+  btnDoppler.classList.toggle('active', enableDoppler);
+});
+
+const btnDisk = document.getElementById('btn-disk');
+btnDisk.addEventListener('click', () => {
+  enableDisk = !enableDisk;
+  btnDisk.classList.toggle('active', enableDisk);
+});
+
+// 性能与步数
+document.getElementById('param-res').addEventListener('input', e => {
+  renderWidth = parseInt(e.target.value);
+  renderHeight = Math.round(renderWidth * 0.6);
+  document.getElementById('val-res').innerText = renderWidth + 'p';
+  offCanvas.width = renderWidth;
+  offCanvas.height = renderHeight;
+  imgData = offCtx.createImageData(renderWidth, renderHeight);
+});
+
+document.getElementById('param-steps').addEventListener('input', e => {
+  raySteps = parseInt(e.target.value);
+  document.getElementById('val-steps').innerText = raySteps;
+});
+
+// 重置相机
+document.getElementById('btn-reset-cam').addEventListener('click', () => {
+  camYaw = 0.0;
+  camPitch = 14 * Math.PI / 180;
+  camDist = 15.0;
+  document.getElementById('param-dist').value = 15.0;
+  document.getElementById('val-dist').innerText = '15.0';
+  document.getElementById('param-pitch').value = 14;
+  document.getElementById('val-pitch').innerText = '14°';
+});
+
+// 音效控制
+const btnSound = document.getElementById('btn-sound');
+btnSound.addEventListener('click', () => {
+  if (!audioCtx) {
+    initAudio();
+    btnSound.innerText = '引力波音景: 运行中';
+    btnSound.style.background = 'rgba(255,123,0,0.25)';
+    btnSound.style.borderColor = 'var(--accent-orange)';
+  } else {
+    if (audioCtx.state === 'running') {
+      audioCtx.suspend();
+      btnSound.innerText = '开启引力波音景';
+      btnSound.style.background = 'rgba(255,255,255,0.06)';
+      btnSound.style.borderColor = 'rgba(255,255,255,0.12)';
+    } else {
+      audioCtx.resume();
+      btnSound.innerText = '引力波音景: 运行中';
+      btnSound.style.background = 'rgba(255,123,0,0.25)';
+      btnSound.style.borderColor = 'var(--accent-orange)';
+    }
+  }
+});
+
+// 主循环动画
+function animate() {
+  renderFrame();
+  requestAnimationFrame(animate);
+}
+
+// 启动
+handleResize();
+animate();
+</script>
+</body>
+</html>

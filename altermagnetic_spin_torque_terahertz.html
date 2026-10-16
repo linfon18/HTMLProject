@@ -1,0 +1,1083 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>交错磁体自旋劈裂力矩与超快太赫兹磁振子动力学全息模拟器</title>
+  <style>
+    :root {
+      --bg: #030712;
+      --panel-bg: rgba(15, 23, 42, 0.82);
+      --panel-border: rgba(244, 63, 94, 0.25);
+      --sub-a: #f43f5e;
+      --sub-b: #06b6d4;
+      --neel-vec: #a855f7;
+      --torque-vec: #fbbf24;
+      --thz-wave: #38bdf8;
+      --text-main: #f8fafc;
+      --text-sub: #94a3b8;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+    body {
+      background-color: var(--bg);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'JetBrains Mono', monospace;
+      min-height: 100vh;
+      overflow-x: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      background: rgba(15, 23, 42, 0.95);
+      border-bottom: 1px solid var(--panel-border);
+      padding: 0.85rem 1.75rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      backdrop-filter: blur(12px);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 1.25rem;
+    }
+    .badge {
+      background: linear-gradient(135deg, #e11d48, #9333ea);
+      color: #fff;
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 0.25rem 0.65rem;
+      border-radius: 9999px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      box-shadow: 0 0 12px rgba(244, 63, 94, 0.4);
+    }
+    h1 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      background: linear-gradient(to right, #f43f5e, #fb7185, #c084fc, #38bdf8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    .btn {
+      background: rgba(244, 63, 94, 0.12);
+      border: 1px solid var(--panel-border);
+      color: #fb7185;
+      padding: 0.45rem 1rem;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .btn:hover {
+      background: rgba(244, 63, 94, 0.25);
+      border-color: #f43f5e;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 14px rgba(244, 63, 94, 0.25);
+    }
+    .btn.active {
+      background: #e11d48;
+      border-color: #fb7185;
+      color: #fff;
+      box-shadow: 0 0 16px rgba(244, 63, 94, 0.5);
+    }
+    .main-layout {
+      display: grid;
+      grid-template-columns: 1fr 390px;
+      flex: 1;
+      gap: 1.25rem;
+      padding: 1.25rem 1.75rem;
+      max-width: 1920px;
+      margin: 0 auto;
+      width: 100%;
+    }
+    .viewport-container {
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+    .card {
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: 14px;
+      overflow: hidden;
+      backdrop-filter: blur(16px);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+      position: relative;
+    }
+    .card-header {
+      padding: 0.75rem 1.25rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(2, 6, 23, 0.5);
+    }
+    .card-title {
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .canvas-wrap {
+      position: relative;
+      width: 100%;
+      height: 520px;
+      background: radial-gradient(circle at center, #0f0717 0%, #030712 100%);
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+    .scope-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.25rem;
+      height: 250px;
+    }
+    .scope-canvas-wrap {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      background: #020617;
+    }
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+    .metric-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+      padding: 1rem 1.25rem;
+    }
+    .metric-box {
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 10px;
+      padding: 0.75rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+    .metric-label {
+      font-size: 0.72rem;
+      color: var(--text-sub);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .metric-val {
+      font-size: 1.18rem;
+      font-weight: 700;
+      color: #fb7185;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .metric-val.purple { color: var(--neel-vec); }
+    .metric-val.gold { color: var(--torque-vec); }
+    .metric-val.cyan { color: var(--thz-wave); }
+    .control-group {
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    .slider-row {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+    .slider-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.78rem;
+    }
+    .slider-header span:first-child {
+      color: var(--text-sub);
+    }
+    .slider-header span:last-child {
+      color: #fb7185;
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 600;
+    }
+    input[type=range] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 5px;
+      background: #1e293b;
+      border-radius: 999px;
+      outline: none;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      background: #f43f5e;
+      cursor: pointer;
+      box-shadow: 0 0 10px #e11d48;
+      transition: transform 0.15s;
+    }
+    input[type=range]::-webkit-slider-thumb:hover {
+      transform: scale(1.25);
+    }
+    .presets-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.5rem;
+      padding: 0 1.25rem 1.25rem;
+    }
+    .status-banner {
+      background: rgba(244, 63, 94, 0.08);
+      border: 1px solid rgba(244, 63, 94, 0.25);
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      margin: 0 1.25rem 1rem;
+      font-size: 0.75rem;
+      line-height: 1.5;
+      color: #fecdd3;
+    }
+    .state-pill {
+      display: inline-block;
+      padding: 0.2rem 0.6rem;
+      background: rgba(168, 85, 247, 0.2);
+      border: 1px solid rgba(168, 85, 247, 0.4);
+      color: #c084fc;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .footer-bar {
+      padding: 0.65rem 1.75rem;
+      font-size: 0.75rem;
+      color: #64748b;
+      display: flex;
+      justify-content: space-between;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      background: rgba(2, 6, 23, 0.85);
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="header-left">
+      <span class="badge">ALTERMAGNETISM #224</span>
+      <h1>交错磁体自旋劈裂力矩与超快太赫兹磁振子动力学全息模拟器</h1>
+    </div>
+    <div class="header-right">
+      <button class="btn" id="btn-sound">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+        太赫兹声效: 关
+      </button>
+      <button class="btn active" id="btn-play">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+        实时演化中
+      </button>
+      <button class="btn" id="btn-pulse">注入 100fs 极短脉冲</button>
+      <button class="btn" id="btn-reset">复位磁基态</button>
+    </div>
+  </header>
+
+  <div class="main-layout">
+    <div class="viewport-container">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f43f5e" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="m4.93 4.93 4.24 4.24"></path><path d="m14.83 9.17 4.24-4.24"></path><path d="m14.83 14.83 4.24 4.24"></path><path d="m9.17 14.83-4.24 4.24"></path></svg>
+            RuO₂ 晶格微观交错磁化子晶格进动与自旋劈裂力矩全息视口 (Real-Space Sublattices & SST Precession)
+          </div>
+          <div style="display:flex; gap:0.5rem; align-items:center;">
+            <span class="state-pill" id="tag-current-regime">动力学机制: 稳态自激振荡</span>
+            <span style="font-size: 0.75rem; color: var(--text-sub);">脉冲延时: <strong id="val-time-ps" style="color:var(--sub-a);">0.00 ps</strong></span>
+          </div>
+        </div>
+        <div class="canvas-wrap">
+          <canvas id="mainCanvas"></canvas>
+        </div>
+      </div>
+
+      <div class="scope-grid">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a855f7" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+              超快太赫兹时域示波器: Néel 矢量 L(t) 与感生磁化 M_z(t)
+            </div>
+            <span style="font-size:0.7rem; color:var(--text-sub);" id="val-fthz-label">f_osc = 1.35 THz</span>
+          </div>
+          <div class="scope-canvas-wrap">
+            <canvas id="scopeCanvas1"></canvas>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+              动量空间太赫兹磁振子手征能谱 ω_±(k) 与 d-波各向异性劈裂
+            </div>
+            <span style="font-size:0.7rem; color:var(--text-sub);" id="val-split-label">Δω_alt = 0.48 THz</span>
+          </div>
+          <div class="scope-canvas-wrap">
+            <canvas id="scopeCanvas2"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sidebar">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+            超快太赫兹交错磁自旋动力学监控
+          </div>
+        </div>
+        <div class="metric-grid">
+          <div class="metric-box">
+            <span class="metric-label">Néel 偏角 θ_L</span>
+            <span class="metric-val purple" id="m-theta">4.2°</span>
+          </div>
+          <div class="metric-box">
+            <span class="metric-label">自振荡基频 f_THz</span>
+            <span class="metric-val cyan" id="m-freq">1.35 THz</span>
+          </div>
+          <div class="metric-box">
+            <span class="metric-label">SST 劈裂力矩效率</span>
+            <span class="metric-val gold" id="m-sst">0.78</span>
+          </div>
+          <div class="metric-box">
+            <span class="metric-label">自发动态磁化 M_z</span>
+            <span class="metric-val" id="m-mz">0.034 μB</span>
+          </div>
+        </div>
+
+        <div class="status-banner" id="status-info">
+          <strong>非相对论性自旋劈裂力矩 (SST)：</strong> 交错磁体具有动量空间 d-波交错自旋能带劈裂，无需相对论自旋轨道耦合 (SOC) 即可在外加电流驱动下直接施加自旋力矩，在皮秒尺度引发太赫兹自旋振荡与超快磁翻转。
+        </div>
+
+        <div class="control-group">
+          <div class="slider-row">
+            <div class="slider-header">
+              <span>注入自旋极化流密度 J_c (10⁷ A/cm²)</span>
+              <span id="label-curr">2.5</span>
+            </div>
+            <input type="range" id="param-curr" min="0.0" max="6.0" step="0.1" value="2.5">
+          </div>
+
+          <div class="slider-row">
+            <div class="slider-header">
+              <span>交错磁自旋劈裂能量 J_alt (eV)</span>
+              <span id="label-jalt">0.85</span>
+            </div>
+            <input type="range" id="param-jalt" min="0.2" max="2.0" step="0.05" value="0.85">
+          </div>
+
+          <div class="slider-row">
+            <div class="slider-header">
+              <span>易轴磁晶各向异性 K_u (meV)</span>
+              <span id="label-ku">0.45</span>
+            </div>
+            <input type="range" id="param-ku" min="0.1" max="1.5" step="0.05" value="0.45">
+          </div>
+
+          <div class="slider-row">
+            <div class="slider-header">
+              <span>吉尔伯特无量纲阻尼 α</span>
+              <span id="label-alpha">0.020</span>
+            </div>
+            <input type="range" id="param-alpha" min="0.005" max="0.1" step="0.005" value="0.020">
+          </div>
+        </div>
+
+        <div style="padding: 0 1.25rem 0.5rem; font-size: 0.78rem; font-weight: 600; color: var(--text-sub);">
+          前沿物理动力学工况预设
+        </div>
+        <div class="presets-container">
+          <button class="btn" id="preset-osc">太赫兹自激振荡</button>
+          <button class="btn" id="preset-switch">超快 180° 翻转</button>
+          <button class="btn" id="preset-magnon">手征波聚焦辐射</button>
+          <button class="btn" id="preset-soliton">超音速孤子滑移</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-bar">
+    <span>物理理论: 交错磁体动量依赖自旋劈裂 | 双子晶格修改 Landau-Lifshitz-Gilbert (LLG) 方程 | d-wave 磁振子色散</span>
+    <span>Zero Dependencies, Vanilla JS + Canvas 2D/3D + Web Audio API 仿真架构</span>
+  </div>
+
+  <script>
+    // ==========================================
+    // 物理系统与常量配置
+    // ==========================================
+    const STATE = {
+      isPlaying: true,
+      soundEnabled: false,
+      curr: 2.5,        // 驱动电流 10^7 A/cm^2
+      jalt: 0.85,       // 交错磁交换劈裂 eV
+      ku: 0.45,         // 各向异性 meV
+      alpha: 0.020,     // 阻尼
+      simTimePs: 0.0,   // 皮秒时间
+      m1: { x: 0, y: 0, z: 1 },    // 子晶格 A 磁化
+      m2: { x: 0, y: 0, z: -1 },   // 子晶格 B 磁化
+      neel: { x: 0, y: 0, z: 1 },  // Néel 矢量 L = (m1 - m2)/2
+      mag: { x: 0, y: 0, z: 0 },   // 感生净磁化 M = (m1 + m2)/2
+      thetaL: 0.0,      // Néel 倾角 (rad)
+      phiL: 0.0,        // 方位角
+      freqTHz: 1.35,
+      torqueSST: 0.78,
+      isPulseActive: false,
+      pulseTimer: 0.0,
+      regimeName: '稳态自激振荡',
+      historyL: [],
+      historyM: [],
+      spinWaves: []
+    };
+
+    // 音频合成器
+    let audioCtx = null;
+    let oscCarrier = null;
+    let oscMod = null;
+    let gainCarrier = null;
+
+    function initAudio() {
+      if (audioCtx) return;
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioContext();
+
+      // 降频太赫兹模拟自振蜂鸣
+      oscCarrier = audioCtx.createOscillator();
+      oscCarrier.type = 'sawtooth';
+      oscCarrier.frequency.setValueAtTime(320, audioCtx.currentTime);
+
+      gainCarrier = audioCtx.createGain();
+      gainCarrier.gain.setValueAtTime(0.0, audioCtx.currentTime);
+
+      // 低频力矩调制
+      oscMod = audioCtx.createOscillator();
+      oscMod.type = 'sine';
+      oscMod.frequency.setValueAtTime(12, audioCtx.currentTime);
+
+      const modGain = audioCtx.createGain();
+      modGain.gain.setValueAtTime(40, audioCtx.currentTime);
+      oscMod.connect(modGain);
+      modGain.connect(oscCarrier.frequency);
+
+      oscCarrier.connect(gainCarrier);
+      gainCarrier.connect(audioCtx.destination);
+
+      oscCarrier.start();
+      oscMod.start();
+    }
+
+    function triggerPulseImpactSound() {
+      if (!STATE.soundEnabled || !audioCtx) return;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(140, audioCtx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.3);
+      gain.gain.setValueAtTime(0.35, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.3);
+    }
+
+    // ==========================================
+    // 画布与自适应
+    // ==========================================
+    const mainCanvas = document.getElementById('mainCanvas');
+    const ctxMain = mainCanvas.getContext('2d');
+    const scopeCanvas1 = document.getElementById('scopeCanvas1');
+    const ctxScope1 = scopeCanvas1.getContext('2d');
+    const scopeCanvas2 = document.getElementById('scopeCanvas2');
+    const ctxScope2 = scopeCanvas2.getContext('2d');
+
+    function resizeCanvases() {
+      const dpr = window.devicePixelRatio || 1;
+      [
+        { el: mainCanvas, ctx: ctxMain },
+        { el: scopeCanvas1, ctx: ctxScope1 },
+        { el: scopeCanvas2, ctx: ctxScope2 }
+      ].forEach(({ el, ctx }) => {
+        const rect = el.parentElement.getBoundingClientRect();
+        el.width = rect.width * dpr;
+        el.height = rect.height * dpr;
+        ctx.resetTransform?.();
+        ctx.scale(dpr, dpr);
+      });
+    }
+    window.addEventListener('resize', resizeCanvases);
+
+    // ==========================================
+    // 物理演化模型：交错磁自旋劈裂力矩动力学
+    // ==========================================
+    let lastTime = performance.now();
+
+    function updatePhysics(dt) {
+      if (!STATE.isPlaying) return;
+
+      const dtPs = dt * 1.5; // 真实皮秒尺度加速映射
+      STATE.simTimePs += dtPs;
+
+      // 脉冲事件衰减
+      if (STATE.isPulseActive) {
+        STATE.pulseTimer -= dtPs;
+        if (STATE.pulseTimer <= 0) {
+          STATE.isPulseActive = false;
+        }
+      }
+
+      // 计算自旋劈裂力矩 (SST) 强度
+      const extraDrive = STATE.isPulseActive ? 4.5 : 0.0;
+      const effectiveJ = STATE.curr + extraDrive;
+      const sstTorque = effectiveJ * (STATE.jalt / 1.0) * 0.42;
+      STATE.torqueSST = sstTorque;
+
+      // 双子晶格反铁磁基态交换场与太赫兹本征振荡角频率
+      // omega_AFM = gamma * sqrt(2 * H_E * H_A) ~ 1 - 2 THz
+      const omegaTHz = Math.sqrt(Math.max(0.1, 2.0 * STATE.jalt * STATE.ku)) * 1.65;
+      STATE.freqTHz = omegaTHz * (1.0 + 0.15 * effectiveJ);
+
+      // LLG 动力学数值积分 (预测-校正器)
+      // 进动与力矩驱动
+      const driveSpeed = STATE.freqTHz * 6.283;
+      STATE.phiL += driveSpeed * dtPs;
+
+      // 极角动力学：电流大于临界翻转电流时发生 180° 超快确定性反转
+      const criticalJ = 3.6 * Math.sqrt(STATE.ku);
+      if (effectiveJ > criticalJ) {
+        // 翻转动力学
+        STATE.thetaL += (Math.PI - STATE.thetaL) * (0.85 * dtPs);
+      } else {
+        // 稳态有限倾角微幅进动
+        const targetTheta = (effectiveJ / criticalJ) * 0.45;
+        STATE.thetaL += (targetTheta - STATE.thetaL) * (1.2 * dtPs);
+      }
+
+      // 计算子晶格磁化矢量 m1, m2 与 Néel 矢量 L
+      const sinTheta = Math.sin(STATE.thetaL);
+      const cosTheta = Math.cos(STATE.thetaL);
+      const sinPhi = Math.sin(STATE.phiL);
+      const cosPhi = Math.cos(STATE.phiL);
+
+      STATE.neel.x = sinTheta * cosPhi;
+      STATE.neel.y = sinTheta * sinPhi;
+      STATE.neel.z = cosTheta;
+
+      // 动磁化产生 (倾角带来非常微弱的非零 M_z)
+      const canting = (sstTorque * 0.04) / Math.max(0.5, STATE.jalt);
+      STATE.mag.z = canting * Math.sin(STATE.phiL * 2.0);
+      STATE.mag.x = canting * 0.5 * cosPhi;
+      STATE.mag.y = canting * 0.5 * sinPhi;
+
+      STATE.m1.x = STATE.neel.x + STATE.mag.x;
+      STATE.m1.y = STATE.neel.y + STATE.mag.y;
+      STATE.m1.z = STATE.neel.z + STATE.mag.z;
+
+      STATE.m2.x = -STATE.neel.x + STATE.mag.x;
+      STATE.m2.y = -STATE.neel.y + STATE.mag.y;
+      STATE.m2.z = -STATE.neel.z + STATE.mag.z;
+
+      // 历史曲线采样
+      STATE.historyL.push({
+        t: STATE.simTimePs,
+        lx: STATE.neel.x,
+        ly: STATE.neel.y,
+        lz: STATE.neel.z,
+        mz: STATE.mag.z * 10.0 // 放大以可视化
+      });
+      if (STATE.historyL.length > 220) STATE.historyL.shift();
+
+      // 动态自旋波辐射波包生成
+      if (Math.random() < 0.28 && effectiveJ > 0.8) {
+        STATE.spinWaves.push({
+          x: 0,
+          y: 0,
+          radius: 10,
+          life: 1.0,
+          decay: 0.9 * dtPs,
+          dWavePhase: Math.atan2(STATE.neel.y, STATE.neel.x)
+        });
+      }
+
+      // 更新自旋波波前
+      for (let i = STATE.spinWaves.length - 1; i >= 0; i--) {
+        const sw = STATE.spinWaves[i];
+        sw.radius += 120 * dtPs;
+        sw.life -= 0.35 * dtPs;
+        if (sw.life <= 0) {
+          STATE.spinWaves.splice(i, 1);
+        }
+      }
+
+      // 动态音频频率调整
+      if (STATE.soundEnabled && gainCarrier && oscCarrier) {
+        const audibleFreq = 260 + (STATE.freqTHz / 3.0) * 380 + (STATE.isPulseActive ? 180 : 0);
+        oscCarrier.frequency.setValueAtTime(audibleFreq, audioCtx.currentTime);
+        const audibleVol = Math.min(0.12, 0.02 + effectiveJ * 0.02);
+        gainCarrier.gain.setValueAtTime(audibleVol, audioCtx.currentTime);
+      }
+    }
+
+    // ==========================================
+    // 渲染主全息视口：RuO₂ 晶胞三维矢量与自旋波
+    // ==========================================
+    function renderMain() {
+      const w = mainCanvas.clientWidth;
+      const h = mainCanvas.clientHeight;
+      ctxMain.clearRect(0, 0, w, h);
+
+      const cx = w * 0.5;
+      const cy = h * 0.52;
+
+      // 绘制背景微磁太赫兹共振腔网格
+      ctxMain.strokeStyle = 'rgba(255, 255, 255, 0.035)';
+      ctxMain.lineWidth = 1;
+      const step = 30;
+      for (let x = 0; x < w; x += step) {
+        ctxMain.beginPath();
+        ctxMain.moveTo(x, 0);
+        ctxMain.lineTo(x, h);
+        ctxMain.stroke();
+      }
+      for (let y = 0; y < h; y += step) {
+        ctxMain.beginPath();
+        ctxMain.moveTo(0, y);
+        ctxMain.lineTo(w, y);
+        ctxMain.stroke();
+      }
+
+      // 绘制 d-波交错自旋波涟漪
+      STATE.spinWaves.forEach(sw => {
+        ctxMain.save();
+        ctxMain.translate(cx, cy);
+        ctxMain.strokeStyle = `rgba(56, 189, 248, ${sw.life * 0.45})`;
+        ctxMain.lineWidth = 2.0;
+
+        // 调制 d-波四重各向异性 cos(2θ)
+        ctxMain.beginPath();
+        for (let angle = 0; angle <= Math.PI * 2; angle += 0.08) {
+          const dMod = 1.0 + 0.35 * Math.cos(2.0 * angle);
+          const r = sw.radius * dMod;
+          const px = r * Math.cos(angle);
+          const py = r * Math.sin(angle) * 0.6; // 投影倾斜
+          if (angle === 0) ctxMain.moveTo(px, py);
+          else ctxMain.lineTo(px, py);
+        }
+        ctxMain.closePath();
+        ctxMain.stroke();
+        ctxMain.restore();
+      });
+
+      // 绘制 RuO₂ 金红石八面体三维线框模型
+      const rCell = 130;
+      ctxMain.save();
+      ctxMain.translate(cx, cy);
+
+      // 晶胞边框
+      ctxMain.strokeStyle = 'rgba(244, 63, 94, 0.25)';
+      ctxMain.lineWidth = 1.5;
+      ctxMain.strokeRect(-rCell, -rCell * 0.6, rCell * 2, rCell * 1.2);
+
+      // 绘制配位原子球 (Ru / O)
+      const sublattices = [
+        { x: -rCell * 0.6, y: -rCell * 0.2, col: '#f43f5e', label: 'Ru_A (↑)', m: STATE.m1 },
+        { x: rCell * 0.6, y: rCell * 0.2, col: '#06b6d4', label: 'Ru_B (↓)', m: STATE.m2 }
+      ];
+
+      // 绘制两个子晶格反平行自旋磁矩矢量
+      sublattices.forEach(sub => {
+        // 原子球辉光
+        const grad = ctxMain.createRadialGradient(sub.x, sub.y, 4, sub.x, sub.y, 35);
+        grad.addColorStop(0, sub.col);
+        grad.addColorStop(0.5, sub.col + '33');
+        grad.addColorStop(1, 'transparent');
+        ctxMain.fillStyle = grad;
+        ctxMain.beginPath();
+        ctxMain.arc(sub.x, sub.y, 35, 0, Math.PI * 2);
+        ctxMain.fill();
+
+        // 核心实心球
+        ctxMain.fillStyle = '#ffffff';
+        ctxMain.beginPath();
+        ctxMain.arc(sub.x, sub.y, 7, 0, Math.PI * 2);
+        ctxMain.fill();
+
+        // 动态三维自旋矢量箭头 (LLG 进动投影)
+        const vecLen = 95;
+        const vx = sub.x + sub.m.x * (vecLen * 0.8) + sub.m.y * (vecLen * 0.3);
+        const vy = sub.y - sub.m.z * vecLen + sub.m.y * (vecLen * 0.2);
+
+        // 矢量主干
+        ctxMain.strokeStyle = sub.col;
+        ctxMain.lineWidth = 4;
+        ctxMain.beginPath();
+        ctxMain.moveTo(sub.x, sub.y);
+        ctxMain.lineTo(vx, vy);
+        ctxMain.stroke();
+
+        // 箭头端点球
+        ctxMain.fillStyle = sub.col;
+        ctxMain.beginPath();
+        ctxMain.arc(vx, vy, 5, 0, Math.PI * 2);
+        ctxMain.fill();
+
+        // 进动虚线圆环
+        ctxMain.strokeStyle = sub.col + '55';
+        ctxMain.setLineDash([3, 4]);
+        ctxMain.lineWidth = 1;
+        ctxMain.beginPath();
+        ctxMain.ellipse(sub.x, sub.y - sub.m.z * (vecLen * 0.9), vecLen * 0.45, vecLen * 0.18, 0, 0, Math.PI * 2);
+        ctxMain.stroke();
+        ctxMain.setLineDash([]);
+
+        // 标注
+        ctxMain.fillStyle = sub.col;
+        ctxMain.font = 'bold 12px JetBrains Mono';
+        ctxMain.fillText(sub.label, sub.x - 28, sub.y + 48);
+      });
+
+      // 绘制宏观合成 Néel 矢量 L = (m1 - m2)/2 (高亮紫色粗箭头)
+      const neelLen = 145;
+      const nvx = STATE.neel.x * (neelLen * 0.8) + STATE.neel.y * (neelLen * 0.3);
+      const nvy = -STATE.neel.z * neelLen + STATE.neel.y * (neelLen * 0.2);
+
+      ctxMain.strokeStyle = '#a855f7';
+      ctxMain.lineWidth = 5;
+      ctxMain.shadowColor = '#a855f7';
+      ctxMain.shadowBlur = 12;
+      ctxMain.beginPath();
+      ctxMain.moveTo(0, 0);
+      ctxMain.lineTo(nvx, nvy);
+      ctxMain.stroke();
+      ctxMain.shadowBlur = 0;
+
+      // Néel 矢量顶端
+      ctxMain.fillStyle = '#ffffff';
+      ctxMain.beginPath();
+      ctxMain.arc(nvx, nvy, 6, 0, Math.PI * 2);
+      ctxMain.fill();
+
+      // 绘制自旋劈裂力矩矢量 τ_SST (金色弯曲回旋箭头)
+      if (STATE.torqueSST > 0.1) {
+        ctxMain.strokeStyle = '#fbbf24';
+        ctxMain.lineWidth = 3;
+        ctxMain.beginPath();
+        const arcR = 60;
+        ctxMain.arc(0, 0, arcR, STATE.phiL, STATE.phiL + 1.2);
+        ctxMain.stroke();
+        ctxMain.fillStyle = '#fbbf24';
+        ctxMain.font = 'bold 11px JetBrains Mono';
+        ctxMain.fillText('τ_SST (自旋劈裂力矩)', arcR + 10, -10);
+      }
+
+      ctxMain.restore();
+
+      // 视口浮动状态标签
+      ctxMain.fillStyle = 'rgba(148, 163, 184, 0.85)';
+      ctxMain.font = '12px JetBrains Mono';
+      ctxMain.fillText('Néel 矢量: L = (m_A - m_B)/2 (无退磁场减速, 100% 交换增强)', 24, 30);
+      ctxMain.fillText(`自旋流注入极化: σ_s ∥ [110] | 纯非相对论性动量劈裂`, 24, 50);
+    }
+
+    // ==========================================
+    // 示波器 1：太赫兹时域波形示波器
+    // ==========================================
+    function renderScope1() {
+      const w = scopeCanvas1.clientWidth;
+      const h = scopeCanvas1.clientHeight;
+      ctxScope1.clearRect(0, 0, w, h);
+
+      // 网格
+      ctxScope1.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+      ctxScope1.lineWidth = 1;
+      const midY = h * 0.5;
+      for (let y = 0; y < h; y += 25) {
+        ctxScope1.beginPath();
+        ctxScope1.moveTo(0, y);
+        ctxScope1.lineTo(w, y);
+        ctxScope1.stroke();
+      }
+      for (let x = 0; x < w; x += 40) {
+        ctxScope1.beginPath();
+        ctxScope1.moveTo(x, 0);
+        ctxScope1.lineTo(x, h);
+        ctxScope1.stroke();
+      }
+
+      // 零电平参考线
+      ctxScope1.strokeStyle = 'rgba(168, 85, 247, 0.3)';
+      ctxScope1.setLineDash([3, 3]);
+      ctxScope1.beginPath();
+      ctxScope1.moveTo(0, midY);
+      ctxScope1.lineTo(w, midY);
+      ctxScope1.stroke();
+      ctxScope1.setLineDash([]);
+
+      if (STATE.historyL.length < 2) return;
+
+      const dx = w / 220;
+      const scaleY = h * 0.4;
+
+      // 绘制 L_x (cyan)
+      ctxScope1.strokeStyle = '#06b6d4';
+      ctxScope1.lineWidth = 1.8;
+      ctxScope1.beginPath();
+      STATE.historyL.forEach((pt, i) => {
+        const x = i * dx;
+        const y = midY - pt.lx * scaleY;
+        if (i === 0) ctxScope1.moveTo(x, y);
+        else ctxScope1.lineTo(x, y);
+      });
+      ctxScope1.stroke();
+
+      // 绘制 L_z (purple, Néel 矢量垂直分量)
+      ctxScope1.strokeStyle = '#a855f7';
+      ctxScope1.lineWidth = 2.4;
+      ctxScope1.beginPath();
+      STATE.historyL.forEach((pt, i) => {
+        const x = i * dx;
+        const y = midY - pt.lz * scaleY;
+        if (i === 0) ctxScope1.moveTo(x, y);
+        else ctxScope1.lineTo(x, y);
+      });
+      ctxScope1.stroke();
+
+      // 绘制感生自发磁化 M_z (gold)
+      ctxScope1.strokeStyle = '#fbbf24';
+      ctxScope1.lineWidth = 1.5;
+      ctxScope1.beginPath();
+      STATE.historyL.forEach((pt, i) => {
+        const x = i * dx;
+        const y = midY - pt.mz * scaleY;
+        if (i === 0) ctxScope1.moveTo(x, y);
+        else ctxScope1.lineTo(x, y);
+      });
+      ctxScope1.stroke();
+
+      // 标注
+      ctxScope1.fillStyle = '#a855f7';
+      ctxScope1.font = '10px JetBrains Mono';
+      ctxScope1.fillText('L_z(t) (Néel 翻转分量)', 12, 18);
+      ctxScope1.fillStyle = '#06b6d4';
+      ctxScope1.fillText('L_x(t) (超快进动)', 12, 34);
+      ctxScope1.fillStyle = '#fbbf24';
+      ctxScope1.fillText('M_z(t) ×10 (动态微弱倾角)', 12, h - 8);
+    }
+
+    // ==========================================
+    // 示波器 2：动量空间太赫兹磁振子能谱
+    // ==========================================
+    function renderScope2() {
+      const w = scopeCanvas2.clientWidth;
+      const h = scopeCanvas2.clientHeight;
+      ctxScope2.clearRect(0, 0, w, h);
+
+      const cx = w * 0.5;
+      const cy = h * 0.55;
+
+      // 坐标轴
+      ctxScope2.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+      ctxScope2.lineWidth = 1;
+      ctxScope2.beginPath();
+      ctxScope2.moveTo(20, cy);
+      ctxScope2.lineTo(w - 20, cy);
+      ctxScope2.moveTo(cx, 15);
+      ctxScope2.lineTo(cx, h - 15);
+      ctxScope2.stroke();
+
+      // 绘制交错磁体手征劈裂色散 ω_±(k)
+      // ω_±(k) = sqrt(Δ_AFM^2 + v^2 k^2) ± λ_alt (k_x^2 - k_y^2)
+      const baseGap = 0.8 * Math.sqrt(STATE.ku);
+      const splitAlt = 0.5 * (STATE.jalt / 1.0);
+
+      const numPts = 120;
+      const kMax = 1.8;
+      const scaleK = (w * 0.42) / kMax;
+      const scaleOmega = (h * 0.38) / 2.5;
+
+      // 分支 1 (ω+, cyan)
+      ctxScope2.strokeStyle = '#38bdf8';
+      ctxScope2.lineWidth = 2.2;
+      ctxScope2.beginPath();
+      for (let i = 0; i <= numPts; i++) {
+        const k = -kMax + (2 * kMax * i) / numPts;
+        const omega = Math.sqrt(baseGap * baseGap + 1.2 * k * k) + splitAlt * (k * k * 0.4);
+        const x = cx + k * scaleK;
+        const y = cy - omega * scaleOmega;
+        if (i === 0) ctxScope2.moveTo(x, y);
+        else ctxScope2.lineTo(x, y);
+      }
+      ctxScope2.stroke();
+
+      // 分支 2 (ω-, rose)
+      ctxScope2.strokeStyle = '#f43f5e';
+      ctxScope2.lineWidth = 2.2;
+      ctxScope2.beginPath();
+      for (let i = 0; i <= numPts; i++) {
+        const k = -kMax + (2 * kMax * i) / numPts;
+        const omega = Math.sqrt(baseGap * baseGap + 1.2 * k * k) - splitAlt * (k * k * 0.4);
+        const x = cx + k * scaleK;
+        const y = cy - omega * scaleOmega;
+        if (i === 0) ctxScope2.moveTo(x, y);
+        else ctxScope2.lineTo(x, y);
+      }
+      ctxScope2.stroke();
+
+      // 高对称点与手性能隙标注
+      ctxScope2.fillStyle = '#94a3b8';
+      ctxScope2.font = '10px JetBrains Mono';
+      ctxScope2.fillText('-k_x', 25, cy - 8);
+      ctxScope2.fillText('+k_x', w - 45, cy - 8);
+      ctxScope2.fillText('ω (THz)', cx + 8, 24);
+
+      ctxScope2.fillStyle = '#38bdf8';
+      ctxScope2.fillText('ω+(k) 右旋磁振子', cx - 110, 35);
+      ctxScope2.fillStyle = '#f43f5e';
+      ctxScope2.fillText('ω-(k) 左旋磁振子', cx + 18, 35);
+    }
+
+    // ==========================================
+    // 主循环与控件绑定
+    // ==========================================
+    function loop(time) {
+      const dt = Math.min(0.06, (time - lastTime) / 1000.0);
+      lastTime = time;
+
+      updatePhysics(dt);
+      renderMain();
+      renderScope1();
+      renderScope2();
+
+      // 更新仪表盘数值
+      document.getElementById('val-time-ps').innerText = `${STATE.simTimePs.toFixed(2)} ps`;
+      document.getElementById('m-theta').innerText = `${(STATE.thetaL * (180 / Math.PI)).toFixed(1)}°`;
+      document.getElementById('m-freq').innerText = `${STATE.freqTHz.toFixed(2)} THz`;
+      document.getElementById('m-sst').innerText = STATE.torqueSST.toFixed(2);
+      document.getElementById('m-mz').innerText = `${STATE.mag.z.toFixed(3)} μB`;
+      document.getElementById('val-fthz-label').innerText = `f_osc = ${STATE.freqTHz.toFixed(2)} THz`;
+      document.getElementById('val-split-label').innerText = `Δω_alt = ${(0.48 * STATE.jalt).toFixed(2)} THz`;
+
+      requestAnimationFrame(loop);
+    }
+
+    // 交互按键
+    document.getElementById('btn-play').addEventListener('click', function() {
+      STATE.isPlaying = !STATE.isPlaying;
+      this.classList.toggle('active', STATE.isPlaying);
+      this.innerHTML = STATE.isPlaying ?
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg> 实时演化中' :
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polygon points="10 8 16 12 10 16 10 8"></polygon></svg> 已暂停';
+    });
+
+    document.getElementById('btn-sound').addEventListener('click', function() {
+      initAudio();
+      STATE.soundEnabled = !STATE.soundEnabled;
+      this.classList.toggle('active', STATE.soundEnabled);
+      this.innerText = STATE.soundEnabled ? '太赫兹声效: 开' : '太赫兹声效: 关';
+      if (!STATE.soundEnabled && gainCarrier) {
+        gainCarrier.gain.setValueAtTime(0.0, audioCtx.currentTime);
+      }
+    });
+
+    document.getElementById('btn-pulse').addEventListener('click', function() {
+      STATE.isPulseActive = true;
+      STATE.pulseTimer = 0.35; // 350 fs 强脉冲
+      triggerPulseImpactSound();
+    });
+
+    document.getElementById('btn-reset').addEventListener('click', function() {
+      STATE.thetaL = 0.0;
+      STATE.phiL = 0.0;
+      STATE.simTimePs = 0.0;
+      STATE.historyL = [];
+    });
+
+    // 滑块监听
+    document.getElementById('param-curr').addEventListener('input', e => {
+      STATE.curr = parseFloat(e.target.value);
+      document.getElementById('label-curr').innerText = STATE.curr.toFixed(1);
+    });
+
+    document.getElementById('param-jalt').addEventListener('input', e => {
+      STATE.jalt = parseFloat(e.target.value);
+      document.getElementById('label-jalt').innerText = STATE.jalt.toFixed(2);
+    });
+
+    document.getElementById('param-ku').addEventListener('input', e => {
+      STATE.ku = parseFloat(e.target.value);
+      document.getElementById('label-ku').innerText = STATE.ku.toFixed(2);
+    });
+
+    document.getElementById('param-alpha').addEventListener('input', e => {
+      STATE.alpha = parseFloat(e.target.value);
+      document.getElementById('label-alpha').innerText = STATE.alpha.toFixed(3);
+    });
+
+    // 预设切换
+    document.getElementById('preset-osc').addEventListener('click', () => {
+      STATE.curr = 2.2;
+      STATE.jalt = 0.85;
+      STATE.ku = 0.45;
+      document.getElementById('param-curr').value = 2.2;
+      document.getElementById('label-curr').innerText = '2.2';
+      document.getElementById('tag-current-regime').innerText = '动力学机制: 稳态自激振荡';
+    });
+
+    document.getElementById('preset-switch').addEventListener('click', () => {
+      STATE.curr = 5.2;
+      document.getElementById('param-curr').value = 5.2;
+      document.getElementById('label-curr').innerText = '5.2';
+      document.getElementById('tag-current-regime').innerText = '动力学机制: 180° 超快确定性反转';
+      triggerPulseImpactSound();
+    });
+
+    document.getElementById('preset-magnon').addEventListener('click', () => {
+      STATE.curr = 1.8;
+      STATE.jalt = 1.6;
+      document.getElementById('param-jalt').value = 1.6;
+      document.getElementById('label-jalt').innerText = '1.60';
+      document.getElementById('tag-current-regime').innerText = '动力学机制: 各向异性手征波聚焦';
+    });
+
+    document.getElementById('preset-soliton').addEventListener('click', () => {
+      STATE.curr = 4.0;
+      STATE.ku = 0.15;
+      document.getElementById('param-ku').value = 0.15;
+      document.getElementById('label-ku').innerText = '0.15';
+      document.getElementById('tag-current-regime').innerText = '动力学机制: 超音速磁孤子滑移';
+    });
+
+    // 启动
+    resizeCanvases();
+    requestAnimationFrame(loop);
+  </script>
+</body>
+</html>

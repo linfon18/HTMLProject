@@ -1,0 +1,1190 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>扭转双层莫尔激子维格纳-霍尔晶体与拓扑相干融化全息模拟器</title>
+  <style>
+    :root {
+      --bg: #030712;
+      --card-bg: rgba(15, 23, 42, 0.78);
+      --border: rgba(139, 92, 246, 0.25);
+      --border-bright: rgba(139, 92, 246, 0.6);
+      --violet: #8b5cf6;
+      --fuchsia: #d946ef;
+      --cyan: #06b6d4;
+      --amber: #f59e0b;
+      --emerald: #10b981;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+    body {
+      background-color: var(--bg);
+      background-image: 
+        radial-gradient(circle at 18% 18%, rgba(139, 92, 246, 0.15) 0%, transparent 45%),
+        radial-gradient(circle at 82% 82%, rgba(217, 70, 239, 0.12) 0%, transparent 45%);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      padding: 14px 24px;
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 10;
+    }
+    .header-title {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .badge {
+      font-size: 11px;
+      text-transform: uppercase;
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: rgba(139, 92, 246, 0.25);
+      border: 1px solid var(--border-bright);
+      color: #c4b5fd;
+      letter-spacing: 0.5px;
+      font-family: monospace;
+    }
+    h1 {
+      font-size: 17px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+      background: linear-gradient(135deg, #f8fafc 0%, #c4b5fd 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .status-tags {
+      display: flex;
+      gap: 16px;
+      font-size: 12px;
+      font-family: monospace;
+      color: var(--text-muted);
+    }
+    .status-tag span {
+      color: var(--violet);
+      font-weight: 600;
+    }
+
+    main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      gap: 16px;
+      padding: 16px;
+      max-width: 1750px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    .viewport-container {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .main-canvas-wrapper {
+      position: relative;
+      flex: 1;
+      min-height: 520px;
+      background: #020617;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      overflow: hidden;
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6);
+    }
+    canvas#mainCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .view-modes {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      display: flex;
+      gap: 8px;
+      z-index: 5;
+    }
+    .mode-btn {
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-size: 12px;
+      cursor: pointer;
+      backdrop-filter: blur(8px);
+      transition: all 0.2s;
+      font-family: monospace;
+    }
+    .mode-btn:hover {
+      border-color: var(--border-bright);
+      color: var(--text);
+    }
+    .mode-btn.active {
+      background: rgba(139, 92, 246, 0.25);
+      border-color: var(--violet);
+      color: #f8fafc;
+      box-shadow: 0 0 14px rgba(139, 92, 246, 0.4);
+    }
+
+    .hud-overlay {
+      position: absolute;
+      bottom: 14px;
+      left: 14px;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-family: monospace;
+      font-size: 11px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      backdrop-filter: blur(8px);
+      pointer-events: none;
+    }
+    .hud-row {
+      display: flex;
+      gap: 12px;
+    }
+    .hud-val {
+      color: var(--cyan);
+      font-weight: bold;
+    }
+    .hud-val.alt {
+      color: var(--fuchsia);
+    }
+
+    .scopes-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      height: 200px;
+    }
+    .scope-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px 14px;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+    .scope-title {
+      font-size: 11px;
+      font-family: monospace;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      display: flex;
+      justify-content: space-between;
+    }
+    .scope-title span {
+      color: var(--violet);
+    }
+    .scope-canvas-wrap {
+      flex: 1;
+      position: relative;
+      width: 100%;
+      height: 100%;
+    }
+    .scope-canvas-wrap canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    /* 控制面板 */
+    .controls-panel {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+      overflow-y: auto;
+      max-height: calc(100vh - 100px);
+    }
+    .panel-section-title {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: #c4b5fd;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .control-label {
+      font-size: 11px;
+      font-family: monospace;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+    }
+    .control-label span {
+      color: var(--text);
+    }
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 4px;
+      border-radius: 2px;
+      background: rgba(255, 255, 255, 0.1);
+      outline: none;
+      transition: background 0.2s;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--violet);
+      cursor: pointer;
+      box-shadow: 0 0 10px rgba(139, 92, 246, 0.6);
+      transition: transform 0.1s;
+    }
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    .preset-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .preset-btn {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px;
+      border-radius: 8px;
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: left;
+      line-height: 1.3;
+    }
+    .preset-btn:hover {
+      background: rgba(139, 92, 246, 0.18);
+      border-color: var(--border-bright);
+    }
+    .preset-btn strong {
+      display: block;
+      color: #c4b5fd;
+      margin-bottom: 2px;
+    }
+
+    .audio-toggle-btn {
+      background: rgba(139, 92, 246, 0.2);
+      border: 1px solid var(--violet);
+      color: #f8fafc;
+      padding: 9px;
+      border-radius: 8px;
+      font-size: 12px;
+      cursor: pointer;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+    .audio-toggle-btn:hover {
+      background: rgba(139, 92, 246, 0.35);
+      box-shadow: 0 0 14px rgba(139, 92, 246, 0.5);
+    }
+
+    .stats-card {
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      padding: 10px;
+      font-family: monospace;
+      font-size: 11px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .stats-row {
+      display: flex;
+      justify-content: space-between;
+      color: var(--text-muted);
+    }
+    .stats-row span {
+      color: var(--emerald);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-title">
+      <div class="badge">TOPOLOGY #246</div>
+      <h1>扭转双层莫尔激子维格纳-霍尔晶体与拓扑相干融化全息模拟器</h1>
+    </div>
+    <div class="status-tags">
+      <div class="status-tag">物态拓扑: <span id="tagPhase">ν=1/3 手征维格纳固相 (C=1)</span></div>
+      <div class="status-tag">六重取向序 Ψ₆: <span id="tagPsi6">0.86 (长程固态)</span></div>
+      <div class="status-tag">拓扑反常激子霍尔导率: <span id="tagHall">+1.00 e²/h</span></div>
+    </div>
+  </header>
+
+  <main>
+    <div class="viewport-container">
+      <div class="main-canvas-wrapper">
+        <div class="view-modes">
+          <button class="mode-btn active" id="btnModeLattice" onclick="setMode('MOIRE_WIGNER_LATTICE')">莫尔超点阵激子维格纳阵列</button>
+          <button class="mode-btn" id="btnModeBands" onclick="setMode('TOPOLOGICAL_CHERN_FLAT_BANDS')">动量空间莫尔拓扑微带与能隙反转</button>
+          <button class="mode-btn" id="btnModeCorrelation" onclick="setMode('PAIR_CORRELATION_G_R')">双体对关联g(r)与六方Bragg峰浮雕</button>
+        </div>
+
+        <canvas id="mainCanvas"></canvas>
+
+        <div class="hud-overlay">
+          <div class="hud-row">
+            <span>扭转角 θ:</span>
+            <span class="hud-val alt" id="hudTheta">1.80°</span>
+            <span>分数填充数 ν:</span>
+            <span class="hud-val" id="hudNu">0.33 (1/3)</span>
+          </div>
+          <div class="hud-row">
+            <span>偶极排斥能 U/t:</span>
+            <span class="hud-val" id="hudUdip">4.20</span>
+            <span>垂直电场 E_z:</span>
+            <span class="hud-val" id="hudEz">+0.30 V/nm</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="scopes-grid">
+        <div class="scope-card">
+          <div class="scope-title">
+            示波器 A: 光致发光光谱 PL I(ω) 与硬库仑能隙
+            <span id="scopeStatA">维格纳激子硬能隙 Δ_W</span>
+          </div>
+          <div class="scope-canvas-wrap">
+            <canvas id="scopeCanvasA"></canvas>
+          </div>
+        </div>
+
+        <div class="scope-card">
+          <div class="scope-title">
+            示波器 B: 六重取向序 Ψ₆(T) 与拓扑霍尔电导 σ_xy
+            <span id="scopeStatB">相干量子融化相变阶梯</span>
+          </div>
+          <div class="scope-canvas-wrap">
+            <canvas id="scopeCanvasB"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 侧边交互控制面板 -->
+    <div class="controls-panel">
+      <button class="audio-toggle-btn" id="btnAudio" onclick="toggleAudio()">
+        <span>🔊 启动维格纳晶体声子振动声效</span>
+      </button>
+
+      <div>
+        <div class="panel-section-title">工况预设矩阵 (Presets)</div>
+        <div class="preset-grid">
+          <button class="preset-btn" onclick="applyPreset(1)">
+            <strong>① ν=1/3 拓扑手征维格纳相</strong>
+            θ=1.8°, U/t=4.5, 极硬能隙
+          </button>
+          <button class="preset-btn" onclick="applyPreset(2)">
+            <strong>② 垂直电场拓扑能带反转</strong>
+            Ez=+0.75 V/nm, 陈数C=1反转
+          </button>
+          <button class="preset-btn" onclick="applyPreset(3)">
+            <strong>③ 激子相干融化超流态</strong>
+            T=35K, U/t=1.2, 晶格液化
+          </button>
+          <button class="preset-btn" onclick="applyPreset(4)">
+            <strong>④ ν=1 莫尔莫特绝缘基态</strong>
+            ν=1.00, 单占有三角晶格
+          </button>
+        </div>
+      </div>
+
+      <div>
+        <div class="panel-section-title">扭转超晶格与电子关联</div>
+        <div class="control-group">
+          <div class="control-label">扭转角 θ (度): <span id="valTheta">1.80°</span></div>
+          <input type="range" id="slTheta" min="1.00" max="4.00" step="0.05" value="1.80">
+        </div>
+        <div class="control-group" style="margin-top:8px;">
+          <div class="control-label">分数填充数 ν: <span id="valNu">0.33</span></div>
+          <input type="range" id="slNu" min="0.10" max="1.20" step="0.01" value="0.33">
+        </div>
+        <div class="control-group" style="margin-top:8px;">
+          <div class="control-label">偶极库仑排斥 U_dip / t: <span id="valUdip">4.20</span></div>
+          <input type="range" id="slUdip" min="0.50" max="6.00" step="0.10" value="4.20">
+        </div>
+      </div>
+
+      <div>
+        <div class="panel-section-title">外场调谐与热扰动</div>
+        <div class="control-group">
+          <div class="control-label">莫尔势阱深度 V₀ (meV): <span id="valV0">25.0</span></div>
+          <input type="range" id="slV0" min="5.0" max="50.0" step="1.0" value="25.0">
+        </div>
+        <div class="control-group" style="margin-top:8px;">
+          <div class="control-label">垂直位移电场 E_z (V/nm): <span id="valEz">+0.30</span></div>
+          <input type="range" id="slEz" min="-1.00" max="1.00" step="0.05" value="0.30">
+        </div>
+        <div class="control-group" style="margin-top:8px;">
+          <div class="control-label">晶格温度 T (K): <span id="valTemp">4.2</span></div>
+          <input type="range" id="slTemp" min="0.1" max="80.0" step="0.5" value="4.2">
+        </div>
+      </div>
+
+      <div class="stats-card">
+        <div class="stats-row">莫尔周期长度 L_M: <span id="stLm">10.4 nm</span></div>
+        <div class="stats-row">维格纳硬能隙 Δ_W: <span id="stGap">16.8 meV</span></div>
+        <div class="stats-row">融化临界温度 T_melt: <span id="stTmelt">26.4 K</span></div>
+        <div class="stats-row">激子微带陈数 C: <span id="stChern">+1</span></div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // --- 物理系统全局状态 ---
+    const STATE = {
+      mode: 'MOIRE_WIGNER_LATTICE', // 'MOIRE_WIGNER_LATTICE' | 'TOPOLOGICAL_CHERN_FLAT_BANDS' | 'PAIR_CORRELATION_G_R'
+      theta: 1.80,      // 扭转角 (度)
+      nu: 0.33,         // 分数填充数
+      uDip: 4.20,       // 激子偶极库仑能比 U/t
+      v0: 25.0,         // 莫尔势阱深度 (meV)
+      ez: 0.30,         // 垂直位移电场 (V/nm)
+      temp: 4.2,        // 晶格温度 (K)
+      time: 0,
+
+      // 派生物理量
+      lm: 10.4,         // 莫尔超晶格常数 (nm)
+      psi6: 0.86,       // 六重取向序参量
+      gapW: 16.8,       // 维格纳硬能隙 (meV)
+      chern: 1,         // 拓扑陈数
+      sigmaXy: 1.00,    // 拓扑霍尔电导 (e^2/h)
+      isSolid: true,    // 是否处于维格纳固相
+
+      // 3D 视角拖拽
+      rotX: 0.40,
+      rotY: 0.35,
+      isDragging: false,
+      lastMouseX: 0,
+      lastMouseY: 0
+    };
+
+    // --- Web Audio 物理声效引擎 ---
+    let audioCtx = null;
+    let oscWigner = null;
+    let oscPhonon = null;
+    let gainMaster = null;
+
+    function initAudio() {
+      if (audioCtx) return;
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioContext();
+
+      oscWigner = audioCtx.createOscillator();
+      oscPhonon = audioCtx.createOscillator();
+      oscWigner.type = 'sine';
+      oscPhonon.type = 'triangle';
+
+      gainMaster = audioCtx.createGain();
+      gainMaster.gain.setValueAtTime(0.035, audioCtx.currentTime);
+
+      oscWigner.connect(gainMaster);
+      oscPhonon.connect(gainMaster);
+      gainMaster.connect(audioCtx.destination);
+
+      oscWigner.start();
+      oscPhonon.start();
+    }
+
+    function toggleAudio() {
+      if (!audioCtx) {
+        initAudio();
+        document.getElementById('btnAudio').innerHTML = "<span>🔊 静音维格纳激子声效</span>";
+      } else if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+        document.getElementById('btnAudio').innerHTML = "<span>🔊 静音维格纳激子声效</span>";
+      } else if (audioCtx.state === 'running') {
+        audioCtx.suspend();
+        document.getElementById('btnAudio').innerHTML = "<span>🔈 恢复维格纳激子声效</span>";
+      }
+    }
+
+    function updateAudio() {
+      if (!audioCtx || audioCtx.state !== 'running') return;
+      // 声音映射: 维格纳晶体硬能隙决定基频，融化时由于失相声波变得浑浊
+      const baseFreq = 220 + STATE.gapW * 12;
+      const phononFreq = baseFreq * (STATE.isSolid ? 1.5 : 1.15);
+      oscWigner.frequency.setTargetAtTime(baseFreq, audioCtx.currentTime, 0.05);
+      oscPhonon.frequency.setTargetAtTime(phononFreq, audioCtx.currentTime, 0.05);
+    }
+
+    // --- 莫尔超晶格激子粒子集合 ---
+    const excitons = [];
+    const NUM_EXCITONS = 72;
+
+    function initExcitons() {
+      excitons.length = 0;
+      for (let i = 0; i < NUM_EXCITONS; i++) {
+        excitons.push({
+          x: (Math.random() - 0.5) * 450,
+          y: (Math.random() - 0.5) * 350,
+          vx: 0,
+          vy: 0,
+          targetX: 0,
+          targetY: 0
+        });
+      }
+    }
+    initExcitons();
+
+    // --- 微观与宏观物理方程数值求解器 ---
+    function computePhysics() {
+      // 1. 莫尔超晶格周期: L_M = a_0 / (2 * sin(theta / 2)) ≈ 0.328 nm / theta_rad
+      const radTheta = (STATE.theta * Math.PI) / 180;
+      STATE.lm = 0.328 / (2 * Math.sin(radTheta / 2));
+
+      // 2. 维格纳晶相融化判据:
+      // 熔点 T_melt ∝ U_dip * sqrt(nu) * exp(-1.5 / (U_dip / t))
+      const tMelt = 5.5 * STATE.uDip * Math.sqrt(STATE.nu) * (STATE.v0 / 25.0);
+      STATE.isSolid = STATE.temp < tMelt;
+
+      // 3. 六重取向序参量 Ψ_6: 随温度平滑去禁闭融化
+      const order = 1.0 / (1.0 + Math.exp((STATE.temp - tMelt) * 0.25));
+      STATE.psi6 = Math.max(0.04, Math.min(0.96, order * (STATE.uDip / (STATE.uDip + 1.0))));
+
+      // 4. 维格纳硬库仑能隙: Δ_W = U_dip * nu * (1 - T / T_melt)
+      const gap = STATE.isSolid ? (STATE.uDip * 4.5 * Math.sqrt(STATE.nu) * (1.0 - STATE.temp / tMelt)) : 0;
+      STATE.gapW = Math.max(0, gap);
+
+      // 5. 拓扑陈数与霍尔电导: 由垂直位移场 Ez 调谐能带反转
+      if (STATE.ez > 0.15) {
+        STATE.chern = 1;
+        STATE.sigmaXy = STATE.isSolid ? 1.00 : 0.45;
+      } else if (STATE.ez < -0.15) {
+        STATE.chern = -1;
+        STATE.sigmaXy = STATE.isSolid ? -1.00 : -0.45;
+      } else {
+        STATE.chern = 0;
+        STATE.sigmaXy = 0.00;
+      }
+
+      // 6. 微观激子受力数值动力学: 偶极库仑斥力 + 莫尔三角超晶格势阱
+      const aM = Math.max(28, 55 / (STATE.theta * 0.8));
+      const gVecs = [
+        { x: 0, y: (4 * Math.PI) / (Math.sqrt(3) * aM) },
+        { x: (2 * Math.PI) / aM, y: -(2 * Math.PI) / (Math.sqrt(3) * aM) },
+        { x: -(2 * Math.PI) / aM, y: -(2 * Math.PI) / (Math.sqrt(3) * aM) }
+      ];
+
+      for (let i = 0; i < excitons.length; i++) {
+        const ex = excitons[i];
+        let fx = 0, fy = 0;
+
+        // 莫尔三角势阱引导力: F = -∇V_moire
+        for (let g = 0; g < 3; g++) {
+          const dot = gVecs[g].x * ex.x + gVecs[g].y * ex.y;
+          const fMag = -STATE.v0 * 0.04 * Math.sin(dot);
+          fx += fMag * gVecs[g].x;
+          fy += fMag * gVecs[g].y;
+        }
+
+        // 偶极库仑排斥力 (只取临近邻居加速计算)
+        for (let j = i + 1; j < Math.min(i + 10, excitons.length); j++) {
+          const ex2 = excitons[j];
+          const dx = ex.x - ex2.x;
+          const dy = ex.y - ex2.y;
+          const r2 = dx * dx + dy * dy + 80;
+          const r = Math.sqrt(r2);
+          const fDip = (STATE.uDip * 180) / (r2 * r);
+          fx += dx * fDip;
+          fy += dy * fDip;
+        }
+
+        // 热微观涨落扰动 (Brownian motion)
+        const thermalKick = Math.sqrt(STATE.temp) * 0.45;
+        fx += (Math.random() - 0.5) * thermalKick;
+        fy += (Math.random() - 0.5) * thermalKick;
+
+        // 过阻尼 Langevin 积分
+        const gammaDrag = 0.75;
+        ex.vx = (ex.vx * 0.6) + (fx / gammaDrag) * 0.15;
+        ex.vy = (ex.vy * 0.6) + (fy / gammaDrag) * 0.15;
+
+        ex.x += ex.vx;
+        ex.y += ex.vy;
+
+        // 边界束缚回弹
+        if (ex.x > 260) ex.x = -260;
+        if (ex.x < -260) ex.x = 260;
+        if (ex.y > 190) ex.y = -190;
+        if (ex.y < -190) ex.y = 190;
+      }
+    }
+
+    // --- 画板初始化与渲染 ---
+    const mainCanvas = document.getElementById('mainCanvas');
+    const mainCtx = mainCanvas.getContext('2d');
+
+    function resizeCanvas() {
+      const rect = mainCanvas.getBoundingClientRect();
+      mainCanvas.width = rect.width * window.devicePixelRatio;
+      mainCanvas.height = rect.height * window.devicePixelRatio;
+      mainCtx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    }
+    window.addEventListener('resize', () => {
+      resizeCanvas();
+      resizeScopeCanvas();
+    });
+
+    // 交互拖拽控制
+    mainCanvas.addEventListener('mousedown', (e) => {
+      STATE.isDragging = true;
+      STATE.lastMouseX = e.clientX;
+      STATE.lastMouseY = e.clientY;
+    });
+    window.addEventListener('mouseup', () => STATE.isDragging = false);
+    window.addEventListener('mousemove', (e) => {
+      if (!STATE.isDragging) return;
+      const dx = e.clientX - STATE.lastMouseX;
+      const dy = e.clientY - STATE.lastMouseY;
+      STATE.lastMouseX = e.clientX;
+      STATE.lastMouseY = e.clientY;
+
+      STATE.rotY += dx * 0.008;
+      STATE.rotX = Math.max(-1.1, Math.min(1.1, STATE.rotX + dy * 0.008));
+    });
+
+    // 模式 1: 莫尔超点阵激子维格纳阵列
+    function drawMoireWignerLattice(ctx, w, h) {
+      ctx.fillStyle = "#020617";
+      ctx.fillRect(0, 0, w, h);
+
+      const cx = w / 2;
+      const cy = h / 2;
+
+      // 1. 绘制莫尔三角超晶格势能底纹
+      const aM = Math.max(28, 55 / (STATE.theta * 0.8));
+      const nRays = 14;
+
+      ctx.lineWidth = 1;
+      for (let ix = -nRays; ix <= nRays; ix++) {
+        for (let iy = -nRays; iy <= nRays; iy++) {
+          const mx = cx + (ix + iy * 0.5) * aM;
+          const my = cy + (iy * Math.sqrt(3) * 0.5) * aM;
+          if (mx < cx - 280 || mx > cx + 280 || my < cy - 210 || my > cy + 210) continue;
+
+          // 莫尔势阱高亮斑
+          const gradM = ctx.createRadialGradient(mx, my, 0, mx, my, aM * 0.45);
+          gradM.addColorStop(0, "rgba(139, 92, 246, 0.22)");
+          gradM.addColorStop(1, "rgba(139, 92, 246, 0)");
+          ctx.fillStyle = gradM;
+          ctx.beginPath();
+          ctx.arc(mx, my, aM * 0.45, 0, Math.PI * 2);
+          ctx.fill();
+
+          // 势能极小点微点
+          ctx.fillStyle = "rgba(196, 181, 253, 0.4)";
+          ctx.beginPath();
+          ctx.arc(mx, my, 2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      // 2. 绘制层间激子偶极子 (电子-空穴垂直对)
+      excitons.forEach((ex, idx) => {
+        const px = cx + ex.x;
+        const py = cy + ex.y;
+
+        // 偶极排斥力场发光晕圈
+        const rad = STATE.isSolid ? 12 : 9;
+        const grad = ctx.createRadialGradient(px, py, 2, px, py, rad);
+        grad.addColorStop(0, "rgba(217, 70, 239, 0.95)");
+        grad.addColorStop(0.5, "rgba(139, 92, 246, 0.45)");
+        grad.addColorStop(1, "rgba(139, 92, 246, 0)");
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(px, py, rad, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 激子核心实心发光球
+        ctx.fillStyle = "#fdf4ff";
+        ctx.beginPath();
+        ctx.arc(px, py, 3.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 固态维格纳近邻键连接线
+        if (STATE.isSolid && STATE.psi6 > 0.5) {
+          for (let j = idx + 1; j < excitons.length; j++) {
+            const ex2 = excitons[j];
+            const dist = Math.hypot(ex.x - ex2.x, ex.y - ex2.y);
+            if (dist < aM * 1.35) {
+              ctx.strokeStyle = `rgba(217, 70, 239, ${0.45 * STATE.psi6})`;
+              ctx.lineWidth = 1.2;
+              ctx.beginPath();
+              ctx.moveTo(px, py);
+              ctx.lineTo(cx + ex2.x, cy + ex2.y);
+              ctx.stroke();
+            }
+          }
+        }
+      });
+
+      // 标注
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold 12px monospace";
+      ctx.fillText(STATE.isSolid ? 
+        `【不可压缩分数维格纳晶体相: 取向序 Ψ₆ = ${STATE.psi6.toFixed(2)}】` : 
+        `【相干量子融化液相: 激子拓扑超流态】`, 20, h - 22);
+    }
+
+    // 模式 2: 动量空间莫尔拓扑微带与能隙反转
+    function drawTopologicalChernFlatBands(ctx, w, h) {
+      ctx.fillStyle = "#020617";
+      ctx.fillRect(0, 0, w, h);
+
+      const margin = 50;
+      const plotW = w - margin * 2;
+      const plotH = h - margin * 2;
+
+      // 坐标轴
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(margin, margin); ctx.lineTo(margin, h - margin);
+      ctx.lineTo(w - margin, h - margin);
+      ctx.stroke();
+
+      ctx.fillStyle = "#94a3b8";
+      ctx.font = "11px monospace";
+      ctx.fillText("动量空间高对称路径 (γ → M → K → γ)", w / 2 - 90, h - margin + 26);
+      ctx.fillText("激子微带能量 E (meV)", margin - 10, margin - 15);
+
+      // 高对称点标记线
+      const kGamma1 = margin;
+      const kM = margin + plotW * 0.33;
+      const kK = margin + plotW * 0.66;
+      const kGamma2 = w - margin;
+
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.1)";
+      ctx.setLineDash([3, 3]);
+      [kM, kK].forEach(kx => {
+        ctx.beginPath();
+        ctx.moveTo(kx, margin); ctx.lineTo(kx, h - margin);
+        ctx.stroke();
+      });
+      ctx.setLineDash([]);
+
+      ctx.fillText("γ", kGamma1 - 4, h - margin + 16);
+      ctx.fillText("M", kM - 4, h - margin + 16);
+      ctx.fillText("K", kK - 4, h - margin + 16);
+      ctx.fillText("γ", kGamma2 - 4, h - margin + 16);
+
+      // 绘制第一拓扑莫尔平带 (Flat Band) 与第二激发微带
+      // 电场 Ez 驱动反转与拓扑带隙打开
+      const eInv = STATE.ez * 12.0;
+      const bandwidth = Math.max(1.8, 6.0 / (STATE.theta * 0.8));
+
+      // 第一平带 (紫红)
+      ctx.strokeStyle = "#d946ef";
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      for (let px = 0; px <= plotW; px += 2) {
+        const normK = px / plotW;
+        // 色散微扰: 具有极小平带带宽
+        const dispersion = bandwidth * Math.cos(normK * Math.PI * 4);
+        const eVal = 10.0 + dispersion - eInv * 0.5;
+        const py = (h - margin) - (eVal / 45.0) * plotH;
+        if (px === 0) ctx.moveTo(margin + px, py);
+        else ctx.lineTo(margin + px, py);
+      }
+      ctx.stroke();
+
+      // 第二微带 (青蓝)
+      ctx.strokeStyle = "#06b6d4";
+      ctx.beginPath();
+      for (let px = 0; px <= plotW; px += 2) {
+        const normK = px / plotW;
+        const dispersion = (bandwidth * 1.8) * Math.sin(normK * Math.PI * 4);
+        const eVal = 26.0 + dispersion + eInv * 0.5;
+        const py = (h - margin) - (eVal / 45.0) * plotH;
+        if (px === 0) ctx.moveTo(margin + px, py);
+        else ctx.lineTo(margin + px, py);
+      }
+      ctx.stroke();
+
+      // 标注拓扑陈数与带隙
+      const gapVal = Math.abs(16.0 + eInv);
+      ctx.fillStyle = "#f59e0b";
+      ctx.font = "bold 11px monospace";
+      ctx.fillText(`拓扑带隙 Δ_topo = ${gapVal.toFixed(1)} meV (陈数 C = ${STATE.chern >= 0 ? '+' : ''}${STATE.chern})`, kM + 15, h / 2 - 10);
+
+      ctx.fillStyle = "#f8fafc";
+      ctx.font = "bold 12px monospace";
+      ctx.fillText("动量空间高陈数拓扑微带 | 带宽 W ≪ U_dip 强关联维格纳准则满足", 20, h - 22);
+    }
+
+    // 模式 3: 双体对关联 g(r) 与六方 Bragg 峰 3D 浮雕
+    function drawPairCorrelationGR(ctx, w, h) {
+      ctx.fillStyle = "#020617";
+      ctx.fillRect(0, 0, w, h);
+
+      const cx = w / 2;
+      const cy = h / 2 + 15;
+
+      // 3D 投影函数
+      function project3D(x, y, z) {
+        const cosY = Math.cos(STATE.rotY), sinY = Math.sin(STATE.rotY);
+        const x1 = x * cosY + z * sinY;
+        const z1 = -x * sinY + z * cosY;
+
+        const cosX = Math.cos(STATE.rotX), sinX = Math.sin(STATE.rotX);
+        const y2 = y * cosX - z1 * sinX;
+        const z2 = y * sinX + z1 * cosX;
+
+        const fov = 420;
+        const scale = fov / (fov + z2 + 280);
+        return {
+          px: cx + x1 * scale,
+          py: cy + y2 * scale,
+          scale: scale,
+          depth: z2
+        };
+      }
+
+      // 绘制六方对关联函数 g(r) 浮雕网格
+      const nGrid = 28;
+      const step = 11;
+
+      for (let ix = -nGrid / 2; ix <= nGrid / 2; ix++) {
+        ctx.strokeStyle = `rgba(139, 92, 246, ${0.2 + STATE.psi6 * 0.4})`;
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+
+        for (let iz = -nGrid / 2; iz <= nGrid / 2; iz++) {
+          const rx = ix * step;
+          const rz = iz * step;
+          const r = Math.sqrt(rx * rx + rz * rz);
+
+          // 六重取向调制 cos(6θ) + 径向贝塞尔震荡
+          const thetaAngle = Math.atan2(rz, rx);
+          const hexMod = Math.cos(6 * thetaAngle) * STATE.psi6;
+          // 径向主峰
+          const peak = Math.sin(r * 0.08) / (r * 0.08 + 0.1);
+          const y = -(peak * 65 * (0.4 + 0.6 * hexMod) * (STATE.isSolid ? 1.0 : 0.25));
+
+          const proj = project3D(rx, y, rz);
+          if (iz === -nGrid / 2) ctx.moveTo(proj.px, proj.py);
+          else ctx.lineTo(proj.px, proj.py);
+        }
+        ctx.stroke();
+      }
+
+      // 六重对称 Bragg 尖峰发光圆
+      if (STATE.isSolid && STATE.psi6 > 0.4) {
+        for (let k = 0; k < 6; k++) {
+          const ang = (k * Math.PI) / 3;
+          const peakR = 65;
+          const px = peakR * Math.cos(ang);
+          const pz = peakR * Math.sin(ang);
+          const projPeak = project3D(px, -45 * STATE.psi6, pz);
+
+          ctx.fillStyle = "#d946ef";
+          ctx.beginPath();
+          ctx.arc(projPeak.px, projPeak.py, 4.5 * projPeak.scale, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold 12px monospace";
+      ctx.fillText(`双体对关联函数 g(r, θ) 3D 浮雕 | 六重取向长程序 Bragg 峰长程锁定`, 20, h - 22);
+    }
+
+    // --- 示波器 A & B 绘制 ---
+    const scopeCanvasA = document.getElementById('scopeCanvasA');
+    const ctxA = scopeCanvasA.getContext('2d');
+    const scopeCanvasB = document.getElementById('scopeCanvasB');
+    const ctxB = scopeCanvasB.getContext('2d');
+
+    function resizeScopeCanvas() {
+      const rectA = scopeCanvasA.parentElement.getBoundingClientRect();
+      scopeCanvasA.width = rectA.width * window.devicePixelRatio;
+      scopeCanvasA.height = (rectA.height - 24) * window.devicePixelRatio;
+      ctxA.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+      const rectB = scopeCanvasB.parentElement.getBoundingClientRect();
+      scopeCanvasB.width = rectB.width * window.devicePixelRatio;
+      scopeCanvasB.height = (rectB.height - 24) * window.devicePixelRatio;
+      ctxB.scale(window.devicePixelRatio, window.devicePixelRatio);
+    }
+
+    function drawScopes() {
+      // 示波器 A: 光致发光光谱 PL I(ω)
+      const wA = scopeCanvasA.width / window.devicePixelRatio;
+      const hA = scopeCanvasA.height / window.devicePixelRatio;
+      ctxA.clearRect(0, 0, wA, hA);
+
+      // 基线与中轴
+      ctxA.strokeStyle = "rgba(255, 255, 255, 0.08)";
+      ctxA.beginPath();
+      ctxA.moveTo(0, hA - 15); ctxA.lineTo(wA, hA - 15);
+      ctxA.stroke();
+
+      const midXA = wA * 0.45;
+      const gammaW = STATE.isSolid ? 0.08 : 0.28; // 固态极锐利，液化展宽
+
+      // 绘制发光谱线
+      ctxA.strokeStyle = "#d946ef";
+      ctxA.lineWidth = 2.2;
+      ctxA.beginPath();
+
+      const gapShift = STATE.gapW * 2.5;
+
+      for (let px = 0; px < wA; px++) {
+        const omega = px - midXA;
+        // 双峰: 莫尔基峰 + 维格纳硬能隙分裂峰
+        const peak1 = 0.5 / (1.0 + (omega / 25) * (omega / 25));
+        const peak2 = STATE.isSolid ? (0.8 / (1.0 + ((omega - gapShift) / (gammaW * 40)) * ((omega - gapShift) / (gammaW * 40)))) : 0;
+        const totalI = peak1 + peak2;
+        const py = hA - 15 - totalI * (hA - 25);
+        if (px === 0) ctxA.moveTo(px, py);
+        else ctxA.lineTo(px, py);
+      }
+      ctxA.stroke();
+
+      if (STATE.isSolid) {
+        ctxA.fillStyle = "#d946ef";
+        ctxA.font = "9px monospace";
+        ctxA.fillText(`维格纳硬库仑峰 (Δ_W=${STATE.gapW.toFixed(1)} meV)`, midXA + gapShift - 30, 16);
+      }
+
+      ctxA.fillStyle = "#94a3b8";
+      ctxA.font = "9px monospace";
+      ctxA.fillText("莫尔自由激子峰", 10, hA - 22);
+
+
+      // 示波器 B: 六重取向序 Ψ_6(T) 与拓扑霍尔电导 σ_xy
+      const wB = scopeCanvasB.width / window.devicePixelRatio;
+      const hB = scopeCanvasB.height / window.devicePixelRatio;
+      ctxB.clearRect(0, 0, wB, hB);
+
+      ctxB.strokeStyle = "rgba(255, 255, 255, 0.08)";
+      ctxB.beginPath();
+      ctxB.moveTo(0, hB - 15); ctxB.lineTo(wB, hB - 15);
+      ctxB.stroke();
+
+      // 1. 绘制取向序参量曲线 Ψ_6(T) (粉紫)
+      ctxB.strokeStyle = "#c084fc";
+      ctxB.lineWidth = 2;
+      ctxB.beginPath();
+
+      const maxT = 60.0;
+      const tMelt = 5.5 * STATE.uDip * Math.sqrt(STATE.nu) * (STATE.v0 / 25.0);
+
+      for (let px = 0; px < wB; px++) {
+        const curT = (px / wB) * maxT;
+        const psi = 1.0 / (1.0 + Math.exp((curT - tMelt) * 0.25));
+        const py = hB - 15 - psi * (hB - 25);
+        if (px === 0) ctxB.moveTo(px, py);
+        else ctxB.lineTo(px, py);
+      }
+      ctxB.stroke();
+
+      // 2. 标记当前温度圆点
+      const curTPx = (STATE.temp / maxT) * wB;
+      const curPsiPy = hB - 15 - STATE.psi6 * (hB - 25);
+      ctxB.fillStyle = "#f59e0b";
+      ctxB.beginPath();
+      ctxB.arc(curTPx, curPsiPy, 4.5, 0, Math.PI * 2);
+      ctxB.fill();
+
+      // 熔点虚线
+      const meltPx = (tMelt / maxT) * wB;
+      ctxB.strokeStyle = "rgba(245, 158, 11, 0.4)";
+      ctxB.setLineDash([2, 2]);
+      ctxB.beginPath();
+      ctxB.moveTo(meltPx, 0); ctxB.lineTo(meltPx, hB - 15);
+      ctxB.stroke();
+      ctxB.setLineDash([]);
+
+      ctxB.fillStyle = "#f59e0b";
+      ctxB.font = "9px monospace";
+      ctxB.fillText(`融化相变点 T_m = ${tMelt.toFixed(1)} K`, meltPx - 35, 16);
+    }
+
+    // --- 主动画循环 ---
+    function animate() {
+      STATE.time += 0.016;
+      computePhysics();
+      updateAudio();
+
+      const rect = mainCanvas.getBoundingClientRect();
+      mainCtx.clearRect(0, 0, rect.width, rect.height);
+
+      if (STATE.mode === 'MOIRE_WIGNER_LATTICE') {
+        drawMoireWignerLattice(mainCtx, rect.width, rect.height);
+      } else if (STATE.mode === 'TOPOLOGICAL_CHERN_FLAT_BANDS') {
+        drawTopologicalChernFlatBands(mainCtx, rect.width, rect.height);
+      } else if (STATE.mode === 'PAIR_CORRELATION_G_R') {
+        drawPairCorrelationGR(mainCtx, rect.width, rect.height);
+      }
+
+      drawScopes();
+      updateHUD();
+      requestAnimationFrame(animate);
+    }
+
+    // --- HUD 刷新与读数更新 ---
+    function updateHUD() {
+      document.getElementById('tagPhase').innerText = STATE.isSolid ? 
+        `ν=${STATE.nu.toFixed(2)} 手征维格纳固相 (C=${STATE.chern})` : 
+        `激子相干融化超流态 (C=${STATE.chern})`;
+      document.getElementById('tagPsi6').innerText = `${STATE.psi6.toFixed(2)} (${STATE.isSolid ? '长程固态' : '短程液态'})`;
+      document.getElementById('tagHall').innerText = `${STATE.sigmaXy >= 0 ? '+' : ''}${STATE.sigmaXy.toFixed(2)} e²/h`;
+      document.getElementById('hudTheta').innerText = `${STATE.theta.toFixed(2)}°`;
+      document.getElementById('hudNu').innerText = STATE.nu.toFixed(2);
+      document.getElementById('hudUdip').innerText = STATE.uDip.toFixed(2);
+      document.getElementById('hudEz').innerText = `${STATE.ez >= 0 ? '+' : ''}${STATE.ez.toFixed(2)} V/nm`;
+
+      // 统计栏
+      document.getElementById('stLm').innerText = `${STATE.lm.toFixed(1)} nm`;
+      document.getElementById('stGap').innerText = `${STATE.gapW.toFixed(1)} meV`;
+      const tMelt = 5.5 * STATE.uDip * Math.sqrt(STATE.nu) * (STATE.v0 / 25.0);
+      document.getElementById('stTmelt').innerText = `${tMelt.toFixed(1)} K`;
+      document.getElementById('stChern').innerText = `${STATE.chern >= 0 ? '+' : ''}${STATE.chern}`;
+    }
+
+    // --- 交互控制面板事件绑定 ---
+    function setMode(m) {
+      STATE.mode = m;
+      document.getElementById('btnModeLattice').classList.toggle('active', m === 'MOIRE_WIGNER_LATTICE');
+      document.getElementById('btnModeBands').classList.toggle('active', m === 'TOPOLOGICAL_CHERN_FLAT_BANDS');
+      document.getElementById('btnModeCorrelation').classList.toggle('active', m === 'PAIR_CORRELATION_G_R');
+    }
+
+    const slTheta = document.getElementById('slTheta');
+    slTheta.addEventListener('input', (e) => {
+      STATE.theta = parseFloat(e.target.value);
+      document.getElementById('valTheta').innerText = `${STATE.theta.toFixed(2)}°`;
+    });
+
+    const slNu = document.getElementById('slNu');
+    slNu.addEventListener('input', (e) => {
+      STATE.nu = parseFloat(e.target.value);
+      document.getElementById('valNu').innerText = STATE.nu.toFixed(2);
+    });
+
+    const slUdip = document.getElementById('slUdip');
+    slUdip.addEventListener('input', (e) => {
+      STATE.uDip = parseFloat(e.target.value);
+      document.getElementById('valUdip').innerText = STATE.uDip.toFixed(2);
+    });
+
+    const slV0 = document.getElementById('slV0');
+    slV0.addEventListener('input', (e) => {
+      STATE.v0 = parseFloat(e.target.value);
+      document.getElementById('valV0').innerText = STATE.v0.toFixed(1);
+    });
+
+    const slEz = document.getElementById('slEz');
+    slEz.addEventListener('input', (e) => {
+      STATE.ez = parseFloat(e.target.value);
+      document.getElementById('valEz').innerText = `${STATE.ez >= 0 ? '+' : ''}${STATE.ez.toFixed(2)}`;
+    });
+
+    const slTemp = document.getElementById('slTemp');
+    slTemp.addEventListener('input', (e) => {
+      STATE.temp = parseFloat(e.target.value);
+      document.getElementById('valTemp').innerText = STATE.temp.toFixed(1);
+    });
+
+    function applyPreset(idx) {
+      if (idx === 1) { // ν=1/3 拓扑手征维格纳相
+        STATE.theta = 1.80;
+        STATE.nu = 0.33;
+        STATE.uDip = 4.50;
+        STATE.v0 = 30.0;
+        STATE.ez = 0.35;
+        STATE.temp = 3.5;
+        setMode('MOIRE_WIGNER_LATTICE');
+      } else if (idx === 2) { // 垂直电场拓扑能带反转
+        STATE.theta = 2.10;
+        STATE.nu = 0.50;
+        STATE.uDip = 3.80;
+        STATE.v0 = 25.0;
+        STATE.ez = 0.85; // 强正偏置
+        STATE.temp = 5.0;
+        setMode('TOPOLOGICAL_CHERN_FLAT_BANDS');
+      } else if (idx === 3) { // 激子相干融化超流态
+        STATE.theta = 1.60;
+        STATE.nu = 0.33;
+        STATE.uDip = 1.50;
+        STATE.v0 = 15.0;
+        STATE.ez = 0.20;
+        STATE.temp = 42.0; // 高温融化
+        setMode('PAIR_CORRELATION_G_R');
+      } else if (idx === 4) { // ν=1 莫尔莫特绝缘态
+        STATE.theta = 2.50;
+        STATE.nu = 1.00;
+        STATE.uDip = 5.20;
+        STATE.v0 = 40.0;
+        STATE.ez = 0.00;
+        STATE.temp = 8.0;
+        setMode('MOIRE_WIGNER_LATTICE');
+      }
+
+      slTheta.value = STATE.theta;
+      slNu.value = STATE.nu;
+      slUdip.value = STATE.uDip;
+      slV0.value = STATE.v0;
+      slEz.value = STATE.ez;
+      slTemp.value = STATE.temp;
+
+      document.getElementById('valTheta').innerText = `${STATE.theta.toFixed(2)}°`;
+      document.getElementById('valNu').innerText = STATE.nu.toFixed(2);
+      document.getElementById('valUdip').innerText = STATE.uDip.toFixed(2);
+      document.getElementById('valV0').innerText = STATE.v0.toFixed(1);
+      document.getElementById('valEz').innerText = `${STATE.ez >= 0 ? '+' : ''}${STATE.ez.toFixed(2)}`;
+      document.getElementById('valTemp').innerText = STATE.temp.toFixed(1);
+    }
+
+    // 启动引擎
+    resizeCanvas();
+    resizeScopeCanvas();
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>

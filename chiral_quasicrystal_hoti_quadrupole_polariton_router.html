@@ -1,0 +1,1387 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>十二重手征准晶高阶拓扑微腔四极矩角模与声子极化激元量子路由器全息模拟器</title>
+  <style>
+    :root {
+      --bg-color: #030712;
+      --card-bg: rgba(15, 23, 42, 0.78);
+      --card-border: rgba(56, 189, 248, 0.28);
+      --accent-cyan: #38bdf8;
+      --accent-purple: #a855f7;
+      --accent-gold: #fbbf24;
+      --accent-rose: #f43f5e;
+      --accent-emerald: #10b981;
+      --accent-indigo: #6366f1;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+    }
+
+    /* 3D WebGL / Canvas Viewport */
+    #canvas-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 1;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* UI Overlay Containers */
+    .ui-layer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 10;
+      pointer-events: none;
+      display: grid;
+      grid-template-columns: 340px 1fr 380px;
+      padding: 18px;
+      gap: 16px;
+    }
+
+    .panel {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      backdrop-filter: blur(16px);
+      border-radius: 14px;
+      padding: 16px;
+      pointer-events: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      overflow-y: auto;
+      max-height: calc(100vh - 36px);
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.55), inset 0 0 16px rgba(56, 189, 248, 0.05);
+      scrollbar-width: thin;
+      scrollbar-color: var(--accent-cyan) transparent;
+    }
+
+    .panel::-webkit-scrollbar {
+      width: 4px;
+    }
+    .panel::-webkit-scrollbar-thumb {
+      background: var(--accent-cyan);
+      border-radius: 2px;
+    }
+
+    /* Header styling */
+    .title-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: var(--accent-cyan);
+      background: rgba(56, 189, 248, 0.12);
+      padding: 4px 10px;
+      border-radius: 20px;
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      width: fit-content;
+    }
+
+    h1 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      line-height: 1.35;
+      background: linear-gradient(135deg, #e0f2fe 0%, #38bdf8 50%, #a855f7 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-top: 2px;
+    }
+
+    .subtitle {
+      font-size: 0.76rem;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    /* Metrics Grid */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+
+    .metric-card {
+      background: rgba(30, 41, 59, 0.65);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      border-radius: 8px;
+      padding: 8px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .metric-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 3px;
+      height: 100%;
+      background: var(--accent-cyan);
+    }
+
+    .metric-card.purple::before { background: var(--accent-purple); }
+    .metric-card.gold::before { background: var(--accent-gold); }
+    .metric-card.rose::before { background: var(--accent-rose); }
+    .metric-card.emerald::before { background: var(--accent-emerald); }
+
+    .metric-label {
+      font-size: 0.68rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .metric-val {
+      font-size: 1.05rem;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', Consolas, monospace;
+      color: var(--text-main);
+    }
+
+    /* Control Groups */
+    .section-title {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--accent-cyan);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 4px;
+    }
+
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .slider-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.74rem;
+    }
+
+    .slider-val {
+      font-family: monospace;
+      color: var(--accent-cyan);
+      font-weight: 600;
+    }
+
+    input[type=range] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 4px;
+      border-radius: 2px;
+      background: rgba(255, 255, 255, 0.15);
+      outline: none;
+      cursor: pointer;
+    }
+
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--accent-cyan);
+      cursor: pointer;
+      box-shadow: 0 0 8px var(--accent-cyan);
+      transition: transform 0.1s;
+    }
+
+    input[type=range]::-webkit-slider-thumb:hover {
+      transform: scale(1.25);
+    }
+
+    /* Presets buttons */
+    .btn-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 6px;
+    }
+
+    .btn {
+      background: rgba(30, 41, 59, 0.85);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      color: var(--text-main);
+      padding: 8px 10px;
+      border-radius: 6px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: center;
+    }
+
+    .btn:hover {
+      background: rgba(56, 189, 248, 0.2);
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.35);
+      transform: translateY(-1px);
+    }
+
+    .btn.active {
+      background: linear-gradient(135deg, rgba(56, 189, 248, 0.3), rgba(168, 85, 247, 0.3));
+      border-color: var(--accent-cyan);
+      color: #38bdf8;
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.4);
+    }
+
+    /* Oscilloscope canvases */
+    .osc-box {
+      background: rgba(10, 15, 30, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .osc-title {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .osc-canvas {
+      width: 100%;
+      height: 105px;
+      background: #020617;
+      border-radius: 4px;
+      border: 1px solid rgba(56, 189, 248, 0.15);
+    }
+
+    /* Center prompt badge */
+    .center-hud {
+      grid-column: 2;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      align-items: center;
+      pointer-events: none;
+      padding-bottom: 12px;
+    }
+
+    .top-pill {
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      padding: 6px 16px;
+      border-radius: 20px;
+      backdrop-filter: blur(10px);
+      font-size: 0.76rem;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    }
+
+    .hud-status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent-emerald);
+      box-shadow: 0 0 8px var(--accent-emerald);
+      animation: pulse 1.8s infinite;
+    }
+
+    @keyframes pulse {
+      0% { opacity: 0.4; transform: scale(0.9); }
+      50% { opacity: 1; transform: scale(1.15); }
+      100% { opacity: 0.4; transform: scale(0.9); }
+    }
+
+    .bottom-hint {
+      background: rgba(15, 23, 42, 0.75);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      padding: 6px 14px;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      backdrop-filter: blur(8px);
+    }
+
+    /* Port Selector Bar */
+    .port-selector {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 4px;
+      margin-top: 4px;
+    }
+
+    .port-btn {
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: var(--text-muted);
+      border-radius: 4px;
+      padding: 4px 0;
+      font-size: 0.68rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.15s;
+    }
+
+    .port-btn:hover {
+      border-color: var(--accent-cyan);
+      color: var(--accent-cyan);
+    }
+
+    .port-btn.selected-in {
+      background: rgba(56, 189, 248, 0.25);
+      border-color: var(--accent-cyan);
+      color: #38bdf8;
+      box-shadow: 0 0 8px rgba(56, 189, 248, 0.5);
+    }
+
+    .port-btn.selected-out {
+      background: rgba(244, 63, 94, 0.25);
+      border-color: var(--accent-rose);
+      color: #f43f5e;
+      box-shadow: 0 0 8px rgba(244, 63, 94, 0.5);
+    }
+
+    .audio-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(30, 41, 59, 0.5);
+      padding: 6px 10px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      font-size: 0.72rem;
+    }
+
+    .toggle-switch {
+      position: relative;
+      width: 32px;
+      height: 18px;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 9px;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    .toggle-switch.active {
+      background: var(--accent-cyan);
+    }
+
+    .toggle-switch::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #fff;
+      transition: 0.2s;
+    }
+
+    .toggle-switch.active::after {
+      transform: translateX(14px);
+    }
+  </style>
+</head>
+<body>
+  <!-- 3D Canvas Container -->
+  <div id="canvas-container">
+    <canvas id="mainCanvas"></canvas>
+  </div>
+
+  <!-- UI HUD Layer -->
+  <div class="ui-layer">
+    <!-- Left Panel: Core Theory & Micro Controls -->
+    <div class="panel">
+      <div class="title-badge">HOTI-Quasicrystal #362</div>
+      <h1>十二重手征准晶高阶拓扑微腔四极矩角模与声子极化激元量子路由器</h1>
+      <p class="subtitle">12-Fold Quasicrystal 2nd-Order HOTI Quadrupole Corner Mode & Phonon-Polariton Router</p>
+
+      <!-- Key Metrics -->
+      <div class="metrics-grid">
+        <div class="metric-card">
+          <span class="metric-label">四极矩极化 q_xy</span>
+          <span class="metric-val" id="val-qxy">0.500 e</span>
+        </div>
+        <div class="metric-card purple">
+          <span class="metric-label">分形维数 D_f</span>
+          <span class="metric-val" id="val-df">1.892</span>
+        </div>
+        <div class="metric-card gold">
+          <span class="metric-label">路由保真度 F</span>
+          <span class="metric-val" id="val-fidelity">99.42 %</span>
+        </div>
+        <div class="metric-card rose">
+          <span class="metric-label">反向隔离度 Iso</span>
+          <span class="metric-val" id="val-iso">72.8 dB</span>
+        </div>
+      </div>
+
+      <!-- Working Presets -->
+      <div class="section-title">⚡ 运行工况预设 (Presets)</div>
+      <div class="btn-grid">
+        <button class="btn active" id="preset-1" onclick="applyPreset(1)">理想四极矩基态</button>
+        <button class="btn" id="preset-2" onclick="applyPreset(2)">手征单向角态路由</button>
+        <button class="btn" id="preset-3" onclick="applyPreset(3)">准周期安德森局域化</button>
+        <button class="btn" id="preset-4" onclick="applyPreset(4)">太赫兹微腔强耦合</button>
+      </div>
+
+      <!-- Micro Parameters Sliders -->
+      <div class="section-title">🎛️ 微观物理参数 (Micro-Params)</div>
+      
+      <div class="control-group">
+        <div class="slider-header">
+          <span>准晶非公度势深 V_QC</span>
+          <span class="slider-val" id="val-vqc">2.80 t</span>
+        </div>
+        <input type="range" id="param-vqc" min="0.5" max="7.0" step="0.05" value="2.80">
+      </div>
+
+      <div class="control-group">
+        <div class="slider-header">
+          <span>高阶四极矩耦合 λ_quad</span>
+          <span class="slider-val" id="val-lambda">2.20 t</span>
+        </div>
+        <input type="range" id="param-lambda" min="0.2" max="4.5" step="0.05" value="2.20">
+      </div>
+
+      <div class="control-group">
+        <div class="slider-header">
+          <span>手征非互易相位 φ_chiral</span>
+          <span class="slider-val" id="val-phi">1.57 rad</span>
+        </div>
+        <input type="range" id="param-phi" min="0.0" max="6.28" step="0.05" value="1.57">
+      </div>
+
+      <div class="control-group">
+        <div class="slider-header">
+          <span>微腔品质因子 Q_cav</span>
+          <span class="slider-val" id="val-qcav">8.5 ×10⁴</span>
+        </div>
+        <input type="range" id="param-qcav" min="1.0" max="25.0" step="0.2" value="8.5">
+      </div>
+
+      <div class="control-group">
+        <div class="slider-header">
+          <span>微观退相干率 γ_dephase</span>
+          <span class="slider-val" id="val-gamma">0.12 GHz</span>
+        </div>
+        <input type="range" id="param-gamma" min="0.01" max="1.5" step="0.02" value="0.12">
+      </div>
+
+      <div class="control-group">
+        <div class="slider-header">
+          <span>外加栅极电压极化 ΔV_gate</span>
+          <span class="slider-val" id="val-vgate">0.00 V</span>
+        </div>
+        <input type="range" id="param-vgate" min="-3.0" max="3.0" step="0.05" value="0.00">
+      </div>
+
+      <!-- Audio Feedback Toggle -->
+      <div class="audio-toggle">
+        <span>量子相干微波合成音 (Web Audio)</span>
+        <div class="toggle-switch active" id="audioToggle" onclick="toggleAudio()"></div>
+      </div>
+    </div>
+
+    <!-- Center HUD Prompt -->
+    <div class="center-hud">
+      <div class="top-pill">
+        <div class="hud-status-dot"></div>
+        <span id="hud-status">高阶拓扑角态本征量子态锁定中 | 12端口手征非互易相干传输中</span>
+      </div>
+      <div class="bottom-hint">
+        🖱️ 鼠标左键拖拽旋转空间景深 | 滚轮无级缩放 | 双击复位观察点 | 空格键冻结动力学演化
+      </div>
+    </div>
+
+    <!-- Right Panel: Dual Channel Oscilloscopes & Routing Matrix -->
+    <div class="panel">
+      <div class="section-title">📊 双通道实时物理示波器</div>
+
+      <!-- Channel 1: Hofstadter Butterfly Energy Spectrum -->
+      <div class="osc-box">
+        <div class="osc-title">
+          <span>通道 1: 准晶霍夫施塔特分形能谱与角态束缚能级</span>
+          <span style="color:var(--accent-cyan); font-family:monospace;">E_gap ~ 1.45 eV</span>
+        </div>
+        <canvas class="osc-canvas" id="osc1"></canvas>
+      </div>
+
+      <!-- Channel 2: 12-Port Scattering Matrix & Route Profile -->
+      <div class="osc-box">
+        <div class="osc-title">
+          <span>通道 2: 12 端口手征散射透射概率谱 S_ij</span>
+          <span style="color:var(--accent-rose); font-family:monospace;" id="leak-text">漏损率 < 0.02%</span>
+        </div>
+        <canvas class="osc-canvas" id="osc2"></canvas>
+      </div>
+
+      <!-- 12-Corner Port Routing Selector -->
+      <div class="section-title">🎯 12-角态路由端口设定</div>
+      <p class="subtitle" style="font-size:0.68rem;">输入端口 P_in (天青) → 目标端口 P_out (霓虹红)</p>
+      
+      <div style="font-size:0.68rem; color:var(--accent-cyan); margin-top:2px;">选择输入端口 (Input):</div>
+      <div class="port-selector" id="input-ports">
+        <!-- 12 buttons dynamically populated -->
+      </div>
+
+      <div style="font-size:0.68rem; color:var(--accent-rose); margin-top:4px;">选择目标端口 (Output):</div>
+      <div class="port-selector" id="output-ports">
+        <!-- 12 buttons dynamically populated -->
+      </div>
+
+      <!-- Physical Description Card -->
+      <div class="metric-card" style="margin-top:4px; padding:10px; background:rgba(15,23,42,0.9);">
+        <div style="font-size:0.72rem; font-weight:700; color:var(--accent-cyan); margin-bottom:4px;">
+          🔬 微观机理核心方程：
+        </div>
+        <div style="font-size:0.66rem; color:var(--text-muted); line-height:1.45; font-family:monospace;">
+          H_QC = ∑ t_ij c_i† c_j + ∑ V_QC(r_i) n_i + H_quad<br>
+          q_xy = 1/2 mod 1 [体四极矩量子化极化]<br>
+          Q_corner = ±e/4 [12 顶点零维拓扑束缚态]<br>
+          S_route = exp(i φ_chiral ∮ A·dl) [手征单向路由]
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* =========================================================================
+       1. GLOBAL STATE & MICRO-PHYSICAL CONFIGURATION
+       ========================================================================= */
+    const STATE = {
+      // Micro-physics sliders
+      vqc: 2.80,        // 准晶势深
+      lambda: 2.20,     // 四极矩耦合
+      phiChiral: 1.57,  // 手征非互易相位
+      qcav: 8.5,        // 腔品质因子 (x10^4)
+      gamma: 0.12,      // 退相干 (GHz)
+      vgate: 0.0,       // 栅极极化 (V)
+
+      // Routing Ports (1 to 12)
+      inPort: 1,
+      outPort: 7,
+
+      // Calculated Physical Observables
+      qxy: 0.500,
+      dfractal: 1.892,
+      fidelity: 99.42,
+      isoDb: 72.8,
+      cornerPinch: 0.98,
+
+      // Time & Animation
+      time: 0,
+      paused: false,
+      audioEnabled: true,
+
+      // 3D Camera Controls
+      camRotX: 0.48,
+      camRotY: -0.62,
+      camZoom: 1.05,
+      camTargetRotX: 0.48,
+      camTargetRotY: -0.62,
+      camTargetZoom: 1.05,
+      isDragging: false,
+      lastMouseX: 0,
+      lastMouseY: 0
+    };
+
+    /* =========================================================================
+       2. QUASICRYSTAL GEOMETRY GENERATOR (12-Fold Stampfli Quasicrystal)
+       ========================================================================= */
+    const QC_NODES = [];
+    const QC_BONDS = [];
+    const CORNER_NODES = []; // 12 Outer Major Corners
+    const NUM_CORNERS = 12;
+
+    function initQuasicrystalGeometry() {
+      QC_NODES.length = 0;
+      QC_BONDS.length = 0;
+      CORNER_NODES.length = 0;
+
+      // 12 Outer Primary Corner Vertices at radius R = 185
+      const R_CORNER = 185;
+      for (let i = 0; i < NUM_CORNERS; i++) {
+        const theta = (i * 2 * Math.PI) / NUM_CORNERS;
+        const x = R_CORNER * Math.cos(theta);
+        const y = R_CORNER * Math.sin(theta);
+        const node = {
+          id: i,
+          x: x,
+          y: y,
+          z: 0,
+          isCorner: true,
+          cornerIdx: i + 1,
+          charge: (i % 2 === 0 ? 0.25 : -0.25),
+          psi2: 1.0,
+          phase: theta
+        };
+        QC_NODES.push(node);
+        CORNER_NODES.push(node);
+      }
+
+      // Intermediate rings (Dodecagonal concentric shells)
+      const rings = [
+        { r: 135, count: 12, rot: Math.PI / 12 },
+        { r: 92, count: 12, rot: 0 },
+        { r: 52, count: 12, rot: Math.PI / 12 },
+        { r: 24, count: 6, rot: 0 },
+        { r: 0, count: 1, rot: 0 }
+      ];
+
+      let idCounter = NUM_CORNERS;
+      rings.forEach((ring, ringIdx) => {
+        if (ring.r === 0) {
+          QC_NODES.push({
+            id: idCounter++,
+            x: 0,
+            y: 0,
+            z: 0,
+            isCorner: false,
+            cornerIdx: 0,
+            charge: 0,
+            psi2: 0.15,
+            phase: 0
+          });
+          return;
+        }
+        for (let j = 0; j < ring.count; j++) {
+          const angle = ring.rot + (j * 2 * Math.PI) / ring.count;
+          const perturbation = 1.0 + 0.05 * Math.sin(angle * 6);
+          const r = ring.r * perturbation;
+          QC_NODES.push({
+            id: idCounter++,
+            x: r * Math.cos(angle),
+            y: r * Math.sin(angle),
+            z: 0,
+            isCorner: false,
+            cornerIdx: 0,
+            charge: 0,
+            psi2: 0.25 / (ringIdx + 1),
+            phase: angle
+          });
+        }
+      });
+
+      // Construct Quasicrystal Bonds between nearest neighbors
+      const BOND_DIST_MAX = 52;
+      for (let i = 0; i < QC_NODES.length; i++) {
+        for (let j = i + 1; j < QC_NODES.length; j++) {
+          const dx = QC_NODES[i].x - QC_NODES[j].x;
+          const dy = QC_NODES[i].y - QC_NODES[j].y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist > 14 && dist <= BOND_DIST_MAX) {
+            QC_BONDS.push({
+              from: QC_NODES[i],
+              to: QC_NODES[j],
+              dist: dist,
+              weight: Math.exp(-dist / 32)
+            });
+          }
+        }
+      }
+    }
+
+    /* =========================================================================
+       3. POLARITON ROUTING STREAM PARTICLES
+       ========================================================================= */
+    const PARTICLES = [];
+    const MAX_PARTICLES = 160;
+
+    class PolaritonParticle {
+      constructor() {
+        this.reset();
+      }
+
+      reset() {
+        this.progress = 0;
+        this.speed = 0.007 + Math.random() * 0.009;
+        this.inPort = STATE.inPort - 1;
+        this.outPort = STATE.outPort - 1;
+        this.leak = Math.random() < (1.0 - STATE.fidelity / 100.0);
+        this.trail = [];
+        this.hue = this.leak ? 350 : 190;
+        this.radius = 2.2 + Math.random() * 1.8;
+      }
+
+      update() {
+        this.progress += this.speed * (1.0 + STATE.phiChiral * 0.25);
+        if (this.progress >= 1.0) {
+          this.reset();
+        }
+
+        const startNode = CORNER_NODES[this.inPort];
+        let endNode = CORNER_NODES[this.outPort];
+        if (this.leak) {
+          // Leaked to neighbor corner
+          const leakIdx = (this.inPort + 1 + Math.floor(Math.random() * 3)) % NUM_CORNERS;
+          endNode = CORNER_NODES[leakIdx];
+        }
+
+        // Chiral curved path through quasicrystal core
+        const t = this.progress;
+        const chiralCurve = Math.sin(t * Math.PI) * 55 * Math.sin(STATE.phiChiral);
+        const midX = (startNode.x + endNode.x) * 0.5 - ((startNode.y - endNode.y) / 185) * chiralCurve;
+        const midY = (startNode.y + endNode.y) * 0.5 + ((startNode.x - endNode.x) / 185) * chiralCurve;
+
+        // Quadratic Bezier Interpolation in 3D
+        const invT = 1 - t;
+        const x = invT * invT * startNode.x + 2 * invT * t * midX + t * t * endNode.x;
+        const y = invT * invT * startNode.y + 2 * invT * t * midY + t * t * endNode.y;
+        const z = Math.sin(t * Math.PI) * 32.0;
+
+        this.x = x;
+        this.y = y;
+        this.z = z;
+
+        this.trail.push({ x, y, z, alpha: 1.0 });
+        if (this.trail.length > 14) this.trail.shift();
+      }
+    }
+
+    function initParticles() {
+      PARTICLES.length = 0;
+      for (let i = 0; i < MAX_PARTICLES; i++) {
+        const p = new PolaritonParticle();
+        p.progress = Math.random();
+        PARTICLES.push(p);
+      }
+    }
+
+    /* =========================================================================
+       4. PHYSICAL OBSERVABLES CALCULATION
+       ========================================================================= */
+    function updatePhysics() {
+      // 1. Quantized Quadrupole Polarization q_xy
+      const rawQxy = 0.500 * (1.0 - Math.exp(-STATE.lambda * 1.5)) * Math.cos(STATE.vgate * 0.18);
+      STATE.qxy = Math.max(0.01, Math.min(0.500, rawQxy));
+
+      // 2. Fractal Dimension of Quasicrystal Spectrum D_f
+      const rawDf = 1.76 + 0.16 * Math.log10(1.0 + STATE.vqc) + (STATE.qcav / 150.0);
+      STATE.dfractal = Math.max(1.65, Math.min(1.988, rawDf));
+
+      // 3. Routing Fidelity F
+      const dephaseLoss = (STATE.gamma / 1.5) * 1.8;
+      const vgateMisma = Math.abs(STATE.vgate) * 0.65;
+      const phiMatch = Math.sin(STATE.phiChiral * 0.5);
+      const rawFid = 99.85 - dephaseLoss - vgateMisma - (1.0 - phiMatch) * 1.2;
+      STATE.fidelity = Math.max(78.5, Math.min(99.96, rawFid));
+
+      // 4. Backward Routing Isolation Iso (dB)
+      const leakPortRatio = Math.max(1e-8, (100.0 - STATE.fidelity) * 0.01 + 0.00008);
+      const rawIso = -10.0 * Math.log10(leakPortRatio);
+      STATE.isoDb = Math.max(18.0, Math.min(88.5, rawIso));
+
+      // Update DOM UI elements
+      document.getElementById('val-qxy').textContent = STATE.qxy.toFixed(3) + ' e';
+      document.getElementById('val-df').textContent = STATE.dfractal.toFixed(3);
+      document.getElementById('val-fidelity').textContent = STATE.fidelity.toFixed(2) + ' %';
+      document.getElementById('val-iso').textContent = STATE.isoDb.toFixed(1) + ' dB';
+      document.getElementById('leak-text').textContent = '漏损率 < ' + (100.0 - STATE.fidelity).toFixed(2) + '%';
+    }
+
+    /* =========================================================================
+       5. 3D PROJECTION & RENDERING ENGINE
+       ========================================================================= */
+    const mainCanvas = document.getElementById('mainCanvas');
+    const ctx = mainCanvas.getContext('2d');
+    let width, height;
+
+    function resizeCanvas() {
+      width = window.innerWidth;
+      height = window.innerHeight;
+      mainCanvas.width = width;
+      mainCanvas.height = height;
+    }
+    window.addEventListener('resize', resizeCanvas);
+
+    // 3D Matrix Projection with Near-Plane Guard
+    function project3D(x, y, z) {
+      // Rotate Y
+      const cosY = Math.cos(STATE.camRotY);
+      const sinY = Math.sin(STATE.camRotY);
+      const x1 = x * cosY + z * sinY;
+      const z1 = -x * sinY + z * cosY;
+
+      // Rotate X
+      const cosX = Math.cos(STATE.camRotX);
+      const sinX = Math.sin(STATE.camRotX);
+      const y2 = y * cosX - z1 * sinX;
+      const z2 = y * sinX + z1 * cosX;
+
+      // Perspective scale
+      const cameraDist = 480;
+      const pz = z2 + cameraDist;
+      const safeZ = Math.max(25, pz); // Prevent divide-by-zero
+      const scale = (cameraDist / safeZ) * STATE.camZoom;
+
+      return {
+        x: width * 0.5 + x1 * scale,
+        y: height * 0.5 + y2 * scale,
+        scale: scale,
+        depth: z2
+      };
+    }
+
+    function render3DScene() {
+      ctx.clearRect(0, 0, width, height);
+
+      // Smooth camera interpolation
+      STATE.camRotX += (STATE.camTargetRotX - STATE.camRotX) * 0.08;
+      STATE.camRotY += (STATE.camTargetRotY - STATE.camRotY) * 0.08;
+      STATE.camZoom += (STATE.camTargetZoom - STATE.camZoom) * 0.08;
+
+      // 1. Draw Background Space Grid & Micro-Cavity Horizon
+      ctx.save();
+      const horizonProj = project3D(0, 0, -35);
+      const grad = ctx.createRadialGradient(
+        horizonProj.x, horizonProj.y, 10,
+        horizonProj.x, horizonProj.y, 450 * STATE.camZoom
+      );
+      grad.addColorStop(0, 'rgba(30, 58, 138, 0.22)');
+      grad.addColorStop(0.5, 'rgba(15, 23, 42, 0.15)');
+      grad.addColorStop(1, 'rgba(3, 7, 18, 0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, width, height);
+      ctx.restore();
+
+      // 2. Render Quasicrystal Bonds (Lattice)
+      ctx.lineWidth = 1.0;
+      for (let i = 0; i < QC_BONDS.length; i++) {
+        const bond = QC_BONDS[i];
+        const p1 = project3D(bond.from.x, bond.from.y, bond.from.z);
+        const p2 = project3D(bond.to.x, bond.to.y, bond.to.z);
+
+        const alpha = Math.max(0.08, Math.min(0.45, bond.weight * (STATE.vqc / 3.0)));
+        ctx.strokeStyle = `rgba(56, 189, 248, ${alpha})`;
+        ctx.beginPath();
+        ctx.moveTo(p1.x, p1.y);
+        ctx.lineTo(p2.x, p2.y);
+        ctx.stroke();
+      }
+
+      // 3. Render Quasicrystal Nodes (Microdisks)
+      for (let i = 0; i < QC_NODES.length; i++) {
+        const node = QC_NODES[i];
+        const p = project3D(node.x, node.y, node.z);
+
+        if (!node.isCorner) {
+          // Internal Quasicrystal Atom Disk
+          const r = Math.max(1.5, 3.2 * p.scale);
+          ctx.fillStyle = 'rgba(148, 163, 184, 0.65)';
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      // 4. Render 12 Major HOTI Corner Modes (High-Order Bound States)
+      for (let i = 0; i < NUM_CORNERS; i++) {
+        const corner = CORNER_NODES[i];
+        const p = project3D(corner.x, corner.y, corner.z);
+        const isInput = (i === STATE.inPort - 1);
+        const isOutput = (i === STATE.outPort - 1);
+
+        // Breathing pulsation with phase
+        const pulse = 1.0 + 0.18 * Math.sin(STATE.time * 3.5 + corner.phase * 2);
+        const baseRadius = Math.max(5, (isInput || isOutput ? 14 : 9) * p.scale * pulse);
+
+        // Corner Mode Wavefunction Halo
+        const glowGrad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, baseRadius * 2.8);
+        if (isInput) {
+          glowGrad.addColorStop(0, 'rgba(56, 189, 248, 0.95)');
+          glowGrad.addColorStop(0.4, 'rgba(56, 189, 248, 0.45)');
+          glowGrad.addColorStop(1, 'rgba(56, 189, 248, 0)');
+        } else if (isOutput) {
+          glowGrad.addColorStop(0, 'rgba(244, 63, 94, 0.95)');
+          glowGrad.addColorStop(0.4, 'rgba(244, 63, 94, 0.45)');
+          glowGrad.addColorStop(1, 'rgba(244, 63, 94, 0)');
+        } else {
+          glowGrad.addColorStop(0, 'rgba(168, 85, 247, 0.85)');
+          glowGrad.addColorStop(0.5, 'rgba(168, 85, 247, 0.25)');
+          glowGrad.addColorStop(1, 'rgba(168, 85, 247, 0)');
+        }
+
+        ctx.fillStyle = glowGrad;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, baseRadius * 2.8, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Core Microdisk
+        ctx.fillStyle = isInput ? '#38bdf8' : (isOutput ? '#f43f5e' : '#e0e7ff');
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, baseRadius * 0.45, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Port Label Text
+        ctx.fillStyle = '#f8fafc';
+        ctx.font = `bold ${Math.max(10, 11 * p.scale)}px 'JetBrains Mono', monospace`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(`P${i + 1}`, p.x, p.y - baseRadius * 1.5);
+      }
+
+      // 5. Render Routing Stream Particles & Light Trails
+      for (let i = 0; i < PARTICLES.length; i++) {
+        const pt = PARTICLES[i];
+        if (!STATE.paused) pt.update();
+
+        if (pt.trail.length > 1) {
+          ctx.beginPath();
+          for (let j = 0; j < pt.trail.length; j++) {
+            const tr = pt.trail[j];
+            const p = project3D(tr.x, tr.y, tr.z);
+            if (j === 0) ctx.moveTo(p.x, p.y);
+            else ctx.lineTo(p.x, p.y);
+          }
+          ctx.strokeStyle = `hsla(${pt.hue}, 95%, 65%, 0.45)`;
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+        }
+
+        const head = project3D(pt.x, pt.y, pt.z);
+        ctx.fillStyle = `hsla(${pt.hue}, 100%, 75%, 0.95)`;
+        ctx.beginPath();
+        ctx.arc(head.x, head.y, pt.radius * head.scale, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // 6. Draw Directional Chiral Routing Stream Guide Arc
+      ctx.save();
+      const inNode = CORNER_NODES[STATE.inPort - 1];
+      const outNode = CORNER_NODES[STATE.outPort - 1];
+      const pIn = project3D(inNode.x, inNode.y, inNode.z);
+      const pOut = project3D(outNode.x, outNode.y, outNode.z);
+
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.4)';
+      ctx.setLineDash([4, 6]);
+      ctx.lineWidth = 2.0;
+      ctx.beginPath();
+      ctx.moveTo(pIn.x, pIn.y);
+      const midProj = project3D(
+        (inNode.x + outNode.x) * 0.5,
+        (inNode.y + outNode.y) * 0.5,
+        28
+      );
+      ctx.quadraticCurveTo(midProj.x, midProj.y, pOut.x, pOut.y);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    /* =========================================================================
+       6. DUAL CHANNEL OSCILLOSCOPES RENDERING
+       ========================================================================= */
+    const osc1 = document.getElementById('osc1');
+    const ctx1 = osc1.getContext('2d');
+    const osc2 = document.getElementById('osc2');
+    const ctx2 = osc2.getContext('2d');
+
+    function renderOscilloscopes() {
+      const w1 = osc1.width = osc1.clientWidth;
+      const h1 = osc1.height = osc1.clientHeight;
+      const w2 = osc2.width = osc2.clientWidth;
+      const h2 = osc2.height = osc2.clientHeight;
+
+      // ---------------- Channel 1: Hofstadter Fractal Energy Spectrum ----------------
+      ctx1.fillStyle = '#020617';
+      ctx1.fillRect(0, 0, w1, h1);
+
+      // Grid lines
+      ctx1.strokeStyle = 'rgba(255, 255, 255, 0.06)';
+      ctx1.lineWidth = 1;
+      for (let x = 0; x < w1; x += 30) {
+        ctx1.beginPath(); ctx1.moveTo(x, 0); ctx1.lineTo(x, h1); ctx1.stroke();
+      }
+      for (let y = 0; y < h1; y += 22) {
+        ctx1.beginPath(); ctx1.moveTo(0, y); ctx1.lineTo(w1, y); ctx1.stroke();
+      }
+
+      // Draw Hofstadter butterfly fractal dispersion curves
+      const bands = 7;
+      for (let b = 0; b < bands; b++) {
+        ctx1.beginPath();
+        ctx1.strokeStyle = b === 3 ? '#38bdf8' : (b % 2 === 0 ? 'rgba(168, 85, 247, 0.75)' : 'rgba(99, 102, 241, 0.55)');
+        ctx1.lineWidth = b === 3 ? 2.0 : 1.2;
+
+        for (let x = 0; x < w1; x += 2) {
+          const kx = (x / w1) * Math.PI * 2;
+          const energy = (b - 3) * 18.0 + 
+            16.0 * Math.cos(kx * (1.0 + STATE.vqc * 0.15)) * Math.sin(STATE.time * 0.8 + b) +
+            8.0 * Math.sin(kx * 3.0);
+          const y = h1 * 0.5 - energy;
+          if (x === 0) ctx1.moveTo(x, y);
+          else ctx1.lineTo(x, y);
+        }
+        ctx1.stroke();
+      }
+
+      // Draw 12 Corner Mode Bound Energy Levels in Bulk Gap (E = 0)
+      ctx1.strokeStyle = '#f43f5e';
+      ctx1.lineWidth = 2.0;
+      ctx1.setLineDash([4, 3]);
+      ctx1.beginPath();
+      ctx1.moveTo(0, h1 * 0.5);
+      ctx1.lineTo(w1, h1 * 0.5);
+      ctx1.stroke();
+      ctx1.setLineDash([]);
+
+      ctx1.fillStyle = '#f43f5e';
+      ctx1.font = '9px monospace';
+      ctx1.fillText('HOTI Corner Bound Modes (E=0)', 6, h1 * 0.5 - 6);
+
+      // ---------------- Channel 2: 12-Port Scattering Matrix Spectrum ----------------
+      ctx2.fillStyle = '#020617';
+      ctx2.fillRect(0, 0, w2, h2);
+
+      // Bar Chart of 12 Port Transmission Probabilities
+      const barWidth = (w2 - 20) / NUM_CORNERS;
+      for (let p = 1; p <= NUM_CORNERS; p++) {
+        const x = 10 + (p - 1) * barWidth;
+        let transProb = 0.01;
+
+        if (p === STATE.outPort) {
+          transProb = STATE.fidelity * 0.01;
+        } else if (Math.abs(p - STATE.outPort) === 1 || Math.abs(p - STATE.outPort) === 11) {
+          // Neighbor leak
+          transProb = (100.0 - STATE.fidelity) * 0.004;
+        } else {
+          transProb = 0.001 + 0.002 * Math.sin(STATE.time * 2.0 + p);
+        }
+
+        const barHeight = transProb * (h2 - 28);
+        const y = h2 - 14 - barHeight;
+
+        // Gradient for Bar
+        const bGrad = ctx2.createLinearGradient(x, y, x, h2 - 14);
+        if (p === STATE.outPort) {
+          bGrad.addColorStop(0, '#f43f5e');
+          bGrad.addColorStop(1, 'rgba(244, 63, 94, 0.2)');
+        } else if (p === STATE.inPort) {
+          bGrad.addColorStop(0, '#38bdf8');
+          bGrad.addColorStop(1, 'rgba(56, 189, 248, 0.2)');
+        } else {
+          bGrad.addColorStop(0, '#a855f7');
+          bGrad.addColorStop(1, 'rgba(168, 85, 247, 0.15)');
+        }
+
+        ctx2.fillStyle = bGrad;
+        ctx2.fillRect(x + 2, y, barWidth - 4, barHeight);
+
+        // Port text
+        ctx2.fillStyle = (p === STATE.outPort || p === STATE.inPort) ? '#f8fafc' : '#64748b';
+        ctx2.font = '8px monospace';
+        ctx2.textAlign = 'center';
+        ctx2.fillText(`P${p}`, x + barWidth * 0.5, h2 - 4);
+      }
+    }
+
+    /* =========================================================================
+       7. WEB AUDIO API COHERENT MICROWAVE SYNTHESIS
+       ========================================================================= */
+    let audioCtx = null;
+    let oscA = null;
+    let oscB = null;
+    let gainNode = null;
+
+    function initAudio() {
+      if (audioCtx) return;
+      try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioContext();
+
+        oscA = audioCtx.createOscillator();
+        oscB = audioCtx.createOscillator();
+        gainNode = audioCtx.createGain();
+
+        oscA.type = 'sine';
+        oscB.type = 'triangle';
+
+        oscA.frequency.setValueAtTime(220, audioCtx.currentTime);
+        oscB.frequency.setValueAtTime(440, audioCtx.currentTime);
+
+        gainNode.gain.setValueAtTime(0.045, audioCtx.currentTime);
+
+        oscA.connect(gainNode);
+        oscB.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+
+        oscA.start();
+        oscB.start();
+      } catch (e) {
+        console.warn('Web Audio not available:', e);
+      }
+    }
+
+    function updateAudioTone() {
+      if (!audioCtx || !STATE.audioEnabled) return;
+      // Synthesize tone based on routing ports & quantum fidelity
+      const baseFreq = 180 + (STATE.outPort * 25);
+      const modFreq = baseFreq * (STATE.fidelity / 100.0) * (1.0 + STATE.phiChiral * 0.05);
+
+      oscA.frequency.setTargetAtTime(baseFreq, audioCtx.currentTime, 0.08);
+      oscB.frequency.setTargetAtTime(modFreq, audioCtx.currentTime, 0.08);
+    }
+
+    function toggleAudio() {
+      STATE.audioEnabled = !STATE.audioEnabled;
+      const toggle = document.getElementById('audioToggle');
+      if (STATE.audioEnabled) {
+        toggle.classList.add('active');
+        if (!audioCtx) initAudio();
+        else if (audioCtx.state === 'suspended') audioCtx.resume();
+        if (gainNode) gainNode.gain.setTargetAtTime(0.045, audioCtx.currentTime, 0.05);
+      } else {
+        toggle.classList.remove('active');
+        if (gainNode) gainNode.gain.setTargetAtTime(0.0, audioCtx.currentTime, 0.05);
+      }
+    }
+
+    /* =========================================================================
+       8. UI EVENT HANDLERS & PRESETS
+       ========================================================================= */
+    function applyPreset(presetId) {
+      document.querySelectorAll('.btn-grid .btn').forEach((b, idx) => {
+        b.classList.toggle('active', idx + 1 === presetId);
+      });
+
+      if (presetId === 1) {
+        // Ideal Quadrupole Ground State
+        STATE.vqc = 2.80;
+        STATE.lambda = 2.60;
+        STATE.phiChiral = 1.57;
+        STATE.qcav = 12.0;
+        STATE.gamma = 0.05;
+        STATE.vgate = 0.00;
+        STATE.inPort = 1;
+        STATE.outPort = 7;
+      } else if (presetId === 2) {
+        // Chiral Unidirectional Corner Routing
+        STATE.vqc = 3.50;
+        STATE.lambda = 3.20;
+        STATE.phiChiral = 3.14;
+        STATE.qcav = 18.0;
+        STATE.gamma = 0.08;
+        STATE.vgate = 0.50;
+        STATE.inPort = 3;
+        STATE.outPort = 9;
+      } else if (presetId === 3) {
+        // Critical Quasi-Anderson Localization
+        STATE.vqc = 6.20;
+        STATE.lambda = 0.85;
+        STATE.phiChiral = 0.45;
+        STATE.qcav = 4.5;
+        STATE.gamma = 0.85;
+        STATE.vgate = -1.80;
+        STATE.inPort = 2;
+        STATE.outPort = 5;
+      } else if (presetId === 4) {
+        // Terahertz Phonon-Polariton Ultra-Strong Coupling
+        STATE.vqc = 4.20;
+        STATE.lambda = 4.00;
+        STATE.phiChiral = 4.71;
+        STATE.qcav = 24.0;
+        STATE.gamma = 0.02;
+        STATE.vgate = 1.20;
+        STATE.inPort = 1;
+        STATE.outPort = 12;
+      }
+
+      syncSliders();
+      rebuildPortButtons();
+      updatePhysics();
+    }
+
+    function syncSliders() {
+      document.getElementById('param-vqc').value = STATE.vqc;
+      document.getElementById('val-vqc').textContent = STATE.vqc.toFixed(2) + ' t';
+
+      document.getElementById('param-lambda').value = STATE.lambda;
+      document.getElementById('val-lambda').textContent = STATE.lambda.toFixed(2) + ' t';
+
+      document.getElementById('param-phi').value = STATE.phiChiral;
+      document.getElementById('val-phi').textContent = STATE.phiChiral.toFixed(2) + ' rad';
+
+      document.getElementById('param-qcav').value = STATE.qcav;
+      document.getElementById('val-qcav').textContent = STATE.qcav.toFixed(1) + ' ×10⁴';
+
+      document.getElementById('param-gamma').value = STATE.gamma;
+      document.getElementById('val-gamma').textContent = STATE.gamma.toFixed(2) + ' GHz';
+
+      document.getElementById('param-vgate').value = STATE.vgate;
+      document.getElementById('val-vgate').textContent = STATE.vgate.toFixed(2) + ' V';
+    }
+
+    function setupSliderListeners() {
+      const bind = (id, param, unit, scale = 1, fixed = 2) => {
+        const el = document.getElementById(id);
+        const valEl = document.getElementById('val-' + param);
+        el.addEventListener('input', (e) => {
+          STATE[param] = parseFloat(e.target.value) * scale;
+          valEl.textContent = STATE[param].toFixed(fixed) + ' ' + unit;
+          updatePhysics();
+          updateAudioTone();
+        });
+      };
+
+      bind('param-vqc', 'vqc', 't', 1, 2);
+      bind('param-lambda', 'lambda', 't', 1, 2);
+      bind('param-phi', 'phiChiral', 'rad', 1, 2);
+      bind('param-qcav', 'qcav', '×10⁴', 1, 1);
+      bind('param-gamma', 'gamma', 'GHz', 1, 2);
+      bind('param-vgate', 'vgate', 'V', 1, 2);
+    }
+
+    // Build 12-Port Selector Buttons
+    function rebuildPortButtons() {
+      const inContainer = document.getElementById('input-ports');
+      const outContainer = document.getElementById('output-ports');
+      inContainer.innerHTML = '';
+      outContainer.innerHTML = '';
+
+      for (let i = 1; i <= NUM_CORNERS; i++) {
+        const btnIn = document.createElement('div');
+        btnIn.className = 'port-btn' + (i === STATE.inPort ? ' selected-in' : '');
+        btnIn.textContent = `P${i}`;
+        btnIn.onclick = () => {
+          STATE.inPort = i;
+          rebuildPortButtons();
+          updatePhysics();
+          updateAudioTone();
+        };
+        inContainer.appendChild(btnIn);
+
+        const btnOut = document.createElement('div');
+        btnOut.className = 'port-btn' + (i === STATE.outPort ? ' selected-out' : '');
+        btnOut.textContent = `P${i}`;
+        btnOut.onclick = () => {
+          STATE.outPort = i;
+          rebuildPortButtons();
+          updatePhysics();
+          updateAudioTone();
+        };
+        outContainer.appendChild(btnOut);
+      }
+    }
+
+    // Mouse Interaction for 3D Viewport
+    function setupMouseControls() {
+      window.addEventListener('mousedown', (e) => {
+        if (e.target.tagName === 'CANVAS' && e.target.id === 'mainCanvas') {
+          STATE.isDragging = true;
+          STATE.lastMouseX = e.clientX;
+          STATE.lastMouseY = e.clientY;
+          initAudio();
+        }
+      });
+
+      window.addEventListener('mousemove', (e) => {
+        if (!STATE.isDragging) return;
+        const dx = e.clientX - STATE.lastMouseX;
+        const dy = e.clientY - STATE.lastMouseY;
+        STATE.camTargetRotY += dx * 0.008;
+        STATE.camTargetRotX += dy * 0.008;
+        // Restrict Pitch
+        STATE.camTargetRotX = Math.max(-1.4, Math.min(1.4, STATE.camTargetRotX));
+        STATE.lastMouseX = e.clientX;
+        STATE.lastMouseY = e.clientY;
+      });
+
+      window.addEventListener('mouseup', () => {
+        STATE.isDragging = false;
+      });
+
+      window.addEventListener('wheel', (e) => {
+        if (e.target.id === 'mainCanvas') {
+          STATE.camTargetZoom *= (e.deltaY > 0 ? 0.92 : 1.08);
+          STATE.camTargetZoom = Math.max(0.45, Math.min(2.5, STATE.camTargetZoom));
+        }
+      }, { passive: true });
+
+      window.addEventListener('dblclick', (e) => {
+        if (e.target.id === 'mainCanvas') {
+          STATE.camTargetRotX = 0.48;
+          STATE.camTargetRotY = -0.62;
+          STATE.camTargetZoom = 1.05;
+        }
+      });
+
+      window.addEventListener('keydown', (e) => {
+        if (e.code === 'Space') {
+          STATE.paused = !STATE.paused;
+          document.getElementById('hud-status').textContent = STATE.paused
+            ? '⏸️ 动力学演化已暂停 (按空格键继续)'
+            : '高阶拓扑角态本征量子态锁定中 | 12端口手征非互易相干传输中';
+        }
+      });
+    }
+
+    /* =========================================================================
+       9. MAIN ANIMATION LOOP
+       ========================================================================= */
+    function animate() {
+      requestAnimationFrame(animate);
+
+      if (!STATE.paused) {
+        STATE.time += 0.016;
+      }
+
+      render3DScene();
+      renderOscilloscopes();
+      updateAudioTone();
+    }
+
+    /* =========================================================================
+       10. INITIALIZATION
+       ========================================================================= */
+    window.addEventListener('DOMContentLoaded', () => {
+      resizeCanvas();
+      initQuasicrystalGeometry();
+      initParticles();
+      setupSliderListeners();
+      rebuildPortButtons();
+      setupMouseControls();
+      updatePhysics();
+      animate();
+    });
+  </script>
+</body>
+</html>

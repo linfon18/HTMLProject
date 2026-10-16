@@ -1,0 +1,1344 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>中子星物态方程与TOV引力坍缩极限 - Neutron Star EoS & TOV Collapse</title>
+<style>
+  :root {
+    --bg-dark: #020617;
+    --panel-bg: rgba(15, 23, 42, 0.85);
+    --panel-border: rgba(99, 102, 241, 0.25);
+    --primary: #6366f1;
+    --accent-cyan: #06b6d4;
+    --accent-emerald: #10b981;
+    --accent-rose: #f43f5e;
+    --accent-amber: #f59e0b;
+    --accent-purple: #c084fc;
+    --text-main: #f8fafc;
+    --text-muted: #94a3b8;
+    --font-mono: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    user-select: none;
+  }
+
+  body {
+    background-color: var(--bg-dark);
+    color: var(--text-main);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+  }
+
+  /* 顶栏 HUD */
+  header {
+    background: rgba(2, 6, 23, 0.94);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--panel-border);
+    padding: 0.75rem 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 50;
+  }
+
+  .brand-group {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .brand-badge {
+    background: linear-gradient(135deg, #4f46e5, #c084fc);
+    color: white;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 0.25rem 0.65rem;
+    border-radius: 6px;
+    letter-spacing: 0.08em;
+    box-shadow: 0 0 15px rgba(99, 102, 241, 0.4);
+  }
+
+  h1 {
+    font-size: 1.15rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    background: linear-gradient(to right, #ffffff, #c7d2fe, #f43f5e);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .nav-stats {
+    display: flex;
+    gap: 1.25rem;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+  }
+
+  .stat-chip {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .stat-label {
+    color: var(--text-muted);
+  }
+
+  .stat-val {
+    color: var(--accent-cyan);
+    font-weight: 600;
+  }
+
+  /* 主网格布局 */
+  main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 390px;
+    gap: 1rem;
+    padding: 1rem 1.5rem;
+    max-width: 1920px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  @media (max-width: 1180px) {
+    main {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  /* 左侧主模拟视窗 */
+  .simulation-view {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .canvas-card {
+    position: relative;
+    background: #01040f;
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    overflow: hidden;
+    height: 570px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.7);
+    display: flex;
+    flex-direction: column;
+  }
+
+  #mainCanvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    cursor: default;
+  }
+
+  /* 悬浮控制层 */
+  .canvas-overlay-top {
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    right: 1rem;
+    display: flex;
+    justify-content: space-between;
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  .mode-indicator {
+    background: rgba(15, 23, 42, 0.88);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--panel-border);
+    padding: 0.4rem 0.85rem;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.82rem;
+  }
+
+  .mode-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent-cyan);
+    box-shadow: 0 0 10px var(--accent-cyan);
+    animation: pulseGlow 1.8s infinite ease-in-out;
+  }
+
+  @keyframes pulseGlow {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.35; transform: scale(0.85); }
+  }
+
+  .canvas-overlay-bottom {
+    position: absolute;
+    bottom: 1rem;
+    left: 1rem;
+    right: 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  .toolbar {
+    display: flex;
+    gap: 0.5rem;
+    background: rgba(15, 23, 42, 0.9);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--panel-border);
+    padding: 0.4rem 0.6rem;
+    border-radius: 10px;
+    pointer-events: auto;
+  }
+
+  .btn {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: var(--text-main);
+    padding: 0.38rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    transition: all 0.2s ease;
+  }
+
+  .btn:hover {
+    background: rgba(99, 102, 241, 0.25);
+    border-color: rgba(99, 102, 241, 0.5);
+    transform: translateY(-1px);
+  }
+
+  .btn.active {
+    background: var(--primary);
+    border-color: #818cf8;
+    color: #ffffff;
+    box-shadow: 0 0 12px rgba(99, 102, 241, 0.4);
+  }
+
+  /* 底部快速诊断条 */
+  .quick-metrics {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.75rem;
+  }
+
+  .metric-card {
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    padding: 0.65rem 0.9rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .metric-title {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .metric-value {
+    font-family: var(--font-mono);
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #ffffff;
+    display: flex;
+    align-items: baseline;
+    gap: 0.3rem;
+  }
+
+  .metric-unit {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    font-weight: normal;
+  }
+
+  /* 右侧综合面板 */
+  aside {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+  }
+
+  .panel-box {
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    padding: 1.1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+    backdrop-filter: blur(12px);
+  }
+
+  .panel-box h2 {
+    font-size: 0.9rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    letter-spacing: 0.02em;
+    color: #e2e8f0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    padding-bottom: 0.5rem;
+  }
+
+  .panel-tag {
+    font-size: 0.7rem;
+    color: var(--accent-cyan);
+    font-family: var(--font-mono);
+    background: rgba(6, 182, 212, 0.1);
+    padding: 0.15rem 0.45rem;
+    border-radius: 4px;
+    border: 1px solid rgba(6, 182, 212, 0.2);
+  }
+
+  /* 模式网格 */
+  .mode-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+  }
+
+  .mode-btn {
+    background: rgba(15, 23, 42, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    padding: 0.65rem 0.6rem;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+
+  .mode-btn:hover {
+    border-color: rgba(99, 102, 241, 0.4);
+    background: rgba(30, 41, 59, 0.8);
+  }
+
+  .mode-btn.active {
+    background: rgba(99, 102, 241, 0.25);
+    border-color: var(--primary);
+    box-shadow: 0 0 15px rgba(99, 102, 241, 0.25);
+  }
+
+  .mode-btn-name {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #ffffff;
+  }
+
+  .mode-btn-desc {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    line-height: 1.25;
+  }
+
+  /* 控制滑块行 */
+  .control-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .control-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.78rem;
+  }
+
+  .control-title {
+    color: var(--text-muted);
+  }
+
+  .control-val {
+    font-family: var(--font-mono);
+    color: var(--accent-cyan);
+    font-weight: 500;
+  }
+
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 5px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.1);
+    outline: none;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--accent-cyan);
+    cursor: pointer;
+    box-shadow: 0 0 8px var(--accent-cyan);
+    transition: transform 0.1s;
+  }
+
+  input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+  }
+
+  /* 辅助图表 */
+  .chart-container {
+    position: relative;
+    width: 100%;
+    height: 135px;
+    background: #01040f;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    overflow: hidden;
+  }
+
+  .chart-canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  .formula-card {
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    padding: 0.65rem 0.8rem;
+    font-family: var(--font-mono);
+    font-size: 0.74rem;
+    color: #cbd5e1;
+    line-height: 1.5;
+  }
+
+  .formula-highlight {
+    color: var(--accent-amber);
+  }
+
+  .toast {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    background: rgba(15, 23, 42, 0.95);
+    border: 1px solid var(--accent-cyan);
+    color: #ffffff;
+    padding: 0.6rem 1.1rem;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    transform: translateY(10px);
+    z-index: 100;
+  }
+
+  .toast.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand-group">
+    <div class="brand-badge">GENERAL RELATIVITY</div>
+    <h1>中子星物态方程与TOV引力坍缩极限全息模拟</h1>
+  </div>
+  <div class="nav-stats">
+    <div class="stat-chip">
+      <span class="stat-label">引力质量 M:</span>
+      <span class="stat-val" id="statMass">1.72 M☉</span>
+    </div>
+    <div class="stat-chip">
+      <span class="stat-label">星体周向半径 R:</span>
+      <span class="stat-val" id="statRadius">11.8 km</span>
+    </div>
+    <div class="stat-chip">
+      <span class="stat-label">表面引力红移 z:</span>
+      <span class="stat-val" id="statRedshift">0.245</span>
+    </div>
+  </div>
+</header>
+
+<main>
+  <!-- 左侧主模拟视窗 -->
+  <div class="simulation-view">
+    <div class="canvas-card">
+      <canvas id="mainCanvas"></canvas>
+
+      <!-- 顶部 HUD 指示 -->
+      <div class="canvas-overlay-top">
+        <div class="mode-indicator">
+          <div class="mode-dot" id="modeDot"></div>
+          <span id="modeDisplayTitle">稳定中子星多层内部结构 (Stable Neutron Star)</span>
+        </div>
+        <div class="mode-indicator" style="font-family:var(--font-mono); font-size:0.78rem;">
+          <span>TOV 平衡判据: </span>
+          <span style="color:var(--accent-emerald);" id="hudStability">STABLE (dM/dρc &gt; 0)</span>
+        </div>
+      </div>
+
+      <!-- 底部控制按钮 -->
+      <div class="canvas-overlay-bottom">
+        <div class="mode-indicator" style="font-family:var(--font-mono); font-size:0.75rem;">
+          <div>紧致度 C = GM/(Rc²): <span style="color:var(--accent-cyan);" id="hudCompactness">0.215</span></div>
+          <div>史瓦西半径 Rs: <span style="color:var(--accent-rose);" id="hudRs">5.08 km</span></div>
+        </div>
+
+        <div class="toolbar">
+          <button class="btn" id="btnPlayPause">
+            <span id="playIcon">⏸</span> 暂停
+          </button>
+          <button class="btn" id="btnTriggerCollapse">⚡ 激发超临界坍缩</button>
+          <button class="btn" id="btnReset">🔄 恢复稳定星体</button>
+          <button class="btn active" id="btnBeams">📡 脉冲波束</button>
+          <button class="btn active" id="btnAudio">🔊 声效</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 快速指标条 -->
+    <div class="quick-metrics">
+      <div class="metric-card">
+        <span class="metric-title">核饱和密度倍数 ρc/ρ₀</span>
+        <div class="metric-value">
+          <span id="metricSatDensity">3.4</span>
+          <span class="metric-unit">ρ₀ (2.8×10¹⁴ g/cm³)</span>
+        </div>
+      </div>
+      <div class="metric-card">
+        <span class="metric-title">中心超流能隙 Δ_super</span>
+        <div class="metric-value">
+          <span id="metricSuperGap">1.8</span>
+          <span class="metric-unit">MeV (³P₂ 配对)</span>
+        </div>
+      </div>
+      <div class="metric-card">
+        <span class="metric-title">自转离心平展率 ε</span>
+        <div class="metric-value">
+          <span id="metricOblateness">0.038</span>
+          <span class="metric-unit">(ΔR/R)</span>
+        </div>
+      </div>
+      <div class="metric-card">
+        <span class="metric-title">时空因果律声速 cs/c</span>
+        <div class="metric-value">
+          <span id="metricSoundSpeed" style="color:var(--accent-emerald);">0.76</span>
+          <span class="metric-unit">&lt; 1.0 (因果律安全)</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 右侧交互与解析面板 -->
+  <aside>
+    <!-- 物理工况选择 -->
+    <div class="panel-box">
+      <h2>
+        <span>核物理与相对论模拟工况</span>
+        <span class="panel-tag">MODES</span>
+      </h2>
+      <div class="mode-grid">
+        <div class="mode-btn active" data-mode="stable">
+          <div class="mode-btn-name">① 稳定分层解剖</div>
+          <div class="mode-btn-desc">外地壳、核意大利面、超流中子核分层全息</div>
+        </div>
+        <div class="mode-btn" data-mode="pasta">
+          <div class="mode-btn-name">② 核意大利面相变</div>
+          <div class="mode-btn-desc">Gnocchi团块、Spaghetti柱、Lasagna层板</div>
+        </div>
+        <div class="mode-btn" data-mode="collapse">
+          <div class="mode-btn-name">③ TOV黑洞引力坍缩</div>
+          <div class="mode-btn-desc">超越奥本海默极限，动态闭合视界与引力波</div>
+        </div>
+        <div class="mode-btn" data-mode="pulsar">
+          <div class="mode-btn-name">④ 毫秒脉冲星灯塔</div>
+          <div class="mode-btn-desc">强相对论偶极磁层与极冠高能电磁辐射束</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 核物态与中心密度控制 -->
+    <div class="panel-box">
+      <h2>
+        <span>TOV 边界条件与核物态 EoS</span>
+        <span class="panel-tag">EOS CONTROLS</span>
+      </h2>
+
+      <div class="control-row">
+        <div class="control-header">
+          <span class="control-title">中心能量密度 log10(ρc)</span>
+          <span class="control-val" id="valLogRhoC">14.85 [g/cm³]</span>
+        </div>
+        <input type="range" id="rangeRhoC" min="14.3" max="15.8" step="0.02" value="14.85">
+      </div>
+
+      <div class="control-row">
+        <div class="control-header">
+          <span class="control-title">核物质物态方程 (EoS)</span>
+          <span class="control-val" id="valEos">SLy4 (经典硬核)</span>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.4rem; margin-top:0.2rem;">
+          <button class="btn active" id="eosSLy4" style="justify-content:center;">SLy4 (硬核)</button>
+          <button class="btn" id="eosAPR4" style="justify-content:center;">APR4 (相对论)</button>
+          <button class="btn" id="eosHyperon" style="justify-content:center;">超子软物态</button>
+          <button class="btn" id="eosQuark" style="justify-content:center;">MIT夸克星</button>
+        </div>
+      </div>
+
+      <div class="control-row">
+        <div class="control-header">
+          <span class="control-title">自转周期 P_spin (毫秒脉冲)</span>
+          <span class="control-val" id="valSpin">2.50 ms</span>
+        </div>
+        <input type="range" id="rangeSpin" min="1.4" max="25.0" step="0.2" value="2.5">
+      </div>
+
+      <div class="control-row">
+        <div class="control-header">
+          <span class="control-title">偶极极冠磁场 B_pole</span>
+          <span class="control-val" id="valBfield">2.4×10¹² G</span>
+        </div>
+        <input type="range" id="rangeBfield" min="0.5" max="10.0" step="0.5" value="2.4">
+      </div>
+    </div>
+
+    <!-- 图表 1：质量-半径特征曲线 (M-R Curve) -->
+    <div class="panel-box">
+      <h2>
+        <span>质量-半径特征曲线 (M-R Curve)</span>
+        <span class="panel-tag">M-R RELATION</span>
+      </h2>
+      <div class="chart-container">
+        <canvas class="chart-canvas" id="mrCanvas"></canvas>
+      </div>
+      <div class="formula-card">
+        <div>dP/dr = -<span class="formula-highlight">G·M·ρ/r² · [1+P/(ρc²)] · [1+4πr³P/(Mc²)] / [1-2GM/(rc²)]</span></div>
+      </div>
+    </div>
+
+    <!-- 图表 2：径向分层物态曲线 -->
+    <div class="panel-box">
+      <h2>
+        <span>径向密度 ρ(r) 与压强 P(r) 剖面</span>
+        <span class="panel-tag">PROFILE</span>
+      </h2>
+      <div class="chart-container">
+        <canvas class="chart-canvas" id="profileCanvas"></canvas>
+      </div>
+    </div>
+  </aside>
+</main>
+
+<div class="toast" id="toast">TOV 质量-半径积分求解已收敛</div>
+
+<script>
+/**
+ * 中子星物态方程与 TOV 引力坍缩极限 (Tolman-Oppenheimer-Volkoff Equation)
+ * 结合核物理 EoS、核意大利面相变、广义相对论时空弯曲与黑洞视界闭合演化
+ */
+
+// 物理状态变量
+let logRhoC = 14.85;      // log10(中心密度 g/cm³)
+let currentEos = 'sly4';   // 'sly4', 'apr4', 'hyperon', 'quark'
+let spinPeriod = 2.50;     // 自转周期 (ms)
+let bFieldPole = 2.4;      // 磁场强度 (10^12 G)
+let currentMode = 'stable';// 'stable', 'pasta', 'collapse', 'pulsar'
+let isPlaying = true;
+let showBeams = true;
+let audioEnabled = true;
+let simTime = 0;
+
+// 动态坍缩变量
+let collapseFactor = 1.0;  // 1.0 = 正常星体, 0.0 = 完全坍缩至奇点
+let isCollapsing = false;
+let eventHorizonRadius = 0;// 史瓦西黑洞视界半径
+
+// 当前中子星宏观参数 (通过 TOV 解算)
+let starMass = 1.72;       // 太阳质量 M_sun
+let starRadius = 11.8;     // 千米 km
+let maxMassTOV = 2.05;     // 当前 EoS 的 TOV 极限质量
+let isUnstable = false;    // 是否处于 dM/drho_c < 0 的不稳定分支
+
+// 物态方程参数库 (解析近似与唯象常数)
+const EOS_MODELS = {
+  sly4: {
+    name: 'SLy4 (经典硬核)',
+    gamma: 2.85,
+    kConst: 3.2e-13,
+    maxM: 2.05,
+    critLogRho: 15.42,
+    color: '#6366f1'
+  },
+  apr4: {
+    name: 'APR4 (相对论三体核力)',
+    gamma: 3.02,
+    kConst: 2.4e-15,
+    maxM: 2.21,
+    critLogRho: 15.36,
+    color: '#06b6d4'
+  },
+  hyperon: {
+    name: '超子软物态',
+    gamma: 2.45,
+    kConst: 8.5e-10,
+    maxM: 1.78,
+    critLogRho: 15.22,
+    color: '#f59e0b'
+  },
+  quark: {
+    name: 'MIT夸克星',
+    gamma: 1.33,
+    kConst: 1.5e15,
+    maxM: 2.01,
+    critLogRho: 15.55,
+    color: '#c084fc'
+  }
+};
+
+// 简化 TOV 方程求解 (给出质量 M 与半径 R)
+function solveTOV(logDensity, eosKey) {
+  const model = EOS_MODELS[eosKey];
+  const rho_c = Math.pow(10, logDensity); // g/cm³
+  const deltaRho = logDensity - 14.2;
+
+  let m = 0;
+  let r = 0;
+
+  if (eosKey === 'sly4') {
+    m = 1.4 + 0.65 * Math.sin(Math.min(Math.PI * 0.5, deltaRho * 1.3));
+    if (logDensity > model.critLogRho) {
+      m = model.maxM - (logDensity - model.critLogRho) * 1.2;
+    }
+    r = 12.2 - deltaRho * 0.95;
+  } else if (eosKey === 'apr4') {
+    m = 1.45 + 0.76 * Math.sin(Math.min(Math.PI * 0.5, deltaRho * 1.25));
+    if (logDensity > model.critLogRho) {
+      m = model.maxM - (logDensity - model.critLogRho) * 1.4;
+    }
+    r = 11.8 - deltaRho * 0.85;
+  } else if (eosKey === 'hyperon') {
+    m = 1.35 + 0.43 * Math.sin(Math.min(Math.PI * 0.5, deltaRho * 1.5));
+    if (logDensity > model.critLogRho) {
+      m = model.maxM - (logDensity - model.critLogRho) * 1.5;
+    }
+    r = 12.8 - deltaRho * 1.4;
+  } else {
+    // 夸克星 MIT Bag
+    m = 1.2 + 0.81 * Math.sin(Math.min(Math.PI * 0.5, deltaRho * 1.15));
+    if (logDensity > model.critLogRho) {
+      m = model.maxM - (logDensity - model.critLogRho) * 1.1;
+    }
+    r = 10.8 + deltaRho * 0.4;
+  }
+
+  m = Math.max(0.6, m);
+  r = Math.max(8.5, Math.min(15.5, r));
+  const rs = 2.95 * m; // 史瓦西半径 (km)
+
+  return { mass: m, radius: r, rs: rs, maxM: model.maxM, isUnstable: logDensity >= model.critLogRho };
+}
+
+// 刷新中子星宏观参数
+function updateStarProperties() {
+  const tov = solveTOV(logRhoC, currentEos);
+  starMass = tov.mass;
+  starRadius = tov.radius;
+  maxMassTOV = tov.maxM;
+  isUnstable = tov.isUnstable;
+  eventHorizonRadius = tov.rs;
+}
+updateStarProperties();
+
+// 主画布 Canvas
+const canvas = document.getElementById('mainCanvas');
+const ctx = canvas.getContext('2d');
+
+function resizeCanvas() {
+  const rect = canvas.parentElement.getBoundingClientRect();
+  canvas.width = rect.width;
+  canvas.height = rect.height;
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+// 全息 3D 中子星切片、核分层与坍缩视界渲染
+function renderSimulation() {
+  const w = canvas.width;
+  const h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+
+  // 背景微弱弯曲时空引力网格
+  ctx.strokeStyle = 'rgba(99, 102, 241, 0.05)';
+  ctx.lineWidth = 1;
+  const step = 32;
+  for (let x = 0; x < w; x += step) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+  }
+  for (let y = 0; y < h; y += step) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+  }
+
+  const cx = w * 0.5;
+  const cy = h * 0.48;
+
+  // 坍缩动力学更新
+  if (isCollapsing) {
+    collapseFactor = Math.max(0.08, collapseFactor - 0.015);
+  } else {
+    collapseFactor = Math.min(1.0, collapseFactor + 0.04);
+  }
+
+  // 星体像素基准半径 (受引力坍缩收缩缩放)
+  const baseR = Math.min(w * 0.22, 130) * (starRadius / 11.5) * collapseFactor;
+  const horizonR = (eventHorizonRadius / starRadius) * baseR;
+
+  // 1. 若坍缩至临界线以下：显示史瓦西事件视界与黑洞吸积环
+  if (collapseFactor < 0.65) {
+    ctx.save();
+    // 黑洞吸积盘全息引力透镜双环
+    const diskR = baseR * 2.8;
+    const diskGrad = ctx.createRadialGradient(cx, cy, horizonR * 1.1, cx, cy, diskR);
+    diskGrad.addColorStop(0, 'rgba(244, 63, 94, 0.85)');
+    diskGrad.addColorStop(0.3, 'rgba(245, 158, 11, 0.4)');
+    diskGrad.addColorStop(1, 'rgba(99, 102, 241, 0)');
+    ctx.fillStyle = diskGrad;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, diskR, diskR * 0.35, -0.2, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 绝对深黑事件视界 (Event Horizon)
+    ctx.fillStyle = '#000000';
+    ctx.beginPath();
+    ctx.arc(cx, cy, Math.max(16, horizonR * 1.5), 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#f43f5e';
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+
+    ctx.fillStyle = '#f43f5e';
+    ctx.font = '11px var(--font-mono)';
+    ctx.textAlign = 'center';
+    ctx.fillText('【事件视界闭合 - 形成黑洞】', cx, cy + horizonR * 1.5 + 24);
+    ctx.restore();
+    return;
+  }
+
+  // 2. 脉冲星旋转极冠射电锥与弯曲偶极磁力线 (Pulsar Beams & Magnetosphere)
+  if (showBeams) {
+    ctx.save();
+    const spinAngle = (simTime * (1000.0 / spinPeriod) * 0.002) % (Math.PI * 2);
+    const magTilt = 0.45; // 磁轴与自转轴夹角倾斜
+
+    // 绘制上下两个射电辐射灯塔锥束
+    for (let sign of [-1, 1]) {
+      const beamAngle = -Math.PI * 0.5 * sign + Math.sin(spinAngle) * magTilt;
+      const beamLen = baseR * 2.4;
+      const bX = cx + Math.cos(beamAngle) * beamLen;
+      const bY = cy + Math.sin(beamAngle) * beamLen;
+
+      const beamGrad = ctx.createRadialGradient(cx, cy, 5, bX, bY, beamLen);
+      beamGrad.addColorStop(0, 'rgba(6, 182, 212, 0.85)');
+      beamGrad.addColorStop(1, 'rgba(6, 182, 212, 0)');
+
+      ctx.fillStyle = beamGrad;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.arc(cx, cy, beamLen, beamAngle - 0.16, beamAngle + 0.16);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // 弯曲偶极磁力线
+    ctx.strokeStyle = 'rgba(56, 189, 248, 0.22)';
+    ctx.lineWidth = 1.2;
+    for (let m = -3; m <= 3; m++) {
+      if (m === 0) continue;
+      ctx.beginPath();
+      const loopR = baseR * (1.2 + Math.abs(m) * 0.4);
+      ctx.ellipse(cx, cy, loopR, loopR * 0.65, 0.35, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // 3. 3D/全息中子星分层截面剖切透视 (Outer Crust -> Inner Crust -> Outer Core -> Inner Core)
+  ctx.save();
+  // 表面强引力红移大气外圈
+  const atmGrad = ctx.createRadialGradient(cx, cy, baseR * 0.8, cx, cy, baseR * 1.15);
+  atmGrad.addColorStop(0, 'rgba(99, 102, 241, 0.4)');
+  atmGrad.addColorStop(1, 'rgba(99, 102, 241, 0)');
+  ctx.fillStyle = atmGrad;
+  ctx.beginPath();
+  ctx.arc(cx, cy, baseR * 1.15, 0, Math.PI * 2);
+  ctx.fill();
+
+  // (1) 外地壳 Outer Crust (厚度 ~300m, 晶格铁-56)
+  ctx.fillStyle = '#334155';
+  ctx.beginPath();
+  ctx.arc(cx, cy, baseR, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#64748b';
+  ctx.lineWidth = 1.8;
+  ctx.stroke();
+
+  // (2) 内地壳 Inner Crust (中子滴出 & 核意大利面层)
+  const rPasta = baseR * 0.90;
+  ctx.fillStyle = '#475569';
+  ctx.beginPath();
+  ctx.arc(cx, cy, rPasta, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 绘制切片右半球展示微观分层纹理
+  ctx.beginPath();
+  ctx.arc(cx, cy, baseR, -Math.PI * 0.5, Math.PI * 0.5);
+  ctx.lineTo(cx, cy);
+  ctx.closePath();
+  ctx.clip();
+
+  // (3) 外核心 Outer Core (超流中子费米海 + 超导质子)
+  const rCore = baseR * 0.70;
+  const coreGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, rCore);
+  coreGrad.addColorStop(0, '#c084fc');
+  coreGrad.addColorStop(1, '#06b6d4');
+  ctx.fillStyle = coreGrad;
+  ctx.beginPath();
+  ctx.arc(cx, cy, rCore, 0, Math.PI * 2);
+  ctx.fill();
+
+  // (4) 内核心 Inner Core (超高密度夸克/超子核心)
+  const rInnerCore = baseR * 0.35;
+  ctx.fillStyle = '#f43f5e';
+  ctx.shadowColor = '#f43f5e';
+  ctx.shadowBlur = 18;
+  ctx.beginPath();
+  ctx.arc(cx, cy, rInnerCore, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // 4. 分层标签与全息引力刻度引线
+  ctx.save();
+  const labelX = cx + baseR + 25;
+  ctx.fillStyle = '#94a3b8';
+  ctx.font = '9px var(--font-mono)';
+  ctx.textAlign = 'left';
+
+  function drawLayerPointer(layerR, text, color) {
+    const ly = cy - layerR * 0.65;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(cx + layerR * 0.75, ly);
+    ctx.lineTo(labelX - 5, ly);
+    ctx.stroke();
+
+    ctx.fillStyle = color;
+    ctx.fillText(text, labelX, ly + 3);
+  }
+
+  drawLayerPointer(baseR, '外地壳 (Fe-56 点阵)', '#94a3b8');
+  drawLayerPointer(rPasta, '内地壳 (核意大利面相)', '#f59e0b');
+  drawLayerPointer(rCore, '外核心 (超流中子 ³P₂)', '#06b6d4');
+  drawLayerPointer(rInnerCore, '内核心 (夸克/超子退禁闭)', '#f43f5e');
+  ctx.restore();
+}
+
+// 辅助图表 1：质量-半径特征曲线 (M-R Curve)
+const mrCanvas = document.getElementById('mrCanvas');
+const mrCtx = mrCanvas.getContext('2d');
+
+function renderMRChart() {
+  const w = mrCanvas.width = mrCanvas.parentElement.clientWidth;
+  const h = mrCanvas.height = mrCanvas.parentElement.clientHeight;
+  mrCtx.clearRect(0, 0, w, h);
+
+  const padL = 35;
+  const padR = 15;
+  const padT = 15;
+  const padB = 25;
+  const plotW = w - padL - padR;
+  const plotH = h - padT - padB;
+
+  // 网格
+  mrCtx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
+  mrCtx.lineWidth = 1;
+  for (let x = padL; x <= padL + plotW; x += plotW * 0.25) {
+    mrCtx.beginPath(); mrCtx.moveTo(x, padT); mrCtx.lineTo(x, padT + plotH); mrCtx.stroke();
+  }
+  for (let y = padT; y <= padT + plotH; y += plotH * 0.5) {
+    mrCtx.beginPath(); mrCtx.moveTo(padL, y); mrCtx.lineTo(padL + plotW, y); mrCtx.stroke();
+  }
+
+  // 标尺 (R: 8km ~ 16km, M: 0.5 M_sun ~ 2.5 M_sun)
+  mrCtx.fillStyle = '#64748b';
+  mrCtx.font = '9px var(--font-mono)';
+  mrCtx.fillText('8km', padL, h - 8);
+  mrCtx.fillText('12km', padL + plotW * 0.5 - 10, h - 8);
+  mrCtx.fillText('16km', padL + plotW - 20, h - 8);
+  mrCtx.fillText('2.5M☉', 2, padT + 8);
+  mrCtx.fillText('0.5M☉', 2, padT + plotH);
+
+  // 绘制黑洞视界线 R = 2GM/c^2 (史瓦西极限斜线)
+  mrCtx.beginPath();
+  mrCtx.strokeStyle = 'rgba(244, 63, 94, 0.35)';
+  mrCtx.setLineDash([3, 3]);
+  for (let mVal = 0.5; mVal <= 2.5; mVal += 0.2) {
+    const rsKm = 2.95 * mVal;
+    const px = padL + ((rsKm - 8.0) / 8.0) * plotW;
+    const py = padT + plotH - ((mVal - 0.5) / 2.0) * plotH;
+    if (mVal === 0.5) mrCtx.moveTo(px, py);
+    else mrCtx.lineTo(px, py);
+  }
+  mrCtx.stroke();
+  mrCtx.setLineDash([]);
+
+  // 绘制 4 种 EoS 的 M-R 曲线
+  Object.keys(EOS_MODELS).forEach(k => {
+    const mod = EOS_MODELS[k];
+    mrCtx.beginPath();
+    mrCtx.strokeStyle = mod.color;
+    mrCtx.lineWidth = (k === currentEos) ? 2.5 : 1.0;
+    if (k !== currentEos) mrCtx.globalAlpha = 0.35;
+    else mrCtx.globalAlpha = 1.0;
+
+    const samples = 40;
+    for (let i = 0; i <= samples; i++) {
+      const logD = 14.3 + (i / samples) * 1.4;
+      const res = solveTOV(logD, k);
+      const px = padL + ((res.radius - 8.0) / 8.0) * plotW;
+      const py = padT + plotH - ((res.mass - 0.5) / 2.0) * plotH;
+      if (i === 0) mrCtx.moveTo(px, py);
+      else mrCtx.lineTo(px, py);
+    }
+    mrCtx.stroke();
+  });
+  mrCtx.globalAlpha = 1.0;
+
+  // 标记当前中子星状态点
+  const curPx = padL + ((starRadius - 8.0) / 8.0) * plotW;
+  const curPy = padT + plotH - ((starMass - 0.5) / 2.0) * plotH;
+
+  mrCtx.fillStyle = isUnstable ? '#f43f5e' : '#10b981';
+  mrCtx.beginPath();
+  mrCtx.arc(curPx, curPy, 5.0, 0, Math.PI * 2);
+  mrCtx.fill();
+  mrCtx.strokeStyle = '#ffffff';
+  mrCtx.lineWidth = 1.5;
+  mrCtx.stroke();
+}
+
+// 辅助图表 2：径向分层密度与压强剖面
+const profCanvas = document.getElementById('profileCanvas');
+const profCtx = profCanvas.getContext('2d');
+
+function renderProfileChart() {
+  const w = profCanvas.width = profCanvas.parentElement.clientWidth;
+  const h = profCanvas.height = profCanvas.parentElement.clientHeight;
+  profCtx.clearRect(0, 0, w, h);
+
+  const padL = 35;
+  const padR = 15;
+  const padT = 15;
+  const padB = 25;
+  const plotW = w - padL - padR;
+  const plotH = h - padT - padB;
+
+  profCtx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
+  profCtx.lineWidth = 1;
+  profCtx.beginPath();
+  profCtx.moveTo(padL, padT + plotH);
+  profCtx.lineTo(padL + plotW, padT + plotH);
+  profCtx.stroke();
+
+  profCtx.fillStyle = '#64748b';
+  profCtx.font = '9px var(--font-mono)';
+  profCtx.fillText('r=0', padL, h - 8);
+  profCtx.fillText('R/2', padL + plotW * 0.5 - 8, h - 8);
+  profCtx.fillText('r=R', padL + plotW - 15, h - 8);
+  profCtx.fillText('ρc', 8, padT + 8);
+  profCtx.fillText('0', 14, padT + plotH);
+
+  // 绘制密度衰减曲线 rho(r) = rho_c * [1 - (r/R)^2]
+  profCtx.beginPath();
+  profCtx.strokeStyle = '#06b6d4';
+  profCtx.lineWidth = 2;
+  const samples = 50;
+  for (let i = 0; i <= samples; i++) {
+    const u = i / samples; // r/R
+    const rhoNorm = Math.pow(1.0 - u * u, 1.6);
+    const px = padL + u * plotW;
+    const py = padT + plotH - rhoNorm * plotH * 0.9;
+    if (i === 0) profCtx.moveTo(px, py);
+    else profCtx.lineTo(px, py);
+  }
+  profCtx.stroke();
+
+  // 绘制引力红移因子 z(r)
+  profCtx.beginPath();
+  profCtx.strokeStyle = '#c084fc';
+  profCtx.lineWidth = 1.5;
+  for (let i = 0; i <= samples; i++) {
+    const u = i / samples;
+    const zNorm = 0.5 * (1.0 - u * 0.6);
+    const px = padL + u * plotW;
+    const py = padT + plotH - zNorm * plotH * 0.8;
+    if (i === 0) profCtx.moveTo(px, py);
+    else profCtx.lineTo(px, py);
+  }
+  profCtx.stroke();
+
+  // 图例
+  profCtx.fillStyle = '#06b6d4';
+  profCtx.fillRect(w - 110, 10, 10, 4);
+  profCtx.fillStyle = '#cbd5e1';
+  profCtx.fillText('密度 ρ(r)', w - 95, 14);
+
+  profCtx.fillStyle = '#c084fc';
+  profCtx.fillRect(w - 55, 10, 10, 4);
+  profCtx.fillStyle = '#cbd5e1';
+  profCtx.fillText('红移 z(r)', w - 40, 14);
+}
+
+// Web Audio 声学反馈 (毫秒脉冲星自转声音与引力坍缩铃宕音)
+let audioCtx = null;
+let pulsarOsc = null;
+let pulsarGain = null;
+
+function initAudio() {
+  if (audioCtx) return;
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextClass) return;
+  audioCtx = new AudioContextClass();
+
+  pulsarOsc = audioCtx.createOscillator();
+  pulsarGain = audioCtx.createGain();
+
+  pulsarOsc.type = 'sawtooth';
+  pulsarOsc.frequency.setValueAtTime(400, audioCtx.currentTime);
+  pulsarGain.gain.setValueAtTime(0.012, audioCtx.currentTime);
+
+  pulsarOsc.connect(pulsarGain);
+  pulsarGain.connect(audioCtx.destination);
+  pulsarOsc.start();
+}
+
+function playChirpSound() {
+  if (!audioCtx || !audioEnabled) return;
+  const osc = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(80, audioCtx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(1400, audioCtx.currentTime + 0.35); // 鸣叫频率上升
+  osc.frequency.exponentialRampToValueAtTime(320, audioCtx.currentTime + 0.65);  // 铃宕快速衰减
+
+  g.gain.setValueAtTime(0.08, audioCtx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.65);
+
+  osc.connect(g);
+  g.connect(audioCtx.destination);
+  osc.start();
+  osc.stop(audioCtx.currentTime + 0.66);
+}
+
+function updateAudioFeedback() {
+  if (!audioCtx || !audioEnabled) return;
+  // 自转频率调制音频基频
+  const spinFreq = 1000.0 / spinPeriod;
+  pulsarOsc.frequency.setTargetAtTime(Math.min(900, spinFreq * 0.8), audioCtx.currentTime, 0.08);
+}
+
+// 刷新 HUD 指标
+function updateHUDMetrics() {
+  document.getElementById('statMass').textContent = `${starMass.toFixed(2)} M☉`;
+  document.getElementById('statRadius').textContent = `${starRadius.toFixed(1)} km`;
+
+  // 表面引力红移 z = (1 - 2GM/Rc^2)^(-1/2) - 1
+  const compactness = (2.95 * starMass) / starRadius;
+  const zGrav = (1.0 / Math.sqrt(Math.max(0.04, 1.0 - compactness)) - 1.0).toFixed(3);
+  document.getElementById('statRedshift').textContent = zGrav;
+  document.getElementById('hudCompactness').textContent = (compactness * 0.5).toFixed(3);
+  document.getElementById('hudRs').textContent = `${(2.95 * starMass).toFixed(2)} km`;
+
+  const stabEl = document.getElementById('hudStability');
+  if (isUnstable || isCollapsing) {
+    stabEl.textContent = 'UNSTABLE COLLAPSE (dM/dρc < 0)';
+    stabEl.style.color = 'var(--accent-rose)';
+  } else {
+    stabEl.textContent = 'STABLE (dM/dρc > 0)';
+    stabEl.style.color = 'var(--accent-emerald)';
+  }
+
+  const satRatio = (Math.pow(10, logRhoC) / 2.8e14).toFixed(1);
+  document.getElementById('metricSatDensity').textContent = satRatio;
+}
+
+// 主动画循环
+let frameCount = 0;
+function animate() {
+  simTime += 0.016;
+
+  renderSimulation();
+
+  frameCount++;
+  if (frameCount % 4 === 0) {
+    updateHUDMetrics();
+    renderMRChart();
+    renderProfileChart();
+    updateAudioFeedback();
+  }
+
+  requestAnimationFrame(animate);
+}
+requestAnimationFrame(animate);
+
+// 用户交互事件绑定
+const modeBtns = document.querySelectorAll('.mode-btn');
+modeBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    modeBtns.forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentMode = btn.dataset.mode;
+    isCollapsing = false;
+
+    const titles = {
+      stable: '稳定中子星多层内部结构 (Stable Neutron Star)',
+      pasta: '核意大利面微观拓扑相变态 (Nuclear Pasta)',
+      collapse: 'TOV极限动态引力坍缩黑洞态 (Gravitational Collapse)',
+      pulsar: '毫秒脉冲星强磁层灯塔态 (Millisecond Pulsar)'
+    };
+    document.getElementById('modeDisplayTitle').textContent = titles[currentMode];
+    if (currentMode === 'collapse') {
+      triggerCollapse();
+    }
+    showToast(`工况已切换为: ${titles[currentMode]}`);
+  });
+});
+
+// EoS 按钮切换
+const eosBtns = [
+  { id: 'eosSLy4', key: 'sly4', name: 'SLy4 (经典硬核)' },
+  { id: 'eosAPR4', key: 'apr4', name: 'APR4 (相对论三体核力)' },
+  { id: 'eosHyperon', key: 'hyperon', name: '超子软物态' },
+  { id: 'eosQuark', key: 'quark', name: 'MIT夸克星' }
+];
+
+eosBtns.forEach(b => {
+  const el = document.getElementById(b.id);
+  el.addEventListener('click', () => {
+    eosBtns.forEach(x => document.getElementById(x.id).classList.remove('active'));
+    el.classList.add('active');
+    currentEos = b.key;
+    document.getElementById('valEos').textContent = b.name;
+    updateStarProperties();
+    showToast(`已装载核物质EoS: ${b.name}`);
+  });
+});
+
+// 滑块绑定
+const rangeRho = document.getElementById('rangeRhoC');
+rangeRho.addEventListener('input', (e) => {
+  logRhoC = parseFloat(e.target.value);
+  document.getElementById('valLogRhoC').textContent = `${logRhoC.toFixed(2)} [g/cm³]`;
+  updateStarProperties();
+});
+
+const rangeSp = document.getElementById('rangeSpin');
+rangeSp.addEventListener('input', (e) => {
+  spinPeriod = parseFloat(e.target.value);
+  document.getElementById('valSpin').textContent = `${spinPeriod.toFixed(2)} ms`;
+});
+
+const rangeB = document.getElementById('rangeBfield');
+rangeB.addEventListener('input', (e) => {
+  bFieldPole = parseFloat(e.target.value);
+  document.getElementById('valBfield').textContent = `${bFieldPole.toFixed(1)}×10¹² G`;
+});
+
+// 坍缩触发逻辑
+function triggerCollapse() {
+  isCollapsing = true;
+  playChirpSound();
+  showToast('⚠️ 超越 TOV 临界质量极限，触发广义相对论引力坍缩！');
+}
+
+document.getElementById('btnTriggerCollapse').addEventListener('click', () => {
+  triggerCollapse();
+});
+
+document.getElementById('btnReset').addEventListener('click', () => {
+  isCollapsing = false;
+  collapseFactor = 1.0;
+  logRhoC = 14.85;
+  document.getElementById('rangeRhoC').value = '14.85';
+  document.getElementById('valLogRhoC').textContent = '14.85 [g/cm³]';
+  updateStarProperties();
+  showToast('中子星恢复静态稳态平衡');
+});
+
+// 按钮控制
+const btnPlayPause = document.getElementById('btnPlayPause');
+btnPlayPause.addEventListener('click', () => {
+  isPlaying = !isPlaying;
+  document.getElementById('playIcon').textContent = isPlaying ? '⏸' : '▶';
+  btnPlayPause.childNodes[2].textContent = isPlaying ? ' 暂停' : ' 继续';
+  initAudio();
+});
+
+const btnBeams = document.getElementById('btnBeams');
+btnBeams.addEventListener('click', () => {
+  showBeams = !showBeams;
+  btnBeams.classList.toggle('active', showBeams);
+});
+
+const btnAudio = document.getElementById('btnAudio');
+btnAudio.addEventListener('click', () => {
+  audioEnabled = !audioEnabled;
+  btnAudio.classList.toggle('active', audioEnabled);
+  if (audioEnabled) {
+    initAudio();
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  }
+});
+
+let toastTimer = null;
+function showToast(msg) {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    toast.classList.remove('show');
+  }, 2200);
+}
+
+window.addEventListener('click', () => {
+  if (audioEnabled) initAudio();
+}, { once: true });
+</script>
+
+</body>
+</html>

@@ -1,0 +1,934 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>手征外尔半金属阿秒激光相干驱动贝里单极子拓扑量子雷达全息模拟器</title>
+  <style>
+    :root {
+      --bg-base: #030712;
+      --panel-bg: rgba(15, 23, 42, 0.78);
+      --panel-border: rgba(56, 189, 248, 0.28);
+      --accent-cyan: #38bdf8;
+      --accent-rose: #f43f5e;
+      --accent-gold: #fbbf24;
+      --accent-emerald: #10b981;
+      --accent-indigo: #818cf8;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+    body {
+      background: var(--bg-base);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      overflow: hidden;
+    }
+    #viewport-container {
+      position: relative;
+      flex: 1;
+      height: 100%;
+      background: radial-gradient(circle at 50% 50%, #0c1a2e 0%, #030712 100%);
+    }
+    canvas#holo-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    /* Side Control Dashboard */
+    #sidebar {
+      width: 440px;
+      height: 100%;
+      background: var(--panel-bg);
+      backdrop-filter: blur(20px);
+      border-left: 1px solid var(--panel-border);
+      display: flex;
+      flex-direction: column;
+      z-index: 10;
+      box-shadow: -10px 0 35px rgba(0,0,0,0.65);
+      overflow-y: auto;
+    }
+    #sidebar::-webkit-scrollbar {
+      width: 5px;
+    }
+    #sidebar::-webkit-scrollbar-thumb {
+      background: rgba(56, 189, 248, 0.35);
+      border-radius: 4px;
+    }
+    .header-box {
+      padding: 20px 24px 16px;
+      border-bottom: 1px solid rgba(56, 189, 248, 0.15);
+      background: linear-gradient(180deg, rgba(56, 189, 248, 0.08) 0%, transparent 100%);
+    }
+    .badge-tag {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--accent-cyan);
+      background: rgba(56, 189, 248, 0.14);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      padding: 3px 8px;
+      border-radius: 4px;
+      margin-bottom: 8px;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+    }
+    h1 {
+      font-size: 18px;
+      font-weight: 700;
+      line-height: 1.4;
+      color: #fff;
+      letter-spacing: -0.2px;
+    }
+    .sub-title {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 5px;
+      font-family: var(--font-mono);
+    }
+    .content-box {
+      padding: 18px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+    .section-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--accent-cyan);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+    .section-title::before {
+      content: '';
+      display: inline-block;
+      width: 4px;
+      height: 12px;
+      background: var(--accent-cyan);
+      border-radius: 2px;
+    }
+    /* Scope Card */
+    .scope-panel {
+      background: rgba(2, 6, 23, 0.65);
+      border: 1px solid rgba(56, 189, 248, 0.2);
+      border-radius: 8px;
+      padding: 12px;
+    }
+    .scope-title {
+      font-size: 11px;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    .scope-canvas-wrap {
+      width: 100%;
+      height: 115px;
+      position: relative;
+    }
+    canvas.scope-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      background: #020617;
+      border-radius: 4px;
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+    /* Readout Grid */
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+    .metric-item {
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 6px;
+      padding: 8px 12px;
+    }
+    .metric-lbl {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    .metric-val {
+      font-family: var(--font-mono);
+      font-size: 15px;
+      font-weight: 700;
+      margin-top: 2px;
+      color: #fff;
+    }
+    /* Sliders */
+    .slider-group {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .control-row {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .control-label-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--text-main);
+    }
+    .control-val {
+      font-family: var(--font-mono);
+      color: var(--accent-cyan);
+    }
+    input[type=range] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.12);
+      border-radius: 2px;
+      outline: none;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--accent-cyan);
+      cursor: pointer;
+      box-shadow: 0 0 8px var(--accent-cyan);
+      transition: transform 0.1s;
+    }
+    input[type=range]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+    /* Buttons */
+    .btn-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+    .btn {
+      background: rgba(30, 41, 59, 0.7);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      color: #e2e8f0;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 8px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s;
+    }
+    .btn:hover {
+      background: rgba(56, 189, 248, 0.2);
+      border-color: var(--accent-cyan);
+      color: #fff;
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.25);
+    }
+    .btn-active {
+      background: rgba(56, 189, 248, 0.35);
+      border-color: var(--accent-cyan);
+      color: #fff;
+    }
+    .action-btn {
+      width: 100%;
+      background: linear-gradient(135deg, rgba(56, 189, 248, 0.25), rgba(16, 185, 129, 0.25));
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .action-btn:hover {
+      border-color: var(--accent-emerald);
+      box-shadow: 0 0 14px rgba(16, 185, 129, 0.35);
+      transform: translateY(-1px);
+    }
+    /* Theory Box */
+    .theory-box {
+      font-size: 11px;
+      color: var(--text-muted);
+      line-height: 1.6;
+      background: rgba(2, 6, 23, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      border-radius: 6px;
+      padding: 10px 12px;
+    }
+    .theory-box b {
+      color: var(--accent-gold);
+    }
+    /* Overlay HUD */
+    #hud-overlay {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .hud-chip {
+      background: rgba(3, 7, 18, 0.82);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      backdrop-filter: blur(10px);
+      padding: 8px 14px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-family: var(--font-mono);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .dot-live {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent-cyan);
+      box-shadow: 0 0 8px var(--accent-cyan);
+      animation: pulse 1.8s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+    #back-btn {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid var(--panel-border);
+      color: var(--text-main);
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      text-decoration: none;
+      backdrop-filter: blur(10px);
+      transition: all 0.2s;
+      z-index: 20;
+    }
+    #back-btn:hover {
+      background: var(--accent-cyan);
+      color: #000;
+      box-shadow: 0 0 15px rgba(56, 189, 248, 0.5);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 3D Holographic Viewport -->
+  <div id="viewport-container">
+    <canvas id="holo-canvas"></canvas>
+    
+    <div id="hud-overlay">
+      <div class="hud-chip">
+        <span class="dot-live"></span>
+        <span>ATTOSECOND WEYL RADAR EMULATOR [v325.0 MILESTONE]</span>
+      </div>
+      <div class="hud-chip">
+        <span style="color:var(--accent-cyan);">BERRY MONOPOLE CHIRALITY:</span>
+        <span id="hud-mono-txt" style="color:var(--accent-gold);font-weight:bold;">C = ±1 (Source/Sink Pair)</span>
+      </div>
+      <div class="hud-chip">
+        <span style="color:var(--accent-emerald);">RADAR GAIN:</span>
+        <span id="hud-snr-txt" style="color:var(--accent-emerald);font-weight:bold;">SNR = 31.8 dB (Heisenberg Limit)</span>
+      </div>
+    </div>
+
+    <a href="index.html" id="back-btn">← 返回中央展厅 (325)</a>
+  </div>
+
+  <!-- Sidebar Controls -->
+  <div id="sidebar">
+    <div class="header-box">
+      <span class="badge-tag">Milestone #325</span>
+      <h1>手征外尔半金属阿秒激光相干驱动贝里单极子拓扑量子雷达全息模拟器</h1>
+      <div class="sub-title">Chiral Weyl Berry Monopole &amp; Attosecond Quantum Radar</div>
+    </div>
+
+    <div class="content-box">
+      <!-- Readout Grid -->
+      <div class="metric-grid">
+        <div class="metric-item">
+          <div class="metric-lbl">雷达信噪比增益 SNR</div>
+          <div class="metric-val" id="val-snr" style="color:var(--accent-emerald);">31.8 dB</div>
+        </div>
+        <div class="metric-item">
+          <div class="metric-lbl">贝里通量几何相位 γ_B</div>
+          <div class="metric-val" id="val-gamma" style="color:var(--accent-gold);">0.98 π</div>
+        </div>
+        <div class="metric-item">
+          <div class="metric-lbl">角分辨率 Angular Res</div>
+          <div class="metric-val" id="val-res" style="color:var(--accent-cyan);">0.42 nrad</div>
+        </div>
+        <div class="metric-item">
+          <div class="metric-lbl">阿秒反常速度 v_anom</div>
+          <div class="metric-val" id="val-vanom" style="color:var(--accent-rose);">4.85 × 10⁵ m/s</div>
+        </div>
+      </div>
+
+      <!-- Scopes -->
+      <div class="scope-panel">
+        <div class="scope-title">
+          <span>ATTOSECOND BERRY INTERFERENCE Δx(τ_delay)</span>
+          <span style="color:var(--accent-cyan);">Geometric Fringe</span>
+        </div>
+        <div class="scope-canvas-wrap">
+          <canvas class="scope-canvas" id="scope-fringe"></canvas>
+        </div>
+      </div>
+
+      <div class="scope-panel">
+        <div class="scope-title">
+          <span>RADAR ECHO HEISENBERG SCALING SNR(R)</span>
+          <span style="color:var(--accent-emerald);">Quantum vs Standard Limit</span>
+        </div>
+        <div class="scope-canvas-wrap">
+          <canvas class="scope-canvas" id="scope-echo"></canvas>
+        </div>
+      </div>
+
+      <!-- Action Button -->
+      <div>
+        <button class="action-btn" id="btn-ping-target">发射阿秒双色激光雷达脉冲扫描目标 (Radar Ping)</button>
+      </div>
+
+      <!-- Sliders -->
+      <div>
+        <div class="section-title">阿秒激光与外尔单极子参数调控</div>
+        <div class="slider-group">
+          <div class="control-row">
+            <div class="control-label-row">
+              <span>阿秒脉宽 τ_pulse</span>
+              <span class="control-val" id="lbl-tau">120 as</span>
+            </div>
+            <input type="range" id="sl-tau" min="40" max="350" step="5" value="120">
+          </div>
+
+          <div class="control-row">
+            <div class="control-label-row">
+              <span>泵浦激光电场 E_laser</span>
+              <span class="control-val" id="lbl-elaser">0.85 V/Å</span>
+            </div>
+            <input type="range" id="sl-elaser" min="0.2" max="2.0" step="0.05" value="0.85">
+          </div>
+
+          <div class="control-row">
+            <div class="control-label-row">
+              <span>外尔单极子动量间距 2k₀</span>
+              <span class="control-val" id="lbl-k0">0.52 Å⁻¹</span>
+            </div>
+            <input type="range" id="sl-k0" min="0.1" max="1.0" step="0.02" value="0.52">
+          </div>
+
+          <div class="control-row">
+            <div class="control-label-row">
+              <span>雷达目标截面 RCS σ_tgt</span>
+              <span class="control-val" id="lbl-rcs">0.05 m²</span>
+            </div>
+            <input type="range" id="sl-rcs" min="0.005" max="0.3" step="0.005" value="0.05">
+          </div>
+
+          <div class="control-row">
+            <div class="control-label-row">
+              <span>环境热退相干噪声 Γ_dec</span>
+              <span class="control-val" id="lbl-gamma">14 meV</span>
+            </div>
+            <input type="range" id="sl-gamma" min="2" max="50" step="1" value="14">
+          </div>
+        </div>
+      </div>
+
+      <!-- Presets -->
+      <div>
+        <div class="section-title">典型工作模态与预设工况</div>
+        <div class="btn-grid">
+          <button class="btn btn-active" id="pre-quantum-limit">海森堡单极子极限相</button>
+          <button class="btn" id="pre-high-res">亚纳弧度超分辨率</button>
+          <button class="btn" id="pre-stealth-echo">微弱隐身目标探测</button>
+          <button class="btn" id="pre-classical">经典退相干噪声相</button>
+        </div>
+      </div>
+
+      <!-- Theory Box -->
+      <div class="theory-box">
+        <b>微观哈密顿量与拓扑量子雷达机理：</b><br>
+        1. <b>动量空间贝里单极子：</b> 外尔费米子哈密顿量 $H = \hbar v_F \boldsymbol{\sigma} \cdot \mathbf{k}$。外尔节点为贝里磁单极子源与汇，磁荷 $C = \pm 1$。<br>
+        2. <b>阿秒相干几何雷达：</b> 阿秒激光脉冲激发波包绕单极子回旋累积拓扑贝里相位 $\gamma_B = \oint \mathbf{A} \cdot d\mathbf{k} = \pi$。反常横向速度 $\mathbf{v}_{\text{anom}} = -\frac{e}{\hbar}\mathbf{E} \times \boldsymbol{\Omega}$ 诱导超灵敏相干干涉，探测信噪比逼近海森堡极限 $\Delta \theta \propto 1/N$，突破经典雷达标准散粒噪声限制。
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    // --- Audio Engine (Quantum Radar Pulse Synthesizer) ---
+    class AudioEngine {
+      constructor() {
+        this.ctx = null;
+        this.enabled = false;
+      }
+      init() {
+        if (!this.ctx) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          this.ctx = new AudioContext();
+          this.enabled = true;
+        }
+        if (this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      }
+      playRadarPing(snr) {
+        if (!this.enabled || !this.ctx) return;
+        const now = this.ctx.currentTime;
+        // Two-tone quantum echo chirp
+        const osc1 = this.ctx.createOscillator();
+        const osc2 = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc1.type = 'sine';
+        osc2.type = 'triangle';
+
+        const baseF = 440 + snr * 15;
+        osc1.frequency.setValueAtTime(baseF, now);
+        osc1.frequency.exponentialRampToValueAtTime(baseF * 1.5, now + 0.15);
+
+        osc2.frequency.setValueAtTime(baseF * 0.5, now);
+        osc2.frequency.exponentialRampToValueAtTime(baseF * 2.0, now + 0.2);
+
+        gain.gain.setValueAtTime(0.08, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+
+        osc1.connect(gain);
+        osc2.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc1.start(now);
+        osc2.start(now);
+        osc1.stop(now + 0.28);
+        osc2.stop(now + 0.28);
+      }
+    }
+    const audio = new AudioEngine();
+    window.addEventListener('click', () => audio.init(), { once: true });
+
+    // --- State Object ---
+    const STATE = {
+      tau: 120,          // Pulse duration (as)
+      eLaser: 0.85,      // Laser field (V/Angstrom)
+      k0: 0.52,          // Monopole node separation (Angstrom^-1)
+      rcs: 0.05,         // Target RCS (m^2)
+      gammaDec: 14,      // Decoherence noise (meV)
+
+      // Computed Physics
+      snrDb: 31.8,
+      berryPhase: 0.98,  // units of pi
+      angRes: 0.42,      // nrad
+      vAnom: 4.85e5,     // m/s
+
+      // Ping Animation
+      pingActive: false,
+      pingRadius: 0,
+
+      // Viewport 3D
+      rotX: 25 * Math.PI / 180,
+      rotY: -45 * Math.PI / 180,
+      zoom: 1.0,
+      isDragging: false,
+      lastMouseX: 0,
+      lastMouseY: 0,
+      time: 0
+    };
+
+    // --- Canvases ---
+    const holoCanvas = document.getElementById('holo-canvas');
+    const holoCtx = holoCanvas.getContext('2d');
+    const scopeFringe = document.getElementById('scope-fringe');
+    const fringeCtx = scopeFringe.getContext('2d');
+    const scopeEcho = document.getElementById('scope-echo');
+    const echoCtx = scopeEcho.getContext('2d');
+
+    function resizeCanvases() {
+      const container = document.getElementById('viewport-container');
+      holoCanvas.width = container.clientWidth * window.devicePixelRatio;
+      holoCanvas.height = container.clientHeight * window.devicePixelRatio;
+      
+      scopeFringe.width = scopeFringe.clientWidth * window.devicePixelRatio;
+      scopeFringe.height = scopeFringe.clientHeight * window.devicePixelRatio;
+      
+      scopeEcho.width = scopeEcho.clientWidth * window.devicePixelRatio;
+      scopeEcho.height = scopeEcho.clientHeight * window.devicePixelRatio;
+    }
+    window.addEventListener('resize', resizeCanvases);
+
+    // --- Mouse Listeners ---
+    holoCanvas.addEventListener('mousedown', e => {
+      STATE.isDragging = true;
+      STATE.lastMouseX = e.clientX;
+      STATE.lastMouseY = e.clientY;
+      audio.init();
+    });
+    window.addEventListener('mouseup', () => STATE.isDragging = false);
+    holoCanvas.addEventListener('mousemove', e => {
+      if (!STATE.isDragging) return;
+      const dx = e.clientX - STATE.lastMouseX;
+      const dy = e.clientY - STATE.lastMouseY;
+      STATE.rotY += dx * 0.006;
+      STATE.rotX += dy * 0.006;
+      STATE.lastMouseX = e.clientX;
+      STATE.lastMouseY = e.clientY;
+    });
+    holoCanvas.addEventListener('wheel', e => {
+      e.preventDefault();
+      STATE.zoom *= (e.deltaY > 0 ? 0.94 : 1.06);
+      STATE.zoom = Math.max(0.4, Math.min(2.8, STATE.zoom));
+    }, { passive: false });
+
+    // --- Controls Binding ---
+    const slTau = document.getElementById('sl-tau');
+    const slElaser = document.getElementById('sl-elaser');
+    const slK0 = document.getElementById('sl-k0');
+    const slRcs = document.getElementById('sl-rcs');
+    const slGamma = document.getElementById('sl-gamma');
+
+    slTau.addEventListener('input', e => {
+      STATE.tau = parseInt(e.target.value);
+      document.getElementById('lbl-tau').innerText = STATE.tau + ' as';
+      updatePhysics();
+    });
+    slElaser.addEventListener('input', e => {
+      STATE.eLaser = parseFloat(e.target.value);
+      document.getElementById('lbl-elaser').innerText = STATE.eLaser.toFixed(2) + ' V/Å';
+      updatePhysics();
+    });
+    slK0.addEventListener('input', e => {
+      STATE.k0 = parseFloat(e.target.value);
+      document.getElementById('lbl-k0').innerText = STATE.k0.toFixed(2) + ' Å⁻¹';
+      updatePhysics();
+    });
+    slRcs.addEventListener('input', e => {
+      STATE.rcs = parseFloat(e.target.value);
+      document.getElementById('lbl-rcs').innerText = STATE.rcs.toFixed(3) + ' m²';
+      updatePhysics();
+    });
+    slGamma.addEventListener('input', e => {
+      STATE.gammaDec = parseInt(e.target.value);
+      document.getElementById('lbl-gamma').innerText = STATE.gammaDec + ' meV';
+      updatePhysics();
+    });
+
+    document.getElementById('btn-ping-target').addEventListener('click', () => {
+      audio.init();
+      audio.playRadarPing(STATE.snrDb);
+      STATE.pingActive = true;
+      STATE.pingRadius = 0;
+    });
+
+    // Presets
+    const presets = [
+      { id: 'pre-quantum-limit', tau: 120, elaser: 0.85, k0: 0.52, rcs: 0.05, gamma: 14 },
+      { id: 'pre-high-res', tau: 75, elaser: 1.40, k0: 0.75, rcs: 0.08, gamma: 8 },
+      { id: 'pre-stealth-echo', tau: 160, elaser: 1.10, k0: 0.40, rcs: 0.008, gamma: 12 },
+      { id: 'pre-classical', tau: 280, elaser: 0.35, k0: 0.25, rcs: 0.03, gamma: 45 }
+    ];
+    presets.forEach(p => {
+      document.getElementById(p.id).addEventListener('click', () => {
+        presets.forEach(o => document.getElementById(o.id).classList.remove('btn-active'));
+        document.getElementById(p.id).classList.add('btn-active');
+
+        STATE.tau = p.tau; slTau.value = p.tau; document.getElementById('lbl-tau').innerText = p.tau + ' as';
+        STATE.eLaser = p.elaser; slElaser.value = p.elaser; document.getElementById('lbl-elaser').innerText = p.elaser.toFixed(2) + ' V/Å';
+        STATE.k0 = p.k0; slK0.value = p.k0; document.getElementById('lbl-k0').innerText = p.k0.toFixed(2) + ' Å⁻¹';
+        STATE.rcs = p.rcs; slRcs.value = p.rcs; document.getElementById('lbl-rcs').innerText = p.rcs.toFixed(3) + ' m²';
+        STATE.gammaDec = p.gamma; slGamma.value = p.gamma; document.getElementById('lbl-gamma').innerText = p.gamma + ' meV';
+
+        updatePhysics();
+      });
+    });
+
+    // --- Physics Model Update ---
+    function updatePhysics() {
+      // 1. Berry Curvature Monopole Magnitude Omega(k) = C / (2 k^2)
+      // Anomalous Velocity v_anom = -(e/hbar) E x Omega
+      const omegaK = 1.0 / (2.0 * Math.pow(Math.max(0.1, STATE.k0 * 0.5), 2));
+      STATE.vAnom = 1.5e5 * STATE.eLaser * omegaK;
+
+      // 2. Berry Geometric Phase: gamma_B ~ pi * (1 - Gamma_dec / 80)
+      STATE.berryPhase = Math.max(0.2, 1.0 - (STATE.gammaDec / 90.0));
+
+      // 3. Quantum Radar SNR (Heisenberg Scaled vs Classical Shot Noise)
+      const photonCoherence = (350.0 / STATE.tau) * (STATE.eLaser / 0.85);
+      const rcsFactor = Math.log10(STATE.rcs / 0.001 + 1.0);
+      const noisePenalty = STATE.gammaDec * 0.35;
+      STATE.snrDb = Math.max(5.0, 15.0 + photonCoherence * 4.5 * rcsFactor - noisePenalty);
+
+      // 4. Angular Resolution: theta_res ~ lambda / (D * sqrt(N_eff)) -> sub-nanorad
+      STATE.angRes = Math.max(0.05, 0.42 * (STATE.tau / 120.0) / (STATE.eLaser * rcsFactor + 0.1));
+
+      // Update UI
+      document.getElementById('val-snr').innerText = `${STATE.snrDb.toFixed(1)} dB`;
+      document.getElementById('val-gamma').innerText = `${STATE.berryPhase.toFixed(2)} π`;
+      document.getElementById('val-res').innerText = `${STATE.angRes.toFixed(2)} nrad`;
+      document.getElementById('val-vanom').innerText = `${(STATE.vAnom / 1e5).toFixed(2)} × 10⁵ m/s`;
+
+      document.getElementById('hud-snr-txt').innerText = `SNR = ${STATE.snrDb.toFixed(1)} dB (Heisenberg Limit)`;
+    }
+
+    // --- 3D Projection Helpers ---
+    function project3D(x, y, z, cx, cy, scale) {
+      const cosY = Math.cos(STATE.rotY), sinY = Math.sin(STATE.rotY);
+      const x1 = x * cosY + z * sinY;
+      const z1 = -x * sinY + z * cosY;
+
+      const cosX = Math.cos(STATE.rotX), sinX = Math.sin(STATE.rotX);
+      const y2 = y * cosX - z1 * sinX;
+      const z2 = y * sinX + z1 * cosX;
+
+      const dist = 700;
+      const fov = dist / (dist + z2);
+      return {
+        px: cx + x1 * fov * scale * STATE.zoom,
+        py: cy + y2 * fov * scale * STATE.zoom,
+        depth: z2,
+        fov: fov
+      };
+    }
+
+    // --- 3D Holographic Rendering ---
+    function renderHologram() {
+      const w = holoCanvas.width;
+      const h = holoCanvas.height;
+      holoCtx.clearRect(0, 0, w, h);
+
+      const cx = w * 0.5;
+      const cy = h * 0.5;
+      const scale = Math.min(w, h) * 0.0016;
+
+      // 1. Draw Berry Monopole Pair (W+ Source and W- Sink)
+      const monoDist = STATE.k0 * 220;
+      const monopoles = [
+        { z: -monoDist, charge: +1, color: '#38bdf8', label: 'W₊ (Monopole Source)' },
+        { z: monoDist,  charge: -1, color: '#f43f5e', label: 'W₋ (Monopole Sink)' }
+      ];
+
+      monopoles.forEach(mono => {
+        // Monopole Field Streamlines (Hedgehog field)
+        const numRays = 14;
+        for (let i = 0; i < numRays; i++) {
+          const ang = (i / numRays) * Math.PI * 2 + STATE.time * 0.5;
+          const rayLen = 55;
+          const rx = Math.cos(ang) * rayLen;
+          const ry = Math.sin(ang) * rayLen * 0.6;
+          const rz = mono.z + (mono.charge > 0 ? 25 : -25);
+
+          const startP = project3D(0, 0, mono.z, cx, cy, scale);
+          const endP = project3D(rx, ry, rz, cx, cy, scale);
+
+          holoCtx.beginPath();
+          holoCtx.moveTo(startP.px, startP.py);
+          holoCtx.lineTo(endP.px, endP.py);
+          holoCtx.strokeStyle = mono.charge > 0 ? 'rgba(56, 189, 248, 0.35)' : 'rgba(244, 63, 94, 0.35)';
+          holoCtx.lineWidth = 1;
+          holoCtx.stroke();
+        }
+
+        // Monopole Core Glowing Dot
+        const cp = project3D(0, 0, mono.z, cx, cy, scale);
+        const grad = holoCtx.createRadialGradient(cp.px, cp.py, 2, cp.px, cp.py, 18 * cp.fov);
+        grad.addColorStop(0, '#ffffff');
+        grad.addColorStop(0.3, mono.color);
+        grad.addColorStop(1, 'transparent');
+
+        holoCtx.fillStyle = grad;
+        holoCtx.beginPath();
+        holoCtx.arc(cp.px, cp.py, 15 * cp.fov, 0, Math.PI * 2);
+        holoCtx.fill();
+
+        holoCtx.fillStyle = '#ffffff';
+        holoCtx.font = `bold ${Math.round(11 * cp.fov)}px monospace`;
+        holoCtx.fillText(mono.label, cp.px + 12, cp.py - 6);
+      });
+
+      // 2. Topological Fermi Arc Ribbon on Surface
+      holoCtx.beginPath();
+      const arcPts = 45;
+      for (let i = 0; i <= arcPts; i++) {
+        const u = i / arcPts;
+        const z = -monoDist + u * (2 * monoDist);
+        const ribbonY = -50 - Math.sin(u * Math.PI) * 40;
+        const ribbonX = Math.sin(u * Math.PI * 2 - STATE.time * 4) * 16;
+        const p = project3D(ribbonX, ribbonY, z, cx, cy, scale);
+        if (i === 0) holoCtx.moveTo(p.px, p.py);
+        else holoCtx.lineTo(p.px, p.py);
+      }
+      holoCtx.strokeStyle = '#fbbf24';
+      holoCtx.lineWidth = 3.2;
+      holoCtx.shadowColor = '#fbbf24';
+      holoCtx.shadowBlur = 12;
+      holoCtx.stroke();
+      holoCtx.shadowBlur = 0;
+
+      // 3. Radar Quantum Target & Expanding Radar Spherical Wavefront
+      const tgtX = 140;
+      const tgtY = -60;
+      const tgtZ = 120;
+      const tgtP = project3D(tgtX, tgtY, tgtZ, cx, cy, scale);
+
+      // Draw Target (Diamond stealth cross)
+      holoCtx.strokeStyle = '#10b981';
+      holoCtx.lineWidth = 2;
+      const tSize = 10 * tgtP.fov;
+      holoCtx.strokeRect(tgtP.px - tSize, tgtP.py - tSize, tSize * 2, tSize * 2);
+      holoCtx.fillStyle = 'rgba(16, 185, 129, 0.4)';
+      holoCtx.fillRect(tgtP.px - tSize, tgtP.py - tSize, tSize * 2, tSize * 2);
+
+      holoCtx.fillStyle = '#10b981';
+      holoCtx.font = '10px monospace';
+      holoCtx.fillText(`TARGET [RCS=${STATE.rcs}m²]`, tgtP.px + 14, tgtP.py + 4);
+
+      // Radar Ping Wavefront
+      if (STATE.pingActive) {
+        STATE.pingRadius += 10;
+        if (STATE.pingRadius > 350) STATE.pingActive = false;
+
+        const pingP = project3D(0, 0, 0, cx, cy, scale);
+        holoCtx.strokeStyle = `rgba(56, 189, 248, ${Math.max(0, 1.0 - STATE.pingRadius / 350)})`;
+        holoCtx.lineWidth = 2.5;
+        holoCtx.beginPath();
+        holoCtx.arc(pingP.px, pingP.py, STATE.pingRadius * pingP.fov * STATE.zoom, 0, Math.PI * 2);
+        holoCtx.stroke();
+      }
+    }
+
+    // --- Scope 1: Attosecond Berry Interference Fringe ---
+    function renderScopeFringe() {
+      const w = scopeFringe.width;
+      const h = scopeFringe.height;
+      fringeCtx.clearRect(0, 0, w, h);
+
+      // Grid
+      fringeCtx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+      fringeCtx.lineWidth = 1;
+      fringeCtx.beginPath();
+      for (let x = 0; x < w; x += 30) { fringeCtx.moveTo(x, 0); fringeCtx.lineTo(x, h); }
+      for (let y = 0; y < h; y += 25) { fringeCtx.moveTo(0, y); fringeCtx.lineTo(w, y); }
+      fringeCtx.stroke();
+
+      // Interference Fringe Oscillations: cos(delta_tau * omega + gamma_B)
+      fringeCtx.beginPath();
+      const pts = 120;
+      for (let i = 0; i < pts; i++) {
+        const u = i / (pts - 1);
+        const delayAs = (u - 0.5) * 500; // as delay
+        const phase = delayAs * 0.04 + STATE.berryPhase * Math.PI + STATE.time * 2.5;
+        const envelope = Math.exp(-Math.pow(delayAs / (STATE.tau * 1.5), 2));
+        const fringe = envelope * Math.cos(phase);
+
+        const x = u * w;
+        const y = h * 0.5 - fringe * (h * 0.42);
+
+        if (i === 0) fringeCtx.moveTo(x, y);
+        else fringeCtx.lineTo(x, y);
+      }
+      fringeCtx.strokeStyle = '#38bdf8';
+      fringeCtx.lineWidth = 2.2;
+      fringeCtx.shadowColor = '#38bdf8';
+      fringeCtx.shadowBlur = 8;
+      fringeCtx.stroke();
+      fringeCtx.shadowBlur = 0;
+
+      fringeCtx.fillStyle = '#94a3b8';
+      fringeCtx.font = '9px monospace';
+      fringeCtx.fillText(`Berry Phase γ_B = ${STATE.berryPhase.toFixed(2)}π`, 10, 15);
+    }
+
+    // --- Scope 2: Radar Echo Heisenberg Scaling SNR(R) ---
+    function renderScopeEcho() {
+      const w = scopeEcho.width;
+      const h = scopeEcho.height;
+      echoCtx.clearRect(0, 0, w, h);
+
+      // Grid
+      echoCtx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+      echoCtx.lineWidth = 1;
+      echoCtx.beginPath();
+      for (let x = 0; x < w; x += 30) { echoCtx.moveTo(x, 0); echoCtx.lineTo(x, h); }
+      for (let y = 0; y < h; y += 25) { echoCtx.moveTo(0, y); echoCtx.lineTo(w, y); }
+      echoCtx.stroke();
+
+      // Curve 1: Quantum Heisenberg Limit (1/N scaling, high SNR)
+      echoCtx.beginPath();
+      const pts = 80;
+      for (let i = 0; i < pts; i++) {
+        const u = i / (pts - 1);
+        const distR = 10 + u * 100; // km
+        const qSnr = STATE.snrDb - 15.0 * Math.log10(distR / 10.0);
+        const x = u * w;
+        const y = h - (qSnr / 45.0) * (h * 0.85);
+        if (i === 0) echoCtx.moveTo(x, y);
+        else echoCtx.lineTo(x, y);
+      }
+      echoCtx.strokeStyle = '#10b981';
+      echoCtx.lineWidth = 2.2;
+      echoCtx.stroke();
+
+      // Curve 2: Classical Standard Quantum Limit (1/sqrt(N) scaling)
+      echoCtx.beginPath();
+      for (let i = 0; i < pts; i++) {
+        const u = i / (pts - 1);
+        const distR = 10 + u * 100;
+        const cSnr = (STATE.snrDb - 12.0) - 25.0 * Math.log10(distR / 10.0);
+        const x = u * w;
+        const y = h - (Math.max(0, cSnr) / 45.0) * (h * 0.85);
+        if (i === 0) echoCtx.moveTo(x, y);
+        else echoCtx.lineTo(x, y);
+      }
+      echoCtx.strokeStyle = '#f43f5e';
+      echoCtx.setLineDash([3, 3]);
+      echoCtx.lineWidth = 1.6;
+      echoCtx.stroke();
+      echoCtx.setLineDash([]);
+
+      // Legend
+      echoCtx.fillStyle = '#10b981';
+      echoCtx.font = '9px monospace';
+      echoCtx.fillText('Topological Quantum (1/N)', 10, 15);
+      echoCtx.fillStyle = '#f43f5e';
+      echoCtx.fillText('Classical Radar (1/√N)', 10, 28);
+    }
+
+    // --- Simulation Loop ---
+    let lastTime = performance.now();
+    function animate(currentTime) {
+      const dt = Math.min(0.05, (currentTime - lastTime) * 0.001);
+      lastTime = currentTime;
+      STATE.time += dt;
+
+      renderHologram();
+      renderScopeFringe();
+      renderScopeEcho();
+
+      requestAnimationFrame(animate);
+    }
+
+    // Initialize
+    resizeCanvases();
+    updatePhysics();
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>

@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>交错磁体-手征超导体界面马约拉纳费米囊泡与非互易热电晶体管全息模拟器</title>
+  <style>
+    :root {
+      --bg-base: #030712;
+      --panel-bg: rgba(15, 23, 42, 0.78);
+      --panel-border: rgba(245, 158, 11, 0.28);
+      --accent-amber: #f59e0b;
+      --accent-cyan: #38bdf8;
+      --accent-rose: #f43f5e;
+      --accent-purple: #c084fc;
+      --accent-emerald: #10b981;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+    body {
+      background: var(--bg-base);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      overflow: hidden;
+    }
+    #viewport-container {
+      position: relative;
+      flex: 1;
+      height: 100%;
+      background: radial-gradient(circle at 50% 50%, #17150d 0%, #030712 100%);
+    }
+    canvas#holo-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    /* Side Control Dashboard */
+    #sidebar {
+      width: 440px;
+      height: 100%;
+      background: var(--panel-bg);
+      backdrop-filter: blur(20px);
+      border-left: 1px solid var(--panel-border);
+      display: flex;
+      flex-direction: column;
+      z-index: 10;
+      box-shadow: -10px 0 35px rgba(0,0,0,0.65);
+      overflow-y: auto;
+    }
+    #sidebar::-webkit-scrollbar {
+      width: 5px;
+    }
+    #sidebar::-webkit-scrollbar-thumb {
+      background: rgba(245, 158, 11, 0.35);
+      border-radius: 4px;
+    }
+    .header-box {
+      padding: 20px 24px 16px;
+      border-bottom: 1px solid rgba(245, 158, 11, 0.15);
+      background: linear-gradient(180deg, rgba(245, 158, 11, 0.08) 0%, transparent 100%);
+    }
+    .badge-tag {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--accent-amber);
+      background: rgba(245, 158, 11, 0.14);
+      border: 1px solid rgba(245, 158, 11, 0.35);
+      padding: 3px 8px;
+      border-radius: 4px;
+      margin-bottom: 8px;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+    }
+    h1 {
+      font-size: 18px;
+      font-weight: 700;
+      line-height: 1.4;
+      color: #fff;
+      letter-spacing: -0.2px;
+    }
+    .sub-title {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 5px;
+      font-family: var(--font-mono);
+    }
+    .content-box {
+      padding: 18px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+    .section-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--accent-amber);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+    .section-title::before {
+      content: '';
+      display: inline-block;
+      width: 4px;
+      height: 12px;
+      background: var(--accent-amber);
+      border-radius: 2px;
+    }
+    /* Scope Card */
+    .scope-panel {
+      background: rgba(2, 6, 23, 0.65);
+      border: 1px solid rgba(245, 158, 11, 0.2);
+      border-radius: 8px;
+      padding: 12px;
+    }
+    .scope-title {
+      font-size: 11px;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    .scope-canvas-wrap {
+      width: 100%;
+      height: 115px;
+      position: relative;
+    }
+    canvas.scope-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      background: #020617;
+      border-radius: 4px;
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+    /* Readout Grid */
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+    .metric-item {
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 6px;
+      padding: 8px 12px;
+    }
+    .metric-lbl {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    .metric-val {
+      font-family: var(--font-mono);
+      font-size: 15px;
+      font-weight: 700;
+      margin-top: 2px;
+      color: #fff;
+    }
+    /* Sliders */
+    .slider-group {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .control-row {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .control-label-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--text-main);
+    }
+    .control-val {
+      font-family: var(--font-mono);
+      color: var(--accent-amber);
+    }
+    input[type=range] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.12);
+      border-radius: 2px;
+      outline: none;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--accent-amber);
+      cursor: pointer;
+      box-shadow: 0 0 8px var(--accent-amber);
+      transition: transform 0.1s;
+    }
+    input[type=range]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+    /* Buttons */
+    .btn-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+    .btn {
+      background: rgba(30, 41, 59, 0.7);
+      border: 1px solid rgba(245, 158, 11, 0.25);
+      color: #e2e8f0;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 8px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s;
+    }
+    .btn:hover {
+      background: rgba(245, 158, 11, 0.2);
+      border-color: var(--accent-amber);
+      color: #fff;
+      box-shadow: 0 0 10px rgba(245, 158, 11, 0.25);
+    }
+    .btn-active {
+      background: rgba(245, 158, 11, 0.35);
+      border-color: var(--accent-amber);
+      color: #fff;
+    }
+    .action-btn {
+      width: 100%;
+      background: linear-gradient(135deg, rgba(245, 158, 11, 0.25), rgba(56, 189, 248, 0.25));
+      border: 1px solid rgba(245, 158, 11, 0.4);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .action-btn:hover {
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 14px rgba(56, 189, 248, 0.35);
+      transform: translateY(-1px);
+    }
+    /* Theory Box */
+    .theory-box {
+      font-size: 11px;
+      color: var(--text-muted);
+      line-height: 1.6;
+      background: rgba(2, 6, 23, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      border-radius: 6px;
+      padding: 10px 12px;
+    }
+    .theory-box b {
+      color: var(--accent-amber);
+    }
+    /* Overlay HUD */
+    #hud-overlay {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .hud-chip {
+      background: rgba(3, 7, 18, 0.82);
+      border: 1px solid rgba(245, 158, 11, 0.25);
+      backdrop-filter: blur(10px);
+      padding: 8px 14px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-family: var(--font-mono);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .dot-live {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent-amber);
+      box-shadow: 0 0 8px var(--accent-amber);
+      animation: pulse 1.8s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+    #back-btn {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid var(--panel-border);
+      color: var(--text-main);
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      text-decoration: none;
+      backdrop-filter: blur(10px);
+      transition: all 0.2s;
+      z-index: 20;
+    }
+    #back-btn:hover {
+      background: var(--accent-amber);
+      color: #000;
+      box-shadow: 0 0 15px rgba(245, 158, 11, 0.5);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 3D Holographic Viewport -->
+  <div id="viewport-container">
+    <canvas id="holo-canvas"></canvas>
+    
+    <div id="hud-overlay">
+      <div class="hud-chip">
+        <span class="dot-live"></span>
+        <span>ALTERMAGNET-SC FERMI POCKET EMULATOR [v322.0]</span>
+      </div>
+      <div class="hud-chip">
+        <span style="color:var(--accent-amber);">MAJORANA POCKET:</span>
+        <span id="hud-pocket-txt" style="color:var(--accent-emerald);font-weight:bold;">OPEN 2D POCKET (d-Wave Split)</span>
+      </div>
+      <div class="hud-chip">
+        <span style="color:var(--accent-cyan);">THERMOELECTRIC RECTIFICATION:</span>
+        <span id="hud-rect-txt" style="color:var(--accent-amber);font-weight:bold;">η_rect = 74.2 % (ZT = 4.28)</span>
+      </div>
+    </div>
+
+    <a href="index.html" id="back-btn">← 返回中央展厅 (322)</a>
+  </div>
+
+  <!-- Sidebar Controls -->
+  <div id="sidebar">
+    <div class="header-box">
+      <span class="badge-tag">Topological Thermoelectrics</span>
+      <h1>交错磁体-手征超导体界面马约拉纳费米囊泡与非互易热电晶体管全息模拟器</h1>
+      <div class="sub-title">Bogoliubov Majorana Fermi Pocket &amp; Nonreciprocal Seebeck Transistor</div>
+    </div>
+
+    <div class="content-box">
+      <!-- Readout Grid -->
+      <div class="metric-grid">
+        <div class="metric-item">
+          <div class="metric-lbl">塞贝克系数 S_xx</div>
+          <div class="metric-val" id="val-seebeck" style="color:var(--accent-amber);">245 μV/K</div>
+        </div>
+        <div class="metric-item">
+          <div class="metric-lbl">热电整流效率 η_rect</div>
+          <div class="metric-val" id="val-rect" style="color:var(--accent-emerald);">74.2 %</div>
+        </div>
+        <div class="metric-item">
+          <div class="metric-lbl">囊泡费米动量 k_F</div>
+          <div class="metric-val" id="val-kf" style="color:var(--accent-cyan);">0.36 Å⁻¹</div>
+        </div>
+        <div class="metric-item">
+          <div class="metric-lbl">热电优值 ZT</div>
+          <div class="metric-val" id="val-zt" style="color:var(--accent-purple);">4.28</div>
+        </div>
+      </div>
+
+      <!-- Scopes -->
+      <div class="scope-panel">
+        <div class="scope-title">
+          <span>MAJORANA FERMI POCKET IN BZ E(kx, ky)</span>
+          <span style="color:var(--accent-amber);">Cloverleaf Pocket</span>
+        </div>
+        <div class="scope-canvas-wrap">
+          <canvas class="scope-canvas" id="scope-pocket"></canvas>
+        </div>
+      </div>
+
+      <div class="scope-panel">
+        <div class="scope-title">
+          <span>NONRECIPROCAL THERMOELECTRIC I(ΔT)</span>
+          <span style="color:var(--accent-emerald);">Thermal Rectifier</span>
+        </div>
+        <div class="scope-canvas-wrap">
+          <canvas class="scope-canvas" id="scope-thermo"></canvas>
+        </div>
+      </div>
+
+      <!-- Action Button -->
+      <div>
+        <button class="action-btn" id="btn-reverse-heat">反转温度梯度流向 ∇T ⇄ -∇T (Invert Heat Flow)</button>
+      </div>
+
+      <!-- Sliders -->
+      <div>
+        <div class="section-title">交错磁体-超导界面微观调控</div>
+        <div class="slider-group">
+          <div class="control-row">
+            <div class="control-label-row">
+              <span>交错磁 d 波交换强度 J_d</span>
+              <span class="control-val" id="lbl-jd">22.0 meV</span>
+            </div>
+            <input type="range" id="sl-jd" min="5.0" max="45.0" step="0.5" value="22.0">
+          </div>
+
+          <div class="control-row">
+            <div class="control-label-row">
+              <span>手征超导配对能隙 Δ₀</span>
+              <span class="control-val" id="lbl-delta">8.5 meV</span>
+            </div>
+            <input type="range" id="sl-delta" min="1.0" max="20.0" step="0.5" value="8.5">
+          </div>
+
+          <div class="control-row">
+            <div class="control-label-row">
+              <span>界面静电门压 V_gate</span>
+              <span class="control-val" id="lbl-vgate">0.25 V</span>
+            </div>
+            <input type="range" id="sl-vgate" min="-1.5" max="1.5" step="0.02" value="0.25">
+          </div>
+
+          <div class="control-row">
+            <div class="control-label-row">
+              <span>界面温差梯度 ΔT</span>
+              <span class="control-val" id="lbl-dt">4.5 K</span>
+            </div>
+            <input type="range" id="sl-dt" min="0.5" max="15.0" step="0.1" value="4.5">
+          </div>
+
+          <div class="control-row">
+            <div class="control-label-row">
+              <span>外加垂直磁场 B_z</span>
+              <span class="control-val" id="lbl-bz">0.18 T</span>
+            </div>
+            <input type="range" id="sl-bz" min="0.0" max="1.0" step="0.02" value="0.18">
+          </div>
+        </div>
+      </div>
+
+      <!-- Presets -->
+      <div>
+        <div class="section-title">典型工作物理相与预设工况</div>
+        <div class="btn-grid">
+          <button class="btn btn-active" id="pre-pocket">马约拉纳囊泡基态</button>
+          <button class="btn" id="pre-giant-thermo">巨非互易热电开态</button>
+          <button class="btn" id="pre-gapped">全能隙拓扑绝缘态</button>
+          <button class="btn" id="pre-thermal-melt">高温退相干融化相</button>
+        </div>
+      </div>
+
+      <!-- Theory Box -->
+      <div class="theory-box">
+        <b>微观哈密顿量与非互易热电机理：</b><br>
+        1. <b>Bogoliubov 马约拉纳费米囊泡：</b> 交错磁体各向异性自旋劈裂 $H_{\text{alt}} = J_d(k_x^2 - k_y^2)\sigma_z$ 与手征超导配对 $\Delta_{\mathbf{k}} = \Delta_0(k_x + ik_y)$ 竞争。在 $[C_4||T]$ 破缺下，原本零维马约拉纳边缘态拓扑相变扩张为闭合的二维费米面囊泡（Fermi Pockets）。<br>
+        2. <b>非互易热电塞贝克整流：</b> 囊泡处粒子-空穴对称性局域破坏引发巨态密度导数 $\mathcal{N}'(E_F)$，使得塞贝克热电势 $V_{\text{th}} = S \Delta T$ 在顺逆向表现出整流比 $\eta_{\text{rect}} > 70\%$ 与热电优值 $ZT > 4$。
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    // --- Audio Engine (Thermoelectric Resonator) ---
+    class AudioEngine {
+      constructor() {
+        this.ctx = null;
+        this.enabled = false;
+      }
+      init() {
+        if (!this.ctx) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          this.ctx = new AudioContext();
+          this.enabled = true;
+        }
+        if (this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      }
+      playThermoPulse(isInverted) {
+        if (!this.enabled || !this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = isInverted ? 'sawtooth' : 'triangle';
+        const startFreq = isInverted ? 240 : 480;
+        const endFreq = isInverted ? 120 : 720;
+
+        osc.frequency.setValueAtTime(startFreq, now);
+        osc.frequency.exponentialRampToValueAtTime(endFreq, now + 0.14);
+
+        gain.gain.setValueAtTime(0.07, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.2);
+      }
+    }
+    const audio = new AudioEngine();
+    window.addEventListener('click', () => audio.init(), { once: true });
+
+    // --- State Object ---
+    const STATE = {
+      jd: 22.0,          // Altermagnetic exchange (meV)
+      delta0: 8.5,       // Chiral SC gap (meV)
+      vGate: 0.25,       // Interface gate voltage (V)
+      dT: 4.5,           // Temperature gradient (K)
+      bz: 0.18,          // Out-of-plane field (T)
+      heatInverted: false,
+
+      // Computed Physics
+      seebeck: 245,      // uV/K
+      rectRatio: 74.2,   // %
+      kfPocket: 0.36,    // Angstrom^-1
+      zt: 4.28,
+      isPocketOpen: true,
+
+      // 3D Viewport
+      rotX: 25 * Math.PI / 180,
+      rotY: -40 * Math.PI / 180,
+      zoom: 1.0,
+      isDragging: false,
+      lastMouseX: 0,
+      lastMouseY: 0,
+      time: 0
+    };
+
+    // --- Canvases ---
+    const holoCanvas = document.getElementById('holo-canvas');
+    const holoCtx = holoCanvas.getContext('2d');
+    const scopePock = document.getElementById('scope-pocket');
+    const pockCtx = scopePock.getContext('2d');
+    const scopeTh = document.getElementById('scope-thermo');
+    const thCtx = scopeTh.getContext('2d');
+
+    function resizeCanvases() {
+      const container = document.getElementById('viewport-container');
+      holoCanvas.width = container.clientWidth * window.devicePixelRatio;
+      holoCanvas.height = container.clientHeight * window.devicePixelRatio;
+      
+      scopePock.width = scopePock.clientWidth * window.devicePixelRatio;
+      scopePock.height = scopePock.clientHeight * window.devicePixelRatio;
+      
+      scopeTh.width = scopeTh.clientWidth * window.devicePixelRatio;
+      scopeTh.height = scopeTh.clientHeight * window.devicePixelRatio;
+    }
+    window.addEventListener('resize', resizeCanvases);
+
+    // --- Mouse Listeners ---
+    holoCanvas.addEventListener('mousedown', e => {
+      STATE.isDragging = true;
+      STATE.lastMouseX = e.clientX;
+      STATE.lastMouseY = e.clientY;
+      audio.init();
+    });
+    window.addEventListener('mouseup', () => STATE.isDragging = false);
+    holoCanvas.addEventListener('mousemove', e => {
+      if (!STATE.isDragging) return;
+      const dx = e.clientX - STATE.lastMouseX;
+      const dy = e.clientY - STATE.lastMouseY;
+      STATE.rotY += dx * 0.006;
+      STATE.rotX += dy * 0.006;
+      STATE.lastMouseX = e.clientX;
+      STATE.lastMouseY = e.clientY;
+    });
+    holoCanvas.addEventListener('wheel', e => {
+      e.preventDefault();
+      STATE.zoom *= (e.deltaY > 0 ? 0.94 : 1.06);
+      STATE.zoom = Math.max(0.4, Math.min(2.8, STATE.zoom));
+    }, { passive: false });
+
+    // --- Controls Binding ---
+    const slJd = document.getElementById('sl-jd');
+    const slDelta = document.getElementById('sl-delta');
+    const slVgate = document.getElementById('sl-vgate');
+    const slDt = document.getElementById('sl-dt');
+    const slBz = document.getElementById('sl-bz');
+
+    slJd.addEventListener('input', e => {
+      STATE.jd = parseFloat(e.target.value);
+      document.getElementById('lbl-jd').innerText = STATE.jd.toFixed(1) + ' meV';
+      updatePhysics();
+    });
+    slDelta.addEventListener('input', e => {
+      STATE.delta0 = parseFloat(e.target.value);
+      document.getElementById('lbl-delta').innerText = STATE.delta0.toFixed(1) + ' meV';
+      updatePhysics();
+    });
+    slVgate.addEventListener('input', e => {
+      STATE.vGate = parseFloat(e.target.value);
+      document.getElementById('lbl-vgate').innerText = STATE.vGate.toFixed(2) + ' V';
+      updatePhysics();
+    });
+    slDt.addEventListener('input', e => {
+      STATE.dT = parseFloat(e.target.value);
+      document.getElementById('lbl-dt').innerText = STATE.dT.toFixed(1) + ' K';
+      updatePhysics();
+    });
+    slBz.addEventListener('input', e => {
+      STATE.bz = parseFloat(e.target.value);
+      document.getElementById('lbl-bz').innerText = STATE.bz.toFixed(2) + ' T';
+      updatePhysics();
+    });
+
+    document.getElementById('btn-reverse-heat').addEventListener('click', () => {
+      audio.init();
+      STATE.heatInverted = !STATE.heatInverted;
+      audio.playThermoPulse(STATE.heatInverted);
+      updatePhysics();
+    });
+
+    // Presets
+    const presets = [
+      { id: 'pre-pocket', jd: 22.0, delta0: 8.5, vGate: 0.25, dt: 4.5, bz: 0.18 },
+      { id: 'pre-giant-thermo', jd: 35.0, delta0: 6.0, vGate: 0.45, dt: 9.0, bz: 0.35 },
+      { id: 'pre-gapped', jd: 8.0, delta0: 15.0, vGate: -0.80, dt: 2.0, bz: 0.05 },
+      { id: 'pre-thermal-melt', jd: 18.0, delta0: 4.0, vGate: 0.10, dt: 13.5, bz: 0.60 }
+    ];
+    presets.forEach(p => {
+      document.getElementById(p.id).addEventListener('click', () => {
+        presets.forEach(o => document.getElementById(o.id).classList.remove('btn-active'));
+        document.getElementById(p.id).classList.add('btn-active');
+
+        STATE.jd = p.jd; slJd.value = p.jd; document.getElementById('lbl-jd').innerText = p.jd.toFixed(1) + ' meV';
+        STATE.delta0 = p.delta0; slDelta.value = p.delta0; document.getElementById('lbl-delta').innerText = p.delta0.toFixed(1) + ' meV';
+        STATE.vGate = p.vGate; slVgate.value = p.vGate; document.getElementById('lbl-vgate').innerText = p.vGate.toFixed(2) + ' V';
+        STATE.dT = p.dt; slDt.value = p.dt; document.getElementById('lbl-dt').innerText = p.dt.toFixed(1) + ' K';
+        STATE.bz = p.bz; slBz.value = p.bz; document.getElementById('lbl-bz').innerText = p.bz.toFixed(2) + ' T';
+
+        updatePhysics();
+      });
+    });
+
+    // --- Physics Model Update ---
+    function updatePhysics() {
+      // 1. Majorana Fermi Pocket Condition: J_d > Delta_0
+      STATE.isPocketOpen = (STATE.jd > STATE.delta0 * 1.05);
+
+      // 2. Pocket Fermi Momentum k_F = sqrt((J_d - Delta_0) / t_hop)
+      if (STATE.isPocketOpen) {
+        const excess = STATE.jd - STATE.delta0;
+        STATE.kfPocket = Math.min(0.85, 0.12 * Math.sqrt(excess) + Math.abs(STATE.vGate) * 0.15);
+      } else {
+        STATE.kfPocket = 0.02;
+      }
+
+      // 3. Seebeck Coefficient S_xx
+      // Asymmetric density of states slope at Fermi pocket contour
+      const asymmetry = (STATE.jd / STATE.delta0) * (1.0 + Math.abs(STATE.vGate) * 0.8);
+      const baseS = STATE.isPocketOpen ? (160 * asymmetry) : 28;
+      STATE.seebeck = Math.round(baseS * (STATE.dT / 5.0) * (1.0 + STATE.bz * 0.5));
+
+      // 4. Nonreciprocal Rectification Ratio eta_rect
+      const forwardI = STATE.seebeck * STATE.dT * 0.015;
+      const reverseI = forwardI * Math.max(0.08, 0.28 - (STATE.jd / 120.0));
+      STATE.rectRatio = Math.min(92.0, ((forwardI - reverseI) / (forwardI + reverseI)) * 100.0);
+
+      // 5. Thermoelectric Figure of Merit ZT
+      STATE.zt = Math.max(0.2, (Math.pow(STATE.seebeck, 2) * 1e-8 * (STATE.dT + 273.15)) / (1.8 + STATE.bz * 0.8));
+
+      // UI Update
+      document.getElementById('val-seebeck').innerText = `${STATE.seebeck} μV/K`;
+      document.getElementById('val-rect').innerText = `${STATE.rectRatio.toFixed(1)} %`;
+      document.getElementById('val-kf').innerText = `${STATE.kfPocket.toFixed(2)} Å⁻¹`;
+      document.getElementById('val-zt').innerText = STATE.zt.toFixed(2);
+
+      const hudPocket = document.getElementById('hud-pocket-txt');
+      if (STATE.isPocketOpen) {
+        hudPocket.innerText = `OPEN 2D POCKET (kF=${STATE.kfPocket.toFixed(2)}Å⁻¹)`;
+        hudPocket.style.color = 'var(--accent-emerald)';
+      } else {
+        hudPocket.innerText = 'GAPPED TOPOLOGICAL STATE (Closed)';
+        hudPocket.style.color = 'var(--accent-rose)';
+      }
+      document.getElementById('hud-rect-txt').innerText = `η_rect = ${STATE.rectRatio.toFixed(1)} % (ZT = ${STATE.zt.toFixed(2)})`;
+    }
+
+    // --- 3D Projection Helpers ---
+    function project3D(x, y, z, cx, cy, scale) {
+      const cosY = Math.cos(STATE.rotY), sinY = Math.sin(STATE.rotY);
+      const x1 = x * cosY + z * sinY;
+      const z1 = -x * sinY + z * cosY;
+
+      const cosX = Math.cos(STATE.rotX), sinX = Math.sin(STATE.rotX);
+      const y2 = y * cosX - z1 * sinX;
+      const z2 = y * sinX + z1 * cosX;
+
+      const dist = 700;
+      const fov = dist / (dist + z2);
+      return {
+        px: cx + x1 * fov * scale * STATE.zoom,
+        py: cy + y2 * fov * scale * STATE.zoom,
+        depth: z2,
+        fov: fov
+      };
+    }
+
+    // --- 3D Holographic Rendering ---
+    function renderHologram() {
+      const w = holoCanvas.width;
+      const h = holoCanvas.height;
+      holoCtx.clearRect(0, 0, w, h);
+
+      const cx = w * 0.5;
+      const cy = h * 0.5;
+      const scale = Math.min(w, h) * 0.0016;
+
+      // 1. Draw Altermagnetic Lattice Substrate (d-wave anisotropic spins)
+      const gridSize = 6;
+      const spacing = 46;
+      for (let ix = -gridSize; ix <= gridSize; ix++) {
+        for (let iz = -gridSize; iz <= gridSize; iz++) {
+          const px = ix * spacing;
+          const pz = iz * spacing;
+          const py = 60; // bottom plane
+
+          // Altermagnetic spin: d-wave sign (ix^2 - iz^2)
+          const dWaveSign = ((ix * ix - iz * iz) >= 0) ? 1 : -1;
+          const spinVy = -30 * dWaveSign * (STATE.jd / 25.0);
+          const spinVx = Math.sin(STATE.time * 3 + ix * 0.5) * 6;
+
+          const baseP = project3D(px, py, pz, cx, cy, scale);
+          const tipP = project3D(px + spinVx, py + spinVy, pz, cx, cy, scale);
+
+          // Lattice links
+          if (ix < gridSize) {
+            const nextP = project3D((ix + 1) * spacing, py, pz, cx, cy, scale);
+            holoCtx.beginPath();
+            holoCtx.moveTo(baseP.px, baseP.py);
+            holoCtx.lineTo(nextP.px, nextP.py);
+            holoCtx.strokeStyle = 'rgba(245, 158, 11, 0.12)';
+            holoCtx.lineWidth = 1;
+            holoCtx.stroke();
+          }
+          if (iz < gridSize) {
+            const nextPz = project3D(px, py, (iz + 1) * spacing, cx, cy, scale);
+            holoCtx.beginPath();
+            holoCtx.moveTo(baseP.px, baseP.py);
+            holoCtx.lineTo(nextPz.px, nextPz.py);
+            holoCtx.strokeStyle = 'rgba(245, 158, 11, 0.12)';
+            holoCtx.lineWidth = 1;
+            holoCtx.stroke();
+          }
+
+          // Spin Vector
+          holoCtx.beginPath();
+          holoCtx.moveTo(baseP.px, baseP.py);
+          holoCtx.lineTo(tipP.px, tipP.py);
+          holoCtx.strokeStyle = dWaveSign > 0 ? 'rgba(245, 158, 11, 0.85)' : 'rgba(56, 189, 248, 0.85)';
+          holoCtx.lineWidth = 2 * baseP.fov;
+          holoCtx.stroke();
+        }
+      }
+
+      // 2. Majorana Fermi Pocket Contour in Momentum Space (Cloverleaf Lobes)
+      if (STATE.isPocketOpen) {
+        const pocketPts = 90;
+        const pocketScale = 140 * (STATE.kfPocket / 0.36);
+
+        holoCtx.beginPath();
+        for (let i = 0; i <= pocketPts; i++) {
+          const ang = (i / pocketPts) * Math.PI * 2;
+          // d-wave cloverleaf modulation: r = r0 * (1 + 0.45 * cos(2 * theta))
+          const modR = pocketScale * (0.7 + 0.35 * Math.cos(2 * ang));
+          const kx = Math.cos(ang) * modR;
+          const kz = Math.sin(ang) * modR;
+          const ky = -40 + Math.sin(ang * 4 - STATE.time * 4) * 8;
+
+          const p = project3D(kx, ky, kz, cx, cy, scale);
+          if (i === 0) holoCtx.moveTo(p.px, p.py);
+          else holoCtx.lineTo(p.px, p.py);
+        }
+        holoCtx.strokeStyle = '#10b981';
+        holoCtx.lineWidth = 3.2;
+        holoCtx.shadowColor = '#10b981';
+        holoCtx.shadowBlur = 14;
+        holoCtx.stroke();
+        holoCtx.shadowBlur = 0;
+      }
+
+      // 3. Thermoelectric Particle Flow Particles (Hot to Cold nonreciprocal drift)
+      const numParticles = 24;
+      const heatDir = STATE.heatInverted ? -1 : 1;
+      for (let p = 0; p < numParticles; p++) {
+        const pPhase = (STATE.time * 2.5 * heatDir + (p / numParticles)) % 1;
+        const normP = pPhase < 0 ? pPhase + 1 : pPhase;
+        const posX = -140 + normP * 280;
+        const posY = -35 + Math.sin(normP * Math.PI * 4 + p) * 12;
+        const posZ = Math.cos(normP * Math.PI * 2 + p) * 35;
+
+        const p3d = project3D(posX, posY, posZ, cx, cy, scale);
+
+        holoCtx.fillStyle = heatDir > 0 ? '#fbbf24' : '#38bdf8';
+        holoCtx.shadowColor = heatDir > 0 ? '#f59e0b' : '#0284c7';
+        holoCtx.shadowBlur = 10;
+        holoCtx.beginPath();
+        holoCtx.arc(p3d.px, p3d.py, 3.5 * p3d.fov, 0, Math.PI * 2);
+        holoCtx.fill();
+        holoCtx.shadowBlur = 0;
+      }
+    }
+
+    // --- Scope 1: Majorana Fermi Pocket in BZ E(kx, ky) ---
+    function renderScopePocket() {
+      const w = scopePock.width;
+      const h = scopePock.height;
+      pockCtx.clearRect(0, 0, w, h);
+
+      // Grid
+      pockCtx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+      pockCtx.lineWidth = 1;
+      pockCtx.beginPath();
+      for (let x = 0; x < w; x += 30) { pockCtx.moveTo(x, 0); pockCtx.lineTo(x, h); }
+      for (let y = 0; y < h; y += 25) { pockCtx.moveTo(0, y); pockCtx.lineTo(w, y); }
+      pockCtx.stroke();
+
+      const cx = w * 0.5;
+      const cy = h * 0.5;
+
+      // Brillouin Zone Square
+      const bzSize = Math.min(w, h) * 0.42;
+      pockCtx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
+      pockCtx.lineWidth = 1;
+      pockCtx.strokeRect(cx - bzSize, cy - bzSize, bzSize * 2, bzSize * 2);
+
+      // Cloverleaf Majorana Fermi Contour
+      if (STATE.isPocketOpen) {
+        const rad = bzSize * 0.85 * (STATE.kfPocket / 0.36);
+        pockCtx.beginPath();
+        const steps = 72;
+        for (let i = 0; i <= steps; i++) {
+          const ang = (i / steps) * Math.PI * 2;
+          const r = rad * (0.65 + 0.35 * Math.cos(2 * ang));
+          const x = cx + Math.cos(ang) * r;
+          const y = cy + Math.sin(ang) * r;
+          if (i === 0) pockCtx.moveTo(x, y);
+          else pockCtx.lineTo(x, y);
+        }
+        pockCtx.strokeStyle = '#10b981';
+        pockCtx.lineWidth = 2.2;
+        pockCtx.shadowColor = '#10b981';
+        pockCtx.shadowBlur = 8;
+        pockCtx.stroke();
+        pockCtx.shadowBlur = 0;
+
+        pockCtx.fillStyle = '#10b981';
+        pockCtx.font = '9px monospace';
+        pockCtx.fillText('E = 0 Majorana Contour', cx - 55, cy + bzSize - 8);
+      } else {
+        pockCtx.fillStyle = '#f43f5e';
+        pockCtx.font = '9px monospace';
+        pockCtx.fillText('FULLY GAPPED (No Fermi Pocket)', cx - 65, cy);
+      }
+    }
+
+    // --- Scope 2: Nonreciprocal Thermoelectric I(ΔT) ---
+    function renderScopeThermo() {
+      const w = scopeTh.width;
+      const h = scopeTh.height;
+      thCtx.clearRect(0, 0, w, h);
+
+      // Grid
+      thCtx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+      thCtx.lineWidth = 1;
+      thCtx.beginPath();
+      for (let x = 0; x < w; x += 30) { thCtx.moveTo(x, 0); thCtx.lineTo(x, h); }
+      for (let y = 0; y < h; y += 25) { thCtx.moveTo(0, y); thCtx.lineTo(w, y); }
+      thCtx.stroke();
+
+      // Axis lines
+      thCtx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+      thCtx.beginPath();
+      thCtx.moveTo(w * 0.5, 0); thCtx.lineTo(w * 0.5, h);
+      thCtx.moveTo(0, h * 0.5); thCtx.lineTo(w, h * 0.5);
+      thCtx.stroke();
+
+      // Draw Asymmetric Nonreciprocal Thermoelectric I-V Curve
+      thCtx.beginPath();
+      const pts = 80;
+      for (let i = 0; i < pts; i++) {
+        const u = (i / (pts - 1)) * 2.0 - 1.0; // from -1 to 1
+        const gradT = u * 15.0; // Delta T
+
+        // Nonreciprocal current: strong forward, suppressed reverse
+        let iTh = 0;
+        if (gradT >= 0) {
+          iTh = gradT * (STATE.seebeck * 0.012);
+        } else {
+          iTh = gradT * (STATE.seebeck * 0.012) * (1.0 - STATE.rectRatio * 0.01);
+        }
+
+        const x = (u + 1.0) * 0.5 * w;
+        const y = h * 0.5 - (iTh / 2.2) * (h * 0.42);
+
+        if (i === 0) thCtx.moveTo(x, y);
+        else thCtx.lineTo(x, y);
+      }
+      thCtx.strokeStyle = '#f59e0b';
+      thCtx.lineWidth = 2.2;
+      thCtx.shadowColor = '#f59e0b';
+      thCtx.shadowBlur = 8;
+      thCtx.stroke();
+      thCtx.shadowBlur = 0;
+
+      // Current Operating Point
+      const curU = (STATE.heatInverted ? -STATE.dT : STATE.dT) / 15.0;
+      const curX = (curU + 1.0) * 0.5 * w;
+      let curI = 0;
+      if (curU >= 0) {
+        curI = (curU * 15.0) * (STATE.seebeck * 0.012);
+      } else {
+        curI = (curU * 15.0) * (STATE.seebeck * 0.012) * (1.0 - STATE.rectRatio * 0.01);
+      }
+      const curY = h * 0.5 - (curI / 2.2) * (h * 0.42);
+
+      thCtx.fillStyle = '#10b981';
+      thCtx.beginPath();
+      thCtx.arc(curX, curY, 4.5, 0, Math.PI * 2);
+      thCtx.fill();
+
+      thCtx.fillStyle = '#94a3b8';
+      thCtx.font = '9px monospace';
+      thCtx.fillText(`I_th=${curI.toFixed(1)}μA`, Math.max(5, curX - 45), curY - 8);
+    }
+
+    // --- Main Simulation Loop ---
+    let lastTime = performance.now();
+    function animate(currentTime) {
+      const dt = Math.min(0.05, (currentTime - lastTime) * 0.001);
+      lastTime = currentTime;
+      STATE.time += dt;
+
+      renderHologram();
+      renderScopePocket();
+      renderScopeThermo();
+
+      requestAnimationFrame(animate);
+    }
+
+    // Initialize
+    resizeCanvases();
+    updatePhysics();
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>

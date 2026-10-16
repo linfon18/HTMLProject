@@ -1,0 +1,1109 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>拓扑轴子绝缘体与动态拓扑磁电效应全息模拟 - Axion Insulator & Magnetoelectric Effect</title>
+  <style>
+    :root {
+      --bg-dark: #030612;
+      --panel-bg: rgba(9, 15, 30, 0.86);
+      --panel-border: rgba(236, 72, 153, 0.25);
+      --accent-pink: #ec4899;
+      --accent-cyan: #06b6d4;
+      --accent-amber: #f59e0b;
+      --accent-violet: #8b5cf6;
+      --accent-emerald: #10b981;
+      --text-main: #f8fafc;
+      --text-dim: #94a3b8;
+      --font-code: 'JetBrains Mono', 'Fira Code', monospace;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      background: rgba(7, 12, 24, 0.96);
+      border-bottom: 1px solid var(--panel-border);
+      padding: 10px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 20;
+    }
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .badge-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #ec4899, #8b5cf6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 15px rgba(236, 72, 153, 0.4);
+      font-size: 16px;
+      font-weight: bold;
+    }
+    h1 {
+      font-size: 1.05rem;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    h1 span.en {
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      font-weight: normal;
+    }
+    .status-badges {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .badge {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-size: 0.72rem;
+      font-family: var(--font-code);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .badge .val {
+      color: var(--accent-pink);
+      font-weight: 600;
+    }
+    .main-container {
+      flex: 1;
+      display: flex;
+      position: relative;
+      overflow: hidden;
+    }
+    .viewport-area {
+      flex: 1;
+      position: relative;
+      background: radial-gradient(circle at 50% 50%, #0d172e 0%, #030612 100%);
+      overflow: hidden;
+    }
+    canvas#mainCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    /* HUD Overlay */
+    .hud-overlay {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      pointer-events: none;
+      z-index: 10;
+    }
+    .hud-card {
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+      padding: 8px 14px;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    }
+    .hud-title {
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-dim);
+      margin-bottom: 3px;
+    }
+    .hud-val {
+      font-family: var(--font-code);
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--accent-pink);
+    }
+    .hud-sub {
+      font-size: 0.65rem;
+      color: var(--text-dim);
+      margin-top: 2px;
+    }
+    /* Controls and Scopes Sidebar */
+    .sidebar {
+      width: 370px;
+      background: var(--panel-bg);
+      border-left: 1px solid var(--panel-border);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      z-index: 15;
+      backdrop-filter: blur(12px);
+    }
+    .sidebar-section {
+      padding: 14px 18px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .section-title {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--accent-pink);
+      font-weight: 700;
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    /* Scope Boxes */
+    .scope-box {
+      background: rgba(3, 7, 16, 0.95);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      padding: 10px;
+      margin-bottom: 10px;
+      position: relative;
+    }
+    .scope-box header {
+      background: transparent;
+      border: none;
+      padding: 0 0 6px 0;
+      font-size: 0.7rem;
+      color: var(--text-dim);
+      display: flex;
+      justify-content: space-between;
+    }
+    .scope-canvas-wrap {
+      width: 100%;
+      height: 95px;
+      position: relative;
+    }
+    .scope-canvas-wrap canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    /* Controls */
+    .control-group {
+      margin-bottom: 12px;
+    }
+    .control-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.72rem;
+      margin-bottom: 5px;
+      color: var(--text-dim);
+    }
+    .control-header .val {
+      font-family: var(--font-code);
+      color: #fff;
+    }
+    input[type=range] {
+      -webkit-appearance: none;
+      width: 100%;
+      background: rgba(255, 255, 255, 0.1);
+      height: 4px;
+      border-radius: 2px;
+      outline: none;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--accent-pink);
+      cursor: pointer;
+      box-shadow: 0 0 8px rgba(236, 72, 153, 0.6);
+      transition: transform 0.1s;
+    }
+    input[type=range]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+    /* Buttons */
+    .btn-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    button.btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: var(--text-main);
+      padding: 8px 10px;
+      border-radius: 6px;
+      font-size: 0.72rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    button.btn:hover {
+      background: rgba(236, 72, 153, 0.15);
+      border-color: var(--accent-pink);
+      color: #fff;
+    }
+    button.btn.active {
+      background: var(--accent-pink);
+      border-color: var(--accent-pink);
+      color: #fff;
+      font-weight: 700;
+      box-shadow: 0 0 12px rgba(236, 72, 153, 0.4);
+    }
+    /* Legend */
+    .legend-box {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 0.7rem;
+      color: var(--text-dim);
+    }
+    .legend-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .legend-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+    .legend-dot.spin-up { background: var(--accent-pink); box-shadow: 0 0 8px var(--accent-pink); }
+    .legend-dot.spin-dn { background: var(--accent-cyan); box-shadow: 0 0 8px var(--accent-cyan); }
+    .legend-dot.mag { background: var(--accent-amber); box-shadow: 0 0 8px var(--accent-amber); }
+    .legend-dot.axion { background: var(--accent-violet); box-shadow: 0 0 8px var(--accent-violet); }
+
+    .formula-card {
+      background: rgba(236, 72, 153, 0.05);
+      border: 1px dashed rgba(236, 72, 153, 0.3);
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-family: var(--font-code);
+      font-size: 0.72rem;
+      color: #e2e8f0;
+      line-height: 1.5;
+      margin-top: 8px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 顶部状态栏 -->
+  <header>
+    <div class="header-left">
+      <div class="badge-icon">θ</div>
+      <div>
+        <h1>拓扑轴子绝缘体与动态磁电效应 <span class="en">Axion Insulator & Dynamical Magnetoelectric Response</span></h1>
+      </div>
+    </div>
+    <div class="status-badges">
+      <div class="badge">结构: <span class="val" id="hdrMaterial">MnBi₂Te₄ (6 SLs 偶数层)</span></div>
+      <div class="badge">轴子拓扑角: <span class="val" id="hdrTheta">θ = π (3.1415)</span></div>
+      <div class="badge">外加电场 E_z: <span class="val" id="hdrEz">2.50 MV/m</span></div>
+      <div class="badge">外加磁场 B_z: <span class="val" id="hdrBz">0.80 T</span></div>
+      <div class="badge">磁电张量 α_ME: <span class="val" id="hdrAlpha">e²/2h (0.50 G₀)</span></div>
+    </div>
+  </header>
+
+  <div class="main-container">
+    <!-- 主交互全息视口 -->
+    <div class="viewport-area">
+      <canvas id="mainCanvas"></canvas>
+
+      <!-- HUD 悬浮指示卡片 -->
+      <div class="hud-overlay">
+        <div class="hud-card">
+          <div class="hud-title">轴子电动力学作用量 (Axion Action)</div>
+          <div class="hud-val" id="hudAction">S_θ = (α/4π²) ∫ θ E·B d⁴x</div>
+          <div class="hud-sub">空间反演与反铁磁结合保护: θ ≡ π (mod 2π)</div>
+        </div>
+        <div class="hud-card">
+          <div class="hud-title">电诱发拓扑轨道磁化 (E ➔ M)</div>
+          <div class="hud-val" id="hudM" style="color: var(--accent-amber);">M_z = (α θ / 2π) E_z</div>
+          <div class="hud-sub">上下表面手征霍尔边缘流回路产生净磁矩</div>
+        </div>
+        <div class="hud-card">
+          <div class="hud-title">磁诱发表面半整数量子极化 (B ➔ P)</div>
+          <div class="hud-val" id="hudP" style="color: var(--accent-cyan);">P_z = ± (e²/2h) B_z</div>
+          <div class="hud-sub">顶表面 C = +1/2, 底表面 C = -1/2 (净陈数 C = 0)</div>
+        </div>
+        <div class="hud-card">
+          <div class="hud-title">动态轴子极化激元 (Polariton)</div>
+          <div class="hud-val" id="hudPolariton" style="color: var(--accent-violet);">ω_gap = 4.25 meV</div>
+          <div class="hud-sub">光子与反铁磁自旋波共振杂化禁带</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 右侧科学示波器与交互面板 -->
+    <div class="sidebar">
+
+      <!-- 示波器 1 -->
+      <div class="sidebar-section">
+        <div class="section-title">
+          <span>示波器 I: 拓扑磁电响应线性斜率 M(E)</span>
+          <span style="font-size: 0.65rem; color: var(--accent-amber);" id="scope1Status">TME 响应</span>
+        </div>
+        <div class="scope-box">
+          <header>
+            <span>感生轨道磁化强度 M_z [kA/m] 随外电场 E_z</span>
+            <span id="scopeMagVal" style="color: var(--accent-amber); font-family: var(--font-code);">M_z = +3.42 kA/m</span>
+          </header>
+          <div class="scope-canvas-wrap">
+            <canvas id="scopeMagCanvas"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- 示波器 2 -->
+      <div class="sidebar-section">
+        <div class="section-title">
+          <span>示波器 II: 轴子极化激元透射率与动量禁带</span>
+          <span style="font-size: 0.65rem; color: var(--accent-violet);">Transmittance T(ω)</span>
+        </div>
+        <div class="scope-box">
+          <header>
+            <span>太赫兹波透射谱与反铁磁共振频散</span>
+            <span id="scopeTransVal" style="color: var(--accent-violet); font-family: var(--font-code);">T_min = 0.02 (全反射禁带)</span>
+          </header>
+          <div class="scope-canvas-wrap">
+            <canvas id="scopeTransCanvas"></canvas>
+          </div>
+        </div>
+        <div class="formula-card">
+          <strong>拓扑磁电本构关系 (Magnetoelectric Coupling)</strong><br>
+          D = ε E + (α θ / π) c B<br>
+          H = B / μ - (α θ / π) c E<br>
+          在 θ = π 处产生完全量子化拓扑响应！
+        </div>
+      </div>
+
+      <!-- 参数调节控制 -->
+      <div class="sidebar-section">
+        <div class="section-title">轴子拓扑与反铁磁参数控制</div>
+
+        <!-- 轴子拓扑角 theta -->
+        <div class="control-group">
+          <div class="control-header">
+            <span>轴子拓扑相位 (Axion Angle θ / π)</span>
+            <span class="val" id="valTheta">1.00 π (量子化)</span>
+          </div>
+          <input type="range" id="slTheta" min="0.0" max="1.0" step="0.02" value="1.0" oninput="updateParam('theta', this.value)">
+        </div>
+
+        <!-- 外加电场 E_z -->
+        <div class="control-group">
+          <div class="control-header">
+            <span>垂直外加电场 (Electric Field E_z)</span>
+            <span class="val" id="valEz">2.50 MV/m</span>
+          </div>
+          <input type="range" id="slEz" min="-5.0" max="5.0" step="0.1" value="2.5" oninput="updateParam('ez', this.value)">
+        </div>
+
+        <!-- 外加磁场 B_z -->
+        <div class="control-group">
+          <div class="control-header">
+            <span>垂直外加磁场 (Magnetic Field B_z)</span>
+            <span class="val" id="valBz">0.80 T</span>
+          </div>
+          <input type="range" id="slBz" min="0.0" max="5.0" step="0.1" value="0.8" oninput="updateParam('bz', this.value)">
+        </div>
+
+        <!-- 反铁磁交换作用 J_AFM -->
+        <div class="control-group">
+          <div class="control-header">
+            <span>层间反铁磁交换能 (Interlayer J_AFM)</span>
+            <span class="val" id="valJ">1.20 meV</span>
+          </div>
+          <input type="range" id="slJ" min="0.2" max="3.0" step="0.1" value="1.2" oninput="updateParam('j', this.value)">
+        </div>
+
+        <!-- 典型工况预设 -->
+        <div class="section-title" style="margin-top: 15px;">典型物理体系预设</div>
+        <div class="btn-grid">
+          <button class="btn active" id="p1Btn" onclick="applyPreset(1)">MnBi₂Te₄ 偶数层轴子绝缘体</button>
+          <button class="btn" id="p2Btn" onclick="applyPreset(2)">奇数层陈绝缘体 (C = 1 QAHE)</button>
+          <button class="btn" id="p3Btn" onclick="applyPreset(3)">强磁场铁磁对齐态 (θ ➔ 0)</button>
+          <button class="btn" id="p4Btn" onclick="applyPreset(4)">动态轴子极化激元共振</button>
+        </div>
+      </div>
+
+      <!-- 操作与交互按钮 -->
+      <div class="sidebar-section">
+        <div class="section-title">实时光子与磁电脉冲激发</div>
+        <div class="btn-grid" style="grid-template-columns: 1fr 1fr;">
+          <button class="btn" onclick="firePolaritonPulse()">⚡ 激发太赫兹极化激元</button>
+          <button class="btn" onclick="invertAFM()">🔄 反转反铁磁自旋序</button>
+          <button class="btn" id="playBtn" onclick="togglePlay()"><span id="playIcon">⏸</span> <span id="playText">暂停仿真</span></button>
+          <button class="btn" onclick="resetSim()">↺ 重置系统</button>
+        </div>
+
+        <div style="margin-top: 14px;" class="legend-box">
+          <div class="legend-row">
+            <div class="legend-dot spin-up"></div>
+            <span>自旋向上层 (Top Layer Spin ↑, C_top = +1/2)</span>
+          </div>
+          <div class="legend-row">
+            <div class="legend-dot spin-dn"></div>
+            <span>自旋向下层 (Bottom Layer Spin ↓, C_bot = -1/2)</span>
+          </div>
+          <div class="legend-row">
+            <div class="legend-dot mag"></div>
+            <span>电场 E 诱发金黄色拓扑轨道磁化回路 (M_z ∥ ẑ)</span>
+          </div>
+          <div class="legend-row">
+            <div class="legend-dot axion"></div>
+            <span>动态轴子电磁杂化波 (Axion Polariton Wavefront)</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    // -------------------------------------------------------------
+    // 全局物理模型参数与状态
+    // -------------------------------------------------------------
+    const PARAMS = {
+      thetaNorm: 1.0,    // 轴子角归一化 θ / π (0 ~ 1.0)
+      ez: 2.5,           // 外加电场 E_z (MV/m)
+      bz: 0.8,           // 外加磁场 B_z (Tesla)
+      jAfm: 1.2,         // 反铁磁交换能 (meV)
+      numLayers: 6,      // 层数 (偶数层: 轴子绝缘体; 奇数层: 陈绝缘体)
+      paused: false,
+      camRotX: 0.40,
+      camRotY: -0.60,
+      afmInverted: false
+    };
+
+    // 粒子与极化激元脉冲波
+    let polaritonWaves = [];
+    let surfaceCharges = []; // 表面感生拓扑电荷
+    let magLoopParticles = []; // 拓扑轨道磁化电流颗粒
+
+    // 示波器历史缓存
+    const HISTORY_LEN = 140;
+    let magHistory = new Array(HISTORY_LEN).fill(0);
+    let transHistory = new Array(HISTORY_LEN).fill(0);
+
+    // Canvas 获取
+    const mainCanvas = document.getElementById('mainCanvas');
+    const ctx = mainCanvas.getContext('2d');
+    const scopeMagCanvas = document.getElementById('scopeMagCanvas');
+    const ctxMag = scopeMagCanvas.getContext('2d');
+    const scopeTransCanvas = document.getElementById('scopeTransCanvas');
+    const ctxTrans = scopeTransCanvas.getContext('2d');
+
+    let width = 0, height = 0;
+    let lastTime = performance.now();
+
+    // -------------------------------------------------------------
+    // Web Audio 反铁磁进动与拓扑磁电声效
+    // -------------------------------------------------------------
+    let audioCtx = null;
+    function initAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    function playPulseSound() {
+      if (!audioCtx) return;
+      const t = audioCtx.currentTime;
+      // 太赫兹极化激元高频扫频音
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(520, t);
+      osc.frequency.exponentialRampToValueAtTime(140, t + 0.28);
+
+      gain.gain.setValueAtTime(0.2, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(t);
+      osc.stop(t + 0.38);
+    }
+
+    function playAfmInvertSound() {
+      if (!audioCtx) return;
+      const t = audioCtx.currentTime;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(220, t);
+      osc.frequency.exponentialRampToValueAtTime(440, t + 0.2);
+
+      gain.gain.setValueAtTime(0.18, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(t);
+      osc.stop(t + 0.28);
+    }
+
+    // -------------------------------------------------------------
+    // 物理微观实体初始化
+    // -------------------------------------------------------------
+    function initParticles() {
+      // 表面半整数霍尔极化电荷
+      surfaceCharges = [];
+      const numC = 24;
+      for (let i = 0; i < numC; i++) {
+        surfaceCharges.push({
+          u: Math.random(),
+          v: Math.random(),
+          topCharge: 1, // 顶表面正电荷
+          botCharge: -1 // 底表面负电荷
+        });
+      }
+
+      // 拓扑轨道磁化线颗粒
+      magLoopParticles = [];
+      const numM = 30;
+      for (let i = 0; i < numM; i++) {
+        magLoopParticles.push({
+          angle: (i / numM) * Math.PI * 2,
+          radius: 120 + Math.random() * 20,
+          z: (Math.random() - 0.5) * 60,
+          speed: 1.2 + Math.random() * 0.5
+        });
+      }
+    }
+
+    function firePolaritonPulse() {
+      initAudio();
+      playPulseSound();
+      polaritonWaves.push({
+        x: -260,
+        radius: 10,
+        speed: 280,
+        life: 1.0
+      });
+    }
+
+    function invertAFM() {
+      initAudio();
+      PARAMS.afmInverted = !PARAMS.afmInverted;
+      playAfmInvertSound();
+    }
+
+    // -------------------------------------------------------------
+    // 物理动力学步进更新
+    // -------------------------------------------------------------
+    function updateSimulation(dt) {
+      if (PARAMS.paused) return;
+
+      // 1. 轨道磁化电流颗粒绕转：速度 ∝ E_z * θ
+      const magSpeed = (PARAMS.ez / 2.5) * PARAMS.thetaNorm * 1.8;
+      for (let p of magLoopParticles) {
+        p.angle += magSpeed * dt;
+      }
+
+      // 2. 轴子极化激元波包传播
+      for (let i = polaritonWaves.length - 1; i >= 0; i--) {
+        const w = polaritonWaves[i];
+        w.x += w.speed * dt;
+        w.radius += dt * 35.0;
+        w.life -= dt * 0.55;
+        if (w.life <= 0 || w.x > 260) {
+          polaritonWaves.splice(i, 1);
+        }
+      }
+
+      // 3. 示波器 1：感生轨道磁化强度 M_z = (α θ / 2π) * E_z
+      const curM = (PARAMS.thetaNorm * 0.5) * PARAMS.ez * 2.74; // kA/m
+      magHistory.push(curM);
+      if (magHistory.length > HISTORY_LEN) magHistory.shift();
+
+      // 4. 示波器 2：动态轴子极化激元透射率 T(ω) 在共振能隙处下陷
+      const afmGap = 4.25 * PARAMS.jAfm;
+      // 当 θ = π 时轴子能隙极度打开，透射率近乎为零全反射
+      const tMin = Math.max(0.01, 1.0 - PARAMS.thetaNorm * 0.96);
+      transHistory.push(tMin);
+      if (transHistory.length > HISTORY_LEN) transHistory.shift();
+    }
+
+    // -------------------------------------------------------------
+    // 3D 投影与主视口渲染
+    // -------------------------------------------------------------
+    function project3D(x, y, z, cx, cy) {
+      const cosY = Math.cos(PARAMS.camRotY);
+      const sinY = Math.sin(PARAMS.camRotY);
+      const cosX = Math.cos(PARAMS.camRotX);
+      const sinX = Math.sin(PARAMS.camRotX);
+
+      const x1 = x * cosY - z * sinY;
+      const z1 = x * sinY + z * cosY;
+
+      const y2 = y * cosX - z1 * sinX;
+      const z2 = y * sinX + z1 * cosX;
+
+      const scale = 1.35;
+      return {
+        px: cx + x1 * scale,
+        py: cy + y2 * scale,
+        depth: z2
+      };
+    }
+
+    function renderMainView() {
+      ctx.clearRect(0, 0, width, height);
+
+      const cx = width * 0.5;
+      const cy = height * 0.48;
+
+      // 1. 绘制背景网格
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
+      ctx.lineWidth = 1;
+      const gridSize = 40;
+      for (let x = 0; x < width; x += gridSize) {
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke();
+      }
+      for (let y = 0; y < height; y += gridSize) {
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke();
+      }
+
+      // 2. 绘制 MnBi₂Te₄ 反铁磁超晶格多层结构 (AFM Superlattice)
+      const numLayers = PARAMS.numLayers;
+      const layerSpacing = 16;
+      const halfW = 110;
+      const halfH = 75;
+
+      for (let l = 0; l < numLayers; l++) {
+        const lz = (l - (numLayers - 1) * 0.5) * layerSpacing;
+        // 层自旋方向：偶数层反平行交替 (↑ ↓ ↑ ↓ ↑ ↓)
+        let isSpinUp = (l % 2 === 0);
+        if (PARAMS.afmInverted) isSpinUp = !isSpinUp;
+
+        const layerColor = isSpinUp ? 'rgba(236, 72, 153, 0.15)' : 'rgba(6, 182, 212, 0.15)';
+        const layerBorder = isSpinUp ? 'rgba(236, 72, 153, 0.6)' : 'rgba(6, 182, 212, 0.6)';
+
+        // 绘制单个七层单元 (Septuple Layer, SL) 平面
+        const pts = [
+          project3D(-halfW, -halfH, lz, cx, cy),
+          project3D( halfW, -halfH, lz, cx, cy),
+          project3D( halfW,  halfH, lz, cx, cy),
+          project3D(-halfW,  halfH, lz, cx, cy)
+        ];
+
+        ctx.fillStyle = layerColor;
+        ctx.strokeStyle = layerBorder;
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(pts[0].px, pts[0].py);
+        ctx.lineTo(pts[1].px, pts[1].py);
+        ctx.lineTo(pts[2].px, pts[2].py);
+        ctx.lineTo(pts[3].px, pts[3].py);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // 绘制该层的宏观反铁磁自旋箭头 (Spin Magnetization Arrow)
+        const centerPt = project3D(0, 0, lz, cx, cy);
+        const arrowLen = 14;
+        const arrowDir = isSpinUp ? -1 : 1;
+        const arrowTip = project3D(0, 0, lz + arrowDir * arrowLen, cx, cy);
+
+        ctx.save();
+        ctx.strokeStyle = isSpinUp ? 'var(--accent-pink)' : 'var(--accent-cyan)';
+        ctx.lineWidth = 2.0;
+        ctx.beginPath();
+        ctx.moveTo(centerPt.px, centerPt.py);
+        ctx.lineTo(arrowTip.px, arrowTip.py);
+        ctx.stroke();
+
+        ctx.fillStyle = ctx.strokeStyle;
+        ctx.beginPath();
+        ctx.arc(arrowTip.px, arrowTip.py, 3.0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      // 3. 绘制外加垂直电场 E_z 与感生环状磁化线云 (E ➔ M 响应)
+      if (Math.abs(PARAMS.ez) > 0.1 && PARAMS.thetaNorm > 0.05) {
+        ctx.save();
+        ctx.strokeStyle = 'rgba(245, 158, 11, 0.45)';
+        ctx.lineWidth = 1.8;
+        ctx.setLineDash([4, 4]);
+
+        // 金黄色轨道磁化回路
+        for (let p of magLoopParticles) {
+          const px = Math.cos(p.angle) * p.radius;
+          const py = Math.sin(p.angle) * (p.radius * 0.7);
+          const p3d = project3D(px, py, p.z, cx, cy);
+
+          ctx.fillStyle = '#f59e0b';
+          ctx.beginPath();
+          ctx.arc(p3d.px, p3d.py, 2.2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+
+        // 宏观感生磁化矢量 M 箭头
+        const topZ = -(numLayers * 0.5) * layerSpacing - 20;
+        const pMBase = project3D(0, 0, topZ, cx, cy);
+        const pMTip = project3D(0, 0, topZ - (PARAMS.ez / 2.5) * 35.0, cx, cy);
+
+        ctx.save();
+        ctx.strokeStyle = '#f59e0b';
+        ctx.lineWidth = 3.0;
+        ctx.beginPath();
+        ctx.moveTo(pMBase.px, pMBase.py);
+        ctx.lineTo(pMTip.px, pMTip.py);
+        ctx.stroke();
+
+        ctx.fillStyle = '#f59e0b';
+        ctx.font = '11px JetBrains Mono, monospace';
+        ctx.fillText('M_z (拓扑轨道磁矩)', pMTip.px + 10, pMTip.py);
+        ctx.restore();
+      }
+
+      // 4. 绘制表面半整数量子极化电荷 (B ➔ P 响应)
+      if (PARAMS.bz > 0.05 && PARAMS.thetaNorm > 0.05) {
+        const topZ = -(numLayers * 0.5) * layerSpacing;
+        const botZ = (numLayers * 0.5) * layerSpacing;
+
+        ctx.font = '10px JetBrains Mono, monospace';
+        // 顶表面正电荷云 (C_top = +1/2)
+        ctx.fillStyle = 'rgba(236, 72, 153, 0.85)';
+        for (let c of surfaceCharges) {
+          const cx_pos = (c.u - 0.5) * (halfW * 1.6);
+          const cy_pos = (c.v - 0.5) * (halfH * 1.6);
+          const p3d = project3D(cx_pos, cy_pos, topZ, cx, cy);
+          ctx.fillText('+', p3d.px - 3, p3d.py + 3);
+        }
+
+        // 底表面负电荷云 (C_bot = -1/2)
+        ctx.fillStyle = 'rgba(6, 182, 212, 0.85)';
+        for (let c of surfaceCharges) {
+          const cx_pos = (c.u - 0.5) * (halfW * 1.6);
+          const cy_pos = (c.v - 0.5) * (halfH * 1.6);
+          const p3d = project3D(cx_pos, cy_pos, botZ, cx, cy);
+          ctx.fillText('-', p3d.px - 3, p3d.py + 3);
+        }
+      }
+
+      // 5. 绘制太赫兹轴子极化激元波面 (Axion Polariton Pulse)
+      for (let wave of polaritonWaves) {
+        ctx.save();
+        ctx.strokeStyle = `rgba(139, 92, 246, ${wave.life * 0.85})`;
+        ctx.lineWidth = 2.5;
+
+        // 垂直波阵面
+        const p1 = project3D(wave.x, -100, 0, cx, cy);
+        const p2 = project3D(wave.x,  100, 0, cx, cy);
+
+        ctx.beginPath();
+        ctx.moveTo(p1.px, p1.py);
+        ctx.lineTo(p2.px, p2.py);
+        ctx.stroke();
+
+        ctx.fillStyle = `rgba(139, 92, 246, ${wave.life * 0.15})`;
+        ctx.beginPath();
+        ctx.arc(cx + wave.x, cy, wave.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      // 6. 标注表面陈数与层序
+      ctx.font = '11px JetBrains Mono, monospace';
+      ctx.fillStyle = 'var(--accent-pink)';
+      ctx.fillText('顶表面: C_top = +1/2 (破缺 T, 质量 m > 0)', cx - 180, cy - 90);
+      ctx.fillStyle = 'var(--accent-cyan)';
+      ctx.fillText('底表面: C_bot = -1/2 (破缺 T, 质量 m < 0)', cx - 180, cy + 120);
+
+      // 实时更新 HUD 数据
+      const curM = (PARAMS.thetaNorm * 0.5) * PARAMS.ez * 2.74;
+      document.getElementById('hudM').textContent = `M_z = ${curM >= 0 ? '+' : ''}${curM.toFixed(2)} kA/m`;
+      const curP = (PARAMS.thetaNorm * 0.5 * PARAMS.bz).toFixed(2);
+      document.getElementById('hudP').textContent = `P_z = ± ${curP} (e²/2h)·B`;
+
+      document.getElementById('hdrTheta').textContent = `θ = ${(PARAMS.thetaNorm).toFixed(2)} π`;
+      document.getElementById('hdrEz').textContent = `${PARAMS.ez.toFixed(2)} MV/m`;
+      document.getElementById('hdrBz').textContent = `${PARAMS.bz.toFixed(2)} T`;
+      document.getElementById('hdrAlpha').textContent = `${(PARAMS.thetaNorm * 0.5).toFixed(2)} (e²/h)`;
+    }
+
+    // -------------------------------------------------------------
+    // 示波器 1 渲染：拓扑磁电响应线性斜率 M(E)
+    // -------------------------------------------------------------
+    function renderScopeMagnetoelectric() {
+      const w = scopeMagCanvas.width / window.devicePixelRatio;
+      const h = scopeMagCanvas.height / window.devicePixelRatio;
+      ctxMag.clearRect(0, 0, w, h);
+
+      // 零基线
+      ctxMag.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+      ctxMag.lineWidth = 1;
+      ctxMag.beginPath();
+      ctxMag.moveTo(0, h * 0.5); ctxMag.lineTo(w, h * 0.5);
+      ctxMag.stroke();
+
+      const midX = w * 0.5;
+
+      // 理论线性斜率直线: M = (α θ / 2π) * E
+      ctxMag.strokeStyle = 'rgba(245, 158, 11, 0.35)';
+      ctxMag.setLineDash([3, 3]);
+      ctxMag.lineWidth = 1.2;
+      ctxMag.beginPath();
+      const slope = PARAMS.thetaNorm * 0.55;
+      ctxMag.moveTo(0, (h * 0.5) + slope * (h * 0.45));
+      ctxMag.lineTo(w, (h * 0.5) - slope * (h * 0.45));
+      ctxMag.stroke();
+      ctxMag.setLineDash([]);
+
+      // 实际动态磁化历史曲线
+      ctxMag.strokeStyle = 'var(--accent-amber)';
+      ctxMag.lineWidth = 2.0;
+      ctxMag.beginPath();
+      const step = w / (HISTORY_LEN - 1);
+      for (let i = 0; i < magHistory.length; i++) {
+        const val = magHistory[i]; // ~ -7 ~ +7
+        const y = (h * 0.5) - (val / 8.0) * (h * 0.42);
+        const x = i * step;
+        if (i === 0) ctxMag.moveTo(x, y);
+        else ctxMag.lineTo(x, y);
+      }
+      ctxMag.stroke();
+
+      const curVal = magHistory[magHistory.length - 1] || 0;
+      document.getElementById('scopeMagVal').textContent = `M_z = ${curVal >= 0 ? '+' : ''}${curVal.toFixed(2)} kA/m`;
+    }
+
+    // -------------------------------------------------------------
+    // 示波器 2 渲染：太赫兹波透射谱与轴子动量禁带
+    // -------------------------------------------------------------
+    function renderScopeTransmittance() {
+      const w = scopeTransCanvas.width / window.devicePixelRatio;
+      const h = scopeTransCanvas.height / window.devicePixelRatio;
+      ctxTrans.clearRect(0, 0, w, h);
+
+      // 基线
+      ctxTrans.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+      ctxTrans.lineWidth = 1;
+      ctxTrans.beginPath();
+      ctxTrans.moveTo(0, h - 8); ctxTrans.lineTo(w, h - 8);
+      ctxTrans.stroke();
+
+      // 极化激元透射谱线 T(ω)
+      ctxTrans.strokeStyle = 'var(--accent-violet)';
+      ctxTrans.lineWidth = 2.0;
+      ctxTrans.beginPath();
+
+      const midX = w * 0.5;
+      const gapWidth = 24 * PARAMS.thetaNorm;
+
+      for (let x = 0; x < w; x++) {
+        const dOmega = (x - midX);
+        let trans = 1.0;
+        // 在轴子能隙内全反射 (T 接近 0)
+        if (Math.abs(dOmega) < gapWidth) {
+          trans = 0.02 + 0.05 * Math.pow(Math.abs(dOmega) / gapWidth, 2);
+        } else {
+          trans = 1.0 - 0.7 * Math.exp(-Math.pow((Math.abs(dOmega) - gapWidth) / 18.0, 2));
+        }
+
+        const y = (h - 8) - trans * (h * 0.82);
+        if (x === 0) ctxTrans.moveTo(x, y);
+        else ctxTrans.lineTo(x, y);
+      }
+      ctxTrans.stroke();
+
+      // 能隙阴影区域标注
+      if (PARAMS.thetaNorm > 0.1) {
+        ctxTrans.fillStyle = 'rgba(139, 92, 246, 0.15)';
+        ctxTrans.fillRect(midX - gapWidth, 8, gapWidth * 2, h - 16);
+      }
+
+      document.getElementById('scopeTransVal').textContent = `禁带宽度 Δω = ${(gapWidth * 0.18).toFixed(2)} meV`;
+    }
+
+    // -------------------------------------------------------------
+    // 交互与参数控制响应
+    // -------------------------------------------------------------
+    function updateParam(key, val) {
+      if (key === 'theta') {
+        PARAMS.thetaNorm = parseFloat(val);
+        document.getElementById('valTheta').textContent = `${PARAMS.thetaNorm.toFixed(2)} π`;
+      }
+      if (key === 'ez') {
+        PARAMS.ez = parseFloat(val);
+        document.getElementById('valEz').textContent = `${PARAMS.ez.toFixed(2)} MV/m`;
+      }
+      if (key === 'bz') {
+        PARAMS.bz = parseFloat(val);
+        document.getElementById('valBz').textContent = `${PARAMS.bz.toFixed(2)} T`;
+      }
+      if (key === 'j') {
+        PARAMS.jAfm = parseFloat(val);
+        document.getElementById('valJ').textContent = `${PARAMS.jAfm.toFixed(2)} meV`;
+      }
+    }
+
+    function applyPreset(id) {
+      document.querySelectorAll('.btn-grid button').forEach(b => b.classList.remove('active'));
+      if (id === 1) {
+        document.getElementById('p1Btn').classList.add('active');
+        PARAMS.thetaNorm = 1.0;
+        PARAMS.ez = 2.5;
+        PARAMS.bz = 0.8;
+        PARAMS.jAfm = 1.2;
+        PARAMS.numLayers = 6;
+        document.getElementById('hdrMaterial').textContent = 'MnBi₂Te₄ (6 SLs 轴子相)';
+      } else if (id === 2) {
+        document.getElementById('p2Btn').classList.add('active');
+        PARAMS.thetaNorm = 0.0; // 奇数层净陈数 C = 1
+        PARAMS.ez = 0.0;
+        PARAMS.bz = 1.5;
+        PARAMS.jAfm = 1.2;
+        PARAMS.numLayers = 5; // 5层
+        document.getElementById('hdrMaterial').textContent = 'MnBi₂Te₄ (5 SLs 陈绝缘体)';
+      } else if (id === 3) {
+        document.getElementById('p3Btn').classList.add('active');
+        PARAMS.thetaNorm = 0.15;
+        PARAMS.ez = 4.0;
+        PARAMS.bz = 4.5; // 强磁场自旋全铁磁极化
+        PARAMS.jAfm = 0.5;
+        PARAMS.numLayers = 6;
+        document.getElementById('hdrMaterial').textContent = '强磁场铁磁对齐态';
+      } else if (id === 4) {
+        document.getElementById('p4Btn').classList.add('active');
+        PARAMS.thetaNorm = 1.0;
+        PARAMS.ez = 1.0;
+        PARAMS.bz = 2.0;
+        PARAMS.jAfm = 2.4;
+        PARAMS.numLayers = 6;
+        firePolaritonPulse();
+        document.getElementById('hdrMaterial').textContent = '动态轴子极化激元共振';
+      }
+
+      document.getElementById('slTheta').value = PARAMS.thetaNorm;
+      document.getElementById('slEz').value = PARAMS.ez;
+      document.getElementById('slBz').value = PARAMS.bz;
+      document.getElementById('slJ').value = PARAMS.jAfm;
+
+      updateParam('theta', PARAMS.thetaNorm);
+      updateParam('ez', PARAMS.ez);
+      updateParam('bz', PARAMS.bz);
+      updateParam('j', PARAMS.jAfm);
+    }
+
+    function togglePlay() {
+      PARAMS.paused = !PARAMS.paused;
+      document.getElementById('playIcon').textContent = PARAMS.paused ? '▶' : '⏸';
+      document.getElementById('playText').textContent = PARAMS.paused ? '继续仿真' : '暂停仿真';
+    }
+
+    function resetSim() {
+      magHistory.fill(0);
+      transHistory.fill(0);
+      polaritonWaves = [];
+      initParticles();
+    }
+
+    // 鼠标拖拽视角
+    let isDragging = false;
+    let prevMouseX = 0, prevMouseY = 0;
+
+    mainCanvas.addEventListener('mousedown', (e) => {
+      isDragging = true;
+      prevMouseX = e.clientX;
+      prevMouseY = e.clientY;
+      initAudio();
+    });
+
+    window.addEventListener('mouseup', () => { isDragging = false; });
+
+    mainCanvas.addEventListener('mousemove', (e) => {
+      if (!isDragging) return;
+      const dx = e.clientX - prevMouseX;
+      const dy = e.clientY - prevMouseY;
+      PARAMS.camRotY += dx * 0.008;
+      PARAMS.camRotX += dy * 0.008;
+      prevMouseX = e.clientX;
+      prevMouseY = e.clientY;
+    });
+
+    // -------------------------------------------------------------
+    // 视口尺寸适配
+    // -------------------------------------------------------------
+    function resizeCanvases() {
+      const dpr = window.devicePixelRatio || 1;
+      const rect = mainCanvas.parentElement.getBoundingClientRect();
+      width = rect.width;
+      height = rect.height;
+
+      mainCanvas.width = width * dpr;
+      mainCanvas.height = height * dpr;
+      ctx.scale(dpr, dpr);
+
+      const rectM = scopeMagCanvas.parentElement.getBoundingClientRect();
+      scopeMagCanvas.width = rectM.width * dpr;
+      scopeMagCanvas.height = rectM.height * dpr;
+      ctxMag.scale(dpr, dpr);
+
+      const rectT = scopeTransCanvas.parentElement.getBoundingClientRect();
+      scopeTransCanvas.width = rectT.width * dpr;
+      scopeTransCanvas.height = rectT.height * dpr;
+      ctxTrans.scale(dpr, dpr);
+    }
+
+    window.addEventListener('resize', () => {
+      resizeCanvases();
+      renderMainView();
+      renderScopeMagnetoelectric();
+      renderScopeTransmittance();
+    });
+
+    // -------------------------------------------------------------
+    // 主循环驱动
+    // -------------------------------------------------------------
+    function mainLoop(now) {
+      const dt = Math.min(0.04, (now - lastTime) / 1000.0);
+      lastTime = now;
+
+      updateSimulation(dt);
+      renderMainView();
+      renderScopeMagnetoelectric();
+      renderScopeTransmittance();
+
+      requestAnimationFrame(mainLoop);
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      resizeCanvases();
+      initParticles();
+      requestAnimationFrame(mainLoop);
+    });
+  </script>
+</body>
+</html>
