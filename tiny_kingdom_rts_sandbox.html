@@ -1,0 +1,1564 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>像素王国战役：微型即时战略与军团演化沙盒 (Tiny Kingdom RTS)</title>
+<style>
+  :root {
+    --bg-dark: #0f172a;
+    --ui-panel: rgba(15, 23, 42, 0.92);
+    --gold: #fbbf24;
+    --wood: #a16207;
+    --blue: #38bdf8;
+    --red: #f87171;
+    --green: #4ade80;
+    --font-stack: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  body {
+    background-color: #020617;
+    color: #f8fafc;
+    font-family: var(--font-stack);
+    overflow: hidden;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    position: relative;
+  }
+
+  #game-viewport {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    cursor: default;
+  }
+
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* 顶部资源条与战况信息 */
+  #top-bar {
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--ui-panel);
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    border-radius: 24px;
+    padding: 8px 28px;
+    display: flex;
+    align-items: center;
+    gap: 32px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(8px);
+    z-index: 10;
+    pointer-events: none;
+  }
+
+  .res-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  .res-gold { color: var(--gold); }
+  .res-wood { color: #f59e0b; }
+  .res-pop { color: var(--green); }
+  .res-time { color: var(--blue); }
+
+  /* 底部战术指挥面板 */
+  #bottom-panel {
+    position: absolute;
+    bottom: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--ui-panel);
+    border: 1px solid rgba(56, 189, 248, 0.25);
+    border-radius: 16px;
+    padding: 12px 20px;
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.7);
+    backdrop-filter: blur(12px);
+    z-index: 10;
+  }
+
+  .panel-section {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .section-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: #94a3b8;
+    text-transform: uppercase;
+  }
+
+  .btn-group {
+    display: flex;
+    gap: 8px;
+  }
+
+  .cmd-btn {
+    background: rgba(30, 41, 59, 0.8);
+    border: 1px solid rgba(56, 189, 248, 0.25);
+    color: #e2e8f0;
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    transition: all 0.2s;
+    min-width: 72px;
+  }
+
+  .cmd-btn:hover:not(:disabled) {
+    background: rgba(56, 189, 248, 0.2);
+    border-color: var(--blue);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(56, 189, 248, 0.3);
+  }
+
+  .cmd-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    border-color: rgba(255, 255, 255, 0.05);
+  }
+
+  .cmd-cost {
+    font-size: 9px;
+    color: #fbbf24;
+  }
+
+  /* 右下角雷达小地图 */
+  #minimap-wrapper {
+    position: absolute;
+    bottom: 14px;
+    right: 14px;
+    background: var(--ui-panel);
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    border-radius: 12px;
+    padding: 6px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.6);
+    z-index: 10;
+  }
+
+  #minimap {
+    display: block;
+    width: 140px;
+    height: 140px;
+    background: #091322;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+
+  /* 左上角状态与提示 */
+  #status-toast {
+    position: absolute;
+    top: 70px;
+    left: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  .toast-item {
+    background: rgba(15, 23, 42, 0.85);
+    border-left: 3px solid var(--blue);
+    padding: 6px 14px;
+    border-radius: 4px;
+    font-size: 12px;
+    color: #e2e8f0;
+    animation: slideIn 0.3s ease-out;
+  }
+
+  /* 右上角控制按钮 */
+  #top-right-tools {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    display: flex;
+    gap: 10px;
+    z-index: 10;
+  }
+
+  .tool-btn {
+    background: var(--ui-panel);
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    color: #cbd5e1;
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    backdrop-filter: blur(8px);
+    transition: all 0.2s;
+  }
+
+  .tool-btn:hover {
+    color: #fff;
+    border-color: var(--blue);
+  }
+
+  /* 游戏结束结算面板 */
+  #modal-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(3, 7, 18, 0.85);
+    backdrop-filter: blur(10px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+  }
+
+  .victory-box {
+    background: var(--ui-panel);
+    border: 1px solid rgba(56, 189, 248, 0.4);
+    border-radius: 20px;
+    padding: 36px 48px;
+    text-align: center;
+    box-shadow: 0 0 50px rgba(56, 189, 248, 0.25);
+    max-width: 420px;
+  }
+
+  .v-title {
+    font-size: 32px;
+    font-weight: 900;
+    letter-spacing: 2px;
+    margin-bottom: 12px;
+  }
+
+  .v-title.win { color: var(--gold); }
+  .v-title.lose { color: var(--red); }
+
+  .restart-btn {
+    margin-top: 24px;
+    background: linear-gradient(135deg, #38bdf8, #0284c7);
+    color: #030712;
+    font-size: 14px;
+    font-weight: 800;
+    padding: 10px 28px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 0 15px rgba(56, 189, 248, 0.4);
+    transition: all 0.2s;
+  }
+
+  .restart-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 25px rgba(56, 189, 248, 0.6);
+  }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateX(-15px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+</style>
+</head>
+<body>
+
+<div id="game-viewport">
+  <canvas id="gameCanvas"></canvas>
+</div>
+
+<!-- 顶部资源状态 -->
+<div id="top-bar">
+  <div class="res-item res-gold">
+    <span>🪙 黄金:</span>
+    <span id="gold-val">200</span>
+  </div>
+  <div class="res-item res-wood">
+    <span>🪵 木材:</span>
+    <span id="wood-val">150</span>
+  </div>
+  <div class="res-item res-pop">
+    <span>👥 人口:</span>
+    <span id="pop-val">4 / 10</span>
+  </div>
+  <div class="res-item res-time">
+    <span>⏳ 战役时间:</span>
+    <span id="timer-val">00:00</span>
+  </div>
+</div>
+
+<!-- 战术通知消息 -->
+<div id="status-toast"></div>
+
+<!-- 底部建造与兵营指挥台 -->
+<div id="bottom-panel">
+  <!-- 基础设施建造 -->
+  <div class="panel-section">
+    <div class="section-label">工程建造 (BUILD)</div>
+    <div class="btn-group">
+      <button class="cmd-btn" id="build-farm">
+        <span>🏡 农场</span>
+        <span class="cmd-cost">50木 (+5人口)</span>
+      </button>
+      <button class="cmd-btn" id="build-barracks">
+        <span>⚔️ 步兵营</span>
+        <span class="cmd-cost">80木 40金</span>
+      </button>
+      <button class="cmd-btn" id="build-archery">
+        <span>🏹 靶场</span>
+        <span class="cmd-cost">100木 60金</span>
+      </button>
+      <button class="cmd-btn" id="build-tower">
+        <span>🏰 箭塔</span>
+        <span class="cmd-cost">70木 50金</span>
+      </button>
+    </div>
+  </div>
+
+  <div style="width: 1px; height: 50px; background: rgba(255,255,255,0.1);"></div>
+
+  <!-- 军团招募训练 -->
+  <div class="panel-section">
+    <div class="section-label">军团征募 (RECRUIT)</div>
+    <div class="btn-group">
+      <button class="cmd-btn" id="train-worker">
+        <span>⛏️ 农夫</span>
+        <span class="cmd-cost">50金</span>
+      </button>
+      <button class="cmd-btn" id="train-swordsman">
+        <span>🛡️ 剑士</span>
+        <span class="cmd-cost">60金 20木</span>
+      </button>
+      <button class="cmd-btn" id="train-archer">
+        <span>🎯 长弓手</span>
+        <span class="cmd-cost">50金 45木</span>
+      </button>
+      <button class="cmd-btn" id="train-knight">
+        <span>🐎 铁骑</span>
+        <span class="cmd-cost">120金 60木</span>
+      </button>
+    </div>
+  </div>
+
+  <div style="width: 1px; height: 50px; background: rgba(255,255,255,0.1);"></div>
+
+  <!-- 全军战术行动 -->
+  <div class="panel-section">
+    <div class="section-label">全军战术 (COMMAND)</div>
+    <div class="btn-group">
+      <button class="cmd-btn" id="cmd-all-attack" style="border-color: rgba(248, 113, 113, 0.4);">
+        <span>⚔️ 全军突击</span>
+        <span class="cmd-cost" style="color:#f87171;">推进红方大本营</span>
+      </button>
+      <button class="cmd-btn" id="cmd-all-defend">
+        <span>🛡️ 回防堡垒</span>
+        <span class="cmd-cost">坚守主城阵线</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- 右上角工具 -->
+<div id="top-right-tools">
+  <button class="tool-btn" id="audio-toggle">🔊 音效: 开</button>
+  <button class="tool-btn" id="help-btn">❓ 操作指引</button>
+</div>
+
+<!-- 右下角小地图 -->
+<div id="minimap-wrapper">
+  <canvas id="minimap" width="140" height="140"></canvas>
+</div>
+
+<!-- 胜利/失败结算浮层 -->
+<div id="modal-overlay">
+  <div class="victory-box">
+    <div class="v-title win" id="modal-title">王国大捷！</div>
+    <p style="color:#94a3b8; font-size:14px; line-height:1.6;" id="modal-desc">敌方红军主城堡已被彻底攻陷摧毁，整片大陆重归和平！</p>
+    <button class="restart-btn" id="modal-restart">再战一局</button>
+  </div>
+</div>
+
+<script>
+/**
+ * 像素王国战役：微型即时战略与军团演化沙盒系统
+ * 纯原生单文件实现，内置 Web Audio API 物理音效合成、群组寻路与攻防 AI
+ */
+
+// --- Web Audio API 音效物理合成器 ---
+let audioCtx = null;
+let soundEnabled = true;
+
+function initAudio() {
+  if (!audioCtx) {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (AudioContext) audioCtx = new AudioContext();
+  }
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+}
+
+function playSound(type) {
+  if (!soundEnabled) return;
+  initAudio();
+  if (!audioCtx) return;
+  const t = audioCtx.currentTime;
+
+  if (type === 'chop') {
+    // 伐木斧击
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(260, t);
+    osc.frequency.exponentialRampToValueAtTime(70, t + 0.08);
+    gain.gain.setValueAtTime(0.18, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start(t);
+    osc.stop(t + 0.09);
+  } else if (type === 'mine') {
+    // 采矿敲击
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(1200, t);
+    osc.frequency.exponentialRampToValueAtTime(300, t + 0.09);
+    gain.gain.setValueAtTime(0.15, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.09);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start(t);
+    osc.stop(t + 0.1);
+  } else if (type === 'sword') {
+    // 刀剑挥砍
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(600, t);
+    osc.frequency.exponentialRampToValueAtTime(150, t + 0.12);
+    gain.gain.setValueAtTime(0.12, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start(t);
+    osc.stop(t + 0.13);
+  } else if (type === 'bow') {
+    // 弓箭破空
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(450, t);
+    osc.frequency.exponentialRampToValueAtTime(800, t + 0.07);
+    gain.gain.setValueAtTime(0.1, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start(t);
+    osc.stop(t + 0.09);
+  } else if (type === 'horn') {
+    // 战争号角
+    [220, 277, 330, 440].forEach((freq, idx) => {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(freq, t + idx * 0.08);
+      gain.gain.setValueAtTime(0.15, t + idx * 0.08);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + idx * 0.08 + 0.4);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(t + idx * 0.08);
+      osc.stop(t + idx * 0.08 + 0.42);
+    });
+  }
+}
+
+// --- 游戏世界参数与地图尺寸 ---
+const WORLD_WIDTH = 2800;
+const WORLD_HEIGHT = 1800;
+
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const minimap = document.getElementById('minimap');
+const mctx = minimap.getContext('2d');
+
+let viewW = window.innerWidth;
+let viewH = window.innerHeight;
+
+function resize() {
+  viewW = window.innerWidth;
+  viewH = window.innerHeight;
+  canvas.width = viewW;
+  canvas.height = viewH;
+}
+window.addEventListener('resize', resize);
+resize();
+
+// 摄像机视口位置
+const camera = {
+  x: 100,
+  y: WORLD_HEIGHT / 2 - viewH / 2,
+  speed: 600
+};
+
+// 资源状态
+const resources = {
+  gold: 240,
+  wood: 180,
+  pop: 4,
+  maxPop: 10
+};
+
+// 实体容器
+let buildings = [];
+let units = [];
+let trees = [];
+let goldMines = [];
+let arrows = [];
+let particles = [];
+
+let gameTime = 0;
+let isGameOver = false;
+
+// 交互与框选状态
+let isSelecting = false;
+let selectionStart = { x: 0, y: 0 };
+let selectionEnd = { x: 0, y: 0 };
+let selectedUnits = [];
+let buildMode = null; // 建造挂起项: 'farm' | 'barracks' | 'archery' | 'tower'
+
+// --- 初始化地图生态与基地 ---
+function initWorld() {
+  buildings = [];
+  units = [];
+  trees = [];
+  goldMines = [];
+  arrows = [];
+  particles = [];
+  selectedUnits = [];
+  gameTime = 0;
+  isGameOver = false;
+
+  resources.gold = 260;
+  resources.wood = 200;
+  resources.pop = 4;
+  resources.maxPop = 10;
+
+  // 1. 蓝军主城 (Town Center)
+  buildings.push({
+    id: 1,
+    team: 'blue',
+    type: 'castle',
+    x: 260,
+    y: WORLD_HEIGHT / 2,
+    size: 70,
+    hp: 2000,
+    maxHp: 2000
+  });
+
+  // 初始蓝军农夫
+  for (let i = 0; i < 4; i++) {
+    units.push({
+      team: 'blue',
+      type: 'worker',
+      x: 320 + (i % 2) * 35,
+      y: WORLD_HEIGHT / 2 - 40 + Math.floor(i / 2) * 40,
+      hp: 60,
+      maxHp: 60,
+      speed: 105,
+      size: 10,
+      targetX: null,
+      targetY: null,
+      state: 'idle', // 'idle' | 'moving' | 'mining' | 'chopping' | 'returning' | 'attacking'
+      targetEntity: null,
+      carriedRes: 0,
+      resType: null,
+      workTimer: 0
+    });
+  }
+
+  // 2. 红军主城 (Red Horde)
+  buildings.push({
+    id: 2,
+    team: 'red',
+    type: 'castle',
+    x: WORLD_WIDTH - 260,
+    y: WORLD_HEIGHT / 2,
+    size: 70,
+    hp: 2200,
+    maxHp: 2200
+  });
+
+  // 初始红军单位
+  for (let i = 0; i < 4; i++) {
+    units.push({
+      team: 'red',
+      type: 'worker',
+      x: WORLD_WIDTH - 320 - (i % 2) * 35,
+      y: WORLD_HEIGHT / 2 - 40 + Math.floor(i / 2) * 40,
+      hp: 60,
+      maxHp: 60,
+      speed: 105,
+      size: 10,
+      targetX: null,
+      targetY: null,
+      state: 'idle',
+      targetEntity: null,
+      carriedRes: 0,
+      resType: null,
+      workTimer: 0
+    });
+  }
+
+  // 3. 散布茂密森林 (Trees)
+  for (let i = 0; i < 70; i++) {
+    const tx = 400 + Math.random() * (WORLD_WIDTH - 800);
+    const ty = 80 + Math.random() * (WORLD_HEIGHT - 160);
+    trees.push({
+      x: tx,
+      y: ty,
+      size: 20,
+      woodLeft: 120
+    });
+  }
+
+  // 4. 散布金矿脉 (Gold Mines)
+  const mineLocs = [
+    { x: 380, y: WORLD_HEIGHT / 2 - 250 },
+    { x: 380, y: WORLD_HEIGHT / 2 + 250 },
+    { x: WORLD_WIDTH / 2, y: WORLD_HEIGHT / 2 - 350 },
+    { x: WORLD_WIDTH / 2, y: WORLD_HEIGHT / 2 + 350 },
+    { x: WORLD_WIDTH - 380, y: WORLD_HEIGHT / 2 - 250 },
+    { x: WORLD_WIDTH - 380, y: WORLD_HEIGHT / 2 + 250 }
+  ];
+  mineLocs.forEach(m => {
+    goldMines.push({
+      x: m.x,
+      y: m.y,
+      size: 28,
+      goldLeft: 800
+    });
+  });
+
+  showToast('指挥官，蓝色王国已设立！请采伐木材与金矿发展军力。');
+}
+initWorld();
+
+// --- 战术通知消息 ---
+function showToast(msg) {
+  const container = document.getElementById('status-toast');
+  const toast = document.createElement('div');
+  toast.className = 'toast-item';
+  toast.textContent = msg;
+  container.appendChild(toast);
+  setTimeout(() => {
+    if (toast.parentNode) toast.parentNode.removeChild(toast);
+  }, 4000);
+}
+
+// --- 键盘与鼠标交互系统 ---
+const keys = {};
+window.addEventListener('keydown', e => {
+  keys[e.code] = true;
+  if (e.code === 'KeyH') playSound('horn');
+});
+window.addEventListener('keyup', e => { keys[e.code] = false; });
+
+const mouse = { x: 0, y: 0, worldX: 0, worldY: 0 };
+
+canvas.addEventListener('mousemove', e => {
+  mouse.x = e.clientX;
+  mouse.y = e.clientY;
+  mouse.worldX = mouse.x + camera.x;
+  mouse.worldY = mouse.y + camera.y;
+
+  if (isSelecting) {
+    selectionEnd.x = mouse.worldX;
+    selectionEnd.y = mouse.worldY;
+  }
+});
+
+canvas.addEventListener('mousedown', e => {
+  initAudio();
+  if (e.button === 0) {
+    // 左键点击
+    if (buildMode) {
+      placeBuilding(mouse.worldX, mouse.worldY, buildMode);
+      buildMode = null;
+      canvas.style.cursor = 'default';
+      return;
+    }
+
+    // 开始框选
+    isSelecting = true;
+    selectionStart.x = mouse.worldX;
+    selectionStart.y = mouse.worldY;
+    selectionEnd.x = mouse.worldX;
+    selectionEnd.y = mouse.worldY;
+  } else if (e.button === 2) {
+    // 右键指令 (移动 / 攻击 / 采资源)
+    e.preventDefault();
+    if (buildMode) {
+      buildMode = null;
+      canvas.style.cursor = 'default';
+      return;
+    }
+
+    issueRightClickCommand(mouse.worldX, mouse.worldY);
+  }
+});
+
+window.addEventListener('mouseup', e => {
+  if (e.button === 0 && isSelecting) {
+    isSelecting = false;
+    finishSelection();
+  }
+});
+
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+// 点击小地图移动摄像机
+minimap.addEventListener('mousedown', e => {
+  const rect = minimap.getBoundingClientRect();
+  const mx = (e.clientX - rect.left) / rect.width;
+  const my = (e.clientY - rect.top) / rect.height;
+  camera.x = Math.max(0, Math.min(WORLD_WIDTH - viewW, mx * WORLD_WIDTH - viewW / 2));
+  camera.y = Math.max(0, Math.min(WORLD_HEIGHT - viewH, my * WORLD_HEIGHT - viewH / 2));
+});
+
+// 框选结算
+function finishSelection() {
+  const minX = Math.min(selectionStart.x, selectionEnd.x);
+  const maxX = Math.max(selectionStart.x, selectionEnd.x);
+  const minY = Math.min(selectionStart.y, selectionEnd.y);
+  const maxY = Math.max(selectionStart.y, selectionEnd.y);
+
+  // 如果只是单点轻点，设定小阈值
+  const isBox = Math.hypot(maxX - minX, maxY - minY) > 10;
+
+  selectedUnits = [];
+  units.forEach(u => {
+    if (u.team === 'blue') {
+      if (isBox) {
+        if (u.x >= minX && u.x <= maxX && u.y >= minY && u.y <= maxY) {
+          selectedUnits.push(u);
+        }
+      } else {
+        if (Math.hypot(u.x - mouse.worldX, u.y - mouse.worldY) <= u.size + 10) {
+          selectedUnits.push(u);
+        }
+      }
+    }
+  });
+}
+
+// 右键指令分发
+function issueRightClickCommand(wx, wy) {
+  if (selectedUnits.length === 0) return;
+
+  // 1. 检查是否点击了敌军实体 (敌人部队或建筑)
+  let targetEnemy = null;
+  for (const u of units) {
+    if (u.team === 'red' && Math.hypot(u.x - wx, u.y - wy) <= u.size + 10) {
+      targetEnemy = u;
+      break;
+    }
+  }
+  if (!targetEnemy) {
+    for (const b of buildings) {
+      if (b.team === 'red' && Math.hypot(b.x - wx, b.y - wy) <= b.size + 15) {
+        targetEnemy = b;
+        break;
+      }
+    }
+  }
+
+  // 2. 检查是否点击了资源点 (农夫有效)
+  let targetTree = null;
+  for (const t of trees) {
+    if (Math.hypot(t.x - wx, t.y - wy) <= t.size + 10) {
+      targetTree = t;
+      break;
+    }
+  }
+  let targetMine = null;
+  for (const m of goldMines) {
+    if (Math.hypot(m.x - wx, m.y - wy) <= m.size + 15) {
+      targetMine = m;
+      break;
+    }
+  }
+
+  // 涟漪标记
+  createClickRipples(wx, wy, targetEnemy ? '#f87171' : '#38bdf8');
+
+  // 对所有选中的单位下达指令
+  selectedUnits.forEach((u, idx) => {
+    if (targetEnemy) {
+      // 攻击指定目标
+      u.state = 'attacking';
+      u.targetEntity = targetEnemy;
+    } else if (u.type === 'worker' && targetTree) {
+      // 伐木
+      u.state = 'chopping';
+      u.targetEntity = targetTree;
+      u.resType = 'wood';
+    } else if (u.type === 'worker' && targetMine) {
+      // 采矿
+      u.state = 'mining';
+      u.targetEntity = targetMine;
+      u.resType = 'gold';
+    } else {
+      // 普通阵型移动
+      const row = Math.floor(idx / 4);
+      const col = idx % 4;
+      const spreadX = (col - 1.5) * 26;
+      const spreadY = (row - 1.5) * 26;
+
+      u.state = 'moving';
+      u.targetX = wx + spreadX;
+      u.targetY = wy + spreadY;
+      u.targetEntity = null;
+    }
+  });
+}
+
+function createClickRipples(x, y, color) {
+  for (let i = 0; i < 6; i++) {
+    particles.push({
+      x, y,
+      vx: (Math.random() - 0.5) * 50,
+      vy: (Math.random() - 0.5) * 50,
+      life: 0.35,
+      maxLife: 0.35,
+      color,
+      size: 2
+    });
+  }
+}
+
+// --- 建造与兵种招募 ---
+function setBuildMode(type) {
+  buildMode = type;
+  canvas.style.cursor = 'crosshair';
+  showToast(`选择建造位置放置 ${type === 'farm' ? '农场' : (type === 'barracks' ? '步兵营' : (type === 'archery' ? '靶场' : '箭塔'))}`);
+}
+
+function placeBuilding(x, y, type) {
+  let costWood = 0;
+  let costGold = 0;
+  let hp = 600;
+  let size = 40;
+
+  if (type === 'farm') {
+    costWood = 50; hp = 400; size = 32;
+  } else if (type === 'barracks') {
+    costWood = 80; costGold = 40; hp = 750; size = 45;
+  } else if (type === 'archery') {
+    costWood = 100; costGold = 60; hp = 650; size = 42;
+  } else if (type === 'tower') {
+    costWood = 70; costGold = 50; hp = 900; size = 30;
+  }
+
+  if (resources.wood < costWood || resources.gold < costGold) {
+    showToast('资源不足，无法完成建造！');
+    return;
+  }
+
+  resources.wood -= costWood;
+  resources.gold -= costGold;
+
+  if (type === 'farm') {
+    resources.maxPop += 5;
+    showToast('农场建成！人口上限提升 +5');
+  }
+
+  buildings.push({
+    team: 'blue',
+    type,
+    x,
+    y,
+    size,
+    hp,
+    maxHp: hp,
+    shootTimer: 0,
+    shootCd: 1.2
+  });
+
+  playSound('chop');
+}
+
+// 招募单位
+function trainUnit(type) {
+  let costGold = 0;
+  let costWood = 0;
+
+  if (type === 'worker') { costGold = 50; }
+  else if (type === 'swordsman') { costGold = 60; costWood = 20; }
+  else if (type === 'archer') { costGold = 50; costWood = 45; }
+  else if (type === 'knight') { costGold = 120; costWood = 60; }
+
+  if (resources.pop >= resources.maxPop) {
+    showToast('人口已满！请修建更多农场。');
+    return;
+  }
+  if (resources.gold < costGold || resources.wood < costWood) {
+    showToast('资源不足，无法征募！');
+    return;
+  }
+
+  // 寻找主城或对应建筑
+  const base = buildings.find(b => b.team === 'blue' && b.type === 'castle');
+  if (!base) return;
+
+  resources.gold -= costGold;
+  resources.wood -= costWood;
+  resources.pop += 1;
+
+  const u = {
+    team: 'blue',
+    type,
+    x: base.x + 50 + (Math.random() - 0.5) * 30,
+    y: base.y + (Math.random() - 0.5) * 40,
+    hp: type === 'knight' ? 180 : (type === 'swordsman' ? 120 : (type === 'archer' ? 70 : 60)),
+    maxHp: type === 'knight' ? 180 : (type === 'swordsman' ? 120 : (type === 'archer' ? 70 : 60)),
+    speed: type === 'knight' ? 150 : (type === 'archer' ? 100 : 110),
+    size: type === 'knight' ? 14 : (type === 'archer' ? 9 : 11),
+    targetX: null,
+    targetY: null,
+    state: 'idle',
+    targetEntity: null,
+    carriedRes: 0,
+    resType: null,
+    workTimer: 0,
+    attackCooldown: 0
+  };
+  units.push(u);
+  playSound('horn');
+}
+
+// 按钮绑定
+document.getElementById('build-farm').onclick = () => setBuildMode('farm');
+document.getElementById('build-barracks').onclick = () => setBuildMode('barracks');
+document.getElementById('build-archery').onclick = () => setBuildMode('archery');
+document.getElementById('build-tower').onclick = () => setBuildMode('tower');
+
+document.getElementById('train-worker').onclick = () => trainUnit('worker');
+document.getElementById('train-swordsman').onclick = () => trainUnit('swordsman');
+document.getElementById('train-archer').onclick = () => trainUnit('archer');
+document.getElementById('train-knight').onclick = () => trainUnit('knight');
+
+document.getElementById('cmd-all-attack').onclick = () => {
+  const enemyBase = buildings.find(b => b.team === 'red' && b.type === 'castle');
+  if (!enemyBase) return;
+  units.filter(u => u.team === 'blue').forEach(u => {
+    u.state = 'attacking';
+    u.targetEntity = enemyBase;
+  });
+  playSound('horn');
+  showToast('全军出击！冲锋红方大本营！');
+};
+
+document.getElementById('cmd-all-defend').onclick = () => {
+  const myBase = buildings.find(b => b.team === 'blue' && b.type === 'castle');
+  if (!myBase) return;
+  units.filter(u => u.team === 'blue').forEach((u, i) => {
+    u.state = 'moving';
+    u.targetX = myBase.x + 80 + (i % 5) * 24;
+    u.targetY = myBase.y + Math.floor(i / 5) * 24 - 40;
+    u.targetEntity = null;
+  });
+  showToast('全军回防主城防线！');
+};
+
+document.getElementById('audio-toggle').onclick = () => {
+  soundEnabled = !soundEnabled;
+  document.getElementById('audio-toggle').textContent = soundEnabled ? '🔊 音效: 开' : '🔇 音效: 关';
+};
+
+document.getElementById('help-btn').onclick = () => {
+  showToast('操作指南：鼠标左键拖拽框选部队；右键派遣移动/攻击/伐木采矿；W/A/S/D 或鼠标边缘滑动地图。');
+};
+
+document.getElementById('modal-restart').onclick = () => {
+  document.getElementById('modal-overlay').style.display = 'none';
+  initWorld();
+};
+
+// --- 红军 AI 行为管理器 ---
+let aiTimer = 0;
+let aiAttackTimer = 0;
+
+function updateRedAI(dt) {
+  aiTimer += dt;
+  aiAttackTimer += dt;
+
+  // 定时招募红军部队
+  if (aiTimer >= 8) {
+    aiTimer = 0;
+    const redBase = buildings.find(b => b.team === 'red' && b.type === 'castle');
+    if (redBase) {
+      const types = ['swordsman', 'archer', 'knight'];
+      const chosen = types[Math.floor(Math.random() * types.length)];
+      units.push({
+        team: 'red',
+        type: chosen,
+        x: redBase.x - 60 - Math.random() * 40,
+        y: redBase.y + (Math.random() - 0.5) * 80,
+        hp: chosen === 'knight' ? 180 : (chosen === 'swordsman' ? 120 : 70),
+        maxHp: chosen === 'knight' ? 180 : (chosen === 'swordsman' ? 120 : 70),
+        speed: chosen === 'knight' ? 145 : (chosen === 'archer' ? 95 : 105),
+        size: chosen === 'knight' ? 14 : (chosen === 'archer' ? 9 : 11),
+        targetX: null,
+        targetY: null,
+        state: 'idle',
+        targetEntity: null,
+        attackCooldown: 0
+      });
+    }
+  }
+
+  // 周期性组织全军突击 (每 45 秒发起一轮攻势)
+  if (aiAttackTimer >= 45) {
+    aiAttackTimer = 0;
+    const blueBase = buildings.find(b => b.team === 'blue' && b.type === 'castle');
+    if (blueBase) {
+      units.filter(u => u.team === 'red').forEach(u => {
+        u.state = 'attacking';
+        u.targetEntity = blueBase;
+      });
+      showToast('⚠️ 警告：红方大军正向我方主城全线推进！');
+      playSound('horn');
+    }
+  }
+}
+
+// --- 游戏物理与主模拟循环 ---
+let lastTime = performance.now();
+
+function update(dt) {
+  if (isGameOver) return;
+  gameTime += dt;
+
+  // 摄像机键盘平移 (W/A/S/D 或 方向键)
+  if (keys['KeyW'] || keys['ArrowUp']) camera.y -= camera.speed * dt;
+  if (keys['KeyS'] || keys['ArrowDown']) camera.y += camera.speed * dt;
+  if (keys['KeyA'] || keys['ArrowLeft']) camera.x -= camera.speed * dt;
+  if (keys['KeyD'] || keys['ArrowRight']) camera.x += camera.speed * dt;
+
+  camera.x = Math.max(0, Math.min(WORLD_WIDTH - viewW, camera.x));
+  camera.y = Math.max(0, Math.min(WORLD_HEIGHT - viewH, camera.y));
+
+  // AI 行为树
+  updateRedAI(dt);
+
+  // 1. 单位动力学与行为更新
+  for (let i = units.length - 1; i >= 0; i--) {
+    const u = units[i];
+    if (u.attackCooldown > 0) u.attackCooldown -= dt;
+
+    // 采矿与伐木
+    if (u.state === 'chopping' || u.state === 'mining') {
+      const target = u.targetEntity;
+      if (!target || (u.state === 'chopping' && target.woodLeft <= 0) || (u.state === 'mining' && target.goldLeft <= 0)) {
+        u.state = 'idle';
+        u.targetEntity = null;
+        continue;
+      }
+
+      const dist = Math.hypot(target.x - u.x, target.y - u.y);
+      if (dist > target.size + u.size + 4) {
+        // 向资源点移动
+        const ang = Math.atan2(target.y - u.y, target.x - u.x);
+        u.x += Math.cos(ang) * u.speed * dt;
+        u.y += Math.sin(ang) * u.speed * dt;
+      } else {
+        // 进行采集工作
+        u.workTimer += dt;
+        if (u.workTimer >= 1.2) {
+          u.workTimer = 0;
+          u.carriedRes += 10;
+          if (u.state === 'chopping') {
+            target.woodLeft -= 10;
+            playSound('chop');
+          } else {
+            target.goldLeft -= 10;
+            playSound('mine');
+          }
+
+          // 携带满载则返回基地
+          if (u.carriedRes >= 20) {
+            u.state = 'returning';
+          }
+        }
+      }
+    } else if (u.state === 'returning') {
+      // 携带资源返回主城
+      const base = buildings.find(b => b.team === u.team && b.type === 'castle');
+      if (base) {
+        const dist = Math.hypot(base.x - u.x, base.y - u.y);
+        if (dist > base.size + u.size) {
+          const ang = Math.atan2(base.y - u.y, base.x - u.x);
+          u.x += Math.cos(ang) * u.speed * dt;
+          u.y += Math.sin(ang) * u.speed * dt;
+        } else {
+          // 交付资源
+          if (u.team === 'blue') {
+            if (u.resType === 'wood') resources.wood += u.carriedRes;
+            else resources.gold += u.carriedRes;
+          }
+          u.carriedRes = 0;
+          // 继续回原资源点开采
+          if (u.targetEntity) {
+            u.state = u.resType === 'wood' ? 'chopping' : 'mining';
+          } else {
+            u.state = 'idle';
+          }
+        }
+      }
+    } else if (u.state === 'moving') {
+      // 阵型平滑移动
+      if (u.targetX !== null && u.targetY !== null) {
+        const dist = Math.hypot(u.targetX - u.x, u.targetY - u.y);
+        if (dist > 4) {
+          const ang = Math.atan2(u.targetY - u.y, u.targetX - u.x);
+          u.x += Math.cos(ang) * u.speed * dt;
+          u.y += Math.sin(ang) * u.speed * dt;
+        } else {
+          u.state = 'idle';
+        }
+      }
+    } else if (u.state === 'attacking') {
+      // 追击与攻击目标
+      const target = u.targetEntity;
+      if (!target || target.hp <= 0) {
+        u.state = 'idle';
+        u.targetEntity = null;
+        continue;
+      }
+
+      const dist = Math.hypot(target.x - u.x, target.y - u.y);
+      const attackRange = u.type === 'archer' ? 180 : (u.size + target.size + 8);
+
+      if (dist > attackRange) {
+        const ang = Math.atan2(target.y - u.y, target.x - u.x);
+        u.x += Math.cos(ang) * u.speed * dt;
+        u.y += Math.sin(ang) * u.speed * dt;
+      } else {
+        // 发动攻击
+        if (u.attackCooldown <= 0) {
+          u.attackCooldown = u.type === 'archer' ? 1.4 : 0.8;
+          if (u.type === 'archer') {
+            // 抛射箭矢
+            arrows.push({
+              team: u.team,
+              x: u.x,
+              y: u.y,
+              startX: u.x,
+              startY: u.y,
+              targetX: target.x,
+              targetY: target.y,
+              targetEntity: target,
+              speed: 360,
+              dmg: 18,
+              progress: 0
+            });
+            playSound('bow');
+          } else {
+            // 近战剑砍
+            const dmg = u.type === 'knight' ? 28 : (u.type === 'swordsman' ? 18 : 8);
+            target.hp -= dmg;
+            playSound('sword');
+            // 受击粒子
+            for (let k = 0; k < 4; k++) {
+              particles.push({
+                x: target.x, y: target.y,
+                vx: (Math.random() - 0.5) * 80,
+                vy: (Math.random() - 0.5) * 80,
+                life: 0.25, maxLife: 0.25,
+                color: '#f87171',
+                size: 2
+              });
+            }
+          }
+        }
+      }
+    } else if (u.state === 'idle') {
+      // 警戒范围：自动锁定附近敌军
+      const scanDist = 140;
+      let closest = null;
+      let cDist = scanDist;
+
+      for (const other of units) {
+        if (other.team !== u.team) {
+          const d = Math.hypot(other.x - u.x, other.y - u.y);
+          if (d < cDist) {
+            cDist = d;
+            closest = other;
+          }
+        }
+      }
+      if (closest) {
+        u.state = 'attacking';
+        u.targetEntity = closest;
+      }
+    }
+
+    // 单位生命结算
+    if (u.hp <= 0) {
+      if (u.team === 'blue') resources.pop = Math.max(0, resources.pop - 1);
+      units.splice(i, 1);
+      const selIdx = selectedUnits.indexOf(u);
+      if (selIdx !== -1) selectedUnits.splice(selIdx, 1);
+    }
+  }
+
+  // 2. 防御箭塔自动攻击
+  buildings.forEach(b => {
+    if (b.type === 'tower') {
+      b.shootTimer -= dt;
+      if (b.shootTimer <= 0) {
+        // 搜寻敌方目标
+        let nearest = null;
+        let nDist = 200;
+        for (const u of units) {
+          if (u.team !== b.team) {
+            const d = Math.hypot(u.x - b.x, u.y - b.y);
+            if (d < nDist) {
+              nDist = d;
+              nearest = u;
+            }
+          }
+        }
+        if (nearest) {
+          b.shootTimer = b.shootCd;
+          arrows.push({
+            team: b.team,
+            x: b.x,
+            y: b.y,
+            startX: b.x,
+            startY: b.y,
+            targetX: nearest.x,
+            targetY: nearest.y,
+            targetEntity: nearest,
+            speed: 400,
+            dmg: 25,
+            progress: 0
+          });
+          playSound('bow');
+        }
+      }
+    }
+  });
+
+  // 3. 箭矢抛物线与命中判定
+  for (let i = arrows.length - 1; i >= 0; i--) {
+    const a = arrows[i];
+    const totalDist = Math.hypot(a.targetX - a.startX, a.targetY - a.startY);
+    a.progress += (a.speed * dt) / (totalDist || 1);
+
+    a.x = a.startX + (a.targetX - a.startX) * a.progress;
+    a.y = a.startY + (a.targetY - a.startY) * a.progress - Math.sin(a.progress * Math.PI) * 45;
+
+    if (a.progress >= 1.0) {
+      if (a.targetEntity && a.targetEntity.hp > 0) {
+        a.targetEntity.hp -= a.dmg;
+      }
+      arrows.splice(i, 1);
+    }
+  }
+
+  // 4. 建筑存活结算与基地胜负判定
+  for (let i = buildings.length - 1; i >= 0; i--) {
+    const b = buildings[i];
+    if (b.hp <= 0) {
+      if (b.type === 'castle') {
+        triggerEndGame(b.team === 'red');
+      }
+      buildings.splice(i, 1);
+    }
+  }
+
+  // 5. 粒子更新
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.life -= dt;
+    if (p.life <= 0) {
+      particles.splice(i, 1);
+      continue;
+    }
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+  }
+
+  // 更新顶部 HUD
+  updateHUD();
+}
+
+function updateHUD() {
+  document.getElementById('gold-val').textContent = resources.gold;
+  document.getElementById('wood-val').textContent = resources.wood;
+  document.getElementById('pop-val').textContent = `${resources.pop} / ${resources.maxPop}`;
+
+  const m = Math.floor(gameTime / 60);
+  const s = Math.floor(gameTime % 60);
+  document.getElementById('timer-val').textContent = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+}
+
+function triggerEndGame(isWin) {
+  isGameOver = true;
+  const overlay = document.getElementById('modal-overlay');
+  const title = document.getElementById('modal-title');
+  const desc = document.getElementById('modal-desc');
+
+  overlay.style.display = 'flex';
+  if (isWin) {
+    title.textContent = '王国大捷！';
+    title.className = 'v-title win';
+    desc.textContent = '红方大本营已被成功摧毁，整片领地归于蓝色王国统治！';
+    playSound('horn');
+  } else {
+    title.textContent = '王国覆灭...';
+    title.className = 'v-title lose';
+    desc.textContent = '主城堡沦陷，蓝军指挥官请整顿兵力卷土重来！';
+  }
+}
+
+// --- 场景渲染 (Canvas 2D) ---
+function render() {
+  ctx.clearRect(0, 0, viewW, viewH);
+
+  ctx.save();
+  ctx.translate(-camera.x, -camera.y);
+
+  // 1. 地图草地背景与网格微线
+  ctx.fillStyle = '#0f241d';
+  ctx.fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
+  ctx.lineWidth = 1;
+  const step = 80;
+  for (let x = 0; x < WORLD_WIDTH; x += step) {
+    ctx.beginPath();
+    ctx.moveTo(x, 0); ctx.lineTo(x, WORLD_HEIGHT);
+    ctx.stroke();
+  }
+  for (let y = 0; y < WORLD_HEIGHT; y += step) {
+    ctx.beginPath();
+    ctx.moveTo(0, y); ctx.lineTo(WORLD_WIDTH, y);
+    ctx.stroke();
+  }
+
+  // 2. 绘制金矿与森林
+  goldMines.forEach(m => {
+    ctx.fillStyle = '#fbbf24';
+    ctx.shadowColor = '#fbbf24';
+    ctx.shadowBlur = 6;
+    ctx.beginPath();
+    ctx.arc(m.x, m.y, m.size, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    ctx.fillStyle = '#92400e';
+    ctx.beginPath();
+    ctx.arc(m.x - 5, m.y - 5, m.size * 0.4, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  trees.forEach(t => {
+    if (t.woodLeft <= 0) return;
+    ctx.fillStyle = '#15803d';
+    ctx.beginPath();
+    ctx.arc(t.x, t.y, t.size, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#166534';
+    ctx.beginPath();
+    ctx.arc(t.x + 4, t.y - 4, t.size * 0.5, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  // 3. 绘制建筑
+  buildings.forEach(b => {
+    const isBlue = b.team === 'blue';
+    ctx.fillStyle = isBlue ? '#0284c7' : '#dc2626';
+    ctx.strokeStyle = isBlue ? '#38bdf8' : '#f87171';
+    ctx.lineWidth = 2;
+
+    if (b.type === 'castle') {
+      // 主城堡方形
+      ctx.fillRect(b.x - b.size, b.y - b.size, b.size * 2, b.size * 2);
+      ctx.strokeRect(b.x - b.size, b.y - b.size, b.size * 2, b.size * 2);
+      // 城垛尖顶
+      ctx.fillStyle = '#f8fafc';
+      ctx.fillRect(b.x - 10, b.y - b.size - 10, 20, 10);
+    } else if (b.type === 'tower') {
+      // 防御箭塔圆形
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, b.size, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    } else {
+      // 兵营与农场矩形
+      ctx.fillRect(b.x - b.size, b.y - b.size, b.size * 2, b.size * 2);
+      ctx.strokeRect(b.x - b.size, b.y - b.size, b.size * 2, b.size * 2);
+    }
+
+    // 建筑血条
+    const barW = b.size * 1.8;
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.fillRect(b.x - barW / 2, b.y - b.size - 12, barW, 4);
+    ctx.fillStyle = isBlue ? '#38bdf8' : '#f87171';
+    ctx.fillRect(b.x - barW / 2, b.y - b.size - 12, barW * (b.hp / b.maxHp), 4);
+  });
+
+  // 4. 绘制单位
+  units.forEach(u => {
+    const isBlue = u.team === 'blue';
+    ctx.fillStyle = isBlue ? '#38bdf8' : '#f87171';
+
+    // 选中光圈
+    if (selectedUnits.includes(u)) {
+      ctx.strokeStyle = '#4ade80';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(u.x, u.y, u.size + 4, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    // 角色形状
+    ctx.beginPath();
+    if (u.type === 'knight') {
+      ctx.arc(u.x, u.y, u.size, 0, Math.PI * 2);
+    } else if (u.type === 'archer') {
+      ctx.arc(u.x, u.y, u.size, 0, Math.PI * 2);
+    } else {
+      ctx.arc(u.x, u.y, u.size, 0, Math.PI * 2);
+    }
+    ctx.fill();
+
+    // 携带资源小包裹
+    if (u.carriedRes > 0) {
+      ctx.fillStyle = u.resType === 'wood' ? '#f59e0b' : '#fbbf24';
+      ctx.fillRect(u.x - 3, u.y - u.size - 6, 6, 6);
+    }
+
+    // 单位血条
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fillRect(u.x - 10, u.y - u.size - 5, 20, 2);
+    ctx.fillStyle = isBlue ? '#4ade80' : '#ef4444';
+    ctx.fillRect(u.x - 10, u.y - u.size - 5, 20 * (u.hp / u.maxHp), 2);
+  });
+
+  // 5. 绘制抛物线箭矢
+  arrows.forEach(a => {
+    ctx.strokeStyle = a.team === 'blue' ? '#38bdf8' : '#f87171';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(a.x - (a.targetX - a.startX) * 0.05, a.y - (a.targetY - a.startY) * 0.05);
+    ctx.stroke();
+  });
+
+  // 6. 粒子
+  particles.forEach(p => {
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  // 7. 建造预览虚影
+  if (buildMode) {
+    ctx.fillStyle = 'rgba(56, 189, 248, 0.35)';
+    ctx.strokeStyle = '#38bdf8';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(mouse.worldX - 30, mouse.worldY - 30, 60, 60);
+    ctx.fillRect(mouse.worldX - 30, mouse.worldY - 30, 60, 60);
+  }
+
+  // 8. 框选矩形
+  if (isSelecting) {
+    const rx = Math.min(selectionStart.x, selectionEnd.x);
+    const ry = Math.min(selectionStart.y, selectionEnd.y);
+    const rw = Math.abs(selectionEnd.x - selectionStart.x);
+    const rh = Math.abs(selectionEnd.y - selectionStart.y);
+
+    ctx.fillStyle = 'rgba(56, 189, 248, 0.15)';
+    ctx.strokeStyle = '#38bdf8';
+    ctx.lineWidth = 1;
+    ctx.fillRect(rx, ry, rw, rh);
+    ctx.strokeRect(rx, ry, rw, rh);
+  }
+
+  ctx.restore();
+
+  // 9. 绘制右下角小地图雷达
+  renderMinimap();
+}
+
+function renderMinimap() {
+  mctx.clearRect(0, 0, 140, 140);
+  const scaleX = 140 / WORLD_WIDTH;
+  const scaleY = 140 / WORLD_HEIGHT;
+
+  // 资源点
+  mctx.fillStyle = '#fbbf24';
+  goldMines.forEach(m => {
+    mctx.fillRect(m.x * scaleX - 1.5, m.y * scaleY - 1.5, 3, 3);
+  });
+
+  // 建筑
+  buildings.forEach(b => {
+    mctx.fillStyle = b.team === 'blue' ? '#38bdf8' : '#f87171';
+    const s = b.type === 'castle' ? 6 : 4;
+    mctx.fillRect(b.x * scaleX - s / 2, b.y * scaleY - s / 2, s, s);
+  });
+
+  // 单位点
+  units.forEach(u => {
+    mctx.fillStyle = u.team === 'blue' ? '#38bdf8' : '#f87171';
+    mctx.fillRect(u.x * scaleX - 1, u.y * scaleY - 1, 2, 2);
+  });
+
+  // 摄像机视口框
+  mctx.strokeStyle = '#ffffff';
+  mctx.lineWidth = 1;
+  mctx.strokeRect(camera.x * scaleX, camera.y * scaleY, viewW * scaleX, viewH * scaleY);
+}
+
+// 动画主循环
+function mainLoop(now) {
+  requestAnimationFrame(mainLoop);
+  const dt = Math.min((now - lastTime) / 1000, 0.1);
+  lastTime = now;
+
+  update(dt);
+  render();
+}
+requestAnimationFrame(mainLoop);
+</script>
+</body>
+</html>
